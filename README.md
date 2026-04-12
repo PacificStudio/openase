@@ -440,6 +440,34 @@ These can also be installed later — setup will seed detected providers.
 
 ### Step 1: Clone & Build
 
+If you want the fastest Linux/macOS path from the latest GitHub Release instead of building from source, use:
+
+```bash
+curl -fsSL https://github.com/pacificstudio/openase/releases/latest/download/openase-install.sh | bash
+```
+
+By default the installer script:
+
+- downloads the latest release binary for the current Linux/macOS CPU architecture
+- verifies the archive against the published `checksums.txt`
+- installs `openase` into `~/.local/bin`
+- bootstraps a local config with Docker PostgreSQL
+- installs and starts the managed user service (`systemd --user` on Linux, `launchd` on macOS)
+
+If you already have PostgreSQL, switch the script to manual DB mode before piping it to `bash`:
+
+```bash
+OPENASE_INSTALL_SETUP_MODE=manual \
+OPENASE_DATABASE_HOST=127.0.0.1 \
+OPENASE_DATABASE_PORT=5432 \
+OPENASE_DATABASE_NAME=openase \
+OPENASE_DATABASE_USER=openase \
+OPENASE_DATABASE_PASSWORD=secret \
+curl -fsSL https://github.com/pacificstudio/openase/releases/latest/download/openase-install.sh | bash
+```
+
+If you prefer a source build or want to hack on OpenASE itself:
+
 ```bash
 git clone https://github.com/PacificStudio/openase.git
 cd openase

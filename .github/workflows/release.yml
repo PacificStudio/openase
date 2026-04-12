@@ -346,12 +346,20 @@ jobs:
       (needs.release-please.result == 'success' || needs.release-please.result == 'skipped')
 
     steps:
+      - name: Check Out Release Commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release.outputs.mode == 'tag' && needs.resolve-release.outputs.build_ref || needs.release-please.outputs.sha }}
+
       - name: Download Release Archives
         uses: actions/download-artifact@v7
         with:
           pattern: release-*
           merge-multiple: true
           path: release-artifacts
+
+      - name: Add One-Line Installer Script
+        run: cp scripts/release/openase-install.sh release-artifacts/openase-install.sh
 
       - name: Generate Checksums
         shell: bash
@@ -372,6 +380,14 @@ jobs:
           - Linux: `.AppImage`, `.deb`
 
           The desktop packages bundle the Electron host, the OpenASE binary, the desktop bundle manifest, and the starter config template. If macOS signing or notarization secrets are unavailable in CI, the workflow still publishes unsigned desktop assets and logs that downgrade explicitly.
+
+          ## One-line deploy
+
+          You can install the latest Linux/macOS release, auto-bootstrap the default local setup, and start OpenASE with:
+
+          ```bash
+          curl -fsSL https://github.com/pacificstudio/openase/releases/latest/download/openase-install.sh | bash
+          ```
           EOF
 
       - name: Upload Assets To GitHub Release

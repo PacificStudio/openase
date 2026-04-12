@@ -17,6 +17,7 @@ jobs:
       desktop_changed: ${{ steps.detect.outputs.desktop_changed }}
       openapi_check_changed: ${{ steps.detect.outputs.openapi_check_changed }}
       frontend_api_audit_changed: ${{ steps.detect.outputs.frontend_api_audit_changed }}
+      release_install_script_changed: ${{ steps.detect.outputs.release_install_script_changed }}
 
     steps:
       - name: Check Out Repository
@@ -56,6 +57,7 @@ jobs:
           desktop_changed=false
           openapi_check_changed=false
           frontend_api_audit_changed=false
+          release_install_script_changed=false
 
           for file in "${changed_files[@]}"; do
             case "${file}" in
@@ -64,6 +66,7 @@ jobs:
                 web_changed=true
                 desktop_changed=true
                 openapi_check_changed=true
+                release_install_script_changed=true
                 ;;
               *.go|go.mod|go.sum|api/*)
                 go_changed=true
@@ -78,6 +81,9 @@ jobs:
               scripts/ci/*)
                 go_changed=true
                 desktop_changed=true
+                ;;
+              scripts/release/openase-install.sh)
+                release_install_script_changed=true
                 ;;
               web/*)
                 web_changed=true
@@ -101,6 +107,26 @@ jobs:
           printf 'desktop_changed=%s\n' "${desktop_changed}" >> "${GITHUB_OUTPUT}"
           printf 'openapi_check_changed=%s\n' "${openapi_check_changed}" >> "${GITHUB_OUTPUT}"
           printf 'frontend_api_audit_changed=%s\n' "${frontend_api_audit_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'release_install_script_changed=%s\n' "${release_install_script_changed}" >> "${GITHUB_OUTPUT}"
+
+  release-install-script-check:
+    name: Release Install Script Check
+    runs-on: [self-hosted, Linux, X64]
+    needs: changes
+    if: needs.changes.outputs.release_install_script_changed == 'true'
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Validate Installer Script Syntax
+        run: bash -n scripts/release/openase-install.sh
+
+      - name: Run Installer Script Unit Tests
+        run: bash scripts/ci/test_release_install_script.sh
 
   openapi-check:
     name: OpenAPI Check

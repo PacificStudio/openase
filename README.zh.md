@@ -440,6 +440,34 @@ OpenASE setup 会自动检测 `PATH` 上的这些工具：
 
 ### 第 1 步：克隆 & 构建
 
+如果你不想从源码编译，想直接在 Linux / macOS 上拉取最新 GitHub Release 并一键启动，可以直接执行：
+
+```bash
+curl -fsSL https://github.com/pacificstudio/openase/releases/latest/download/openase-install.sh | bash
+```
+
+默认情况下，这个安装脚本会：
+
+- 自动识别当前 Linux/macOS 架构并下载对应的最新 release 二进制
+- 使用发布产物里的 `checksums.txt` 校验下载内容
+- 把 `openase` 安装到 `~/.local/bin`
+- 用 Docker PostgreSQL 自动完成本地初始化
+- 安装并启动托管用户服务（Linux 用 `systemd --user`，macOS 用 `launchd`）
+
+如果你已经有现成的 PostgreSQL，也可以在执行脚本前切到手动数据库模式：
+
+```bash
+OPENASE_INSTALL_SETUP_MODE=manual \
+OPENASE_DATABASE_HOST=127.0.0.1 \
+OPENASE_DATABASE_PORT=5432 \
+OPENASE_DATABASE_NAME=openase \
+OPENASE_DATABASE_USER=openase \
+OPENASE_DATABASE_PASSWORD=secret \
+curl -fsSL https://github.com/pacificstudio/openase/releases/latest/download/openase-install.sh | bash
+```
+
+如果你想从源码构建，或者准备修改 OpenASE 本身，再走下面这条路径：
+
 ```bash
 git clone https://github.com/PacificStudio/openase.git
 cd openase
