@@ -5,9 +5,11 @@
     createScheduledJob,
     deleteScheduledJob,
     listScheduledJobs,
+    listProjectRepos,
     triggerScheduledJob,
     updateScheduledJob,
   } from '$lib/api/openase'
+  import { mapProjectRepoOptions, type TicketRepoOption } from '$lib/features/tickets/new-ticket'
   import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { toastStore } from '$lib/stores/toast.svelte'
   import WorkflowScheduledJobEditor from './workflow-scheduled-job-editor.svelte'
@@ -39,15 +41,17 @@
   } = $props()
 
   let jobs = $state<ScheduledJob[]>([])
+  let repoOptions = $state<TicketRepoOption[]>([])
   let loadingJobs = $state(false)
-  const loading = $derived(parentLoading || loadingJobs)
+  let loadingRepos = $state(false)
+  const loading = $derived(parentLoading || loadingJobs || loadingRepos)
   let saving = $state(false)
   let deleting = $state(false)
   let triggering = $state(false)
   let actionJobId = $state<string | null>(null)
   let editorOpen = $state(false)
   let selectedJobId = $state('')
-  let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft(''))
+  let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft('', []))
 
   const selectedJob = $derived(jobs.find((job) => job.id === selectedJobId) ?? null)
   const enabledCount = $derived(jobs.filter((j) => j.is_enabled).length)
@@ -68,11 +72,39 @@
   })
 
   $effect(() => {
+    const nextRepoOptions = repoOptions
+    const validRepoIds = new Set(nextRepoOptions.map((repo) => repo.id))
+    const filteredRepoIds = draft.ticketRepoIds.filter((repoId) => validRepoIds.has(repoId))
+    const filteredBranchOverrides = Object.fromEntries(
+      Object.entries(draft.ticketRepoBranchOverrides).filter(([repoId]) =>
+        validRepoIds.has(repoId),
+      ),
+    )
+    const fallbackRepoIds =
+      filteredRepoIds.length > 0 || nextRepoOptions.length !== 1
+        ? filteredRepoIds
+        : [nextRepoOptions[0].id]
+
+    if (
+      filteredRepoIds.length !== draft.ticketRepoIds.length ||
+      Object.keys(filteredBranchOverrides).length !==
+        Object.keys(draft.ticketRepoBranchOverrides).length ||
+      fallbackRepoIds.length !== filteredRepoIds.length
+    ) {
+      draft = {
+        ...draft,
+        ticketRepoIds: fallbackRepoIds,
+        ticketRepoBranchOverrides: filteredBranchOverrides,
+      }
+    }
+  })
+
+  $effect(() => {
     if (!projectId) return
 
     let cancelled = false
 
-    const load = async () => {
+    const loadJobs = async () => {
       loadingJobs = true
 
       try {
@@ -88,7 +120,23 @@
       }
     }
 
-    void load()
+    const loadRepos = async () => {
+      loadingRepos = true
+
+      try {
+        const payload = await listProjectRepos(projectId)
+        if (cancelled) return
+        repoOptions = mapProjectRepoOptions(payload.repos)
+      } catch (caughtError) {
+        if (cancelled) return
+        repoOptions = []
+        showApiError(caughtError, 'Failed to load project repositories.')
+      } finally {
+        if (!cancelled) loadingRepos = false
+      }
+    }
+
+    void Promise.all([loadJobs(), loadRepos()])
 
     return () => {
       cancelled = true
@@ -97,20 +145,20 @@
 
   function openNewJob() {
     selectedJobId = ''
-    draft = emptyScheduledJobDraft(statuses[0]?.id ?? '')
+    draft = emptyScheduledJobDraft(statuses[0]?.id ?? '', repoOptions)
     editorOpen = true
   }
 
   function openEditJob(job: ScheduledJob) {
     selectedJobId = job.id
-    draft = scheduledJobDraftFromRecord(job, statuses)
+    draft = scheduledJobDraftFromRecord(job, statuses, repoOptions)
     editorOpen = true
   }
 
   function handleEditorClose(open: boolean) {
     if (!open) {
       selectedJobId = ''
-      draft = emptyScheduledJobDraft(statuses[0]?.id ?? '')
+      draft = emptyScheduledJobDraft(statuses[0]?.id ?? '', repoOptions)
     }
   }
 
@@ -124,7 +172,7 @@
   }
 
   async function handleSubmit() {
-    const parsed = parseScheduledJobDraft(draft, statuses)
+    const parsed = parseScheduledJobDraft(draft, statuses, repoOptions)
     if (!parsed.ok) {
       toastStore.error(parsed.error)
       return
@@ -144,6 +192,7 @@
         draft = scheduledJobDraftFromRecord(
           jobs.find((j) => j.id === payload.scheduled_job.id)!,
           statuses,
+          repoOptions,
         )
         toastStore.success('Scheduled job created.')
       }
@@ -237,6 +286,25 @@
   function handleDraftFieldChange(field: keyof ScheduledJobDraft, value: string | boolean) {
     draft = { ...draft, [field]: value }
   }
+
+  function handleToggleDraftRepoScope(repoId: string) {
+    draft = {
+      ...draft,
+      ticketRepoIds: draft.ticketRepoIds.includes(repoId)
+        ? draft.ticketRepoIds.filter((value) => value !== repoId)
+        : [...draft.ticketRepoIds, repoId],
+    }
+  }
+
+  function handleDraftRepoBranchOverride(repoId: string, value: string) {
+    draft = {
+      ...draft,
+      ticketRepoBranchOverrides: {
+        ...draft.ticketRepoBranchOverrides,
+        [repoId]: value,
+      },
+    }
+  }
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
@@ -269,6 +337,7 @@
   bind:open={editorOpen}
   {projectId}
   {draft}
+  {repoOptions}
   {selectedJob}
   statusOptions={statuses}
   {saving}
@@ -279,4 +348,6 @@
   onDelete={handleDelete}
   onTrigger={handleTriggerFromEditor}
   onOpenChange={handleEditorClose}
+  onToggleRepoScope={handleToggleDraftRepoScope}
+  onUpdateRepoBranchOverride={handleDraftRepoBranchOverride}
 />
