@@ -20,6 +20,12 @@ import (
 const TokenPrefix = domain.TokenPrefix
 
 const (
+	ScopeAgentsRead                    = domain.ScopeAgentsRead
+	ScopeAgentsCreate                  = domain.ScopeAgentsCreate
+	ScopeAgentsUpdate                  = domain.ScopeAgentsUpdate
+	ScopeAgentsDelete                  = domain.ScopeAgentsDelete
+	ScopeAgentsPause                   = domain.ScopeAgentsPause
+	ScopeAgentsResume                  = domain.ScopeAgentsResume
 	ScopeAgentsInterrupt               = domain.ScopeAgentsInterrupt
 	ScopeTicketsCreate                 = domain.ScopeTicketsCreate
 	ScopeTicketsList                   = domain.ScopeTicketsList
@@ -48,6 +54,10 @@ const (
 	ScopeSkillsEnable                  = domain.ScopeSkillsEnable
 	ScopeSkillsDisable                 = domain.ScopeSkillsDisable
 	ScopeSkillsBind                    = domain.ScopeSkillsBind
+	ScopeNotificationRulesList         = domain.ScopeNotificationRulesList
+	ScopeNotificationRulesCreate       = domain.ScopeNotificationRulesCreate
+	ScopeNotificationRulesUpdate       = domain.ScopeNotificationRulesUpdate
+	ScopeNotificationRulesDelete       = domain.ScopeNotificationRulesDelete
 	ScopeStatusesList                  = domain.ScopeStatusesList
 	ScopeStatusesCreate                = domain.ScopeStatusesCreate
 	ScopeStatusesUpdate                = domain.ScopeStatusesUpdate
@@ -92,8 +102,18 @@ var (
 		ScopeTicketsUpdateSelf,
 	}
 	supportedAgentScopes = []Scope{
+		ScopeAgentsCreate,
+		ScopeAgentsDelete,
+		ScopeAgentsPause,
+		ScopeAgentsRead,
 		ScopeAgentsInterrupt,
+		ScopeAgentsResume,
+		ScopeAgentsUpdate,
 		ScopeActivityRead,
+		ScopeNotificationRulesCreate,
+		ScopeNotificationRulesDelete,
+		ScopeNotificationRulesList,
+		ScopeNotificationRulesUpdate,
 		ScopeProjectsAddRepo,
 		ScopeProjectsUpdate,
 		ScopeReposCreate,

@@ -2,7 +2,7 @@
   import { ApiError } from '$lib/api/client'
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
   import { updateProject } from '$lib/api/openase'
-  import { ScopeGroupPicker, type ScopeGroup } from '$lib/features/workflows'
+  import { ScopeGroupPicker } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
@@ -17,9 +17,7 @@
   let draftText = $state('')
   let selectedScopes = $state<string[]>([])
 
-  const projectAIScopeGroups = $derived(
-    filterProjectAIScopeGroups(security.agent_tokens.supported_scope_groups),
-  )
+  const projectAIScopeGroups = $derived(security.agent_tokens.supported_scope_groups ?? [])
   const availableScopes = $derived(projectAIScopeGroups.flatMap((group) => group.scopes))
   const baselineScopes = $derived(
     normalizeProjectAIScopes(
@@ -34,22 +32,11 @@
     draftText = baselineScopes.join('\n')
   })
 
-  function filterProjectAIScopeGroups(
-    groups: Array<{ category: string; scopes: string[] }> | undefined,
-  ): ScopeGroup[] {
-    return (groups ?? [])
-      .map((group) => ({
-        category: group.category,
-        scopes: group.scopes.filter((scope) => scope !== 'tickets.update.self'),
-      }))
-      .filter((group) => group.scopes.length > 0)
-  }
-
   function normalizeProjectAIScopes(
     scopes: string[] | null | undefined,
     fallback: string[],
   ): string[] {
-    const source = Array.isArray(scopes) && scopes.length > 0 ? scopes : fallback
+    const source = Array.isArray(scopes) ? scopes : fallback
     const allowed = new Set(fallback)
     return Array.from(
       new Set(

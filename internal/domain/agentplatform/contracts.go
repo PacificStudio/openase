@@ -27,6 +27,12 @@ var ErrNotFound = errors.New("agent platform record not found")
 type Scope string
 
 const (
+	ScopeAgentsRead                    Scope = "agents.read"
+	ScopeAgentsCreate                  Scope = "agents.create"
+	ScopeAgentsUpdate                  Scope = "agents.update"
+	ScopeAgentsDelete                  Scope = "agents.delete"
+	ScopeAgentsPause                   Scope = "agents.pause"
+	ScopeAgentsResume                  Scope = "agents.resume"
 	ScopeAgentsInterrupt               Scope = "agents.interrupt"
 	ScopeTicketsCreate                 Scope = "tickets.create"
 	ScopeTicketsList                   Scope = "tickets.list"
@@ -55,6 +61,10 @@ const (
 	ScopeSkillsEnable                  Scope = "skills.enable"
 	ScopeSkillsDisable                 Scope = "skills.disable"
 	ScopeSkillsBind                    Scope = "skills.bind"
+	ScopeNotificationRulesList         Scope = "notification_rules.list"
+	ScopeNotificationRulesCreate       Scope = "notification_rules.create"
+	ScopeNotificationRulesUpdate       Scope = "notification_rules.update"
+	ScopeNotificationRulesDelete       Scope = "notification_rules.delete"
 	ScopeStatusesList                  Scope = "statuses.list"
 	ScopeStatusesCreate                Scope = "statuses.create"
 	ScopeStatusesUpdate                Scope = "statuses.update"
@@ -115,8 +125,18 @@ func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
 
 func SupportedAgentScopes() []string {
 	return []string{
+		string(ScopeAgentsCreate),
+		string(ScopeAgentsDelete),
+		string(ScopeAgentsPause),
+		string(ScopeAgentsRead),
 		string(ScopeAgentsInterrupt),
+		string(ScopeAgentsResume),
+		string(ScopeAgentsUpdate),
 		string(ScopeActivityRead),
+		string(ScopeNotificationRulesCreate),
+		string(ScopeNotificationRulesDelete),
+		string(ScopeNotificationRulesList),
+		string(ScopeNotificationRulesUpdate),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),
 		string(ScopeReposCreate),

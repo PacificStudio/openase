@@ -21,12 +21,16 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubrepodomain "github.com/BetterAndBetterII/openase/internal/domain/githubrepo"
+	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
@@ -1634,26 +1638,33 @@ func TestAgentPlatformForbiddenBoundaryPaths(t *testing.T) {
 }
 
 type agentPlatformExpandedFixture struct {
-	client               *ent.Client
-	server               *Server
-	platformService      *agentplatform.Service
-	projectID            uuid.UUID
-	agentID              uuid.UUID
-	ticketID             uuid.UUID
-	providerID           uuid.UUID
-	mainWorkflowID       uuid.UUID
-	deleteWorkflowID     uuid.UUID
-	repoReadID           uuid.UUID
-	repoScopeCreateID    uuid.UUID
-	repoDeleteID         uuid.UUID
-	ticketRepoScopeID    uuid.UUID
-	ticketRepoDeleteID   uuid.UUID
-	scheduledJobID       uuid.UUID
-	scheduledJobDeleteID uuid.UUID
-	skillMainID          uuid.UUID
-	skillDeleteID        uuid.UUID
-	statusUpdateID       uuid.UUID
-	statusDeleteID       uuid.UUID
+	client                *ent.Client
+	server                *Server
+	platformService       *agentplatform.Service
+	projectID             uuid.UUID
+	agentID               uuid.UUID
+	ticketID              uuid.UUID
+	providerID            uuid.UUID
+	mainWorkflowID        uuid.UUID
+	deleteWorkflowID      uuid.UUID
+	repoReadID            uuid.UUID
+	repoScopeCreateID     uuid.UUID
+	repoDeleteID          uuid.UUID
+	agentReadID           uuid.UUID
+	agentPauseID          uuid.UUID
+	agentResumeID         uuid.UUID
+	agentDeleteID         uuid.UUID
+	ticketRepoScopeID     uuid.UUID
+	ticketRepoDeleteID    uuid.UUID
+	scheduledJobID        uuid.UUID
+	scheduledJobDeleteID  uuid.UUID
+	skillMainID           uuid.UUID
+	skillDeleteID         uuid.UUID
+	notificationChannelID uuid.UUID
+	notificationRuleID    uuid.UUID
+	notificationDeleteID  uuid.UUID
+	statusUpdateID        uuid.UUID
+	statusDeleteID        uuid.UUID
 }
 
 func TestAgentPlatformExpandedProjectRoutesRequireExplicitScopes(t *testing.T) {
@@ -1710,6 +1721,78 @@ func TestAgentPlatformExpandedTicketRepoScopeRoutesRequireExplicitScopes(t *test
 		{name: "ticket_repo_scopes.create", scope: agentplatform.ScopeTicketRepoScopesCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID), body: map[string]any{"repo_id": fixture.repoScopeCreateID.String(), "branch_name": "feature/platform-create"}, wantStatus: http.StatusCreated, wantBody: `"branch_name":"feature/platform-create"`},
 		{name: "ticket_repo_scopes.update", scope: agentplatform.ScopeTicketRepoScopesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes/%s", fixture.projectID, fixture.ticketID, fixture.ticketRepoScopeID), body: map[string]any{"branch_name": "feature/platform-update"}, wantStatus: http.StatusOK, wantBody: `"branch_name":"feature/platform-update"`},
 		{name: "ticket_repo_scopes.delete", scope: agentplatform.ScopeTicketRepoScopesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes/%s", fixture.projectID, fixture.ticketID, fixture.ticketRepoDeleteID), wantStatus: http.StatusOK, wantBody: fixture.ticketRepoDeleteID.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
+		})
+	}
+}
+
+func TestAgentPlatformExpandedAgentRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	for _, tc := range []struct {
+		name       string
+		scope      agentplatform.Scope
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "agents.read.list", scope: agentplatform.ScopeAgentsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"agents":[`},
+		{name: "agents.read.get", scope: agentplatform.ScopeAgentsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/agents/%s", fixture.agentReadID), wantStatus: http.StatusOK, wantBody: fixture.agentReadID.String()},
+		{name: "agents.read.output", scope: agentplatform.ScopeAgentsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents/%s/output", fixture.projectID, fixture.agentReadID), wantStatus: http.StatusOK, wantBody: `"entries":[`},
+		{name: "agents.read.steps", scope: agentplatform.ScopeAgentsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents/%s/steps", fixture.projectID, fixture.agentReadID), wantStatus: http.StatusOK, wantBody: `"entries":[`},
+		{name: "agents.create", scope: agentplatform.ScopeAgentsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents", fixture.projectID), body: map[string]any{"provider_id": fixture.providerID.String(), "name": "platform-created-agent"}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-created-agent"`},
+		{name: "agents.update", scope: agentplatform.ScopeAgentsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/agents/%s", fixture.agentReadID), body: map[string]any{"name": "platform-agent-updated"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-agent-updated"`},
+		{name: "agents.pause", scope: agentplatform.ScopeAgentsPause, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/pause", fixture.agentPauseID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"pause_requested"`},
+		{name: "agents.resume", scope: agentplatform.ScopeAgentsResume, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/resume", fixture.agentResumeID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"active"`},
+		{name: "agents.delete", scope: agentplatform.ScopeAgentsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/agents/%s", fixture.agentDeleteID), wantStatus: http.StatusOK, wantBody: fixture.agentDeleteID.String()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
+		})
+	}
+}
+
+func TestAgentPlatformExpandedGitHubRepoRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	for _, tc := range []struct {
+		name       string
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "projects.add_repo.namespaces", method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/github/namespaces", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"login":"octocat"`},
+		{name: "projects.add_repo.repos.list", method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/github/repos?query=plat&cursor=2", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"full_name":"acme/platform-backend"`},
+		{name: "projects.add_repo.repos.create", method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/github/repos", fixture.projectID), body: map[string]any{"owner": "octocat", "name": "platform-created-repo", "visibility": "public"}, wantStatus: http.StatusCreated, wantBody: `"full_name":"octocat/platform-created-repo"`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assertPlatformScopeRoute(t, fixture, agentplatform.ScopeProjectsAddRepo, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
+		})
+	}
+}
+
+func TestAgentPlatformExpandedNotificationRuleRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	for _, tc := range []struct {
+		name       string
+		scope      agentplatform.Scope
+		method     string
+		path       string
+		body       any
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "notification_rules.list", scope: agentplatform.ScopeNotificationRulesList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/notification-rules", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"rules":[`},
+		{name: "notification_rules.create", scope: agentplatform.ScopeNotificationRulesCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/notification-rules", fixture.projectID), body: map[string]any{"name": "Platform Created Rule", "event_type": "ticket.created", "channel_id": fixture.notificationChannelID.String(), "template": "created"}, wantStatus: http.StatusCreated, wantBody: `"name":"Platform Created Rule"`},
+		{name: "notification_rules.update", scope: agentplatform.ScopeNotificationRulesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/notification-rules/%s", fixture.notificationRuleID), body: map[string]any{"name": "Platform Updated Rule", "is_enabled": false}, wantStatus: http.StatusOK, wantBody: `"name":"Platform Updated Rule"`},
+		{name: "notification_rules.delete", scope: agentplatform.ScopeNotificationRulesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/notification-rules/%s", fixture.notificationDeleteID), wantStatus: http.StatusOK, wantBody: fixture.notificationDeleteID.String()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
@@ -1915,6 +1998,93 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		t.Fatalf("create delete workflow: %v", err)
 	}
 
+	agentRead, err := client.Agent.Create().
+		SetProjectID(projectID).
+		SetProviderID(providerItem.ID).
+		SetName("platform-read-agent").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create read agent: %v", err)
+	}
+	agentPause, err := client.Agent.Create().
+		SetProjectID(projectID).
+		SetProviderID(providerItem.ID).
+		SetName("platform-pause-agent").
+		SetRuntimeControlState("active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create pause agent: %v", err)
+	}
+	pauseTicket, err := client.Ticket.Create().
+		SetProjectID(projectID).
+		SetIdentifier("ASE-39").
+		SetTitle("Platform pause ticket").
+		SetStatusID(todoID).
+		SetCreatedBy("user:platform").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create pause ticket: %v", err)
+	}
+	pauseRun, err := client.AgentRun.Create().
+		SetAgentID(agentPause.ID).
+		SetWorkflowID(mainWorkflow.ID).
+		SetTicketID(pauseTicket.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus("executing").
+		SetRuntimeStartedAt(time.Now().UTC()).
+		SetLastHeartbeatAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create pause run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(pauseTicket.ID).SetCurrentRunID(pauseRun.ID).Save(ctx); err != nil {
+		t.Fatalf("attach pause run to ticket: %v", err)
+	}
+
+	agentResume, err := client.Agent.Create().
+		SetProjectID(projectID).
+		SetProviderID(providerItem.ID).
+		SetName("platform-resume-agent").
+		SetRuntimeControlState("paused").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create resume agent: %v", err)
+	}
+	resumeTicket, err := client.Ticket.Create().
+		SetProjectID(projectID).
+		SetIdentifier("ASE-40").
+		SetTitle("Platform resume ticket").
+		SetStatusID(todoID).
+		SetCreatedBy("user:platform").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create resume ticket: %v", err)
+	}
+	resumeRun, err := client.AgentRun.Create().
+		SetAgentID(agentResume.ID).
+		SetWorkflowID(mainWorkflow.ID).
+		SetTicketID(resumeTicket.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus("executing").
+		SetRuntimeStartedAt(time.Now().UTC()).
+		SetLastHeartbeatAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create resume run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(resumeTicket.ID).SetCurrentRunID(resumeRun.ID).Save(ctx); err != nil {
+		t.Fatalf("attach resume run to ticket: %v", err)
+	}
+
+	agentDelete, err := client.Agent.Create().
+		SetProjectID(projectID).
+		SetProviderID(providerItem.ID).
+		SetName("platform-delete-agent").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create delete agent: %v", err)
+	}
+
 	catalogSvc := catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil)
 	projectRepos, err := catalogSvc.ListProjectRepos(ctx, projectID)
 	if err != nil || len(projectRepos) == 0 {
@@ -1965,6 +2135,52 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		t.Fatalf("create delete skill: %v", err)
 	}
 
+	projectItem, err := client.Project.Get(ctx, projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	notificationSvc := notificationservice.NewService(notificationrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
+	channelInput, err := notificationdomain.ParseCreateChannel(projectItem.OrganizationID, notificationdomain.ChannelInput{
+		Name: "Platform Rule Channel",
+		Type: "webhook",
+		Config: map[string]any{
+			"url": "https://example.com/hooks/platform",
+		},
+	})
+	if err != nil {
+		t.Fatalf("parse notification channel: %v", err)
+	}
+	channelItem, err := notificationSvc.Create(ctx, channelInput)
+	if err != nil {
+		t.Fatalf("create notification channel: %v", err)
+	}
+	ruleInput, err := notificationdomain.ParseCreateRule(projectID, notificationdomain.RuleInput{
+		Name:      "Platform Main Rule",
+		EventType: "ticket.updated",
+		ChannelID: channelItem.ID.String(),
+		Template:  "updated",
+	})
+	if err != nil {
+		t.Fatalf("parse notification rule: %v", err)
+	}
+	ruleItem, err := notificationSvc.CreateRule(ctx, ruleInput)
+	if err != nil {
+		t.Fatalf("create notification rule: %v", err)
+	}
+	deleteRuleInput, err := notificationdomain.ParseCreateRule(projectID, notificationdomain.RuleInput{
+		Name:      "Platform Delete Rule",
+		EventType: "ticket.completed",
+		ChannelID: channelItem.ID.String(),
+		Template:  "completed",
+	})
+	if err != nil {
+		t.Fatalf("parse notification delete rule: %v", err)
+	}
+	deleteRuleItem, err := notificationSvc.CreateRule(ctx, deleteRuleInput)
+	if err != nil {
+		t.Fatalf("create notification delete rule: %v", err)
+	}
+
 	ticketSvc := newTicketService(client)
 	if _, err := ticketSvc.RecordActivityEvent(ctx, ticketservice.RecordActivityEventInput{ProjectID: projectID, TicketID: &ticketID, AgentID: &agentID, EventType: "agent.ready", Message: "platform scope fixture ready"}); err != nil {
 		t.Fatalf("record activity event: %v", err)
@@ -1984,6 +2200,37 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 	}
 
 	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+	githubRepoSvc := &stubGitHubRepoService{
+		namespaces: []githubrepodomain.Namespace{
+			{Login: "octocat", Kind: githubrepodomain.NamespaceKindUser},
+			{Login: "acme", Kind: githubrepodomain.NamespaceKindOrganization},
+		},
+		page: githubrepodomain.RepositoryPage{
+			Repositories: []githubrepodomain.Repository{{
+				ID:            42,
+				Name:          "platform-backend",
+				FullName:      "acme/platform-backend",
+				Owner:         "acme",
+				DefaultBranch: "main",
+				Visibility:    githubrepodomain.VisibilityPrivate,
+				Private:       true,
+				HTMLURL:       "https://github.com/acme/platform-backend",
+				CloneURL:      "https://github.com/acme/platform-backend.git",
+			}},
+			NextCursor: "3",
+		},
+		created: githubrepodomain.Repository{
+			ID:            99,
+			Name:          "platform-created-repo",
+			FullName:      "octocat/platform-created-repo",
+			Owner:         "octocat",
+			DefaultBranch: "main",
+			Visibility:    githubrepodomain.VisibilityPublic,
+			Private:       false,
+			HTMLURL:       "https://github.com/octocat/platform-created-repo",
+			CloneURL:      "https://github.com/octocat/platform-created-repo.git",
+		},
+	}
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -1995,29 +2242,38 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		catalogSvc,
 		workflowSvc,
 		WithScheduledJobService(scheduledJobSvc),
+		WithNotificationService(notificationSvc),
+		WithGitHubRepoService(githubRepoSvc),
 	)
 
 	return &agentPlatformExpandedFixture{
-		client:               client,
-		server:               server,
-		platformService:      platformService,
-		projectID:            projectID,
-		agentID:              agentID,
-		ticketID:             ticketID,
-		providerID:           providerItem.ID,
-		mainWorkflowID:       mainWorkflow.ID,
-		deleteWorkflowID:     deleteWorkflow.ID,
-		repoReadID:           repoReadID,
-		repoScopeCreateID:    repoScopeCreate.ID,
-		repoDeleteID:         repoDelete.ID,
-		ticketRepoScopeID:    ticketRepoScope.ID,
-		ticketRepoDeleteID:   ticketRepoDelete.ID,
-		scheduledJobID:       scheduledJobMain.ID,
-		scheduledJobDeleteID: scheduledJobDelete.ID,
-		skillMainID:          skillMain.ID,
-		skillDeleteID:        skillDelete.ID,
-		statusUpdateID:       statusUpdate.ID,
-		statusDeleteID:       statusDelete.ID,
+		client:                client,
+		server:                server,
+		platformService:       platformService,
+		projectID:             projectID,
+		agentID:               agentID,
+		ticketID:              ticketID,
+		providerID:            providerItem.ID,
+		mainWorkflowID:        mainWorkflow.ID,
+		deleteWorkflowID:      deleteWorkflow.ID,
+		repoReadID:            repoReadID,
+		repoScopeCreateID:     repoScopeCreate.ID,
+		repoDeleteID:          repoDelete.ID,
+		agentReadID:           agentRead.ID,
+		agentPauseID:          agentPause.ID,
+		agentResumeID:         agentResume.ID,
+		agentDeleteID:         agentDelete.ID,
+		ticketRepoScopeID:     ticketRepoScope.ID,
+		ticketRepoDeleteID:    ticketRepoDelete.ID,
+		scheduledJobID:        scheduledJobMain.ID,
+		scheduledJobDeleteID:  scheduledJobDelete.ID,
+		skillMainID:           skillMain.ID,
+		skillDeleteID:         skillDelete.ID,
+		notificationChannelID: channelItem.ID,
+		notificationRuleID:    ruleItem.ID,
+		notificationDeleteID:  deleteRuleItem.ID,
+		statusUpdateID:        statusUpdate.ID,
+		statusDeleteID:        statusDelete.ID,
 	}
 }
 
