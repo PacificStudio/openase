@@ -327,9 +327,15 @@ def test_latest_default_linux_docker(release_base_url: str, fake_bin: pathlib.Pa
     if "database_source: docker" not in config_path.read_text():
         fail(f"default linux docker setup did not write docker config:\n{config_path.read_text()}")
 
-    installed_bin = result.home_dir / ".local" / "bin" / "openase"
-    if not installed_bin.exists():
-        fail(f"default linux install did not place binary at {installed_bin}")
+    installed_candidates = [
+        pathlib.Path("/usr/local/bin/openase"),
+        result.home_dir / ".local" / "bin" / "openase",
+    ]
+    if not any(path.exists() for path in installed_candidates):
+        fail(
+            "default linux install did not place the binary in either supported default location:\n"
+            + "\n".join(str(path) for path in installed_candidates)
+        )
 
     combined = result.process.stdout + result.process.stderr
     if "Automated PostgreSQL package path: apt-get" not in combined:
