@@ -1351,6 +1351,10 @@ export function createScheduledJob(
       created_by?: string
       description?: string
       priority?: string
+      repo_scopes?: Array<{
+        branch_name?: string | null
+        repo_id: string
+      }>
       status?: string
       title?: string
       type?: string
@@ -1371,6 +1375,10 @@ export function updateScheduledJob(
       created_by?: string
       description?: string
       priority?: string
+      repo_scopes?: Array<{
+        branch_name?: string | null
+        repo_id: string
+      }>
       status?: string
       title?: string
       type?: string

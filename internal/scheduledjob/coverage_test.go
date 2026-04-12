@@ -10,6 +10,7 @@ import (
 )
 
 func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
+	repoID := uuid.New()
 	template, err := ParseRawTicketTemplate(map[string]any{
 		"title":       " Daily Build ",
 		"description": " Run the workflow ",
@@ -18,6 +19,10 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 		"type":        "bugfix",
 		"created_by":  " system:test ",
 		"budget_usd":  4.5,
+		"repo_scopes": []map[string]any{{
+			"repo_id":     repoID.String(),
+			"branch_name": " release/candidate ",
+		}},
 	})
 	if err != nil {
 		t.Fatalf("ParseRawTicketTemplate() error = %v", err)
@@ -25,10 +30,19 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	if template.Title != "Daily Build" || template.Description != "Run the workflow" || template.Status != "Todo" || template.Priority != ticketservice.PriorityHigh || template.Type != ticketservice.TypeBugfix || template.CreatedBy != "system:test" || template.BudgetUSD != 4.5 {
 		t.Fatalf("ParseRawTicketTemplate() = %+v", template)
 	}
+	if len(template.RepoScopes) != 1 || template.RepoScopes[0].RepoID != repoID {
+		t.Fatalf("ParseRawTicketTemplate() repo scopes = %+v", template.RepoScopes)
+	}
+	if template.RepoScopes[0].BranchName == nil || *template.RepoScopes[0].BranchName != "release/candidate" {
+		t.Fatalf("ParseRawTicketTemplate() branch = %+v", template.RepoScopes[0].BranchName)
+	}
 
 	raw := template.Raw()
 	if raw["title"] != "Daily Build" || raw["budget_usd"] != 4.5 {
 		t.Fatalf("TicketTemplate.Raw() = %+v", raw)
+	}
+	if len(raw["repo_scopes"].([]map[string]any)) != 1 {
+		t.Fatalf("TicketTemplate.Raw() repo_scopes = %+v", raw["repo_scopes"])
 	}
 	minimal, err := ParseRawTicketTemplate(map[string]any{"title": "Task"})
 	if err != nil {
@@ -61,6 +75,23 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	}
 	if _, err := ParseRawTicketTemplate(map[string]any{"title": "Task", "budget_usd": -1.0}); err == nil {
 		t.Fatal("ParseRawTicketTemplate(budget negative) expected error")
+	}
+	if _, err := ParseRawTicketTemplate(map[string]any{
+		"title": "Task",
+		"repo_scopes": []map[string]any{
+			{"repo_id": "not-a-uuid"},
+		},
+	}); err == nil {
+		t.Fatal("ParseRawTicketTemplate(repo scope uuid) expected error")
+	}
+	if _, err := ParseRawTicketTemplate(map[string]any{
+		"title": "Task",
+		"repo_scopes": []map[string]any{
+			{"repo_id": repoID.String()},
+			{"repo_id": repoID.String()},
+		},
+	}); err == nil {
+		t.Fatal("ParseRawTicketTemplate(repo scope duplicate) expected error")
 	}
 
 	if got, err := parseRequiredString(map[string]any{"title": " Title "}, "title"); err != nil || got != "Title" {
@@ -168,21 +199,30 @@ func TestScheduledJobCronAndTemplateHelpers(t *testing.T) {
 
 	lastRunAt := now.Add(-time.Hour)
 	nextRunAt := now.Add(time.Hour)
+	repoID := uuid.New()
 	mapped, err := mapScheduledJob(domain.Job{
 		ID:             jobID,
 		ProjectID:      projectID,
 		Name:           "Daily",
 		CronExpression: "0 * * * *",
-		TicketTemplate: map[string]any{"title": "Task"},
-		IsEnabled:      true,
-		LastRunAt:      &lastRunAt,
-		NextRunAt:      &nextRunAt,
+		TicketTemplate: map[string]any{
+			"title": "Task",
+			"repo_scopes": []map[string]any{{
+				"repo_id": repoID.String(),
+			}},
+		},
+		IsEnabled: true,
+		LastRunAt: &lastRunAt,
+		NextRunAt: &nextRunAt,
 	})
 	if err != nil {
 		t.Fatalf("mapScheduledJob() error = %v", err)
 	}
 	if mapped.Name != "Daily" || mapped.TicketTemplate.Title != "Task" || mapped.LastRunAt == nil || mapped.NextRunAt == nil {
 		t.Fatalf("mapScheduledJob() = %+v", mapped)
+	}
+	if len(mapped.TicketTemplate.RepoScopes) != 1 || mapped.TicketTemplate.RepoScopes[0].RepoID != repoID {
+		t.Fatalf("mapScheduledJob() repo scopes = %+v", mapped.TicketTemplate.RepoScopes)
 	}
 	if mapped.LastRunAt == &lastRunAt || mapped.NextRunAt == &nextRunAt {
 		t.Fatal("mapScheduledJob() did not clone times")

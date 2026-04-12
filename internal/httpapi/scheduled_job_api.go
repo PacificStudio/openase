@@ -12,13 +12,19 @@ import (
 )
 
 type scheduledJobTicketTemplateResponse struct {
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Status      string  `json:"status,omitempty"`
-	Priority    string  `json:"priority"`
-	Type        string  `json:"type"`
-	CreatedBy   string  `json:"created_by"`
-	BudgetUSD   float64 `json:"budget_usd,omitempty"`
+	Title       string                                `json:"title"`
+	Description string                                `json:"description"`
+	Status      string                                `json:"status,omitempty"`
+	Priority    string                                `json:"priority"`
+	Type        string                                `json:"type"`
+	CreatedBy   string                                `json:"created_by"`
+	BudgetUSD   float64                               `json:"budget_usd,omitempty"`
+	RepoScopes  []scheduledJobTicketTemplateRepoScope `json:"repo_scopes,omitempty"`
+}
+
+type scheduledJobTicketTemplateRepoScope struct {
+	RepoID     string  `json:"repo_id"`
+	BranchName *string `json:"branch_name,omitempty"`
 }
 
 type scheduledJobResponse struct {
@@ -308,6 +314,7 @@ func mapScheduledJobResponse(item scheduledjobservice.ScheduledJob) scheduledJob
 			Type:        string(item.TicketTemplate.Type),
 			CreatedBy:   item.TicketTemplate.CreatedBy,
 			BudgetUSD:   item.TicketTemplate.BudgetUSD,
+			RepoScopes:  mapScheduledJobTemplateRepoScopes(item.TicketTemplate.RepoScopes),
 		},
 		IsEnabled: item.IsEnabled,
 	}
@@ -321,4 +328,30 @@ func mapScheduledJobResponse(item scheduledjobservice.ScheduledJob) scheduledJob
 	}
 
 	return response
+}
+
+func mapScheduledJobTemplateRepoScopes(
+	scopes []scheduledjobservice.TicketTemplateRepoScope,
+) []scheduledJobTicketTemplateRepoScope {
+	if len(scopes) == 0 {
+		return nil
+	}
+
+	response := make([]scheduledJobTicketTemplateRepoScope, 0, len(scopes))
+	for _, scope := range scopes {
+		response = append(response, scheduledJobTicketTemplateRepoScope{
+			RepoID:     scope.RepoID.String(),
+			BranchName: cloneScheduledJobStringPointer(scope.BranchName),
+		})
+	}
+
+	return response
+}
+
+func cloneScheduledJobStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
