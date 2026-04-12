@@ -78,8 +78,7 @@ sleep 1
 curl -fsSL "http://127.0.0.1:${port}/scripts/install.sh" \
   | env \
       OPENASE_INSTALL_RELEASES_BASE_URL="http://127.0.0.1:${port}/releases" \
-      OPENASE_INSTALL_VERSION="${release_tag}" \
-      sh -s -- --install-dir "${install_dir}" --pg-mode system --yes
+      sh -s -- --version "${release_tag}" --install-dir "${install_dir}" --pg-mode system --yes
 
 "${install_dir}/openase" version | grep -F "${release_tag}" >/dev/null
 [[ -f "${HOME}/.openase/config.yaml" ]]
