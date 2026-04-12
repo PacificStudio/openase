@@ -383,6 +383,49 @@ func TestLegacyAgentProviderSecretBindingsReportsInlineSecretsForMigrationInvent
 	}
 }
 
+func TestLegacyAgentProviderSecretBindingsDeduplicatesNormalizedEnvVarKeys(t *testing.T) {
+	bindings := LegacyAgentProviderSecretBindings(
+		AgentProviderAdapterTypeCustom,
+		map[string]any{
+			"api key": "legacy-one",
+			"API_KEY": "legacy-two",
+		},
+	)
+
+	if len(bindings) != 1 {
+		t.Fatalf("LegacyAgentProviderSecretBindings() len = %d, want 1 (%#v)", len(bindings), bindings)
+	}
+	if got := bindings[0]; got.EnvVarKey != "API_KEY" || got.BindingKey != "API_KEY" {
+		t.Fatalf("binding = %#v", got)
+	}
+}
+
+func TestRemoveProviderLegacyInlineOverlapsHandlesEarlyReturnAndNonOverlap(t *testing.T) {
+	legacyOnly := map[string]any{"token": "legacy-token"}
+	if got := removeProviderLegacyInlineOverlaps(nil, map[string]string{"TOKEN": "PROJECT_TOKEN"}); got != nil {
+		t.Fatalf("removeProviderLegacyInlineOverlaps(nil legacy) = %#v, want nil", got)
+	}
+	if got := removeProviderLegacyInlineOverlaps(legacyOnly, nil); got["token"] != "legacy-token" {
+		t.Fatalf("removeProviderLegacyInlineOverlaps(nil explicit) = %#v", got)
+	}
+
+	filtered := removeProviderLegacyInlineOverlaps(
+		map[string]any{
+			"token":      "legacy-token",
+			"client_key": "keep-me",
+		},
+		map[string]string{
+			"TOKEN": "PROJECT_TOKEN",
+		},
+	)
+	if _, ok := filtered["token"]; ok {
+		t.Fatalf("removeProviderLegacyInlineOverlaps() kept overlapping token: %#v", filtered)
+	}
+	if got := filtered["client_key"]; got != "keep-me" {
+		t.Fatalf("removeProviderLegacyInlineOverlaps() client_key = %#v, want keep-me", got)
+	}
+}
+
 func TestParseProviderBindingNameAndNormalizeProviderEnvKey(t *testing.T) {
 	if got := normalizeProviderEnvKey("  openai-api key  "); got != "OPENAI_API_KEY" {
 		t.Fatalf("normalizeProviderEnvKey() = %q, want OPENAI_API_KEY", got)

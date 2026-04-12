@@ -140,9 +140,6 @@ func LegacyAgentProviderSecretBindings(
 	seen := make(map[string]struct{}, len(parts.legacyInline))
 	for rawKey := range parts.legacyInline {
 		envVarKey := normalizeProviderEnvKey(rawKey)
-		if envVarKey == "" {
-			continue
-		}
 		if _, ok := seen[envVarKey]; ok {
 			continue
 		}
