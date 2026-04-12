@@ -45,6 +45,18 @@ function runGit(args) {
   return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' })
 }
 
+function readDiffWithFallback(rangeArgs, fallbackArgs) {
+  try {
+    return runGit(rangeArgs)
+  } catch (error) {
+    const stderr = error instanceof Error && 'stderr' in error ? String(error.stderr ?? '') : ''
+    if (!stderr.includes('no merge base')) {
+      throw error
+    }
+    return runGit(fallbackArgs)
+  }
+}
+
 function loadConfig(configPath) {
   const raw = fs.readFileSync(configPath, 'utf8')
   const parsed = JSON.parse(raw)
@@ -153,14 +165,10 @@ function collectScopedFiles(options, config) {
   }
 
   const changed = new Map()
-  const baseDiff = runGit([
-    'diff',
-    '--unified=0',
-    '--no-color',
-    `${options.baseRef}...HEAD`,
-    '--',
-    'web/src',
-  ])
+  const baseDiff = readDiffWithFallback(
+    ['diff', '--unified=0', '--no-color', `${options.baseRef}...HEAD`, '--', 'web/src'],
+    ['diff', '--unified=0', '--no-color', options.baseRef, 'HEAD', '--', 'web/src'],
+  )
   mergeChangedLines(changed, parseDiffChangedLines(baseDiff))
   mergeChangedLines(changed, collectDirtyChangedLines())
 
