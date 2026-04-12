@@ -446,7 +446,7 @@ func runtimeRequiredAnnotatedBodyFields(command *cobra.Command) []string {
 			required[fieldName] = struct{}{}
 		}
 	})
-	return runtimePreferredAnnotatedBodyFields(command, required)
+	return runtimePreferredAnnotatedBodyFields(required)
 }
 
 func runtimeAnnotatedBodyFields(command *cobra.Command) []string {
@@ -460,10 +460,10 @@ func runtimeAnnotatedBodyFields(command *cobra.Command) []string {
 			all[fieldName] = struct{}{}
 		}
 	})
-	return runtimePreferredAnnotatedBodyFields(command, all)
+	return runtimePreferredAnnotatedBodyFields(all)
 }
 
-func runtimePreferredAnnotatedBodyFields(command *cobra.Command, fields map[string]struct{}) []string {
+func runtimePreferredAnnotatedBodyFields(fields map[string]struct{}) []string {
 	if len(fields) == 0 {
 		return nil
 	}
@@ -629,10 +629,10 @@ func runtimeValueForParameter(t *testing.T, name string) string {
 	case "dir":
 		root := t.TempDir()
 		dir := filepath.Join(root, "runtime-skill")
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("MkdirAll(%q) returned error: %v", dir, err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("runtime harness skill\n"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("runtime harness skill\n"), 0o600); err != nil {
 			t.Fatalf("WriteFile(skill bundle) returned error: %v", err)
 		}
 		return dir

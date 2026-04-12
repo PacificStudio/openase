@@ -120,22 +120,22 @@ func (s *Server) requireAgentProjectAgentAnyScope(c echo.Context, scopes ...agen
 	return item, true
 }
 
-func (s *Server) requireAgentProjectScopedAgentAnyScope(c echo.Context, scopes ...agentplatform.Scope) (domain.Agent, bool) {
+func (s *Server) requireAgentProjectScopedAgentAnyScope(c echo.Context, scopes ...agentplatform.Scope) bool {
 	item, ok := s.requireAgentProjectAgentAnyScope(c, scopes...)
 	if !ok {
-		return domain.Agent{}, false
+		return false
 	}
 
 	projectID, err := parseProjectID(c)
 	if err != nil {
 		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-		return domain.Agent{}, false
+		return false
 	}
 	if item.ProjectID != projectID {
 		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
-		return domain.Agent{}, false
+		return false
 	}
-	return item, true
+	return true
 }
 
 func (s *Server) handleAgentInterruptProjectAgent(c echo.Context) error {
@@ -369,7 +369,7 @@ func (s *Server) handleAgentListProjectAgentOutput(c echo.Context) error {
 	if s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
 	}
-	if _, ok := s.requireAgentProjectScopedAgentAnyScope(c, agentplatform.ScopeAgentsRead); !ok {
+	if !s.requireAgentProjectScopedAgentAnyScope(c, agentplatform.ScopeAgentsRead) {
 		return nil
 	}
 	return s.listAgentOutput(c)
@@ -379,7 +379,7 @@ func (s *Server) handleAgentListProjectAgentSteps(c echo.Context) error {
 	if s.catalog.Empty() {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
 	}
-	if _, ok := s.requireAgentProjectScopedAgentAnyScope(c, agentplatform.ScopeAgentsRead); !ok {
+	if !s.requireAgentProjectScopedAgentAnyScope(c, agentplatform.ScopeAgentsRead) {
 		return nil
 	}
 	return s.listAgentSteps(c)
