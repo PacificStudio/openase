@@ -300,11 +300,11 @@ func (s *ProjectConversationService) resolveConversationWorkspace(
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, err
 	}
-	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
+	project, err := s.core.catalog.GetProject(ctx, conversation.ProjectID)
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, fmt.Errorf("get project for workspace browser: %w", err)
 	}
-	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+	providerItem, err := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, fmt.Errorf("get provider for workspace browser: %w", err)
 	}
@@ -753,10 +753,10 @@ func (s *ProjectConversationService) runProjectConversationShellCommand(
 		}
 		return output, nil
 	}
-	if s == nil || s.sshPool == nil {
+	if s == nil || s.core.sshPool == nil {
 		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
 	}
-	client, err := s.sshPool.Get(ctx, machine)
+	client, err := s.core.sshPool.Get(ctx, machine)
 	if err != nil {
 		return nil, err
 	}

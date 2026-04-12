@@ -454,12 +454,9 @@ func (s *Server) handleAgentListOwnTicketComments(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
+	_, current, ok := s.requireAgentTicketUpdate(c)
 	if !ok {
 		return nil
-	}
-	if current.ProjectID != claims.ProjectID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
 	comments, err := s.ticketService.ListComments(c.Request().Context(), current.ID)
@@ -477,12 +474,9 @@ func (s *Server) handleAgentCreateOwnTicketComment(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
+	claims, current, ok := s.requireAgentTicketUpdate(c)
 	if !ok {
 		return nil
-	}
-	if current.ProjectID != claims.ProjectID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
 	var raw rawAgentTicketCommentRequest
@@ -523,12 +517,9 @@ func (s *Server) handleAgentUpdateOwnTicketComment(c echo.Context) error {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
+	claims, current, ok := s.requireAgentTicketUpdate(c)
 	if !ok {
 		return nil
-	}
-	if current.ProjectID != claims.ProjectID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
 	commentID, err := parseCommentID(c)

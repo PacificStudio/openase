@@ -2785,6 +2785,16 @@ function createRepoRecord(body: Record<string, unknown>) {
 
 function createScheduledJobRecord(body: Record<string, unknown>) {
   const ticketTemplate = asObject(body.ticket_template) ?? {}
+  const repoScopes = Array.isArray(ticketTemplate.repo_scopes)
+    ? ticketTemplate.repo_scopes
+        .map((scope) => asObject(scope))
+        .filter((scope): scope is Record<string, unknown> => Boolean(scope))
+        .map((scope) => ({
+          repo_id: asString(scope.repo_id) ?? '',
+          branch_name: asString(scope.branch_name) ?? null,
+        }))
+        .filter((scope) => scope.repo_id)
+    : []
   return {
     id: `job-${++mockState.counters.scheduledJob}`,
     project_id: PROJECT_ID,
@@ -2796,9 +2806,11 @@ function createScheduledJobRecord(body: Record<string, unknown>) {
       title: asString(ticketTemplate.title) ?? null,
       description: asString(ticketTemplate.description) ?? null,
       priority: asString(ticketTemplate.priority) ?? 'medium',
+      status: asString(ticketTemplate.status) ?? 'Todo',
       type: asString(ticketTemplate.type) ?? 'feature',
       budget_usd: asNumber(ticketTemplate.budget_usd) ?? 0,
       created_by: asString(ticketTemplate.created_by) ?? null,
+      repo_scopes: repoScopes,
     },
     last_run_at: null,
     next_run_at: '2026-03-28T02:00:00.000Z',
@@ -2887,9 +2899,20 @@ function applyScheduledJobMutation(job: Record<string, unknown>, body: Record<st
     title: asString(ticketTemplate.title) ?? null,
     description: asString(ticketTemplate.description) ?? null,
     priority: asString(ticketTemplate.priority) ?? 'medium',
+    status: asString(ticketTemplate.status) ?? 'Todo',
     type: asString(ticketTemplate.type) ?? 'feature',
     budget_usd: asNumber(ticketTemplate.budget_usd) ?? 0,
     created_by: asString(ticketTemplate.created_by) ?? null,
+    repo_scopes: Array.isArray(ticketTemplate.repo_scopes)
+      ? ticketTemplate.repo_scopes
+          .map((scope) => asObject(scope))
+          .filter((scope): scope is Record<string, unknown> => Boolean(scope))
+          .map((scope) => ({
+            repo_id: asString(scope.repo_id) ?? '',
+            branch_name: asString(scope.branch_name) ?? null,
+          }))
+          .filter((scope) => scope.repo_id)
+      : [],
   }
 }
 

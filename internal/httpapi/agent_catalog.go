@@ -669,7 +669,6 @@ func (s *Server) deleteAgent(c echo.Context) error {
 	}
 	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
 		ProjectID: item.ProjectID,
-		AgentID:   &item.ID,
 		EventType: activityevent.TypeAgentDeleted,
 		Message:   "Deleted agent " + item.Name,
 		Metadata: map[string]any{

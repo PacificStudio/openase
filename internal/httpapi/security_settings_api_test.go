@@ -81,7 +81,7 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	if len(payload.Security.AgentTokens.SupportedScopeGroups) == 0 {
 		t.Fatal("expected supported scope groups to be returned")
 	}
-	wantGroups := agentplatform.SupportedScopeGroups()
+	wantGroups := agentplatform.SupportedScopeGroupsForPrincipalKind(agentplatform.PrincipalKindProjectConversation)
 	if len(payload.Security.AgentTokens.SupportedScopeGroups) != len(wantGroups) {
 		t.Fatalf("expected %d scope groups, got %+v", len(wantGroups), payload.Security.AgentTokens.SupportedScopeGroups)
 	}

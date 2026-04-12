@@ -44,7 +44,7 @@ describe('workflow lifecycle draft', () => {
         max_concurrent: 0,
         max_retry_attempts: 0,
         name: 'Coding Workflow',
-        platform_access_allowed: [],
+        platform_access_allowed: ['tickets.update.self'],
         type: 'coding',
         pickup_status_ids: ['todo'],
         role_description: '',

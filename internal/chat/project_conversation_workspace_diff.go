@@ -96,11 +96,11 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 		return ProjectConversationWorkspaceDiff{}, err
 	}
 
-	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
+	project, err := s.core.catalog.GetProject(ctx, conversation.ProjectID)
 	if err != nil {
 		return ProjectConversationWorkspaceDiff{}, fmt.Errorf("get project for workspace diff: %w", err)
 	}
-	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+	providerItem, err := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return ProjectConversationWorkspaceDiff{}, fmt.Errorf("get provider for workspace diff: %w", err)
 	}
@@ -149,7 +149,7 @@ func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
 ) (projectConversationWorkspaceLocation, error) {
-	machine, err := s.catalog.GetMachine(ctx, providerItem.MachineID)
+	machine, err := s.core.catalog.GetMachine(ctx, providerItem.MachineID)
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, fmt.Errorf("get chat provider machine for workspace diff: %w", err)
 	}
@@ -159,7 +159,7 @@ func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 		return projectConversationWorkspaceLocation{}, err
 	}
 
-	projectRepos, err := s.catalog.ListProjectRepos(ctx, project.ID)
+	projectRepos, err := s.core.catalog.ListProjectRepos(ctx, project.ID)
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, fmt.Errorf("list project repos for workspace diff: %w", err)
 	}
@@ -347,11 +347,11 @@ func (s *ProjectConversationService) runProjectConversationGitCommand(
 		}
 		return output, nil
 	}
-	if s == nil || s.sshPool == nil {
+	if s == nil || s.core.sshPool == nil {
 		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
 	}
 
-	client, err := s.sshPool.Get(ctx, machine)
+	client, err := s.core.sshPool.Get(ctx, machine)
 	if err != nil {
 		return nil, err
 	}

@@ -48,11 +48,11 @@ func (s *ProjectConversationService) DeleteConversation(
 func (s *ProjectConversationService) RunRetentionCleanup(
 	ctx context.Context,
 ) ([]domain.RetentionCleanupResult, error) {
-	if s == nil || s.catalog == nil || s.conversations == nil {
+	if s == nil || s.core.catalog == nil || s.core.conversations == nil {
 		return nil, nil
 	}
 
-	organizations, err := s.catalog.ListOrganizations(ctx)
+	organizations, err := s.core.catalog.ListOrganizations(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list organizations for project conversation retention cleanup: %w", err)
 	}
@@ -60,7 +60,7 @@ func (s *ProjectConversationService) RunRetentionCleanup(
 	results := make([]domain.RetentionCleanupResult, 0)
 	var cleanupErrs []error
 	for _, organization := range organizations {
-		projects, listErr := s.catalog.ListProjects(ctx, organization.ID)
+		projects, listErr := s.core.catalog.ListProjects(ctx, organization.ID)
 		if listErr != nil {
 			cleanupErrs = append(cleanupErrs, fmt.Errorf("list projects for organization %s: %w", organization.ID, listErr))
 			continue
@@ -91,7 +91,7 @@ func (s *ProjectConversationService) runProjectRetentionCleanup(
 	}
 
 	source := domain.SourceProjectSidebar
-	conversations, err := s.conversations.ListConversations(ctx, domain.ListConversationsFilter{
+	conversations, err := s.core.conversations.ListConversations(ctx, domain.ListConversationsFilter{
 		ProjectID: project.ID,
 		Source:    &source,
 	})
@@ -175,7 +175,7 @@ func (s *ProjectConversationService) retentionSkipReason(
 		}, nil
 	}
 
-	pendingInterrupts, err := s.interrupts.ListPendingInterrupts(ctx, conversation.ID)
+	pendingInterrupts, err := s.core.interrupts.ListPendingInterrupts(ctx, conversation.ID)
 	if err != nil && !errors.Is(err, ErrConversationNotFound) {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (s *ProjectConversationService) deleteConversation(
 		}
 	}
 
-	deleted, err := s.conversations.DeleteConversation(ctx, conversation.ID)
+	deleted, err := s.core.conversations.DeleteConversation(ctx, conversation.ID)
 	if errors.Is(err, ErrConversationNotFound) {
 		return result, nil
 	}
@@ -308,7 +308,7 @@ func (s *ProjectConversationService) closeConversationRuntime(
 		if live.principal.CurrentRunID != nil && *live.principal.CurrentRunID != uuid.Nil {
 			now := time.Now().UTC()
 			terminatedStatus := domain.RunStatusTerminated
-			_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
+			_, _ = s.core.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
 				RunID:                *live.principal.CurrentRunID,
 				Status:               &terminatedStatus,
 				TerminalAt:           &now,
@@ -318,17 +318,17 @@ func (s *ProjectConversationService) closeConversationRuntime(
 				CurrentStepChangedAt: &now,
 			})
 		}
-		if principal, principalErr := s.runtimeStore.ClosePrincipal(ctx, domain.ClosePrincipalInput{PrincipalID: live.principal.ID}); principalErr == nil {
+		if principal, principalErr := s.core.runtimeStore.ClosePrincipal(ctx, domain.ClosePrincipalInput{PrincipalID: live.principal.ID}); principalErr == nil {
 			live.principal = principal
 		}
 	}
-	updatedConversation, err := s.conversations.CloseConversationRuntime(ctx, conversation.ID)
+	updatedConversation, err := s.core.conversations.CloseConversationRuntime(ctx, conversation.ID)
 	if err == nil {
 		var providerItem *catalogdomain.AgentProvider
 		if live != nil {
 			providerItem = &live.provider
-		} else if s.catalog != nil {
-			if resolved, resolveErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); resolveErr == nil {
+		} else if s.core.catalog != nil {
+			if resolved, resolveErr := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID); resolveErr == nil {
 				providerItem = &resolved
 			}
 		}
@@ -350,7 +350,7 @@ func (s *ProjectConversationService) conversationHasActiveRuntime(
 	if live, ok := s.runtimeManager.Get(conversation.ID); ok && live != nil {
 		return true, "A live Project AI runtime is still attached to this conversation.", nil
 	}
-	principal, err := s.runtimeStore.GetPrincipal(ctx, conversation.ID)
+	principal, err := s.core.runtimeStore.GetPrincipal(ctx, conversation.ID)
 	if errors.Is(err, ErrConversationNotFound) {
 		return false, "", nil
 	}
@@ -370,15 +370,15 @@ func (s *ProjectConversationService) resolveConversationWorkspaceTarget(
 	ctx context.Context,
 	conversation domain.Conversation,
 ) (projectConversationWorkspaceTarget, error) {
-	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
+	project, err := s.core.catalog.GetProject(ctx, conversation.ProjectID)
 	if err != nil {
 		return projectConversationWorkspaceTarget{}, fmt.Errorf("get project for conversation delete: %w", err)
 	}
-	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+	providerItem, err := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return projectConversationWorkspaceTarget{}, fmt.Errorf("get provider for conversation delete: %w", err)
 	}
-	machine, err := s.catalog.GetMachine(ctx, providerItem.MachineID)
+	machine, err := s.core.catalog.GetMachine(ctx, providerItem.MachineID)
 	if err != nil {
 		return projectConversationWorkspaceTarget{}, fmt.Errorf("get machine for conversation delete: %w", err)
 	}
@@ -639,10 +639,10 @@ func (s *ProjectConversationService) emitProjectConversationActivity(
 	ctx context.Context,
 	input activitysvc.RecordInput,
 ) {
-	if s == nil || s.activityEmitter == nil || input.ProjectID == uuid.Nil {
+	if s == nil || s.core.activityEmitter == nil || input.ProjectID == uuid.Nil {
 		return
 	}
-	if _, err := s.activityEmitter.Emit(ctx, input); err != nil {
+	if _, err := s.core.activityEmitter.Emit(ctx, input); err != nil {
 		s.logger.Warn("emit project conversation activity", "event_type", input.EventType, "project_id", input.ProjectID, "error", err)
 	}
 }
