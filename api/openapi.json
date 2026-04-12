@@ -6137,6 +6137,35 @@
                               "branch": {
                                 "type": "string"
                               },
+                              "current_ref": {
+                                "properties": {
+                                  "branch_full_name": {
+                                    "type": "string"
+                                  },
+                                  "branch_name": {
+                                    "type": "string"
+                                  },
+                                  "cache_key": {
+                                    "type": "string"
+                                  },
+                                  "commit_id": {
+                                    "type": "string"
+                                  },
+                                  "display_name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "short_commit_id": {
+                                    "type": "string"
+                                  },
+                                  "subject": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
                               "dirty": {
                                 "type": "boolean"
                               },
@@ -6496,6 +6525,211 @@
           }
         },
         "summary": "Get project conversation workspace diff summary",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/checkout": {
+      "post": {
+        "operationId": "checkoutProjectConversationWorkspaceBranch",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "create_tracking_branch": {
+                    "description": "Whether the checkout should create a new local tracking branch. This must be true for remote-tracking targets.",
+                    "type": "boolean"
+                  },
+                  "expected_clean_workspace": {
+                    "description": "When true, the server rejects checkout if the repo has uncommitted workspace changes.",
+                    "type": "boolean"
+                  },
+                  "local_branch_name": {
+                    "description": "Optional explicit local branch name to create when switching from a remote-tracking branch.",
+                    "type": "string"
+                  },
+                  "repo_path": {
+                    "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+                    "type": "string"
+                  },
+                  "target_kind": {
+                    "description": "Checkout target kind. Supported values are local_branch and remote_tracking_branch.",
+                    "type": "string"
+                  },
+                  "target_name": {
+                    "description": "Branch name chosen from the refs listing response. Remote-tracking branches use the short remote form such as origin/main.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Switch one project conversation workspace repo to another branch request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "checkout": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "created_local_branch": {
+                          "type": "string"
+                        },
+                        "current_ref": {
+                          "properties": {
+                            "branch_full_name": {
+                              "type": "string"
+                            },
+                            "branch_name": {
+                              "type": "string"
+                            },
+                            "cache_key": {
+                              "type": "string"
+                            },
+                            "commit_id": {
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "short_commit_id": {
+                              "type": "string"
+                            },
+                            "subject": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Switch one project conversation workspace repo to another branch response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Switch one project conversation workspace repo to another branch",
         "tags": [
           "chat"
         ]
@@ -7535,6 +7769,468 @@
         ]
       }
     },
+    "/api/v1/chat/conversations/{conversationId}/workspace/git-graph": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceGitGraph",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional git graph window size. Defaults to 40 commits and is capped at 120.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "git_graph": {
+                      "properties": {
+                        "commits": {
+                          "items": {
+                            "properties": {
+                              "author_name": {
+                                "type": "string"
+                              },
+                              "authored_at": {
+                                "type": "string"
+                              },
+                              "commit_id": {
+                                "type": "string"
+                              },
+                              "head": {
+                                "type": "boolean"
+                              },
+                              "labels": {
+                                "items": {
+                                  "properties": {
+                                    "current": {
+                                      "type": "boolean"
+                                    },
+                                    "full_name": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "scope": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "parent_ids": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "short_commit_id": {
+                                "type": "string"
+                              },
+                              "subject": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project conversation workspace git graph response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get project conversation workspace git graph",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/repo-refs": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceRepoRefs",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "repo_refs": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "current_ref": {
+                          "properties": {
+                            "branch_full_name": {
+                              "type": "string"
+                            },
+                            "branch_name": {
+                              "type": "string"
+                            },
+                            "cache_key": {
+                              "type": "string"
+                            },
+                            "commit_id": {
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "short_commit_id": {
+                              "type": "string"
+                            },
+                            "subject": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "local_branches": {
+                          "items": {
+                            "properties": {
+                              "ahead": {
+                                "type": "integer"
+                              },
+                              "behind": {
+                                "type": "integer"
+                              },
+                              "commit_id": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              },
+                              "full_name": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string"
+                              },
+                              "short_commit_id": {
+                                "type": "string"
+                              },
+                              "subject": {
+                                "type": "string"
+                              },
+                              "suggested_local_branch_name": {
+                                "type": "string"
+                              },
+                              "upstream_name": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "remote_branches": {
+                          "items": {
+                            "properties": {
+                              "ahead": {
+                                "type": "integer"
+                              },
+                              "behind": {
+                                "type": "integer"
+                              },
+                              "commit_id": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              },
+                              "full_name": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string"
+                              },
+                              "short_commit_id": {
+                                "type": "string"
+                              },
+                              "subject": {
+                                "type": "string"
+                              },
+                              "suggested_local_branch_name": {
+                                "type": "string"
+                              },
+                              "upstream_name": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project conversation workspace git refs and branch metadata response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get project conversation workspace git refs and branch metadata",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/v1/chat/conversations/{conversationId}/workspace/search": {
       "get": {
         "operationId": "searchProjectConversationWorkspacePaths",
@@ -7752,6 +8448,35 @@
                               },
                               "branch": {
                                 "type": "string"
+                              },
+                              "current_ref": {
+                                "properties": {
+                                  "branch_full_name": {
+                                    "type": "string"
+                                  },
+                                  "branch_name": {
+                                    "type": "string"
+                                  },
+                                  "cache_key": {
+                                    "type": "string"
+                                  },
+                                  "commit_id": {
+                                    "type": "string"
+                                  },
+                                  "display_name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "short_commit_id": {
+                                    "type": "string"
+                                  },
+                                  "subject": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
                               },
                               "dirty": {
                                 "type": "boolean"

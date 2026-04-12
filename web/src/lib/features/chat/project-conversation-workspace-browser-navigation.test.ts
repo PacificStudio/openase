@@ -1,12 +1,15 @@
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
@@ -14,10 +17,13 @@ const {
   saveProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
+  checkoutProjectConversationWorkspaceBranch: vi.fn(),
   createProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
+  getProjectConversationWorkspaceGitGraph: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceDiff: vi.fn(),
+  getProjectConversationWorkspaceRepoRefs: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
@@ -27,10 +33,13 @@ const {
 }))
 
 vi.mock('$lib/api/chat', () => ({
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
@@ -68,6 +77,52 @@ function buildTextPreview(path: string, content: string) {
 describe('ProjectConversationWorkspaceBrowser', () => {
   beforeAll(() => {
     ensureResizeObserver()
+  })
+
+  beforeEach(() => {
+    getProjectConversationWorkspaceRepoRefs.mockResolvedValue({
+      repoRefs: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'agent/conv-123',
+          cacheKey: 'branch:refs/heads/agent/conv-123',
+          branchName: 'agent/conv-123',
+          branchFullName: 'refs/heads/agent/conv-123',
+          commitId: '123456789abc',
+          shortCommitId: '123456789abc',
+          subject: 'Add workspace browser scaffolding',
+        },
+        localBranches: [],
+        remoteBranches: [],
+      },
+    })
+    getProjectConversationWorkspaceGitGraph.mockResolvedValue({
+      gitGraph: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        limit: 40,
+        commits: [],
+      },
+    })
+    checkoutProjectConversationWorkspaceBranch.mockResolvedValue({
+      checkout: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'agent/conv-123',
+          cacheKey: 'branch:refs/heads/agent/conv-123',
+          branchName: 'agent/conv-123',
+          branchFullName: 'refs/heads/agent/conv-123',
+          commitId: '123456789abc',
+          shortCommitId: '123456789abc',
+          subject: 'Add workspace browser scaffolding',
+        },
+        createdLocalBranch: '',
+      },
+    })
   })
 
   afterEach(() => {
@@ -468,6 +523,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       conversationId: 'conversation-1',
       repoPath: 'services/openase',
       filePath: 'README.md',
+      refCacheKey: 'branch:refs/heads/agent/conv-123',
     })
     window.localStorage.setItem(
       'openase.project-conversation.workspace-file-drafts',
@@ -547,6 +603,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       conversationId: 'conversation-1',
       repoPath: 'services/openase',
       filePath: 'README.md',
+      refCacheKey: 'branch:refs/heads/agent/conv-123',
     })
     window.localStorage.setItem(
       'openase.project-conversation.workspace-file-drafts',

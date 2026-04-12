@@ -268,9 +268,21 @@
     terminalPanelOpen={terminalManager.panelOpen}
     {conversationId}
     metadataLoading={browser.metadataLoading}
+    selectedRepoName={selectedRepo?.name ?? ''}
+    currentRef={browser.repoRefs?.currentRef ?? selectedRepo?.currentRef ?? null}
+    localBranches={browser.repoRefs?.localBranches ?? []}
+    remoteBranches={browser.repoRefs?.remoteBranches ?? []}
+    repoRefsLoading={browser.repoRefsLoading}
+    repoRefsError={browser.repoRefsError}
+    checkoutBlockers={browser.checkoutBlockers(browser.selectedRepoPath)}
     onCopyWorkspacePath={copyWorkspacePath}
     onToggleTerminal={() => terminalManager.togglePanel()}
     onRefreshWorkspace={() => void browser.refreshWorkspace(true)}
+    onCheckoutBranch={(request) =>
+      browser.checkoutBranch({
+        repoPath: browser.selectedRepoPath,
+        ...request,
+      })}
     {onClose}
   />
 

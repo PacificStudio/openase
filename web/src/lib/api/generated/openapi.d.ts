@@ -586,6 +586,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/workspace/checkout': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Switch one project conversation workspace repo to another branch */
+    post: operations['checkoutProjectConversationWorkspaceBranch']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/conversations/{conversationId}/workspace/file': {
     parameters: {
       query?: never
@@ -616,6 +633,40 @@ export interface paths {
     }
     /** Read one project conversation workspace file diff */
     get: operations['getProjectConversationWorkspaceFilePatch']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/git-graph': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get project conversation workspace git graph */
+    get: operations['getProjectConversationWorkspaceGitGraph']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/repo-refs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get project conversation workspace git refs and branch metadata */
+    get: operations['getProjectConversationWorkspaceRepoRefs']
     put?: never
     post?: never
     delete?: never
@@ -6270,6 +6321,16 @@ export interface operations {
               repos?: {
                 added?: number
                 branch?: string
+                current_ref?: {
+                  branch_full_name?: string
+                  branch_name?: string
+                  cache_key?: string
+                  commit_id?: string
+                  display_name?: string
+                  kind?: string
+                  short_commit_id?: string
+                  subject?: string
+                }
                 dirty?: boolean
                 files_changed?: number
                 head_commit?: string
@@ -6419,6 +6480,123 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  checkoutProjectConversationWorkspaceBranch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Switch one project conversation workspace repo to another branch request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Whether the checkout should create a new local tracking branch. This must be true for remote-tracking targets. */
+          create_tracking_branch?: boolean
+          /** @description When true, the server rejects checkout if the repo has uncommitted workspace changes. */
+          expected_clean_workspace?: boolean
+          /** @description Optional explicit local branch name to create when switching from a remote-tracking branch. */
+          local_branch_name?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+          /** @description Checkout target kind. Supported values are local_branch and remote_tracking_branch. */
+          target_kind?: string
+          /** @description Branch name chosen from the refs listing response. Remote-tracking branches use the short remote form such as origin/main. */
+          target_name?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Switch one project conversation workspace repo to another branch response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            checkout?: {
+              conversation_id?: string
+              created_local_branch?: string
+              current_ref?: {
+                branch_full_name?: string
+                branch_name?: string
+                cache_key?: string
+                commit_id?: string
+                display_name?: string
+                kind?: string
+                short_commit_id?: string
+                subject?: string
+              }
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -7075,6 +7253,242 @@ export interface operations {
       }
     }
   }
+  getProjectConversationWorkspaceGitGraph: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Optional git graph window size. Defaults to 40 commits and is capped at 120. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get project conversation workspace git graph response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            git_graph?: {
+              commits?: {
+                author_name?: string
+                authored_at?: string
+                commit_id?: string
+                head?: boolean
+                labels?: {
+                  current?: boolean
+                  full_name?: string
+                  name?: string
+                  scope?: string
+                }[]
+                parent_ids?: string[]
+                short_commit_id?: string
+                subject?: string
+              }[]
+              conversation_id?: string
+              limit?: number
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getProjectConversationWorkspaceRepoRefs: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get project conversation workspace git refs and branch metadata response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            repo_refs?: {
+              conversation_id?: string
+              current_ref?: {
+                branch_full_name?: string
+                branch_name?: string
+                cache_key?: string
+                commit_id?: string
+                display_name?: string
+                kind?: string
+                short_commit_id?: string
+                subject?: string
+              }
+              local_branches?: {
+                ahead?: number
+                behind?: number
+                commit_id?: string
+                current?: boolean
+                full_name?: string
+                name?: string
+                scope?: string
+                short_commit_id?: string
+                subject?: string
+                suggested_local_branch_name?: string
+                upstream_name?: string
+              }[]
+              remote_branches?: {
+                ahead?: number
+                behind?: number
+                commit_id?: string
+                current?: boolean
+                full_name?: string
+                name?: string
+                scope?: string
+                short_commit_id?: string
+                subject?: string
+                suggested_local_branch_name?: string
+                upstream_name?: string
+              }[]
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   searchProjectConversationWorkspacePaths: {
     parameters: {
       query?: {
@@ -7201,6 +7615,16 @@ export interface operations {
               repos?: {
                 added?: number
                 branch?: string
+                current_ref?: {
+                  branch_full_name?: string
+                  branch_name?: string
+                  cache_key?: string
+                  commit_id?: string
+                  display_name?: string
+                  kind?: string
+                  short_commit_id?: string
+                  subject?: string
+                }
                 dirty?: boolean
                 files_changed?: number
                 head_commit?: string

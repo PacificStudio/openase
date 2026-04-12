@@ -38,6 +38,7 @@ type ProjectConversationWorkspaceRepoMetadata struct {
 	Name         string
 	Path         string
 	Branch       string
+	CurrentRef   ProjectConversationWorkspaceCurrentRef
 	HeadCommit   string
 	HeadSummary  string
 	Dirty        bool
@@ -364,30 +365,9 @@ func (s *ProjectConversationService) readConversationWorkspaceRepoMetadata(
 	machine catalogdomain.Machine,
 	repo projectConversationWorkspaceRepoLocation,
 ) (ProjectConversationWorkspaceRepoMetadata, error) {
-	branch, err := workspaceinfra.ReadWorkspaceGitBranch(ctx, repo.repoPath, func(
-		ctx context.Context,
-		args []string,
-		allowExitCodeOne bool,
-	) ([]byte, error) {
-		return s.runProjectConversationGitCommand(ctx, machine, args, allowExitCodeOne)
-	})
+	currentRef, err := s.readConversationWorkspaceCurrentRef(ctx, machine, repo.repoPath)
 	if err != nil {
 		return ProjectConversationWorkspaceRepoMetadata{}, fmt.Errorf("read workspace branch for %s: %w", repo.name, err)
-	}
-	commitOutput, err := s.runProjectConversationGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repo.repoPath, "log", "-1", "--format=%H%x00%s"},
-		false,
-	)
-	if err != nil {
-		return ProjectConversationWorkspaceRepoMetadata{}, fmt.Errorf("read workspace head for %s: %w", repo.name, err)
-	}
-	commitParts := bytes.SplitN(commitOutput, []byte{0}, 2)
-	headCommit := strings.TrimSpace(string(commitParts[0]))
-	headSummary := ""
-	if len(commitParts) == 2 {
-		headSummary = strings.TrimSpace(string(commitParts[1]))
 	}
 
 	summary, err := s.summarizeConversationWorkspaceRepo(ctx, machine, repo)
@@ -397,9 +377,10 @@ func (s *ProjectConversationService) readConversationWorkspaceRepoMetadata(
 	return ProjectConversationWorkspaceRepoMetadata{
 		Name:         repo.name,
 		Path:         repo.relativePath,
-		Branch:       branch,
-		HeadCommit:   shortenProjectConversationGitCommit(headCommit),
-		HeadSummary:  headSummary,
+		Branch:       projectConversationWorkspaceBranchDisplayName(currentRef),
+		CurrentRef:   currentRef,
+		HeadCommit:   currentRef.ShortCommitID,
+		HeadSummary:  currentRef.Subject,
 		Dirty:        summary.Dirty,
 		FilesChanged: summary.FilesChanged,
 		Added:        summary.Added,

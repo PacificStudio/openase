@@ -33,6 +33,7 @@ export function createWorkspaceFileEditorStore(input: {
   getConversationId: () => string
   getSelectedRepoPath: () => string
   getSelectedFilePath: () => string
+  getRepoRefCacheKey?: (repoPath: string) => string
   getPreview: (repoPath: string, filePath: string) => ProjectConversationWorkspaceFilePreview | null
   setPreview: (
     repoPath: string,
@@ -53,6 +54,7 @@ export function createWorkspaceFileEditorStore(input: {
     return workspaceFileDraftStorageKey({
       conversationId: input.getConversationId(),
       repoPath,
+      refCacheKey: input.getRepoRefCacheKey?.(repoPath) ?? '',
       filePath,
     })
   }

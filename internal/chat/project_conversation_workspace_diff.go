@@ -216,13 +216,7 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 	machine catalogdomain.Machine,
 	repo projectConversationWorkspaceRepoLocation,
 ) (ProjectConversationWorkspaceRepoDiff, error) {
-	branch, err := workspaceinfra.ReadWorkspaceGitBranch(ctx, repo.repoPath, func(
-		ctx context.Context,
-		args []string,
-		allowExitCodeOne bool,
-	) ([]byte, error) {
-		return s.runProjectConversationGitCommand(ctx, machine, args, allowExitCodeOne)
-	})
+	currentRef, err := s.readConversationWorkspaceCurrentRef(ctx, machine, repo.repoPath)
 	if err != nil {
 		if errors.Is(err, workspaceinfra.ErrGitWorkspaceUnavailable) {
 			return ProjectConversationWorkspaceRepoDiff{}, nil
@@ -269,7 +263,7 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 	repoSummary := ProjectConversationWorkspaceRepoDiff{
 		Name:   repo.name,
 		Path:   repo.relativePath,
-		Branch: branch,
+		Branch: projectConversationWorkspaceBranchDisplayName(currentRef),
 		Dirty:  true,
 	}
 	for _, status := range statuses {

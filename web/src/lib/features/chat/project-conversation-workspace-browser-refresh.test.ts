@@ -1,11 +1,14 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
@@ -13,9 +16,12 @@ const {
   searchProjectConversationWorkspacePaths,
   syncProjectConversationWorkspace,
 } = vi.hoisted(() => ({
+  checkoutProjectConversationWorkspaceBranch: vi.fn(),
   createProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
+  getProjectConversationWorkspaceGitGraph: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
+  getProjectConversationWorkspaceRepoRefs: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
@@ -25,9 +31,12 @@ const {
 }))
 
 vi.mock('$lib/api/chat', () => ({
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
@@ -77,10 +86,42 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     ensureResizeObserver()
   })
 
+  beforeEach(() => {
+    mockGitContext()
+  })
+
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
   })
+
+  function mockGitContext() {
+    getProjectConversationWorkspaceRepoRefs.mockResolvedValue({
+      repoRefs: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: workspaceMetadata.repos[0].currentRef,
+        localBranches: [],
+        remoteBranches: [],
+      },
+    })
+    getProjectConversationWorkspaceGitGraph.mockResolvedValue({
+      gitGraph: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        limit: 40,
+        commits: [],
+      },
+    })
+    checkoutProjectConversationWorkspaceBranch.mockResolvedValue({
+      checkout: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: workspaceMetadata.repos[0].currentRef,
+        createdLocalBranch: '',
+      },
+    })
+  }
 
   it('shows a sync prompt when repo bindings changed and refreshes the browser after syncing', async () => {
     mockWorkspaceMetadata(getProjectConversationWorkspace)

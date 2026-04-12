@@ -1,21 +1,27 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationTerminalSession,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
+  checkoutProjectConversationWorkspaceBranch: vi.fn(),
   createProjectConversationTerminalSession: vi.fn(),
   createProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
+  getProjectConversationWorkspaceGitGraph: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
+  getProjectConversationWorkspaceRepoRefs: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
@@ -24,10 +30,13 @@ const {
 }))
 
 vi.mock('$lib/api/chat', () => ({
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationTerminalSession,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
@@ -95,6 +104,52 @@ describe('ProjectConversationWorkspaceBrowser terminal layout', () => {
   beforeAll(() => {
     ensureResizeObserver()
     vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+  })
+
+  beforeEach(() => {
+    getProjectConversationWorkspaceRepoRefs.mockResolvedValue({
+      repoRefs: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'agent/conv-123',
+          cacheKey: 'branch:refs/heads/agent/conv-123',
+          branchName: 'agent/conv-123',
+          branchFullName: 'refs/heads/agent/conv-123',
+          commitId: '123456789abc',
+          shortCommitId: '123456789abc',
+          subject: 'Add workspace browser scaffolding',
+        },
+        localBranches: [],
+        remoteBranches: [],
+      },
+    })
+    getProjectConversationWorkspaceGitGraph.mockResolvedValue({
+      gitGraph: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        limit: 40,
+        commits: [],
+      },
+    })
+    checkoutProjectConversationWorkspaceBranch.mockResolvedValue({
+      checkout: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'agent/conv-123',
+          cacheKey: 'branch:refs/heads/agent/conv-123',
+          branchName: 'agent/conv-123',
+          branchFullName: 'refs/heads/agent/conv-123',
+          commitId: '123456789abc',
+          shortCommitId: '123456789abc',
+          subject: 'Add workspace browser scaffolding',
+        },
+        createdLocalBranch: '',
+      },
+    })
   })
 
   afterEach(() => {

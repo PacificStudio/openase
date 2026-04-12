@@ -545,12 +545,24 @@ type OpenAPIProjectConversationWorkspaceRepoMetadata struct {
 	Name         string `json:"name"`
 	Path         string `json:"path"`
 	Branch       string `json:"branch"`
+	CurrentRef   OpenAPIProjectConversationWorkspaceCurrentRef `json:"current_ref"`
 	HeadCommit   string `json:"head_commit"`
 	HeadSummary  string `json:"head_summary"`
 	Dirty        bool   `json:"dirty"`
 	FilesChanged int    `json:"files_changed"`
 	Added        int    `json:"added"`
 	Removed      int    `json:"removed"`
+}
+
+type OpenAPIProjectConversationWorkspaceCurrentRef struct {
+	Kind           string `json:"kind"`
+	DisplayName    string `json:"display_name"`
+	CacheKey       string `json:"cache_key"`
+	BranchName     string `json:"branch_name"`
+	BranchFullName string `json:"branch_full_name"`
+	CommitID       string `json:"commit_id"`
+	ShortCommitID  string `json:"short_commit_id"`
+	Subject        string `json:"subject"`
 }
 
 type OpenAPIProjectConversationWorkspaceMetadata struct {
@@ -598,6 +610,81 @@ type OpenAPIProjectConversationWorkspaceSearch struct {
 
 type OpenAPIProjectConversationWorkspaceSearchResponse struct {
 	WorkspaceSearch OpenAPIProjectConversationWorkspaceSearch `json:"workspace_search"`
+}
+
+type OpenAPIProjectConversationWorkspaceBranchRef struct {
+	Name                     string `json:"name"`
+	FullName                 string `json:"full_name"`
+	Scope                    string `json:"scope"`
+	Current                  bool   `json:"current"`
+	CommitID                 string `json:"commit_id"`
+	ShortCommitID            string `json:"short_commit_id"`
+	Subject                  string `json:"subject"`
+	UpstreamName             string `json:"upstream_name"`
+	Ahead                    int    `json:"ahead"`
+	Behind                   int    `json:"behind"`
+	SuggestedLocalBranchName string `json:"suggested_local_branch_name"`
+}
+
+type OpenAPIProjectConversationWorkspaceRepoRefs struct {
+	ConversationID string                                        `json:"conversation_id"`
+	RepoPath       string                                        `json:"repo_path"`
+	CurrentRef     OpenAPIProjectConversationWorkspaceCurrentRef `json:"current_ref"`
+	LocalBranches  []OpenAPIProjectConversationWorkspaceBranchRef `json:"local_branches"`
+	RemoteBranches []OpenAPIProjectConversationWorkspaceBranchRef `json:"remote_branches"`
+}
+
+type OpenAPIProjectConversationWorkspaceRepoRefsResponse struct {
+	RepoRefs OpenAPIProjectConversationWorkspaceRepoRefs `json:"repo_refs"`
+}
+
+type OpenAPIProjectConversationWorkspaceGitRefLabel struct {
+	Name     string `json:"name"`
+	FullName string `json:"full_name"`
+	Scope    string `json:"scope"`
+	Current  bool   `json:"current"`
+}
+
+type OpenAPIProjectConversationWorkspaceGitGraphCommit struct {
+	CommitID      string                                         `json:"commit_id"`
+	ShortCommitID string                                         `json:"short_commit_id"`
+	ParentIDs     []string                                       `json:"parent_ids"`
+	Subject       string                                         `json:"subject"`
+	AuthorName    string                                         `json:"author_name"`
+	AuthoredAt    string                                         `json:"authored_at"`
+	Labels        []OpenAPIProjectConversationWorkspaceGitRefLabel `json:"labels"`
+	Head          bool                                           `json:"head"`
+}
+
+type OpenAPIProjectConversationWorkspaceGitGraph struct {
+	ConversationID string                                         `json:"conversation_id"`
+	RepoPath       string                                         `json:"repo_path"`
+	Limit          int                                            `json:"limit"`
+	Commits        []OpenAPIProjectConversationWorkspaceGitGraphCommit `json:"commits"`
+}
+
+type OpenAPIProjectConversationWorkspaceGitGraphResponse struct {
+	GitGraph OpenAPIProjectConversationWorkspaceGitGraph `json:"git_graph"`
+}
+
+type OpenAPIProjectConversationWorkspaceCheckoutRequest struct {
+	RepoPath               string `json:"repo_path"`
+	TargetKind             string `json:"target_kind"`
+	TargetName             string `json:"target_name"`
+	CreateTrackingBranch   bool   `json:"create_tracking_branch"`
+	LocalBranchName        string `json:"local_branch_name"`
+	ExpectedCleanWorkspace bool   `json:"expected_clean_workspace"`
+}
+
+type OpenAPIProjectConversationWorkspaceCheckout struct {
+	ConversationID    string                                        `json:"conversation_id"`
+	RepoPath          string                                        `json:"repo_path"`
+	CurrentRef        OpenAPIProjectConversationWorkspaceCurrentRef `json:"current_ref"`
+	CreatedLocalBranch string                                       `json:"created_local_branch"`
+}
+
+type OpenAPIProjectConversationWorkspaceCheckoutResponse struct {
+	Checkout OpenAPIProjectConversationWorkspaceCheckout `json:"checkout"`
 }
 
 type OpenAPIProjectConversationWorkspaceFilePreview struct {
@@ -2842,6 +2929,14 @@ var (
 		"repo_path": "Workspace-relative repo path chosen from the workspace metadata response.",
 		"path":      "Repo-relative existing file path to delete from the conversation workspace.",
 	}
+	openAPIProjectConversationWorkspaceCheckoutDescriptions = map[string]string{
+		"repo_path":                 "Workspace-relative repo path chosen from the workspace metadata response.",
+		"target_kind":               "Checkout target kind. Supported values are local_branch and remote_tracking_branch.",
+		"target_name":               "Branch name chosen from the refs listing response. Remote-tracking branches use the short remote form such as origin/main.",
+		"create_tracking_branch":    "Whether the checkout should create a new local tracking branch. This must be true for remote-tracking targets.",
+		"local_branch_name":         "Optional explicit local branch name to create when switching from a remote-tracking branch.",
+		"expected_clean_workspace":  "When true, the server rejects checkout if the repo has uncommitted workspace changes.",
+	}
 	openAPIRoleBindingRequestDescriptions = map[string]string{
 		"subject_kind": "Binding subject kind. Supported values are user and group.",
 		"subject_key":  "For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key.",
@@ -2952,6 +3047,7 @@ var (
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
 		"POST /api/v1/chat":               openAPIChatRequestDescriptions,
 		"POST /api/v1/chat/conversations": openAPIProjectConversationCreateDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/workspace/checkout":               openAPIProjectConversationWorkspaceCheckoutDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/workspace/file":                   openAPIProjectConversationWorkspaceFileCreateDescriptions,
 		"PUT /api/v1/chat/conversations/{conversationId}/workspace/file":                    openAPIProjectConversationWorkspaceFileSaveDescriptions,
 		"PATCH /api/v1/chat/conversations/{conversationId}/workspace/file":                  openAPIProjectConversationWorkspaceFileRenameDescriptions,
@@ -6732,6 +6828,75 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationWorkspaceSync.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/sync", http.MethodPost, projectConversationWorkspaceSync)
+
+	projectConversationWorkspaceRepoRefs, err := b.jsonOperation(
+		"getProjectConversationWorkspaceRepoRefs",
+		"Get project conversation workspace git refs and branch metadata",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceRepoRefsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceRepoRefs.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceRepoRefs.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/repo-refs", http.MethodGet, projectConversationWorkspaceRepoRefs)
+
+	projectConversationWorkspaceGitGraph, err := b.jsonOperation(
+		"getProjectConversationWorkspaceGitGraph",
+		"Get project conversation workspace git graph",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceGitGraphResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceGitGraph.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceGitGraph.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceGitGraph.AddParameter(openapi3.NewQueryParameter("limit").
+		WithDescription("Optional git graph window size. Defaults to 40 commits and is capped at 120.").
+		WithSchema(openapi3.NewIntegerSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/git-graph", http.MethodGet, projectConversationWorkspaceGitGraph)
+
+	projectConversationWorkspaceCheckout, err := b.jsonOperation(
+		"checkoutProjectConversationWorkspaceBranch",
+		"Switch one project conversation workspace repo to another branch",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceCheckoutResponse{},
+		OpenAPIProjectConversationWorkspaceCheckoutRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceCheckout.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/checkout", http.MethodPost, projectConversationWorkspaceCheckout)
 
 	projectConversationWorkspaceTree, err := b.jsonOperation(
 		"listProjectConversationWorkspaceTree",

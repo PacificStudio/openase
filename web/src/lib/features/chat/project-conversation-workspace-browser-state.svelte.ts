@@ -1,15 +1,23 @@
 /* eslint-disable max-lines */
 import {
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
+  getProjectConversationWorkspaceRepoRefs,
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
   type ChatDiffPayload,
+  type ProjectConversationWorkspaceBranchScope,
+  type ProjectConversationWorkspaceCheckoutResult,
   type ProjectConversationWorkspaceDiff,
+  type ProjectConversationWorkspaceGitGraph,
+  type ProjectConversationWorkspaceGitGraphCommit,
   type ProjectConversationWorkspaceMetadata,
+  type ProjectConversationWorkspaceRepoRefs,
   type ProjectConversationWorkspaceSearchResult,
   type ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
@@ -73,6 +81,14 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   let recentFiles = $state<WorkspaceRecentFile[]>([])
   let autosaveEnabled = $state(readWorkspaceAutosavePreference())
   let loadRequestID = 0
+  let repoRefs = $state<ProjectConversationWorkspaceRepoRefs | null>(null)
+  let repoRefsLoading = $state(false)
+  let repoRefsError = $state('')
+  let gitGraph = $state<ProjectConversationWorkspaceGitGraph | null>(null)
+  let gitGraphLoading = $state(false)
+  let gitGraphError = $state('')
+  let selectedGitCommitID = $state('')
+  let detailMode = $state<'file' | 'git_graph'>('file')
 
   function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
     if (!areWorkspaceMetadataEqual(metadata, nextMetadata)) {
@@ -147,6 +163,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
 
   function openTab(repoPath: string, filePath: string) {
     if (!repoPath || !filePath) return
+    detailMode = 'file'
     const next = applyOpenTab(openTabs, repoPath, filePath)
     openTabs = next.openTabs
     activeTabKey = next.activeTabKey
@@ -194,6 +211,8 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     getConversationId: input.getConversationId,
     getSelectedRepoPath: () => getActiveTab()?.repoPath ?? '',
     getSelectedFilePath: () => getActiveTab()?.filePath ?? '',
+    getRepoRefCacheKey: (repoPath) =>
+      metadata?.repos.find((repo) => repo.path === repoPath)?.currentRef.cacheKey ?? '',
     getPreview: (repoPath, filePath) => {
       const key = workspaceTabKey({ repoPath, filePath })
       return tabFileStates.get(key)?.preview ?? null
@@ -220,6 +239,14 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     loadingDirs = new Set()
     treeRepoPath = ''
     closeAllTabs()
+    repoRefs = null
+    repoRefsLoading = false
+    repoRefsError = ''
+    gitGraph = null
+    gitGraphLoading = false
+    gitGraphError = ''
+    selectedGitCommitID = ''
+    detailMode = 'file'
     editorStore.reset()
   }
 
@@ -241,6 +268,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
         treeNodes = new Map()
         expandedDirs = new Set()
         loadingDirs = new Set()
+        repoRefs = null
+        repoRefsError = ''
+        gitGraph = null
+        gitGraphError = ''
+        selectedGitCommitID = ''
         closeAllTabs()
         return
       }
@@ -280,6 +312,8 @@ export function createProjectConversationWorkspaceBrowserState(input: {
           openTabs.map((tab) => loadFile(tab.repoPath, tab.filePath, { silent: true })),
         )
       }
+
+      await refreshRepoGitContext(nextRepoPath)
     } catch (error) {
       if (requestID !== loadRequestID || conversationId !== input.getConversationId()) {
         return
@@ -289,6 +323,10 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       expandedDirs = new Set()
       loadingDirs = new Set()
       closeAllTabs()
+      repoRefs = null
+      repoRefsError = ''
+      gitGraph = null
+      gitGraphError = ''
       metadataError =
         error instanceof Error ? error.message : 'Failed to load the Project AI workspace.'
     } finally {
@@ -296,6 +334,65 @@ export function createProjectConversationWorkspaceBrowserState(input: {
         metadataLoading = false
       }
     }
+  }
+
+  async function refreshRepoGitContext(repoPath = treeRepoPath) {
+    const conversationId = input.getConversationId()
+    if (!conversationId || !repoPath) {
+      repoRefs = null
+      repoRefsError = ''
+      gitGraph = null
+      gitGraphError = ''
+      selectedGitCommitID = ''
+      return
+    }
+
+    repoRefsLoading = true
+    repoRefsError = ''
+    gitGraphLoading = true
+    gitGraphError = ''
+
+    const [refsResult, graphResult] = await Promise.allSettled([
+      getProjectConversationWorkspaceRepoRefs(conversationId, { repoPath }),
+      getProjectConversationWorkspaceGitGraph(conversationId, { repoPath }),
+    ])
+
+    if (conversationId !== input.getConversationId() || repoPath !== treeRepoPath) {
+      return
+    }
+
+    if (refsResult.status === 'fulfilled') {
+      repoRefs = refsResult.value.repoRefs
+      repoRefsError = ''
+    } else {
+      repoRefs = null
+      repoRefsError =
+        refsResult.reason instanceof Error
+          ? refsResult.reason.message
+          : 'Failed to load workspace branches.'
+    }
+    repoRefsLoading = false
+
+    if (graphResult.status === 'fulfilled') {
+      gitGraph = graphResult.value.gitGraph
+      gitGraphError = ''
+      const nextSelectedCommit = graphResult.value.gitGraph.commits.find(
+        (commit) => commit.commitId === selectedGitCommitID,
+      )
+      selectedGitCommitID =
+        nextSelectedCommit?.commitId ??
+        graphResult.value.gitGraph.commits.find((commit) => commit.head)?.commitId ??
+        graphResult.value.gitGraph.commits[0]?.commitId ??
+        ''
+    } else {
+      gitGraph = null
+      gitGraphError =
+        graphResult.reason instanceof Error
+          ? graphResult.reason.message
+          : 'Failed to load the workspace git graph.'
+      selectedGitCommitID = ''
+    }
+    gitGraphLoading = false
   }
 
   async function loadDirEntries(
@@ -405,6 +502,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     expandedDirs = new Set()
     loadingDirs = new Set()
     void loadDirEntries('')
+    void refreshRepoGitContext(repoPath)
   }
 
   function selectFile(path: string) {
@@ -415,6 +513,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     if (!repoPath) {
       return
     }
+    detailMode = 'file'
     const requestID = ++loadRequestID
     void revealFileInTree(path, { requestID, silent: true })
     openTab(repoPath, path)
@@ -448,6 +547,70 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       limit,
     })
     return payload.workspaceSearch.results
+  }
+
+  function checkoutBlockers(repoPath: string): string[] {
+    const blockers: string[] = []
+    const repo = metadata?.repos.find((item) => item.path === repoPath)
+    if (repo?.dirty) {
+      blockers.push('This repo has uncommitted workspace changes.')
+    }
+
+    const repoTabs = openTabs.filter((tab) => tab.repoPath === repoPath)
+    const dirtyTabs = repoTabs.filter(
+      (tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true,
+    )
+    if (dirtyTabs.length > 0) {
+      const names = dirtyTabs.map((tab) => tab.filePath).join(', ')
+      blockers.push(`Unsaved drafts must be saved or discarded first: ${names}.`)
+    }
+
+    const busyTab = repoTabs.find((tab) => {
+      const state = editorStore.getEditorState(tab.repoPath, tab.filePath)
+      return state?.savePhase === 'saving' || state?.savePhase === 'conflict'
+    })
+    if (busyTab) {
+      const state = editorStore.getEditorState(busyTab.repoPath, busyTab.filePath)
+      blockers.push(
+        state?.savePhase === 'saving'
+          ? `Wait for ${busyTab.filePath} to finish saving before switching branches.`
+          : `Resolve the save conflict in ${busyTab.filePath} before switching branches.`,
+      )
+    }
+
+    return blockers
+  }
+
+  async function checkoutBranch(request: {
+    repoPath: string
+    targetKind: ProjectConversationWorkspaceBranchScope
+    targetName: string
+    createTrackingBranch: boolean
+    localBranchName?: string
+  }): Promise<{ ok: boolean; blockers: string[]; checkout?: ProjectConversationWorkspaceCheckoutResult }> {
+    const conversationId = input.getConversationId()
+    if (!conversationId || !request.repoPath) {
+      return { ok: false, blockers: ['Workspace conversation is unavailable.'] }
+    }
+
+    const blockers = checkoutBlockers(request.repoPath)
+    if (blockers.length > 0) {
+      return { ok: false, blockers }
+    }
+
+    const payload = await checkoutProjectConversationWorkspaceBranch(conversationId, {
+      repoPath: request.repoPath,
+      targetKind: request.targetKind,
+      targetName: request.targetName,
+      createTrackingBranch: request.createTrackingBranch,
+      localBranchName: request.localBranchName,
+      expectedCleanWorkspace: true,
+    })
+
+    await refreshWorkspace(true)
+    await refreshWorkspaceDiff()
+    await refreshRepoGitContext(request.repoPath)
+    return { ok: true, blockers: [], checkout: payload.checkout }
   }
 
   function remapTabPath(repoPath: string, fromPath: string, toPath: string) {
@@ -543,6 +706,14 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     return tab.filePath
   }
 
+  function selectGitCommit(commitId: string) {
+    selectedGitCommitID = commitId
+  }
+
+  function setDetailMode(mode: 'file' | 'git_graph') {
+    detailMode = mode
+  }
+
   function getSelectedFocusContext(): WorkspaceFocusContext | null {
     const editor = editorStore.selectedEditorState
     const activeTab = getActiveTab()
@@ -604,6 +775,30 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     get autosaveEnabled() {
       return autosaveEnabled
     },
+    get detailMode() {
+      return detailMode
+    },
+    get repoRefs() {
+      return repoRefs
+    },
+    get repoRefsLoading() {
+      return repoRefsLoading
+    },
+    get repoRefsError() {
+      return repoRefsError
+    },
+    get gitGraph() {
+      return gitGraph
+    },
+    get gitGraphLoading() {
+      return gitGraphLoading
+    },
+    get gitGraphError() {
+      return gitGraphError
+    },
+    get selectedGitCommit(): ProjectConversationWorkspaceGitGraphCommit | null {
+      return gitGraph?.commits.find((commit) => commit.commitId === selectedGitCommitID) ?? null
+    },
     get hasDirtyTabs() {
       return openTabs.some(
         (tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true,
@@ -640,9 +835,12 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     getEditorState: editorStore.getEditorState,
     reset,
     refreshWorkspace,
+    refreshRepoGitContext,
     toggleDir,
     openRepo,
     selectFile,
+    selectGitCommit,
+    setDetailMode,
     searchPaths,
     openTab,
     closeTab,
@@ -651,6 +849,8 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     createFile,
     renameFile,
     deleteFile,
+    checkoutBlockers,
+    checkoutBranch,
     setAutosaveEnabled,
     selectNextChangedFile,
     selectPreviousChangedFile,

@@ -17,8 +17,14 @@ export function workspaceFileDraftStorageKey(input: {
   conversationId: string
   repoPath: string
   filePath: string
+  refCacheKey?: string
 }) {
-  return [input.conversationId.trim(), input.repoPath.trim(), input.filePath.trim()].join('::')
+  return [
+    input.conversationId.trim(),
+    input.repoPath.trim(),
+    input.refCacheKey?.trim() ?? '',
+    input.filePath.trim(),
+  ].join('::')
 }
 
 function readDraftStorage(): DraftStorageShape {
