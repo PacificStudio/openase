@@ -3,7 +3,10 @@ import type { AgentProvider } from '$lib/api/contracts'
 import type { ProjectAIFocus } from './project-ai-focus'
 import { projectConversationHasPendingInterrupt } from './project-conversation-controller-helpers'
 import { createProjectConversationControllerOperations } from './project-conversation-controller-operations'
-import { createProjectConversationControllerActions } from './project-conversation-controller-actions'
+import {
+  createProjectConversationControllerActions,
+  sendNextQueuedProjectConversationTurn,
+} from './project-conversation-controller-actions'
 import {
   canQueueProjectConversationTurn,
   createProjectConversationTabState,
@@ -33,6 +36,8 @@ export function createProjectConversationController(
   let nextTabID = 0
   let nextQueuedTurnID = 0
   let snapshotNotificationQueued = false
+  let queuedTurnDispatchScheduled = false
+  const autoDispatchQueuedTurnIDByTab = new Map<string, string>()
 
   function touch() {
     revision += 1
@@ -52,6 +57,7 @@ export function createProjectConversationController(
           canQueueOnTab,
         }),
     })
+    scheduleQueuedTurnDispatch()
   }
 
   function newTabState(
@@ -155,6 +161,64 @@ export function createProjectConversationController(
     touch,
     operations,
   })
+
+  function scheduleQueuedTurnDispatch() {
+    if (queuedTurnDispatchScheduled) {
+      return
+    }
+
+    queuedTurnDispatchScheduled = true
+    queueMicrotask(() => {
+      queuedTurnDispatchScheduled = false
+
+      for (const tab of tabs) {
+        const nextQueuedTurnId = tab.queuedTurns[0]?.id ?? ''
+        const shouldAutoDispatch =
+          !!nextQueuedTurnId &&
+          !!tab.projectId &&
+          !!tab.providerId &&
+          tab.phase === 'idle' &&
+          !projectConversationHasPendingInterrupt(tab.entries)
+
+        if (!shouldAutoDispatch) {
+          autoDispatchQueuedTurnIDByTab.delete(tab.id)
+          continue
+        }
+
+        if (autoDispatchQueuedTurnIDByTab.get(tab.id) === nextQueuedTurnId) {
+          continue
+        }
+
+        autoDispatchQueuedTurnIDByTab.set(tab.id, nextQueuedTurnId)
+        queueMicrotask(() => {
+          const liveTab = tabs.find((item) => item.id === tab.id) ?? null
+          if (
+            !liveTab ||
+            liveTab.phase !== 'idle' ||
+            projectConversationHasPendingInterrupt(liveTab.entries) ||
+            (liveTab.queuedTurns[0]?.id ?? '') !== nextQueuedTurnId
+          ) {
+            if (autoDispatchQueuedTurnIDByTab.get(tab.id) === nextQueuedTurnId) {
+              autoDispatchQueuedTurnIDByTab.delete(tab.id)
+            }
+            return
+          }
+
+          void sendNextQueuedProjectConversationTurn({
+            tab: liveTab,
+            sendTurnInTab: operations.sendTurnInTab,
+          }).then((sent) => {
+            if (autoDispatchQueuedTurnIDByTab.get(tab.id) === nextQueuedTurnId) {
+              autoDispatchQueuedTurnIDByTab.delete(tab.id)
+            }
+            if (sent) {
+              touch()
+            }
+          })
+        })
+      }
+    })
+  }
 
   ensureTabExists()
 
