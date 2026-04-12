@@ -597,11 +597,14 @@ export interface paths {
     get: operations['getProjectConversationWorkspaceFile']
     /** Save one project conversation workspace file */
     put: operations['saveProjectConversationWorkspaceFile']
-    post?: never
-    delete?: never
+    /** Create one project conversation workspace file */
+    post: operations['createProjectConversationWorkspaceFile']
+    /** Delete one project conversation workspace file */
+    delete: operations['deleteProjectConversationWorkspaceFile']
     options?: never
     head?: never
-    patch?: never
+    /** Rename one project conversation workspace file */
+    patch: operations['renameProjectConversationWorkspaceFile']
     trace?: never
   }
   '/api/v1/chat/conversations/{conversationId}/workspace/file-patch': {
@@ -613,6 +616,23 @@ export interface paths {
     }
     /** Read one project conversation workspace file diff */
     get: operations['getProjectConversationWorkspaceFilePatch']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/search': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Search project conversation workspace file paths within one repo */
+    get: operations['searchProjectConversationWorkspacePaths']
     put?: never
     post?: never
     delete?: never
@@ -6652,6 +6672,311 @@ export interface operations {
       }
     }
   }
+  createProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Create one project conversation workspace file request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Repo-relative file path to create inside the conversation workspace. Missing parent directories are created safely within the repo root. */
+          path?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create one project conversation workspace file response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file?: {
+              conversation_id?: string
+              encoding?: string
+              line_ending?: string
+              path?: string
+              repo_path?: string
+              revision?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Delete one project conversation workspace file request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Repo-relative existing file path to delete from the conversation workspace. */
+          path?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Delete one project conversation workspace file response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file?: {
+              conversation_id?: string
+              path?: string
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  renameProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Rename one project conversation workspace file request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Repo-relative existing file path to rename. */
+          from_path?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+          /** @description Repo-relative destination file path. Missing parent directories are created safely within the repo root. */
+          to_path?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rename one project conversation workspace file response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file?: {
+              conversation_id?: string
+              from_path?: string
+              repo_path?: string
+              to_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getProjectConversationWorkspaceFilePatch: {
     parameters: {
       query?: {
@@ -6683,6 +7008,107 @@ export interface operations {
               path?: string
               repo_path?: string
               status?: string
+              truncated?: boolean
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  searchProjectConversationWorkspacePaths: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Case-insensitive substring to match against repo-relative file paths. */
+        q?: string
+        /** @description Optional maximum number of matches to return. Defaults to 20 and is capped at 100. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Search project conversation workspace file paths within one repo response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workspace_search?: {
+              conversation_id?: string
+              query?: string
+              repo_path?: string
+              results?: {
+                name?: string
+                path?: string
+              }[]
               truncated?: boolean
             }
           }

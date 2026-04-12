@@ -1,9 +1,16 @@
+/* eslint-disable max-lines */
 import {
+  createProjectConversationWorkspaceFile,
+  deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
   listProjectConversationWorkspaceTree,
+  renameProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
+  type ChatDiffPayload,
   type ProjectConversationWorkspaceDiff,
   type ProjectConversationWorkspaceMetadata,
+  type ProjectConversationWorkspaceSearchResult,
   type ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
 import { createWorkspaceFileEditorStore } from './project-conversation-workspace-file-editor-state.svelte'
@@ -16,7 +23,10 @@ import {
   areWorkspaceMetadataEqual,
   deleteTabFileStateMap,
   patchTabFileStateMap,
+  pushRecentFile,
   workspaceTabKey,
+  type WorkspaceFocusContext,
+  type WorkspaceRecentFile,
   type WorkspaceTab,
   type WorkspaceTabFileState,
 } from './project-conversation-workspace-browser-state-helpers'
@@ -27,8 +37,25 @@ export type {
 } from './project-conversation-workspace-browser-state-helpers'
 export { workspaceTabKey } from './project-conversation-workspace-browser-state-helpers'
 
+const WORKSPACE_AUTOSAVE_STORAGE_KEY = 'openase.project-conversation.workspace-autosave'
+
+function readWorkspaceAutosavePreference() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+  return window.localStorage.getItem(WORKSPACE_AUTOSAVE_STORAGE_KEY) === 'true'
+}
+
+function storeWorkspaceAutosavePreference(enabled: boolean) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.localStorage.setItem(WORKSPACE_AUTOSAVE_STORAGE_KEY, enabled ? 'true' : 'false')
+}
+
 export function createProjectConversationWorkspaceBrowserState(input: {
   getConversationId: () => string
+  getWorkspaceDiff?: () => ProjectConversationWorkspaceDiff | null
   onWorkspaceDiffUpdated?: (workspaceDiff: ProjectConversationWorkspaceDiff | null) => void
 }) {
   let metadata = $state<ProjectConversationWorkspaceMetadata | null>(null)
@@ -39,13 +66,12 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   let expandedDirs = $state<Set<string>>(new Set())
   let loadingDirs = $state<Set<string>>(new Set())
 
-  // Tab state. `treeRepoPath` is the repo whose tree the sidebar is currently
-  // showing — it is independent from the active tab so the user can browse one
-  // repo while a tab from another repo is focused.
   let openTabs = $state<WorkspaceTab[]>([])
   let activeTabKey = $state('')
   let tabFileStates = $state<Map<string, WorkspaceTabFileState>>(new Map())
   let treeRepoPath = $state('')
+  let recentFiles = $state<WorkspaceRecentFile[]>([])
+  let autosaveEnabled = $state(readWorkspaceAutosavePreference())
   let loadRequestID = 0
 
   function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
@@ -92,11 +118,9 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     expandedDirs = nextExpandedDirs
   }
 
-  // ─────────────────────────── tab helpers ──────────────────────────────────
-
   function getActiveTab(): WorkspaceTab | null {
     if (!activeTabKey) return null
-    return openTabs.find((t) => workspaceTabKey(t) === activeTabKey) ?? null
+    return openTabs.find((tab) => workspaceTabKey(tab) === activeTabKey) ?? null
   }
 
   function getActiveTabFileState(): WorkspaceTabFileState {
@@ -107,11 +131,18 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     tabFileStates = patchTabFileStateMap(tabFileStates, key, patch)
   }
 
+  function touchRecentFile(repoPath: string, filePath: string) {
+    recentFiles = pushRecentFile(recentFiles, { repoPath, filePath })
+  }
+
   function activateTabKey(key: string) {
     if (activeTabKey === key) return
     activeTabKey = key
     const tab = getActiveTab()
-    if (tab) treeRepoPath = tab.repoPath
+    if (tab) {
+      treeRepoPath = tab.repoPath
+      touchRecentFile(tab.repoPath, tab.filePath)
+    }
   }
 
   function openTab(repoPath: string, filePath: string) {
@@ -120,8 +151,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     openTabs = next.openTabs
     activeTabKey = next.activeTabKey
     treeRepoPath = next.treeRepoPath
-    // Load file content lazily — only fetch if the tab doesn't already have a
-    // preview cached. (Reloads after save go through reloadFile directly.)
+    touchRecentFile(repoPath, filePath)
     const cached = tabFileStates.get(next.activeTabKey)
     if (!cached || !cached.preview) {
       void loadFile(repoPath, filePath, { silent: cached?.preview != null })
@@ -142,15 +172,14 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     openTabs = []
     activeTabKey = ''
     tabFileStates = new Map()
+    recentFiles = []
   }
 
   function activateTab(repoPath: string, filePath: string) {
     const key = workspaceTabKey({ repoPath, filePath })
-    if (!openTabs.some((t) => workspaceTabKey(t) === key)) return
+    if (!openTabs.some((tab) => workspaceTabKey(tab) === key)) return
     activateTabKey(key)
   }
-
-  // ──────────────────────────── data loading ────────────────────────────────
 
   async function refreshWorkspaceDiff() {
     const conversationId = input.getConversationId()
@@ -179,6 +208,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       }
     },
     refreshWorkspaceDiff,
+    getAutosaveEnabled: () => autosaveEnabled,
   })
 
   function reset() {
@@ -245,7 +275,6 @@ export function createProjectConversationWorkspaceBrowserState(input: {
         )
       }
 
-      // Refresh open tabs' file content silently after a workspace refresh.
       if (preserveSelection && openTabs.length > 0) {
         await Promise.all(
           openTabs.map((tab) => loadFile(tab.repoPath, tab.filePath, { silent: true })),
@@ -356,7 +385,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     return loadWorkspaceFile(
       {
         getConversationId: input.getConversationId,
-        hasOpenTab: (key) => openTabs.some((t) => workspaceTabKey(t) === key),
+        hasOpenTab: (key) => openTabs.some((tab) => workspaceTabKey(tab) === key),
         getCurrentLoading: (key) => tabFileStates.get(key)?.loading ?? false,
         patchTabFileState,
         syncEditorFromPreview: editorStore.syncFromPreview,
@@ -391,14 +420,154 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     openTab(repoPath, path)
   }
 
-  // Active-file projections kept for backwards compatibility with the rest of
-  // the workspace browser plumbing. Sidebar highlights the active file only
-  // when it lives in the currently browsed repo, matching VS Code's "explorer
-  // follows current tab" feel.
+  async function createFile(path: string) {
+    const conversationId = input.getConversationId()
+    const repoPath = treeRepoPath
+    if (!conversationId || !repoPath || !path) {
+      return false
+    }
+    await createProjectConversationWorkspaceFile(conversationId, { repoPath, path })
+    await refreshWorkspace(true)
+    selectFile(path)
+    return true
+  }
+
+  async function searchPaths(
+    query: string,
+    limit = 20,
+  ): Promise<ProjectConversationWorkspaceSearchResult[]> {
+    const conversationId = input.getConversationId()
+    const repoPath = treeRepoPath
+    const trimmedQuery = query.trim()
+    if (!conversationId || !repoPath || !trimmedQuery) {
+      return []
+    }
+    const payload = await searchProjectConversationWorkspacePaths(conversationId, {
+      repoPath,
+      query: trimmedQuery,
+      limit,
+    })
+    return payload.workspaceSearch.results
+  }
+
+  function remapTabPath(repoPath: string, fromPath: string, toPath: string) {
+    const fromKey = workspaceTabKey({ repoPath, filePath: fromPath })
+    const toKey = workspaceTabKey({ repoPath, filePath: toPath })
+    openTabs = openTabs.map((tab) =>
+      tab.repoPath === repoPath && tab.filePath === fromPath ? { repoPath, filePath: toPath } : tab,
+    )
+    const nextTabStates = new Map(tabFileStates)
+    const existing = nextTabStates.get(fromKey)
+    if (existing) {
+      nextTabStates.delete(fromKey)
+      nextTabStates.set(toKey, {
+        ...existing,
+        preview: existing.preview ? { ...existing.preview, path: toPath } : existing.preview,
+        patch: existing.patch ? { ...existing.patch, path: toPath } : existing.patch,
+      })
+    }
+    tabFileStates = nextTabStates
+    if (activeTabKey === fromKey) {
+      activeTabKey = toKey
+    }
+    recentFiles = recentFiles.map((item) =>
+      item.repoPath === repoPath && item.filePath === fromPath
+        ? { repoPath, filePath: toPath }
+        : item,
+    )
+    editorStore.renameFileState(repoPath, fromPath, toPath)
+  }
+
+  async function renameFile(fromPath: string, toPath: string) {
+    const conversationId = input.getConversationId()
+    const repoPath = treeRepoPath
+    if (!conversationId || !repoPath || !fromPath || !toPath) {
+      return false
+    }
+    await renameProjectConversationWorkspaceFile(conversationId, { repoPath, fromPath, toPath })
+    remapTabPath(repoPath, fromPath, toPath)
+    await refreshWorkspace(true)
+    activateTab(repoPath, toPath)
+    if (activeTabKey === workspaceTabKey({ repoPath, filePath: toPath })) {
+      await loadFile(repoPath, toPath, { silent: true })
+    }
+    return true
+  }
+
+  async function deleteFile(path: string) {
+    const conversationId = input.getConversationId()
+    const repoPath = treeRepoPath
+    if (!conversationId || !repoPath || !path) {
+      return false
+    }
+    await deleteProjectConversationWorkspaceFile(conversationId, { repoPath, path })
+    editorStore.discardDraft(repoPath, path)
+    closeTab(repoPath, path)
+    await refreshWorkspace(true)
+    return true
+  }
+
+  function setAutosaveEnabled(enabled: boolean) {
+    autosaveEnabled = enabled
+    storeWorkspaceAutosavePreference(enabled)
+  }
+
+  function selectedChangedFiles() {
+    const diff = input.getWorkspaceDiff?.()
+    return diff?.repos.find((repo) => repo.path === treeRepoPath)?.files ?? []
+  }
+
+  function selectRelativeChangedFile(offset: 1 | -1) {
+    const files = selectedChangedFiles()
+    if (files.length === 0) {
+      return
+    }
+    const currentPath = activeFilePath()
+    const currentIndex = files.findIndex((file) => file.path === currentPath)
+    const baseIndex = currentIndex === -1 ? (offset === 1 ? -1 : 0) : currentIndex
+    const nextIndex = (baseIndex + offset + files.length) % files.length
+    selectFile(files[nextIndex]?.path ?? files[0].path)
+  }
+
+  function selectNextChangedFile() {
+    selectRelativeChangedFile(1)
+  }
+
+  function selectPreviousChangedFile() {
+    selectRelativeChangedFile(-1)
+  }
+
   function activeFilePath(): string {
     const tab = getActiveTab()
     if (!tab || tab.repoPath !== treeRepoPath) return ''
     return tab.filePath
+  }
+
+  function getSelectedFocusContext(): WorkspaceFocusContext | null {
+    const editor = editorStore.selectedEditorState
+    const activeTab = getActiveTab()
+    if (!editor || !activeTab) {
+      return null
+    }
+    return {
+      selectedArea: editor.selection ? 'selection' : 'edit',
+      selection: editor.selection,
+      workingSet: editorStore.buildWorkingSet(recentFiles),
+    }
+  }
+
+  async function reviewPatch(diff: ChatDiffPayload, options: { autoApply?: boolean } = {}) {
+    const repoPath = treeRepoPath
+    if (!repoPath || !diff.file) {
+      return false
+    }
+    openTab(repoPath, diff.file)
+    await loadFile(repoPath, diff.file, { silent: true })
+    const ok = editorStore.reviewPatch(repoPath, diff.file, diff)
+    if (ok && options.autoApply) {
+      return editorStore.applyPendingPatch(repoPath, diff.file)
+    }
+    return ok
   }
 
   return {
@@ -429,6 +598,12 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     get tabFileStates() {
       return tabFileStates
     },
+    get recentFiles() {
+      return recentFiles
+    },
+    get autosaveEnabled() {
+      return autosaveEnabled
+    },
     get hasDirtyTabs() {
       return openTabs.some(
         (tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true,
@@ -458,17 +633,34 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     get selectedDraftLineDiff() {
       return editorStore.selectedDraftLineDiff
     },
+    get selectedChangedFiles() {
+      return selectedChangedFiles()
+    },
+    getSelectedFocusContext,
     getEditorState: editorStore.getEditorState,
     reset,
     refreshWorkspace,
     toggleDir,
     openRepo,
     selectFile,
+    searchPaths,
     openTab,
     closeTab,
     closeAllTabs,
     activateTab,
+    createFile,
+    renameFile,
+    deleteFile,
+    setAutosaveEnabled,
+    selectNextChangedFile,
+    selectPreviousChangedFile,
+    reviewPatch,
+    applySelectedPendingPatch: () => editorStore.applyPendingPatch(treeRepoPath, activeFilePath()),
+    discardSelectedPendingPatch: editorStore.discardPendingPatch,
     updateSelectedDraft: editorStore.updateSelectedDraft,
+    updateSelectedSelection: editorStore.updateSelectedSelection,
+    formatSelectedDocument: editorStore.formatSelectedDocument,
+    formatSelectedSelection: editorStore.formatSelectedSelection,
     revertSelectedDraft: editorStore.revertSelectedDraft,
     keepSelectedDraft: editorStore.keepSelectedDraft,
     reloadSelectedSavedVersion: editorStore.reloadSelectedSavedVersion,

@@ -5184,8 +5184,10 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 			{
 				name: "backend",
 				files: map[string]string{
-					"README.md":  "line one\nline two\n",
-					"src/app.ts": "export const app = 1\n",
+					"README.md":       "line one\nline two\n",
+					"docs/app.md":     "# app docs\n",
+					"src/app.ts":      "export const app = 1\n",
+					"src/app.test.ts": "export const appTest = 1\n",
 				},
 			},
 		})
@@ -5235,10 +5237,10 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListWorkspaceTree(root) error = %v", err)
 		}
-		if len(rootTree.Entries) != 3 {
-			t.Fatalf("expected three root entries, got %+v", rootTree.Entries)
+		if len(rootTree.Entries) != 4 {
+			t.Fatalf("expected four root entries, got %+v", rootTree.Entries)
 		}
-		if rootTree.Entries[0].Name != "src" || rootTree.Entries[0].Kind != ProjectConversationWorkspaceTreeEntryKindDirectory {
+		if rootTree.Entries[0].Name != "docs" || rootTree.Entries[0].Kind != ProjectConversationWorkspaceTreeEntryKindDirectory {
 			t.Fatalf("expected directory-first ordering, got %+v", rootTree.Entries)
 		}
 
@@ -5252,8 +5254,28 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListWorkspaceTree(src) error = %v", err)
 		}
-		if len(srcTree.Entries) != 1 || srcTree.Entries[0].Path != "src/app.ts" {
+		if len(srcTree.Entries) != 2 || srcTree.Entries[0].Path != "src/app.test.ts" || srcTree.Entries[1].Path != "src/app.ts" {
 			t.Fatalf("unexpected src tree: %+v", srcTree.Entries)
+		}
+
+		search, err := fixture.service.SearchWorkspacePaths(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			repo.Path,
+			"app",
+			2,
+		)
+		if err != nil {
+			t.Fatalf("SearchWorkspacePaths() error = %v", err)
+		}
+		if !search.Truncated {
+			t.Fatalf("expected truncated search results, got %+v", search)
+		}
+		if len(search.Results) != 2 ||
+			search.Results[0].Path != "docs/app.md" ||
+			search.Results[1].Path != "src/app.test.ts" {
+			t.Fatalf("unexpected workspace search results: %+v", search.Results)
 		}
 
 		preview, err := fixture.service.ReadWorkspaceFilePreview(
@@ -5326,6 +5348,18 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 			t.Fatalf("ListWorkspaceTree(escape) error = %v, want ErrProjectConversationWorkspacePathInvalid", err)
 		}
 
+		_, err = fixture.service.SearchWorkspacePaths(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			"backend",
+			"   ",
+			20,
+		)
+		if !errors.Is(err, ErrProjectConversationWorkspacePathInvalid) {
+			t.Fatalf("SearchWorkspacePaths(empty query) error = %v, want ErrProjectConversationWorkspacePathInvalid", err)
+		}
+
 		_, err = fixture.service.ReadWorkspaceFilePreview(
 			fixture.ctx,
 			UserID("user:conversation"),
@@ -5346,6 +5380,78 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 		)
 		if !errors.Is(err, ErrProjectConversationWorkspacePathInvalid) {
 			t.Fatalf("ReadWorkspaceFilePreview(symlink escape) error = %v, want ErrProjectConversationWorkspacePathInvalid", err)
+		}
+	})
+
+	t.Run("creates renames and deletes workspace files safely", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\n"},
+			},
+		})
+
+		created, err := fixture.service.CreateWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceFileCreateInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				Path:     WorkspaceCreatableFilePath("notes/todo.md"),
+			},
+		)
+		if err != nil {
+			t.Fatalf("CreateWorkspaceFile() error = %v", err)
+		}
+		if created.Path != "notes/todo.md" || created.SizeBytes != 0 || created.Revision == "" {
+			t.Fatalf("unexpected created file = %+v", created)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "todo.md")); err != nil {
+			t.Fatalf("stat created file: %v", err)
+		}
+
+		renamed, err := fixture.service.RenameWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceFileRenameInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				FromPath: WorkspaceRenamableFilePath("notes/todo.md"),
+				ToPath:   WorkspaceCreatableFilePath("notes/archive/todo-renamed.md"),
+			},
+		)
+		if err != nil {
+			t.Fatalf("RenameWorkspaceFile() error = %v", err)
+		}
+		if renamed.FromPath != "notes/todo.md" || renamed.ToPath != "notes/archive/todo-renamed.md" {
+			t.Fatalf("unexpected renamed file = %+v", renamed)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "archive", "todo-renamed.md")); err != nil {
+			t.Fatalf("stat renamed file: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "todo.md")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected old path removed after rename, got %v", err)
+		}
+
+		deleted, err := fixture.service.DeleteWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceFileDeleteInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				Path:     WorkspaceDeleteableFilePath("notes/archive/todo-renamed.md"),
+			},
+		)
+		if err != nil {
+			t.Fatalf("DeleteWorkspaceFile() error = %v", err)
+		}
+		if deleted.Path != "notes/archive/todo-renamed.md" {
+			t.Fatalf("unexpected deleted file = %+v", deleted)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "archive", "todo-renamed.md")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected file removed after delete, got %v", err)
 		}
 	})
 

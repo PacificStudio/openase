@@ -8,42 +8,60 @@ import (
 )
 
 type RawProjectConversationFocus struct {
-	Kind                 string                                     `json:"kind"`
-	ConversationID       *string                                    `json:"conversation_id"`
-	WorkflowID           *string                                    `json:"workflow_id"`
-	WorkflowName         *string                                    `json:"workflow_name"`
-	WorkflowType         *string                                    `json:"workflow_type"`
-	HarnessPath          *string                                    `json:"harness_path"`
-	IsActive             *bool                                      `json:"is_active"`
-	SelectedArea         *string                                    `json:"selected_area"`
-	HasDirtyDraft        *bool                                      `json:"has_dirty_draft"`
-	SkillID              *string                                    `json:"skill_id"`
-	SkillName            *string                                    `json:"skill_name"`
-	SelectedFilePath     *string                                    `json:"selected_file_path"`
-	BoundWorkflowNames   []string                                   `json:"bound_workflow_names"`
-	TicketID             *string                                    `json:"ticket_id"`
-	TicketIdentifier     *string                                    `json:"ticket_identifier"`
-	TicketTitle          *string                                    `json:"ticket_title"`
-	TicketDescription    *string                                    `json:"ticket_description"`
-	TicketStatus         *string                                    `json:"ticket_status"`
-	TicketPriority       *string                                    `json:"ticket_priority"`
-	TicketAttemptCount   *int                                       `json:"ticket_attempt_count"`
-	TicketRetryPaused    *bool                                      `json:"ticket_retry_paused"`
-	TicketPauseReason    *string                                    `json:"ticket_pause_reason"`
-	TicketDependencies   []RawProjectConversationTicketDependency   `json:"ticket_dependencies"`
-	TicketRepoScopes     []RawProjectConversationTicketRepoScope    `json:"ticket_repo_scopes"`
-	TicketRecentActivity []RawProjectConversationTicketActivity     `json:"ticket_recent_activity"`
-	TicketHookHistory    []RawProjectConversationTicketHook         `json:"ticket_hook_history"`
-	TicketAssignedAgent  *RawProjectConversationTicketAssignedAgent `json:"ticket_assigned_agent"`
-	TicketCurrentRun     *RawProjectConversationTicketRun           `json:"ticket_current_run"`
-	TicketTargetMachine  *RawProjectConversationTicketTargetMachine `json:"ticket_target_machine"`
-	MachineID            *string                                    `json:"machine_id"`
-	MachineName          *string                                    `json:"machine_name"`
-	MachineHost          *string                                    `json:"machine_host"`
-	MachineStatus        *string                                    `json:"machine_status"`
-	HealthSummary        *string                                    `json:"health_summary"`
-	WorkspaceRepoPath    *string                                    `json:"workspace_repo_path"`
-	WorkspaceFilePath    *string                                    `json:"workspace_file_path"`
+	Kind                            string                                      `json:"kind"`
+	ConversationID                  *string                                     `json:"conversation_id"`
+	WorkflowID                      *string                                     `json:"workflow_id"`
+	WorkflowName                    *string                                     `json:"workflow_name"`
+	WorkflowType                    *string                                     `json:"workflow_type"`
+	HarnessPath                     *string                                     `json:"harness_path"`
+	IsActive                        *bool                                       `json:"is_active"`
+	SelectedArea                    *string                                     `json:"selected_area"`
+	HasDirtyDraft                   *bool                                       `json:"has_dirty_draft"`
+	SkillID                         *string                                     `json:"skill_id"`
+	SkillName                       *string                                     `json:"skill_name"`
+	SelectedFilePath                *string                                     `json:"selected_file_path"`
+	BoundWorkflowNames              []string                                    `json:"bound_workflow_names"`
+	TicketID                        *string                                     `json:"ticket_id"`
+	TicketIdentifier                *string                                     `json:"ticket_identifier"`
+	TicketTitle                     *string                                     `json:"ticket_title"`
+	TicketDescription               *string                                     `json:"ticket_description"`
+	TicketStatus                    *string                                     `json:"ticket_status"`
+	TicketPriority                  *string                                     `json:"ticket_priority"`
+	TicketAttemptCount              *int                                        `json:"ticket_attempt_count"`
+	TicketRetryPaused               *bool                                       `json:"ticket_retry_paused"`
+	TicketPauseReason               *string                                     `json:"ticket_pause_reason"`
+	TicketDependencies              []RawProjectConversationTicketDependency    `json:"ticket_dependencies"`
+	TicketRepoScopes                []RawProjectConversationTicketRepoScope     `json:"ticket_repo_scopes"`
+	TicketRecentActivity            []RawProjectConversationTicketActivity      `json:"ticket_recent_activity"`
+	TicketHookHistory               []RawProjectConversationTicketHook          `json:"ticket_hook_history"`
+	TicketAssignedAgent             *RawProjectConversationTicketAssignedAgent  `json:"ticket_assigned_agent"`
+	TicketCurrentRun                *RawProjectConversationTicketRun            `json:"ticket_current_run"`
+	TicketTargetMachine             *RawProjectConversationTicketTargetMachine  `json:"ticket_target_machine"`
+	MachineID                       *string                                     `json:"machine_id"`
+	MachineName                     *string                                     `json:"machine_name"`
+	MachineHost                     *string                                     `json:"machine_host"`
+	MachineStatus                   *string                                     `json:"machine_status"`
+	HealthSummary                   *string                                     `json:"health_summary"`
+	WorkspaceRepoPath               *string                                     `json:"workspace_repo_path"`
+	WorkspaceFilePath               *string                                     `json:"workspace_file_path"`
+	WorkspaceSelectionFrom          *int                                        `json:"workspace_selection_from"`
+	WorkspaceSelectionTo            *int                                        `json:"workspace_selection_to"`
+	WorkspaceSelectionStartLine     *int                                        `json:"workspace_selection_start_line"`
+	WorkspaceSelectionStartColumn   *int                                        `json:"workspace_selection_start_column"`
+	WorkspaceSelectionEndLine       *int                                        `json:"workspace_selection_end_line"`
+	WorkspaceSelectionEndColumn     *int                                        `json:"workspace_selection_end_column"`
+	WorkspaceSelectionText          *string                                     `json:"workspace_selection_text"`
+	WorkspaceSelectionContextBefore *string                                     `json:"workspace_selection_context_before"`
+	WorkspaceSelectionContextAfter  *string                                     `json:"workspace_selection_context_after"`
+	WorkspaceSelectionTruncated     *bool                                       `json:"workspace_selection_truncated"`
+	WorkspaceWorkingSet             []RawProjectConversationWorkspaceWorkingSet `json:"workspace_working_set"`
+}
+
+type RawProjectConversationWorkspaceWorkingSet struct {
+	FilePath       *string `json:"file_path"`
+	ContentExcerpt *string `json:"content_excerpt"`
+	Dirty          *bool   `json:"dirty"`
+	Truncated      *bool   `json:"truncated"`
 }
 
 type RawProjectConversationTicketDependency struct {
@@ -218,6 +236,28 @@ type ProjectConversationWorkspaceFocus struct {
 	FilePath       string
 	SelectedArea   string
 	HasDirtyDraft  bool
+	Selection      *ProjectConversationWorkspaceSelection
+	WorkingSet     []ProjectConversationWorkspaceWorkingSet
+}
+
+type ProjectConversationWorkspaceSelection struct {
+	From          int
+	To            int
+	StartLine     int
+	StartColumn   int
+	EndLine       int
+	EndColumn     int
+	Text          string
+	ContextBefore string
+	ContextAfter  string
+	Truncated     bool
+}
+
+type ProjectConversationWorkspaceWorkingSet struct {
+	FilePath       string
+	ContentExcerpt string
+	Dirty          bool
+	Truncated      bool
 }
 
 func ParseProjectConversationFocus(raw *RawProjectConversationFocus) (*ProjectConversationFocus, error) {
@@ -366,6 +406,8 @@ func ParseProjectConversationFocus(raw *RawProjectConversationFocus) (*ProjectCo
 				FilePath:       filePath,
 				SelectedArea:   trimOptionalFocusString(raw.SelectedArea),
 				HasDirtyDraft:  boolPointerValue(raw.HasDirtyDraft),
+				Selection:      parseWorkspaceSelection(raw),
+				WorkingSet:     parseWorkspaceWorkingSet(raw.WorkspaceWorkingSet),
 			},
 		}, nil
 	default:
@@ -553,4 +595,40 @@ func parseTicketFocusTargetMachine(raw *RawProjectConversationTicketTargetMachin
 		return nil
 	}
 	return item
+}
+
+func parseWorkspaceSelection(raw *RawProjectConversationFocus) *ProjectConversationWorkspaceSelection {
+	if raw == nil || raw.WorkspaceSelectionFrom == nil || raw.WorkspaceSelectionTo == nil {
+		return nil
+	}
+	return &ProjectConversationWorkspaceSelection{
+		From:          intPointerValue(raw.WorkspaceSelectionFrom),
+		To:            intPointerValue(raw.WorkspaceSelectionTo),
+		StartLine:     intPointerValue(raw.WorkspaceSelectionStartLine),
+		StartColumn:   intPointerValue(raw.WorkspaceSelectionStartColumn),
+		EndLine:       intPointerValue(raw.WorkspaceSelectionEndLine),
+		EndColumn:     intPointerValue(raw.WorkspaceSelectionEndColumn),
+		Text:          trimOptionalFocusString(raw.WorkspaceSelectionText),
+		ContextBefore: trimOptionalFocusString(raw.WorkspaceSelectionContextBefore),
+		ContextAfter:  trimOptionalFocusString(raw.WorkspaceSelectionContextAfter),
+		Truncated:     boolPointerValue(raw.WorkspaceSelectionTruncated),
+	}
+}
+
+func parseWorkspaceWorkingSet(raw []RawProjectConversationWorkspaceWorkingSet) []ProjectConversationWorkspaceWorkingSet {
+	items := make([]ProjectConversationWorkspaceWorkingSet, 0, len(raw))
+	for _, item := range raw {
+		filePath := trimOptionalFocusString(item.FilePath)
+		contentExcerpt := trimOptionalFocusString(item.ContentExcerpt)
+		if filePath == "" || contentExcerpt == "" {
+			continue
+		}
+		items = append(items, ProjectConversationWorkspaceWorkingSet{
+			FilePath:       filePath,
+			ContentExcerpt: contentExcerpt,
+			Dirty:          boolPointerValue(item.Dirty),
+			Truncated:      boolPointerValue(item.Truncated),
+		})
+	}
+	return items
 }

@@ -25,6 +25,18 @@ type WorkspaceFilePath string
 
 func (p WorkspaceFilePath) String() string { return string(p) }
 
+type WorkspaceCreatableFilePath string
+
+func (p WorkspaceCreatableFilePath) String() string { return string(p) }
+
+type WorkspaceRenamableFilePath string
+
+func (p WorkspaceRenamableFilePath) String() string { return string(p) }
+
+type WorkspaceDeleteableFilePath string
+
+func (p WorkspaceDeleteableFilePath) String() string { return string(p) }
+
 type WorkspaceFileRevision string
 
 func (r WorkspaceFileRevision) String() string { return string(r) }
@@ -75,6 +87,22 @@ type ProjectConversationWorkspaceFileDraftContext struct {
 	LineEnding WorkspaceLineEnding
 }
 
+type ProjectConversationWorkspaceFileCreateInput struct {
+	RepoPath WorkspaceRepoPath
+	Path     WorkspaceCreatableFilePath
+}
+
+type ProjectConversationWorkspaceFileRenameInput struct {
+	RepoPath WorkspaceRepoPath
+	FromPath WorkspaceRenamableFilePath
+	ToPath   WorkspaceCreatableFilePath
+}
+
+type ProjectConversationWorkspaceFileDeleteInput struct {
+	RepoPath WorkspaceRepoPath
+	Path     WorkspaceDeleteableFilePath
+}
+
 type ProjectConversationWorkspaceFileSaved struct {
 	ConversationID uuid.UUID
 	RepoPath       string
@@ -83,6 +111,29 @@ type ProjectConversationWorkspaceFileSaved struct {
 	SizeBytes      int64
 	Encoding       string
 	LineEnding     string
+}
+
+type ProjectConversationWorkspaceFileCreated struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Path           string
+	Revision       string
+	SizeBytes      int64
+	Encoding       string
+	LineEnding     string
+}
+
+type ProjectConversationWorkspaceFileRenamed struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	FromPath       string
+	ToPath         string
+}
+
+type ProjectConversationWorkspaceFileDeleted struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Path           string
 }
 
 type ProjectConversationWorkspaceFileConflictError struct {
@@ -124,6 +175,30 @@ func ParseWorkspaceFilePath(raw string) (WorkspaceFilePath, error) {
 		return "", err
 	}
 	return WorkspaceFilePath(parsed), nil
+}
+
+func ParseWorkspaceCreatableFilePath(raw string) (WorkspaceCreatableFilePath, error) {
+	parsed, err := parseProjectConversationWorkspaceRelativePath(raw, false)
+	if err != nil {
+		return "", err
+	}
+	return WorkspaceCreatableFilePath(parsed), nil
+}
+
+func ParseWorkspaceRenamableFilePath(raw string) (WorkspaceRenamableFilePath, error) {
+	parsed, err := parseProjectConversationWorkspaceRelativePath(raw, false)
+	if err != nil {
+		return "", err
+	}
+	return WorkspaceRenamableFilePath(parsed), nil
+}
+
+func ParseWorkspaceDeleteableFilePath(raw string) (WorkspaceDeleteableFilePath, error) {
+	parsed, err := parseProjectConversationWorkspaceRelativePath(raw, false)
+	if err != nil {
+		return "", err
+	}
+	return WorkspaceDeleteableFilePath(parsed), nil
 }
 
 func ParseWorkspaceFileRevision(raw string) (WorkspaceFileRevision, error) {
@@ -246,6 +321,252 @@ func (s *ProjectConversationService) SaveWorkspaceFile(
 		Encoding:       input.Encoding.String(),
 		LineEnding:     input.LineEnding.String(),
 	}, nil
+}
+
+func (s *ProjectConversationService) CreateWorkspaceFile(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceFileCreateInput,
+) (ProjectConversationWorkspaceFileCreated, error) {
+	resolved, relativePath, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		input.Path.String(),
+		false,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceFileCreated{}, err
+	}
+
+	revision, sizeBytes, err := s.createConversationWorkspaceFile(
+		ctx,
+		resolved.machine,
+		resolved.repo.repoPath,
+		relativePath,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceFileCreated{}, err
+	}
+
+	return ProjectConversationWorkspaceFileCreated{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Path:           relativePath,
+		Revision:       revision.String(),
+		SizeBytes:      sizeBytes,
+		Encoding:       WorkspaceEncodingUTF8.String(),
+		LineEnding:     WorkspaceLineEndingLF.String(),
+	}, nil
+}
+
+func (s *ProjectConversationService) RenameWorkspaceFile(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceFileRenameInput,
+) (ProjectConversationWorkspaceFileRenamed, error) {
+	resolved, fromPath, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		input.FromPath.String(),
+		false,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceFileRenamed{}, err
+	}
+	toPath, err := parseProjectConversationWorkspaceRelativePath(input.ToPath.String(), false)
+	if err != nil {
+		return ProjectConversationWorkspaceFileRenamed{}, err
+	}
+	if fromPath == toPath {
+		return ProjectConversationWorkspaceFileRenamed{}, ErrProjectConversationWorkspaceEntryExists
+	}
+	if err := s.renameConversationWorkspaceFile(
+		ctx,
+		resolved.machine,
+		resolved.repo.repoPath,
+		fromPath,
+		toPath,
+	); err != nil {
+		return ProjectConversationWorkspaceFileRenamed{}, err
+	}
+	return ProjectConversationWorkspaceFileRenamed{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		FromPath:       fromPath,
+		ToPath:         toPath,
+	}, nil
+}
+
+func (s *ProjectConversationService) DeleteWorkspaceFile(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceFileDeleteInput,
+) (ProjectConversationWorkspaceFileDeleted, error) {
+	resolved, relativePath, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		input.Path.String(),
+		false,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceFileDeleted{}, err
+	}
+	if err := s.deleteConversationWorkspaceFile(
+		ctx,
+		resolved.machine,
+		resolved.repo.repoPath,
+		relativePath,
+	); err != nil {
+		return ProjectConversationWorkspaceFileDeleted{}, err
+	}
+	return ProjectConversationWorkspaceFileDeleted{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Path:           relativePath,
+	}, nil
+}
+
+func (s *ProjectConversationService) createConversationWorkspaceFile(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	relativePath string,
+) (WorkspaceFileRevision, int64, error) {
+	if machine.Host != catalogdomain.LocalMachineHost {
+		return s.createRemoteConversationWorkspaceFile(ctx, machine, repoRoot, relativePath)
+	}
+	return createLocalConversationWorkspaceFile(repoRoot, relativePath)
+}
+
+func createLocalConversationWorkspaceFile(
+	repoRoot string,
+	relativePath string,
+) (WorkspaceFileRevision, int64, error) {
+	targetPath, err := resolveLocalProjectConversationWorkspaceCreateTarget(repoRoot, relativePath)
+	if err != nil {
+		return "", 0, err
+	}
+	if err := writeFileAtomically(targetPath, []byte{}, 0o644); err != nil {
+		return "", 0, err
+	}
+	return computeWorkspaceFileRevision([]byte{}), 0, nil
+}
+
+func (s *ProjectConversationService) renameConversationWorkspaceFile(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	fromPath string,
+	toPath string,
+) error {
+	if machine.Host != catalogdomain.LocalMachineHost {
+		return s.renameRemoteConversationWorkspaceFile(ctx, machine, repoRoot, fromPath, toPath)
+	}
+	return renameLocalConversationWorkspaceFile(repoRoot, fromPath, toPath)
+}
+
+func renameLocalConversationWorkspaceFile(repoRoot string, fromPath string, toPath string) error {
+	source, err := resolveLocalProjectConversationWorkspaceFile(repoRoot, fromPath)
+	if err != nil {
+		return err
+	}
+	targetPath, err := resolveLocalProjectConversationWorkspaceCreateTarget(repoRoot, toPath)
+	if err != nil {
+		return err
+	}
+	if err := os.Rename(source.path, targetPath); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return ErrProjectConversationWorkspaceEntryExists
+		}
+		return fmt.Errorf("rename workspace file %s to %s: %w", source.path, targetPath, err)
+	}
+	return nil
+}
+
+func (s *ProjectConversationService) deleteConversationWorkspaceFile(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	relativePath string,
+) error {
+	if machine.Host != catalogdomain.LocalMachineHost {
+		return s.deleteRemoteConversationWorkspaceFile(ctx, machine, repoRoot, relativePath)
+	}
+	return deleteLocalConversationWorkspaceFile(repoRoot, relativePath)
+}
+
+func deleteLocalConversationWorkspaceFile(repoRoot string, relativePath string) error {
+	resolvedFile, err := resolveLocalProjectConversationWorkspaceFile(repoRoot, relativePath)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(resolvedFile.path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return ErrProjectConversationWorkspaceEntryNotFound
+		}
+		return fmt.Errorf("delete workspace file %s: %w", resolvedFile.path, err)
+	}
+	return nil
+}
+
+func resolveLocalProjectConversationWorkspaceCreateTarget(
+	repoRoot string,
+	relativePath string,
+) (string, error) {
+	repoRealPath, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace repo root: %w", err)
+	}
+	segments := strings.Split(relativePath, "/")
+	currentPath := repoRealPath
+	for _, segment := range segments[:len(segments)-1] {
+		nextPath := filepath.Join(currentPath, segment)
+		info, err := os.Lstat(nextPath)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("stat workspace directory %s: %w", nextPath, err)
+			}
+			if err := os.Mkdir(nextPath, 0o750); err != nil && !errors.Is(err, os.ErrExist) {
+				return "", fmt.Errorf("create workspace directory %s: %w", nextPath, err)
+			}
+			info, err = os.Lstat(nextPath)
+			if err != nil {
+				return "", fmt.Errorf("restat workspace directory %s: %w", nextPath, err)
+			}
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return "", ErrProjectConversationWorkspacePathInvalid
+		}
+		currentPath, err = filepath.EvalSymlinks(nextPath)
+		if err != nil {
+			return "", fmt.Errorf("resolve workspace directory %s: %w", nextPath, err)
+		}
+		if !projectConversationWorkspacePathWithinRoot(repoRealPath, currentPath) {
+			return "", ErrProjectConversationWorkspacePathInvalid
+		}
+	}
+
+	targetPath := filepath.Join(currentPath, segments[len(segments)-1])
+	info, err := os.Lstat(targetPath)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return "", ErrProjectConversationWorkspacePathInvalid
+		}
+		return "", ErrProjectConversationWorkspaceEntryExists
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("stat workspace file %s: %w", targetPath, err)
+	}
+	return targetPath, nil
 }
 
 func (s *ProjectConversationService) writeConversationWorkspaceFile(
@@ -600,4 +921,241 @@ func parseRemoteWorkspaceConflictPreview(output string) (ProjectConversationWork
 	preview := buildWorkspacePreviewFromContent("", content, size)
 	preview.Revision = strings.TrimSpace(fields[1])
 	return preview, nil
+}
+
+func (s *ProjectConversationService) createRemoteConversationWorkspaceFile(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	relativePath string,
+) (WorkspaceFileRevision, int64, error) {
+	output, err := s.runProjectConversationShellCommand(
+		ctx,
+		machine,
+		buildRemoteWorkspaceCreateScript(repoRoot, relativePath),
+		false,
+	)
+	if err != nil {
+		errText := err.Error()
+		switch {
+		case strings.Contains(errText, "exit status 11"):
+			return "", 0, ErrProjectConversationWorkspaceEntryExists
+		case strings.Contains(errText, "exit status 12"):
+			return "", 0, ErrProjectConversationWorkspacePathInvalid
+		default:
+			return "", 0, fmt.Errorf("create remote workspace file %s: %w", relativePath, err)
+		}
+	}
+	fields := strings.SplitN(strings.TrimSpace(string(output)), "\t", 2)
+	if len(fields) != 2 {
+		return "", 0, fmt.Errorf("parse remote workspace file create output %q", string(output))
+	}
+	return WorkspaceFileRevision(fields[0]), 0, nil
+}
+
+func (s *ProjectConversationService) renameRemoteConversationWorkspaceFile(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	fromPath string,
+	toPath string,
+) error {
+	_, err := s.runProjectConversationShellCommand(
+		ctx,
+		machine,
+		buildRemoteWorkspaceRenameScript(repoRoot, fromPath, toPath),
+		false,
+	)
+	if err == nil {
+		return nil
+	}
+	errText := err.Error()
+	switch {
+	case strings.Contains(errText, "exit status 10"):
+		return ErrProjectConversationWorkspaceEntryNotFound
+	case strings.Contains(errText, "exit status 11"):
+		return ErrProjectConversationWorkspaceEntryExists
+	case strings.Contains(errText, "exit status 12"):
+		return ErrProjectConversationWorkspacePathInvalid
+	default:
+		return fmt.Errorf("rename remote workspace file %s to %s: %w", fromPath, toPath, err)
+	}
+}
+
+func (s *ProjectConversationService) deleteRemoteConversationWorkspaceFile(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	relativePath string,
+) error {
+	_, err := s.runProjectConversationShellCommand(
+		ctx,
+		machine,
+		buildRemoteWorkspaceDeleteScript(repoRoot, relativePath),
+		false,
+	)
+	if err == nil {
+		return nil
+	}
+	errText := err.Error()
+	switch {
+	case strings.Contains(errText, "exit status 10"):
+		return ErrProjectConversationWorkspaceEntryNotFound
+	case strings.Contains(errText, "exit status 12"):
+		return ErrProjectConversationWorkspacePathInvalid
+	default:
+		return fmt.Errorf("delete remote workspace file %s: %w", relativePath, err)
+	}
+}
+
+func buildRemoteWorkspaceCreateScript(repoRoot string, relativePath string) string {
+	return fmt.Sprintf(`set -eu
+repo=%s
+relative=%s
+repo_real=$(cd "$repo" && pwd -P)
+parent_rel=$(dirname "$relative")
+base=$(basename "$relative")
+target_dir="$repo_real"
+if [ "$parent_rel" != "." ] && [ -n "$parent_rel" ]; then
+  old_ifs=$IFS
+  IFS='/'
+  set -- $parent_rel
+  IFS=$old_ifs
+  for part in "$@"; do
+    target_dir="$target_dir/$part"
+    if [ -L "$target_dir" ]; then
+      echo escape >&2
+      exit 12
+    fi
+    if [ ! -e "$target_dir" ]; then
+      mkdir "$target_dir"
+    fi
+    if [ ! -d "$target_dir" ]; then
+      echo escape >&2
+      exit 12
+    fi
+    dir_real=$(cd "$target_dir" && pwd -P)
+    case "$dir_real" in
+      "$repo_real"|"$repo_real"/*) ;;
+      *) echo escape >&2; exit 12 ;;
+    esac
+    target_dir="$dir_real"
+  done
+fi
+target="$target_dir/$base"
+if [ -e "$target" ] || [ -L "$target" ]; then
+  echo exists >&2
+  exit 11
+fi
+: >"$target"
+printf 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\t0'
+`, projectConversationShellQuote(repoRoot), projectConversationShellQuote(relativePath))
+}
+
+func buildRemoteWorkspaceRenameScript(repoRoot string, fromPath string, toPath string) string {
+	return fmt.Sprintf(`set -eu
+repo=%s
+from_rel=%s
+to_rel=%s
+repo_real=$(cd "$repo" && pwd -P)
+
+resolve_source_parent() {
+  parent_rel=$(dirname "$1")
+  if [ "$parent_rel" = "." ] || [ -z "$parent_rel" ]; then
+    printf '%%s' "$repo_real"
+    return
+  fi
+  parent="$repo/$parent_rel"
+  parent_real=$(cd "$parent" 2>/dev/null && pwd -P) || { echo missing >&2; exit 10; }
+  case "$parent_real" in
+    "$repo_real"|"$repo_real"/*) ;;
+    *) echo escape >&2; exit 12 ;;
+  esac
+  printf '%%s' "$parent_real"
+}
+
+ensure_target_parent() {
+  parent_rel=$(dirname "$1")
+  target_dir="$repo_real"
+  if [ "$parent_rel" = "." ] || [ -z "$parent_rel" ]; then
+    printf '%%s' "$target_dir"
+    return
+  fi
+  old_ifs=$IFS
+  IFS='/'
+  set -- $parent_rel
+  IFS=$old_ifs
+  for part in "$@"; do
+    target_dir="$target_dir/$part"
+    if [ -L "$target_dir" ]; then
+      echo escape >&2
+      exit 12
+    fi
+    if [ ! -e "$target_dir" ]; then
+      mkdir "$target_dir"
+    fi
+    if [ ! -d "$target_dir" ]; then
+      echo escape >&2
+      exit 12
+    fi
+    dir_real=$(cd "$target_dir" && pwd -P)
+    case "$dir_real" in
+      "$repo_real"|"$repo_real"/*) ;;
+      *) echo escape >&2; exit 12 ;;
+    esac
+    target_dir="$dir_real"
+  done
+  printf '%%s' "$target_dir"
+}
+
+from_parent=$(resolve_source_parent "$from_rel")
+from_target="$from_parent/$(basename "$from_rel")"
+if [ -L "$from_target" ]; then
+  echo escape >&2
+  exit 12
+fi
+if [ ! -f "$from_target" ]; then
+  echo missing >&2
+  exit 10
+fi
+
+to_parent=$(ensure_target_parent "$to_rel")
+to_target="$to_parent/$(basename "$to_rel")"
+if [ -e "$to_target" ] || [ -L "$to_target" ]; then
+  echo exists >&2
+  exit 11
+fi
+
+mv "$from_target" "$to_target"
+printf 'ok'
+`, projectConversationShellQuote(repoRoot), projectConversationShellQuote(fromPath), projectConversationShellQuote(toPath))
+}
+
+func buildRemoteWorkspaceDeleteScript(repoRoot string, relativePath string) string {
+	return fmt.Sprintf(`set -eu
+repo=%s
+relative=%s
+repo_real=$(cd "$repo" && pwd -P)
+parent_rel=$(dirname "$relative")
+target_parent="$repo_real"
+if [ "$parent_rel" != "." ] && [ -n "$parent_rel" ]; then
+  target_parent="$repo/$parent_rel"
+  target_parent=$(cd "$target_parent" 2>/dev/null && pwd -P) || { echo missing >&2; exit 10; }
+  case "$target_parent" in
+    "$repo_real"|"$repo_real"/*) ;;
+    *) echo escape >&2; exit 12 ;;
+  esac
+fi
+target="$target_parent/$(basename "$relative")"
+if [ -L "$target" ]; then
+  echo escape >&2
+  exit 12
+fi
+if [ ! -f "$target" ]; then
+  echo missing >&2
+  exit 10
+fi
+rm "$target"
+printf 'ok'
+`, projectConversationShellQuote(repoRoot), projectConversationShellQuote(relativePath))
 }

@@ -197,6 +197,81 @@ func TestParseUpdateProjectConversationWorkspaceFileRequest(t *testing.T) {
 	}
 }
 
+func TestParseCreateProjectConversationWorkspaceFileRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseCreateProjectConversationWorkspaceFileRequest(
+		rawCreateProjectConversationWorkspaceFileRequest{
+			RepoPath: "openase",
+			Path:     "web/src/lib/new-file.ts",
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseCreateProjectConversationWorkspaceFileRequest() error = %v", err)
+	}
+	if request.File.RepoPath.String() != "openase" || request.File.Path.String() != "web/src/lib/new-file.ts" {
+		t.Fatalf("unexpected parsed workspace file create request = %#v", request.File)
+	}
+}
+
+func TestParseProjectConversationWorkspaceSearchRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseProjectConversationWorkspaceSearchRequest(" openase ", " readme ", " 25 ")
+	if err != nil {
+		t.Fatalf("parseProjectConversationWorkspaceSearchRequest() error = %v", err)
+	}
+	if request.RepoPath != "openase" || request.Query != "readme" || request.Limit != 25 {
+		t.Fatalf("unexpected parsed workspace search request = %#v", request)
+	}
+}
+
+func TestParseProjectConversationWorkspaceSearchRequestRejectsEmptyQuery(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseProjectConversationWorkspaceSearchRequest("openase", "   ", "")
+	if err == nil {
+		t.Fatal("expected empty query error")
+	}
+}
+
+func TestParseRenameProjectConversationWorkspaceFileRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseRenameProjectConversationWorkspaceFileRequest(
+		rawRenameProjectConversationWorkspaceFileRequest{
+			RepoPath: "openase",
+			FromPath: "web/src/lib/app.ts",
+			ToPath:   "web/src/lib/app-renamed.ts",
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseRenameProjectConversationWorkspaceFileRequest() error = %v", err)
+	}
+	if request.File.RepoPath.String() != "openase" ||
+		request.File.FromPath.String() != "web/src/lib/app.ts" ||
+		request.File.ToPath.String() != "web/src/lib/app-renamed.ts" {
+		t.Fatalf("unexpected parsed workspace file rename request = %#v", request.File)
+	}
+}
+
+func TestParseDeleteProjectConversationWorkspaceFileRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseDeleteProjectConversationWorkspaceFileRequest(
+		rawDeleteProjectConversationWorkspaceFileRequest{
+			RepoPath: "openase",
+			Path:     "web/src/lib/app.ts",
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseDeleteProjectConversationWorkspaceFileRequest() error = %v", err)
+	}
+	if request.File.RepoPath.String() != "openase" || request.File.Path.String() != "web/src/lib/app.ts" {
+		t.Fatalf("unexpected parsed workspace file delete request = %#v", request.File)
+	}
+}
+
 func testStringPointer(value string) *string {
 	return &value
 }

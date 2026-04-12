@@ -100,6 +100,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/chat/conversations/{conversationId}",
 		"/api/v1/chat/conversations/{conversationId}/entries",
 		"/api/v1/chat/conversations/{conversationId}/workspace",
+		"/api/v1/chat/conversations/{conversationId}/workspace/search",
 		"/api/v1/chat/conversations/{conversationId}/workspace/tree",
 		"/api/v1/chat/conversations/{conversationId}/workspace/file",
 		"/api/v1/chat/conversations/{conversationId}/workspace/file-patch",

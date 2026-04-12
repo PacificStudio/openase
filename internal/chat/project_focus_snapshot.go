@@ -133,13 +133,36 @@ func rawProjectConversationFocusFromFocus(focus *ProjectConversationFocus) *RawP
 		if focus.Workspace == nil {
 			return nil
 		}
+		var workingSet []RawProjectConversationWorkspaceWorkingSet
+		if len(focus.Workspace.WorkingSet) > 0 {
+			workingSet = make([]RawProjectConversationWorkspaceWorkingSet, 0, len(focus.Workspace.WorkingSet))
+			for _, item := range focus.Workspace.WorkingSet {
+				workingSet = append(workingSet, RawProjectConversationWorkspaceWorkingSet{
+					FilePath:       optionalString(item.FilePath),
+					ContentExcerpt: optionalString(item.ContentExcerpt),
+					Dirty:          projectFocusBoolPointer(item.Dirty),
+					Truncated:      projectFocusBoolPointer(item.Truncated),
+				})
+			}
+		}
 		return &RawProjectConversationFocus{
-			Kind:              string(ProjectConversationFocusWorkspace),
-			ConversationID:    optionalString(focus.Workspace.ConversationID.String()),
-			WorkspaceRepoPath: optionalString(focus.Workspace.RepoPath),
-			WorkspaceFilePath: optionalString(focus.Workspace.FilePath),
-			SelectedArea:      optionalString(focus.Workspace.SelectedArea),
-			HasDirtyDraft:     projectFocusBoolPointer(focus.Workspace.HasDirtyDraft),
+			Kind:                            string(ProjectConversationFocusWorkspace),
+			ConversationID:                  optionalString(focus.Workspace.ConversationID.String()),
+			WorkspaceRepoPath:               optionalString(focus.Workspace.RepoPath),
+			WorkspaceFilePath:               optionalString(focus.Workspace.FilePath),
+			SelectedArea:                    optionalString(focus.Workspace.SelectedArea),
+			HasDirtyDraft:                   projectFocusBoolPointer(focus.Workspace.HasDirtyDraft),
+			WorkspaceSelectionFrom:          projectFocusIntPtrFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) int { return item.From }),
+			WorkspaceSelectionTo:            projectFocusIntPtrFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) int { return item.To }),
+			WorkspaceSelectionStartLine:     projectFocusIntPtrFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) int { return item.StartLine }),
+			WorkspaceSelectionStartColumn:   projectFocusIntPtrFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) int { return item.StartColumn }),
+			WorkspaceSelectionEndLine:       projectFocusIntPtrFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) int { return item.EndLine }),
+			WorkspaceSelectionEndColumn:     projectFocusIntPtrFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) int { return item.EndColumn }),
+			WorkspaceSelectionText:          optionalStringFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) string { return item.Text }),
+			WorkspaceSelectionContextBefore: optionalStringFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) string { return item.ContextBefore }),
+			WorkspaceSelectionContextAfter:  optionalStringFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) string { return item.ContextAfter }),
+			WorkspaceSelectionTruncated:     projectFocusBoolPtrFromSelection(focus.Workspace.Selection, func(item *ProjectConversationWorkspaceSelection) bool { return item.Truncated }),
+			WorkspaceWorkingSet:             workingSet,
 		}
 	default:
 		return nil
@@ -241,4 +264,34 @@ func projectFocusBoolPointer(value bool) *bool {
 
 func projectFocusIntPointer(value int) *int {
 	return &value
+}
+
+func projectFocusIntPtrFromSelection(
+	selection *ProjectConversationWorkspaceSelection,
+	getter func(*ProjectConversationWorkspaceSelection) int,
+) *int {
+	if selection == nil {
+		return nil
+	}
+	return projectFocusIntPointer(getter(selection))
+}
+
+func projectFocusBoolPtrFromSelection(
+	selection *ProjectConversationWorkspaceSelection,
+	getter func(*ProjectConversationWorkspaceSelection) bool,
+) *bool {
+	if selection == nil {
+		return nil
+	}
+	return projectFocusBoolPointer(getter(selection))
+}
+
+func optionalStringFromSelection(
+	selection *ProjectConversationWorkspaceSelection,
+	getter func(*ProjectConversationWorkspaceSelection) string,
+) *string {
+	if selection == nil {
+		return nil
+	}
+	return optionalString(getter(selection))
 }

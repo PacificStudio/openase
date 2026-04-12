@@ -203,6 +203,7 @@ export function createProjectConversationControllerRuntime(
     loadTabConversation,
     connectTabStream,
     sortProjectConversations: conversations.sortProjectConversations,
+    touch: touchTabs,
     touchConversation: conversations.touchConversation,
   })
 

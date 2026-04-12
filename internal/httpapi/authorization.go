@@ -327,6 +327,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 		"/api/v1/chat/conversations/:conversationId/workspace",
 		"/api/v1/chat/conversations/:conversationId/workspace/sync",
 		"/api/v1/chat/conversations/:conversationId/workspace/tree",
+		"/api/v1/chat/conversations/:conversationId/workspace/search",
 		"/api/v1/chat/conversations/:conversationId/workspace/file",
 		"/api/v1/chat/conversations/:conversationId/workspace/file-patch",
 		"/api/v1/chat/conversations/:conversationId/workspace-diff",

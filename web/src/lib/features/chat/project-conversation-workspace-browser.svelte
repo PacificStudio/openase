@@ -39,6 +39,7 @@
 
   const browser = createProjectConversationWorkspaceBrowserState({
     getConversationId: () => conversationId,
+    getWorkspaceDiff: () => liveWorkspaceDiff,
     onWorkspaceDiffUpdated: (nextWorkspaceDiff) => {
       refreshedWorkspaceDiff = nextWorkspaceDiff
     },
@@ -106,6 +107,21 @@
         onPendingFileConsumed?.()
       })
     }
+  })
+
+  $effect(() => {
+    const pendingPatch = workspaceBrowserPortal.pendingPatch
+    if (!pendingPatch || !browser.metadata?.available) {
+      return
+    }
+
+    queueMicrotask(() => {
+      const consumedPatch = workspaceBrowserPortal.consumePendingPatch()
+      if (!consumedPatch) {
+        return
+      }
+      void browser.reviewPatch(consumedPatch.diff, { autoApply: consumedPatch.autoApply })
+    })
   })
 
   $effect(() => {
@@ -203,12 +219,14 @@
   $effect(() => {
     const projectId = appStore.currentProject?.id ?? ''
     const editorState = browser.selectedEditorState
+    const focusContext = browser.getSelectedFocusContext()
     if (
       !projectId ||
       !conversationId ||
       !browser.selectedRepoPath ||
       !browser.selectedFilePath ||
-      !editorState
+      !editorState ||
+      !focusContext
     ) {
       appStore.clearProjectAssistantFocus(projectAIFocusOwner)
       return
@@ -222,11 +240,13 @@
         conversationId,
         repoPath: browser.selectedRepoPath,
         filePath: browser.selectedFilePath,
-        selectedArea: 'edit',
+        selectedArea: focusContext.selectedArea,
         hasDirtyDraft: editorState.dirty,
         draftContent: editorState.dirty ? editorState.draftContent : undefined,
         encoding: editorState.encoding,
         lineEnding: editorState.lineEnding,
+        selection: focusContext.selection,
+        workingSet: focusContext.workingSet,
       },
       PROJECT_AI_FOCUS_PRIORITY.workspace,
     )

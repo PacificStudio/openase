@@ -1,12 +1,16 @@
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
+import { EditorView } from '@codemirror/view'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EDITOR_WRAP_MODE_STORAGE_KEY } from '$lib/components/code/wrap-mode'
+import { appStore } from '$lib/stores/app.svelte'
 import type { ProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
 import type { WorkspaceFileEditorState } from './project-conversation-workspace-browser-state-helpers'
 import ProjectConversationWorkspaceBrowserDetail from './project-conversation-workspace-browser-detail.svelte'
 
-function buildBrowserStub(): ProjectConversationWorkspaceBrowserState {
+function buildBrowserStub(
+  overrides: Partial<ProjectConversationWorkspaceBrowserState> = {},
+): ProjectConversationWorkspaceBrowserState {
   const editorState: WorkspaceFileEditorState = {
     baseSavedContent: 'alpha '.repeat(60),
     baseSavedRevision: 'rev-1',
@@ -20,9 +24,11 @@ function buildBrowserStub(): ProjectConversationWorkspaceBrowserState {
     encoding: 'utf-8',
     lineEnding: 'lf',
     lastSavedAt: '',
+    selection: null,
+    pendingPatch: null,
   }
 
-  return {
+  const browser = {
     openTabs: [{ repoPath: 'services/openase', filePath: 'README.md' }],
     activeTabKey: 'services/openase::README.md',
     preview: {
@@ -45,17 +51,49 @@ function buildBrowserStub(): ProjectConversationWorkspaceBrowserState {
     fileError: '',
     selectedEditorState: editorState,
     selectedDraftLineDiff: { added: [], modified: [], deletionAbove: [], deletionAtEnd: false },
+    selectedChangedFiles: [],
+    autosaveEnabled: true,
     getEditorState: () => editorState,
     discardDraft: () => {},
     closeTab: () => {},
     activateTab: () => {},
     saveFile: async () => true,
     saveSelectedFile: async () => true,
+    selectPreviousChangedFile: () => {},
+    selectNextChangedFile: () => {},
+    applySelectedPendingPatch: () => {},
+    discardSelectedPendingPatch: () => {},
     revertSelectedDraft: () => {},
     reloadSelectedSavedVersion: () => {},
     keepSelectedDraft: () => {},
     updateSelectedDraft: () => {},
+    updateSelectedSelection: () => {},
+    formatSelectedDocument: () => {},
+    formatSelectedSelection: () => {},
+    setAutosaveEnabled: () => {},
   } as unknown as ProjectConversationWorkspaceBrowserState
+
+  return Object.assign(browser, overrides)
+}
+
+async function getEditorView(container: HTMLElement): Promise<EditorView> {
+  await waitFor(() => expect(container.querySelector('.cm-editor')).not.toBeNull())
+
+  const editorDom = container.querySelector('.cm-editor')
+  expect(editorDom).not.toBeNull()
+
+  const editorView = EditorView.findFromDOM(editorDom as HTMLElement)
+  expect(editorView).not.toBeNull()
+  return editorView as EditorView
+}
+
+async function pressEditorShortcut(editorView: EditorView, init: KeyboardEventInit) {
+  editorView.focus()
+  await fireEvent.keyDown(editorView.contentDOM, {
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  })
 }
 
 describe('ProjectConversationWorkspaceBrowserDetail', () => {
@@ -65,6 +103,7 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
 
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
   })
 
   it('shows a wrap toggle for text previews and persists the selected mode', async () => {
@@ -123,5 +162,89 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     expect(persistedToggle.getAttribute('aria-pressed')).toBe('false')
     expect(persistedToggle.getAttribute('aria-label')).toBe('Enable line wrap')
     expect(secondView.container.querySelector('.cm-lineWrapping')).toBeNull()
+  })
+
+  it('removes the old toolbar actions and routes editor actions through shortcuts and the context menu', async () => {
+    const formatSelectedDocument = vi.fn()
+    const formatSelectedSelection = vi.fn()
+    const saveSelectedFile = vi.fn(async () => true)
+    const revertSelectedDraft = vi.fn()
+    const requestProjectAssistant = vi
+      .spyOn(appStore, 'requestProjectAssistant')
+      .mockImplementation(() => {})
+    const browser = buildBrowserStub()
+    const dirtyEditorState: WorkspaceFileEditorState = {
+      ...(browser.selectedEditorState as WorkspaceFileEditorState),
+      dirty: true,
+    }
+
+    const view = render(ProjectConversationWorkspaceBrowserDetail, {
+      props: {
+        browser: buildBrowserStub({
+          selectedEditorState: dirtyEditorState,
+          formatSelectedDocument,
+          formatSelectedSelection,
+          saveSelectedFile,
+          revertSelectedDraft,
+        }),
+        selectedRepo: {
+          name: 'openase',
+          path: 'services/openase',
+          branch: 'feat/ase-168-wrap-toggle',
+          headCommit: '123456789abc',
+          headSummary: 'Support editor wrap toggle',
+          dirty: true,
+          filesChanged: 1,
+          added: 1,
+          removed: 0,
+        },
+      },
+    })
+
+    const editorView = await getEditorView(view.container)
+    const editorShell = view.container.querySelector('.code-editor') as HTMLElement
+
+    expect(view.queryByRole('button', { name: 'Format' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'Format selection' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'Explain selection' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'Rewrite selection' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'Revert' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'Save now' })).toBeNull()
+
+    await pressEditorShortcut(editorView, { key: 's', code: 'KeyS', ctrlKey: true })
+    await waitFor(() => expect(saveSelectedFile).toHaveBeenCalledTimes(1))
+
+    await pressEditorShortcut(editorView, { key: 'f', code: 'KeyF', altKey: true, shiftKey: true })
+    expect(formatSelectedDocument).toHaveBeenCalledTimes(1)
+    expect(formatSelectedSelection).not.toHaveBeenCalled()
+
+    editorView.dispatch({ selection: { anchor: 0, head: 5 } })
+
+    await pressEditorShortcut(editorView, { key: 'f', code: 'KeyF', altKey: true, shiftKey: true })
+    expect(formatSelectedSelection).toHaveBeenCalledTimes(1)
+
+    await fireEvent.contextMenu(editorShell, { clientX: 72, clientY: 88 })
+
+    const menu = await view.findByTestId('code-editor-context-menu')
+    expect(within(menu).queryByRole('menuitem', { name: 'Format Document' })).toBeNull()
+    expect(within(menu).getByRole('menuitem', { name: /^Format Selection/ })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Revert File' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Explain Selection' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Rewrite Selection' })).toBeTruthy()
+
+    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Explain Selection' }))
+    expect(requestProjectAssistant).toHaveBeenCalledWith('Explain the selected code.')
+
+    editorView.dispatch({ selection: { anchor: 0, head: 5 } })
+    await fireEvent.contextMenu(editorShell, { clientX: 80, clientY: 96 })
+    const rewriteMenu = await view.findByTestId('code-editor-context-menu')
+    await fireEvent.click(within(rewriteMenu).getByRole('menuitem', { name: 'Rewrite Selection' }))
+    expect(requestProjectAssistant).toHaveBeenCalledWith('Rewrite the selected code.')
+
+    editorView.dispatch({ selection: { anchor: 0, head: 0 } })
+    await fireEvent.contextMenu(editorShell, { clientX: 88, clientY: 104 })
+    const revertMenu = await view.findByTestId('code-editor-context-menu')
+    await fireEvent.click(within(revertMenu).getByRole('menuitem', { name: 'Revert File' }))
+    expect(revertSelectedDraft).toHaveBeenCalledTimes(1)
   })
 })

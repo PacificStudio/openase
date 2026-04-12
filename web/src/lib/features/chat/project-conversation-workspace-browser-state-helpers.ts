@@ -5,6 +5,11 @@ import type {
   ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
 import type { WorkspaceFileSavePhase } from './project-conversation-workspace-file-drafts'
+import type {
+  WorkspaceEditorSelection,
+  WorkspacePatchProposal,
+  WorkspaceWorkingSetEntry,
+} from './project-conversation-workspace-editor-helpers'
 
 export type WorkspaceTab = {
   repoPath: string
@@ -121,6 +126,8 @@ export type WorkspaceFileEditorState = {
   encoding: 'utf-8'
   lineEnding: 'lf' | 'crlf'
   lastSavedAt: string
+  selection: WorkspaceEditorSelection | null
+  pendingPatch: WorkspacePatchProposal | null
 }
 
 export function areTreeEntriesEqual(
@@ -228,7 +235,30 @@ export function createInitialEditorState(
     encoding: preview.encoding,
     lineEnding: preview.lineEnding,
     lastSavedAt: '',
+    selection: null,
+    pendingPatch: null,
   }
+}
+
+export type WorkspaceRecentFile = {
+  repoPath: string
+  filePath: string
+}
+
+export function pushRecentFile(
+  recentFiles: WorkspaceRecentFile[],
+  nextFile: WorkspaceRecentFile,
+): WorkspaceRecentFile[] {
+  const deduped = recentFiles.filter(
+    (item) => item.repoPath !== nextFile.repoPath || item.filePath !== nextFile.filePath,
+  )
+  return [nextFile, ...deduped].slice(0, 8)
+}
+
+export type WorkspaceFocusContext = {
+  selectedArea: 'edit' | 'selection'
+  selection: WorkspaceEditorSelection | null
+  workingSet: WorkspaceWorkingSetEntry[]
 }
 
 export {

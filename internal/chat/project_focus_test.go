@@ -145,12 +145,24 @@ func TestParseProjectConversationFocusWorkspace(t *testing.T) {
 	t.Parallel()
 
 	focus, err := ParseProjectConversationFocus(&RawProjectConversationFocus{
-		Kind:              "workspace_file",
-		ConversationID:    stringPointer("550e8400-e29b-41d4-a716-446655440000"),
-		WorkspaceRepoPath: stringPointer("openase"),
-		WorkspaceFilePath: stringPointer("web/src/lib/app.ts"),
-		SelectedArea:      stringPointer("edit"),
-		HasDirtyDraft:     testBoolPointer(true),
+		Kind:                          "workspace_file",
+		ConversationID:                stringPointer("550e8400-e29b-41d4-a716-446655440000"),
+		WorkspaceRepoPath:             stringPointer("openase"),
+		WorkspaceFilePath:             stringPointer("web/src/lib/app.ts"),
+		SelectedArea:                  stringPointer("selection"),
+		HasDirtyDraft:                 testBoolPointer(true),
+		WorkspaceSelectionFrom:        focusIntPointer(10),
+		WorkspaceSelectionTo:          focusIntPointer(24),
+		WorkspaceSelectionStartLine:   focusIntPointer(2),
+		WorkspaceSelectionStartColumn: focusIntPointer(3),
+		WorkspaceSelectionEndLine:     focusIntPointer(3),
+		WorkspaceSelectionEndColumn:   focusIntPointer(5),
+		WorkspaceSelectionText:        stringPointer("selected text"),
+		WorkspaceWorkingSet: []RawProjectConversationWorkspaceWorkingSet{{
+			FilePath:       stringPointer("README.md"),
+			ContentExcerpt: stringPointer("line one"),
+			Dirty:          testBoolPointer(false),
+		}},
 	})
 	if err != nil {
 		t.Fatalf("ParseProjectConversationFocus() error = %v", err)
@@ -160,8 +172,11 @@ func TestParseProjectConversationFocusWorkspace(t *testing.T) {
 	}
 	if focus.Workspace.RepoPath != "openase" ||
 		focus.Workspace.FilePath != "web/src/lib/app.ts" ||
-		focus.Workspace.SelectedArea != "edit" ||
-		!focus.Workspace.HasDirtyDraft {
+		focus.Workspace.SelectedArea != "selection" ||
+		!focus.Workspace.HasDirtyDraft ||
+		focus.Workspace.Selection == nil ||
+		focus.Workspace.Selection.Text != "selected text" ||
+		len(focus.Workspace.WorkingSet) != 1 {
 		t.Fatalf("unexpected workspace focus = %#v", focus.Workspace)
 	}
 }

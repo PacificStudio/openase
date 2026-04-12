@@ -3,28 +3,40 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
+  createProjectConversationWorkspaceFile,
+  deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
+  createProjectConversationWorkspaceFile: vi.fn(),
+  deleteProjectConversationWorkspaceFile: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceDiff: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
+  renameProjectConversationWorkspaceFile: vi.fn(),
   saveProjectConversationWorkspaceFile: vi.fn(),
+  searchProjectConversationWorkspacePaths: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
+  createProjectConversationWorkspaceFile,
+  deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 }))
 
 import ProjectConversationWorkspaceBrowser from './project-conversation-workspace-browser.svelte'
