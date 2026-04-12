@@ -5,11 +5,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1641,6 +1644,7 @@ type agentPlatformExpandedFixture struct {
 	client                *ent.Client
 	server                *Server
 	platformService       *agentplatform.Service
+	organizationID        uuid.UUID
 	projectID             uuid.UUID
 	agentID               uuid.UUID
 	ticketID              uuid.UUID
@@ -1651,6 +1655,7 @@ type agentPlatformExpandedFixture struct {
 	repoScopeCreateID     uuid.UUID
 	repoDeleteID          uuid.UUID
 	agentReadID           uuid.UUID
+	agentInterruptID      uuid.UUID
 	agentPauseID          uuid.UUID
 	agentResumeID         uuid.UUID
 	agentDeleteID         uuid.UUID
@@ -1746,6 +1751,7 @@ func TestAgentPlatformExpandedAgentRoutesRequireExplicitScopes(t *testing.T) {
 		{name: "agents.read.steps", scope: agentplatform.ScopeAgentsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents/%s/steps", fixture.projectID, fixture.agentReadID), wantStatus: http.StatusOK, wantBody: `"entries":[`},
 		{name: "agents.create", scope: agentplatform.ScopeAgentsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents", fixture.projectID), body: map[string]any{"provider_id": fixture.providerID.String(), "name": "platform-created-agent"}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-created-agent"`},
 		{name: "agents.update", scope: agentplatform.ScopeAgentsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/agents/%s", fixture.agentReadID), body: map[string]any{"name": "platform-agent-updated"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-agent-updated"`},
+		{name: "agents.interrupt", scope: agentplatform.ScopeAgentsInterrupt, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/interrupt", fixture.agentInterruptID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"interrupt_requested"`},
 		{name: "agents.pause", scope: agentplatform.ScopeAgentsPause, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/pause", fixture.agentPauseID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"pause_requested"`},
 		{name: "agents.resume", scope: agentplatform.ScopeAgentsResume, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/resume", fixture.agentResumeID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"active"`},
 		{name: "agents.delete", scope: agentplatform.ScopeAgentsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/agents/%s", fixture.agentDeleteID), wantStatus: http.StatusOK, wantBody: fixture.agentDeleteID.String()},
@@ -1849,6 +1855,288 @@ func TestAgentPlatformProjectConversationTokenCanListTicketRepoScopes(t *testing
 	}
 	if !strings.Contains(rec.Body.String(), `"repo_scopes":[`) {
 		t.Fatalf("expected repo scope list response, got %s", rec.Body.String())
+	}
+}
+
+func TestAgentPlatformProjectConversationSupportedScopeContractsStayInSync(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	got := make([]string, 0, len(projectConversationScopeContracts(fixture)))
+	for _, contract := range projectConversationScopeContracts(fixture) {
+		got = append(got, string(contract.scope))
+	}
+	slices.Sort(got)
+
+	want := append([]string(nil), agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...)
+	slices.Sort(want)
+
+	if !slices.Equal(got, want) {
+		t.Fatalf("project conversation scope contracts = %#v, want %#v", got, want)
+	}
+}
+
+func TestAgentPlatformProjectConversationSupportedScopesHaveSuccessfulRepresentativeOperations(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	contracts := projectConversationScopeContracts(fixture)
+
+	got := make([]string, 0, len(contracts))
+	for _, contract := range contracts {
+		got = append(got, string(contract.scope))
+	}
+	slices.Sort(got)
+	want := append([]string(nil), agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Fatalf("project conversation scope contracts = %#v, want %#v", got, want)
+	}
+
+	for _, group := range []struct {
+		name     string
+		prefixes []string
+	}{
+		{name: "project_agent_repo", prefixes: []string{"activity.", "agents.", "notification_rules.", "projects.", "repos."}},
+		{name: "skills_statuses_workflows", prefixes: []string{"skills.", "statuses.", "workflows."}},
+		{name: "ticket_repo_scopes", prefixes: []string{"ticket_repo_scopes."}},
+		{name: "tickets", prefixes: []string{"tickets."}},
+		{name: "scheduled_jobs", prefixes: []string{"scheduled_jobs."}},
+	} {
+		t.Run(group.name, func(t *testing.T) {
+			groupFixture := newAgentPlatformExpandedFixture(t)
+			runProjectConversationScopeContracts(
+				t,
+				groupFixture,
+				filterProjectConversationScopeContracts(projectConversationScopeContracts(groupFixture), group.prefixes...),
+			)
+		})
+	}
+}
+
+func TestAgentPlatformProjectConversationTicketCommentRoutesUseTicketsUpdate(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	forbiddenToken := fixture.issueProjectConversationToken(t, agentplatform.ScopeTicketsList)
+	forbiddenRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", fixture.ticketID),
+		nil,
+		forbiddenToken,
+	)
+	if forbiddenRec.Code != http.StatusForbidden {
+		t.Fatalf("expected project conversation comment list without tickets.update to return 403, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	token := fixture.issueProjectConversationToken(t, agentplatform.ScopeTicketsUpdate)
+
+	listRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", fixture.ticketID),
+		nil,
+		token,
+	)
+	if listRec.Code != http.StatusOK || !strings.Contains(listRec.Body.String(), `"comments":[`) {
+		t.Fatalf("expected project conversation comment list with tickets.update to succeed, got %d: %s", listRec.Code, listRec.Body.String())
+	}
+
+	createRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments", fixture.ticketID),
+		map[string]any{"body": "project conversation comment"},
+		token,
+	)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected project conversation comment create with tickets.update to return 201, got %d: %s", createRec.Code, createRec.Body.String())
+	}
+	createResp := struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}{}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("unmarshal comment create response: %v", err)
+	}
+	if createResp.Comment.CreatedBy == "" || !strings.HasPrefix(createResp.Comment.CreatedBy, "project-conversation:") {
+		t.Fatalf("expected project conversation created_by, got %+v", createResp.Comment)
+	}
+
+	updateRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/comments/%s", fixture.ticketID, createResp.Comment.ID),
+		map[string]any{"body": "project conversation comment updated"},
+		token,
+	)
+	if updateRec.Code != http.StatusOK || !strings.Contains(updateRec.Body.String(), "project conversation comment updated") {
+		t.Fatalf("expected project conversation comment update with tickets.update to succeed, got %d: %s", updateRec.Code, updateRec.Body.String())
+	}
+}
+
+func TestAgentPlatformProjectConversationProjectsUpdateCreateDeleteSemantics(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	token := fixture.issueProjectConversationToken(t, agentplatform.ScopeProjectsUpdate)
+
+	listRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/orgs/%s/projects", fixture.organizationID),
+		nil,
+		token,
+	)
+	if listRec.Code != http.StatusOK || !strings.Contains(listRec.Body.String(), `"projects":[`) {
+		t.Fatalf("expected project conversation org project list to succeed, got %d: %s", listRec.Code, listRec.Body.String())
+	}
+
+	createRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/orgs/%s/projects", fixture.organizationID),
+		map[string]any{
+			"name": "Project Conversation Boundary Project",
+			"slug": "project-conversation-boundary-project",
+		},
+		token,
+	)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected project conversation project create to return 201, got %d: %s", createRec.Code, createRec.Body.String())
+	}
+	createResp := struct {
+		Project projectResponse `json:"project"`
+	}{}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("unmarshal project create response: %v", err)
+	}
+
+	siblingDeleteRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/platform/projects/%s", createResp.Project.ID),
+		nil,
+		token,
+	)
+	if siblingDeleteRec.Code != http.StatusForbidden || !strings.Contains(siblingDeleteRec.Body.String(), "AGENT_PROJECT_FORBIDDEN") {
+		t.Fatalf("expected project conversation sibling delete to return 403 AGENT_PROJECT_FORBIDDEN, got %d: %s", siblingDeleteRec.Code, siblingDeleteRec.Body.String())
+	}
+
+	currentDeleteRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/platform/projects/%s", fixture.projectID),
+		nil,
+		token,
+	)
+	if currentDeleteRec.Code != http.StatusOK {
+		t.Fatalf("expected project conversation current project delete to return 200, got %d: %s", currentDeleteRec.Code, currentDeleteRec.Body.String())
+	}
+}
+
+type projectConversationScopeContract struct {
+	scope      agentplatform.Scope
+	method     string
+	path       string
+	body       any
+	prepare    func(t *testing.T, fixture *agentPlatformExpandedFixture)
+	wantStatus int
+	wantBody   string
+}
+
+func projectConversationScopeContracts(fixture *agentPlatformExpandedFixture) []projectConversationScopeContract {
+	return []projectConversationScopeContract{
+		{scope: agentplatform.ScopeActivityRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/activity", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"events":[`},
+		{scope: agentplatform.ScopeAgentsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents", fixture.projectID), body: map[string]any{"provider_id": fixture.providerID.String(), "name": "platform-created-agent"}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-created-agent"`},
+		{scope: agentplatform.ScopeAgentsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/agents/%s", fixture.agentDeleteID), wantStatus: http.StatusOK, wantBody: fixture.agentDeleteID.String()},
+		{scope: agentplatform.ScopeAgentsInterrupt, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/interrupt", fixture.agentInterruptID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"interrupt_requested"`},
+		{scope: agentplatform.ScopeAgentsPause, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/pause", fixture.agentPauseID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"pause_requested"`},
+		{scope: agentplatform.ScopeAgentsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/agents", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"agents":[`},
+		{scope: agentplatform.ScopeAgentsResume, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/agents/%s/resume", fixture.agentResumeID), wantStatus: http.StatusOK, wantBody: `"runtime_control_state":"active"`},
+		{scope: agentplatform.ScopeAgentsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/agents/%s", fixture.agentReadID), body: map[string]any{"name": "platform-agent-updated"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-agent-updated"`},
+		{scope: agentplatform.ScopeNotificationRulesCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/notification-rules", fixture.projectID), body: map[string]any{"name": "Platform Created Rule", "event_type": "ticket.created", "channel_id": fixture.notificationChannelID.String(), "template": "created"}, wantStatus: http.StatusCreated, wantBody: `"name":"Platform Created Rule"`},
+		{scope: agentplatform.ScopeNotificationRulesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/notification-rules/%s", fixture.notificationDeleteID), wantStatus: http.StatusOK, wantBody: fixture.notificationDeleteID.String()},
+		{scope: agentplatform.ScopeNotificationRulesList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/notification-rules", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"rules":[`},
+		{scope: agentplatform.ScopeNotificationRulesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/notification-rules/%s", fixture.notificationRuleID), body: map[string]any{"name": "Platform Updated Rule", "is_enabled": false}, wantStatus: http.StatusOK, wantBody: `"name":"Platform Updated Rule"`},
+		{scope: agentplatform.ScopeProjectsAddRepo, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/github/namespaces", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"login":"octocat"`},
+		{scope: agentplatform.ScopeProjectsUpdate, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/orgs/%s/projects", fixture.organizationID), wantStatus: http.StatusOK, wantBody: `"projects":[`},
+		{scope: agentplatform.ScopeReposCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos", fixture.projectID), body: map[string]any{"name": "worker-tools", "repository_url": "file:///srv/git/worker-tools.git", "default_branch": "main"}, wantStatus: http.StatusCreated, wantBody: `"name":"worker-tools"`},
+		{scope: agentplatform.ScopeReposDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoDeleteID), wantStatus: http.StatusOK, wantBody: fixture.repoDeleteID.String()},
+		{scope: agentplatform.ScopeReposRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"repos":[`},
+		{scope: agentplatform.ScopeReposUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoReadID), body: map[string]any{"name": "platform-primary-updated", "repository_url": "file:///srv/git/platform-primary-updated.git", "default_branch": "main"}, wantStatus: http.StatusOK, wantBody: `"repository_url":"file:///srv/git/platform-primary-updated.git"`},
+		{scope: agentplatform.ScopeScheduledJobsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), body: map[string]any{"name": "platform-create-job", "cron_expression": "0 7 * * 2", "ticket_template": map[string]any{"title": "Platform create job", "description": "create via platform scope", "status": "Backlog", "priority": "medium", "type": "feature"}}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-create-job"`},
+		{scope: agentplatform.ScopeScheduledJobsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobDeleteID), wantStatus: http.StatusOK, wantBody: fixture.scheduledJobDeleteID.String()},
+		{scope: agentplatform.ScopeScheduledJobsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"scheduled_jobs":[`},
+		{scope: agentplatform.ScopeScheduledJobsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobID), body: map[string]any{"name": "platform-main-job-updated"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-main-job-updated"`},
+		{scope: agentplatform.ScopeSkillsBind, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/bind", fixture.skillMainID), body: map[string]any{"workflow_ids": []string{fixture.mainWorkflowID.String()}}, wantStatus: http.StatusOK, wantBody: `"bound_workflows":[`},
+		{scope: agentplatform.ScopeSkillsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills", fixture.projectID), body: map[string]any{"name": "platform-created", "content": "# Platform Created\n", "description": "created via platform"}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-created"`},
+		{scope: agentplatform.ScopeSkillsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/skills/%s", fixture.skillDeleteID), wantStatus: http.StatusOK, wantBody: fixture.skillDeleteID.String()},
+		{scope: agentplatform.ScopeSkillsDisable, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/disable", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: `"is_enabled":false`},
+		{scope: agentplatform.ScopeSkillsEnable, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/enable", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: `"is_enabled":true`},
+		{scope: agentplatform.ScopeSkillsImport, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills/import", fixture.projectID), body: map[string]any{"name": "platform-imported", "files": []map[string]any{{"path": "SKILL.md", "content_base64": base64.StdEncoding.EncodeToString([]byte("---\nname: platform-imported\ndescription: platform imported bundle\n---\n\n# Imported\n")), "media_type": "text/markdown; charset=utf-8", "is_executable": false}}}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-imported"`},
+		{scope: agentplatform.ScopeSkillsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"skills":[`},
+		{scope: agentplatform.ScopeSkillsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/skills/%s", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: fixture.skillMainID.String()},
+		{scope: agentplatform.ScopeSkillsRefresh, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/skills/refresh", fixture.projectID), body: map[string]any{"workspace_root": os.TempDir(), "adapter_type": "claude-code-cli"}, wantStatus: http.StatusOK, wantBody: `"injected_skills":[`},
+		{scope: agentplatform.ScopeSkillsUpdate, method: http.MethodPut, path: fmt.Sprintf("/api/v1/platform/skills/%s", fixture.skillMainID), body: map[string]any{"content": "# Platform Updated Skill\n", "description": "updated via platform"}, wantStatus: http.StatusOK, wantBody: `updated via platform`},
+		{scope: agentplatform.ScopeStatusesCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/statuses", fixture.projectID), body: map[string]any{"name": "Platform QA", "stage": "started", "color": "#22AA66"}, wantStatus: http.StatusCreated, wantBody: `"name":"Platform QA"`},
+		{scope: agentplatform.ScopeStatusesList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/statuses", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"statuses":[`},
+		{scope: agentplatform.ScopeStatusesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/statuses/%s", fixture.statusUpdateID), body: map[string]any{"name": "Platform Updated", "color": "#3366FF"}, wantStatus: http.StatusOK, wantBody: `"name":"Platform Updated"`},
+		{scope: agentplatform.ScopeTicketRepoScopesCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID), body: map[string]any{"repo_id": fixture.repoScopeCreateID.String(), "branch_name": "feature/platform-create"}, wantStatus: http.StatusCreated, wantBody: `"branch_name":"feature/platform-create"`},
+		{scope: agentplatform.ScopeTicketRepoScopesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes/%s", fixture.projectID, fixture.ticketID, fixture.ticketRepoDeleteID), wantStatus: http.StatusOK, wantBody: fixture.ticketRepoDeleteID.String()},
+		{scope: agentplatform.ScopeTicketRepoScopesList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID), wantStatus: http.StatusOK, wantBody: `"repo_scopes":[`},
+		{scope: agentplatform.ScopeTicketRepoScopesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes/%s", fixture.projectID, fixture.ticketID, fixture.ticketRepoScopeID), body: map[string]any{"branch_name": "feature/platform-update"}, wantStatus: http.StatusOK, wantBody: `"branch_name":"feature/platform-update"`},
+		{scope: agentplatform.ScopeTicketsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets", fixture.projectID), body: map[string]any{"title": "Conversation-created follow-up", "description": "Created from project conversation token"}, prepare: prepareSingleRepoProjectForDerivedTicketCreation, wantStatus: http.StatusCreated, wantBody: `"title":"Conversation-created follow-up"`},
+		{scope: agentplatform.ScopeTicketsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"tickets":[`},
+		{scope: agentplatform.ScopeTicketsUpdate, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/tickets/%s/comments", fixture.ticketID), wantStatus: http.StatusOK, wantBody: `"comments":[`},
+		{scope: agentplatform.ScopeWorkflowsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/workflows", fixture.projectID), body: map[string]any{"agent_id": fixture.agentID.String(), "name": "Platform Workflow Create", "type": "coding", "pickup_status_ids": []string{fixture.statusUpdateID.String()}, "finish_status_ids": []string{fixture.statusDeleteID.String()}, "harness_content": "# Platform Create\n", "is_active": false}, wantStatus: http.StatusCreated, wantBody: `"name":"Platform Workflow Create"`},
+		{scope: agentplatform.ScopeWorkflowsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/workflows/%s", fixture.deleteWorkflowID), wantStatus: http.StatusOK, wantBody: fixture.deleteWorkflowID.String()},
+		{scope: agentplatform.ScopeWorkflowsHarnessHistoryRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/workflows/%s/harness/history", fixture.mainWorkflowID), wantStatus: http.StatusOK, wantBody: `"history":[`},
+		{scope: agentplatform.ScopeWorkflowsHarnessRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/workflows/%s/harness", fixture.mainWorkflowID), wantStatus: http.StatusOK, wantBody: `"workflow_id":"` + fixture.mainWorkflowID.String() + `"`},
+		{scope: agentplatform.ScopeWorkflowsHarnessUpdate, method: http.MethodPut, path: fmt.Sprintf("/api/v1/platform/workflows/%s/harness", fixture.mainWorkflowID), body: map[string]any{"content": "# Platform Harness Update\n"}, wantStatus: http.StatusOK, wantBody: `"version":`},
+		{scope: agentplatform.ScopeWorkflowsHarnessValidate, method: http.MethodPost, path: "/api/v1/platform/harness/validate", body: map[string]any{"content": "# Validate\n"}, wantStatus: http.StatusOK, wantBody: `"valid":true`},
+		{scope: agentplatform.ScopeWorkflowsHarnessVariablesRead, method: http.MethodGet, path: "/api/v1/platform/harness/variables", wantStatus: http.StatusOK, wantBody: `"groups":[`},
+		{scope: agentplatform.ScopeWorkflowsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/workflows", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"workflows":[`},
+		{scope: agentplatform.ScopeWorkflowsRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/workflows/%s", fixture.mainWorkflowID), wantStatus: http.StatusOK, wantBody: fixture.mainWorkflowID.String()},
+		{scope: agentplatform.ScopeWorkflowsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/workflows/%s", fixture.mainWorkflowID), body: map[string]any{"name": "Platform Workflow Updated"}, wantStatus: http.StatusOK, wantBody: `"name":"Platform Workflow Updated"`},
+		{scope: agentplatform.ScopeScheduledJobsTrigger, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s/trigger", fixture.scheduledJobID), prepare: prepareSingleRepoProjectForDerivedTicketCreation, wantStatus: http.StatusOK, wantBody: `"ticket":{`},
+		{scope: agentplatform.ScopeStatusesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/statuses/%s", fixture.statusDeleteID), wantStatus: http.StatusOK, wantBody: fixture.statusDeleteID.String()},
+		{scope: agentplatform.ScopeStatusesReset, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/statuses/reset", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"statuses":[`},
+	}
+}
+
+func filterProjectConversationScopeContracts(contracts []projectConversationScopeContract, prefixes ...string) []projectConversationScopeContract {
+	filtered := make([]projectConversationScopeContract, 0, len(contracts))
+	for _, contract := range contracts {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(string(contract.scope), prefix) {
+				filtered = append(filtered, contract)
+				break
+			}
+		}
+	}
+	return filtered
+}
+
+func runProjectConversationScopeContracts(t *testing.T, fixture *agentPlatformExpandedFixture, contracts []projectConversationScopeContract) {
+	t.Helper()
+
+	for _, contract := range contracts {
+		t.Run(string(contract.scope), func(t *testing.T) {
+			if contract.prepare != nil {
+				contract.prepare(t, fixture)
+			}
+			token := fixture.issueProjectConversationToken(t, contract.scope)
+			rec := performPlatformRequest(t, fixture.server, contract.method, contract.path, contract.body, token)
+			if rec.Code != contract.wantStatus {
+				t.Fatalf("expected %s %s with %s to return %d, got %d: %s", contract.method, contract.path, contract.scope, contract.wantStatus, rec.Code, rec.Body.String())
+			}
+			if contract.wantBody != "" && !strings.Contains(rec.Body.String(), contract.wantBody) {
+				t.Fatalf("expected %s %s response to contain %q, got %s", contract.method, contract.path, contract.wantBody, rec.Body.String())
+			}
+		})
 	}
 }
 
@@ -2006,6 +2294,40 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 	if err != nil {
 		t.Fatalf("create read agent: %v", err)
 	}
+	agentInterrupt, err := client.Agent.Create().
+		SetProjectID(projectID).
+		SetProviderID(providerItem.ID).
+		SetName("platform-interrupt-agent").
+		SetRuntimeControlState("active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create interrupt agent: %v", err)
+	}
+	interruptTicket, err := client.Ticket.Create().
+		SetProjectID(projectID).
+		SetIdentifier("ASE-138").
+		SetTitle("Platform interrupt ticket").
+		SetStatusID(todoID).
+		SetCreatedBy("user:platform").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create interrupt ticket: %v", err)
+	}
+	interruptRun, err := client.AgentRun.Create().
+		SetAgentID(agentInterrupt.ID).
+		SetWorkflowID(mainWorkflow.ID).
+		SetTicketID(interruptTicket.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus("executing").
+		SetRuntimeStartedAt(time.Now().UTC()).
+		SetLastHeartbeatAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create interrupt run: %v", err)
+	}
+	if _, err := client.Ticket.UpdateOneID(interruptTicket.ID).SetCurrentRunID(interruptRun.ID).Save(ctx); err != nil {
+		t.Fatalf("attach interrupt run to ticket: %v", err)
+	}
 	agentPause, err := client.Agent.Create().
 		SetProjectID(projectID).
 		SetProviderID(providerItem.ID).
@@ -2017,7 +2339,7 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 	}
 	pauseTicket, err := client.Ticket.Create().
 		SetProjectID(projectID).
-		SetIdentifier("ASE-39").
+		SetIdentifier("ASE-139").
 		SetTitle("Platform pause ticket").
 		SetStatusID(todoID).
 		SetCreatedBy("user:platform").
@@ -2052,7 +2374,7 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 	}
 	resumeTicket, err := client.Ticket.Create().
 		SetProjectID(projectID).
-		SetIdentifier("ASE-40").
+		SetIdentifier("ASE-140").
 		SetTitle("Platform resume ticket").
 		SetStatusID(todoID).
 		SetCreatedBy("user:platform").
@@ -2250,6 +2572,7 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		client:                client,
 		server:                server,
 		platformService:       platformService,
+		organizationID:        projectItem.OrganizationID,
 		projectID:             projectID,
 		agentID:               agentID,
 		ticketID:              ticketID,
@@ -2260,6 +2583,7 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		repoScopeCreateID:     repoScopeCreate.ID,
 		repoDeleteID:          repoDelete.ID,
 		agentReadID:           agentRead.ID,
+		agentInterruptID:      agentInterrupt.ID,
 		agentPauseID:          agentPause.ID,
 		agentResumeID:         agentResume.ID,
 		agentDeleteID:         agentDelete.ID,
@@ -2336,6 +2660,31 @@ func performPlatformRequest(
 	return performJSONRequestWithHeaders(t, server, method, target, payload, headers)
 }
 
+func prepareSingleRepoProjectForDerivedTicketCreation(t *testing.T, fixture *agentPlatformExpandedFixture) {
+	t.Helper()
+
+	ctx := context.Background()
+	if _, err := fixture.server.catalog.DeleteTicketRepoScope(ctx, fixture.projectID, fixture.ticketID, fixture.ticketRepoScopeID); err != nil && !errors.Is(err, catalogdomain.ErrNotFound) {
+		t.Fatalf("delete ticket repo scope %s: %v", fixture.ticketRepoScopeID, err)
+	}
+	if _, err := fixture.server.catalog.DeleteTicketRepoScope(ctx, fixture.projectID, fixture.ticketID, fixture.ticketRepoDeleteID); err != nil && !errors.Is(err, catalogdomain.ErrNotFound) {
+		t.Fatalf("delete ticket repo delete scope %s: %v", fixture.ticketRepoDeleteID, err)
+	}
+
+	repos, err := fixture.server.catalog.ListProjectRepos(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("list project repos: %v", err)
+	}
+	for index, repo := range repos {
+		if index == 0 {
+			continue
+		}
+		if _, err := fixture.server.catalog.DeleteProjectRepo(ctx, fixture.projectID, repo.ID); err != nil && !errors.Is(err, catalogdomain.ErrNotFound) {
+			t.Fatalf("delete extra repo %s: %v", repo.ID, err)
+		}
+	}
+}
+
 func (f *agentPlatformExpandedFixture) issueToken(t *testing.T, scopes ...agentplatform.Scope) string {
 	t.Helper()
 
@@ -2351,6 +2700,48 @@ func (f *agentPlatformExpandedFixture) issueToken(t *testing.T, scopes ...agentp
 	})
 	if err != nil {
 		t.Fatalf("IssueToken returned error: %v", err)
+	}
+	return issued.Token
+}
+
+func (f *agentPlatformExpandedFixture) issueProjectConversationToken(t *testing.T, scopes ...agentplatform.Scope) string {
+	t.Helper()
+
+	ctx := context.Background()
+	conversationID := uuid.New()
+	if _, err := f.client.ChatConversation.Create().
+		SetID(conversationID).
+		SetProjectID(f.projectID).
+		SetUserID("browser-user").
+		SetSource("project_sidebar").
+		SetProviderID(f.providerID).
+		SetStatus("active").
+		Save(ctx); err != nil {
+		t.Fatalf("create chat conversation: %v", err)
+	}
+	if _, err := f.client.ProjectConversationPrincipal.Create().
+		SetID(conversationID).
+		SetConversationID(conversationID).
+		SetProjectID(f.projectID).
+		SetProviderID(f.providerID).
+		SetName("project-conversation:" + conversationID.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation principal: %v", err)
+	}
+
+	scopeStrings := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		scopeStrings = append(scopeStrings, string(scope))
+	}
+	issued, err := f.platformService.IssueToken(ctx, agentplatform.IssueInput{
+		PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
+		PrincipalID:    conversationID,
+		ProjectID:      f.projectID,
+		ConversationID: conversationID,
+		Scopes:         scopeStrings,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(project conversation) returned error: %v", err)
 	}
 	return issued.Token
 }
