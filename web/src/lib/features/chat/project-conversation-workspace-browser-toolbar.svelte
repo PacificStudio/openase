@@ -115,7 +115,7 @@
   {#if currentRefLabel}
     <button
       type="button"
-      class="hover:bg-muted/50 ml-2 inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium transition-colors"
+      class="hover:bg-muted/50 border-border ml-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors"
       onclick={() => {
         if (hasBranchDialog) {
           branchDialogOpen = true
@@ -180,7 +180,7 @@
     </Dialog.Header>
 
     {#if checkoutBlockers.length > 0}
-      <div class="border-amber-500/20 bg-amber-500/10 rounded-md border px-3 py-2 text-sm">
+      <div class="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm">
         <p class="font-medium text-amber-900">Branch switching is blocked</p>
         <ul class="mt-2 list-disc space-y-1 pl-5 text-amber-900">
           {#each checkoutBlockers as blocker}
@@ -207,7 +207,7 @@
             <h3 class="text-sm font-semibold">Local branches</h3>
             <span class="text-muted-foreground text-[11px]">{localBranches.length}</span>
           </div>
-          <div class="max-h-80 space-y-2 overflow-auto rounded-md border border-border/60 p-2">
+          <div class="border-border/60 max-h-80 space-y-2 overflow-auto rounded-md border p-2">
             {#if localBranches.length === 0}
               <p class="text-muted-foreground px-2 py-4 text-sm">No local branches available.</p>
             {:else}
@@ -224,7 +224,9 @@
                       targetName: branch.name,
                       createTrackingBranch: false,
                     })}
-                  disabled={branch.current || checkoutBlockers.length > 0 || branchActionPending !== ''}
+                  disabled={branch.current ||
+                    checkoutBlockers.length > 0 ||
+                    branchActionPending !== ''}
                 >
                   <span class="flex items-center gap-2">
                     <span class="font-medium">{branch.name}</span>
@@ -255,7 +257,7 @@
             <h3 class="text-sm font-semibold">Remote branches</h3>
             <span class="text-muted-foreground text-[11px]">{remoteBranches.length}</span>
           </div>
-          <div class="max-h-80 space-y-2 overflow-auto rounded-md border border-border/60 p-2">
+          <div class="border-border/60 max-h-80 space-y-2 overflow-auto rounded-md border p-2">
             {#if remoteBranches.length === 0}
               <p class="text-muted-foreground px-2 py-4 text-sm">No remote branches available.</p>
             {:else}

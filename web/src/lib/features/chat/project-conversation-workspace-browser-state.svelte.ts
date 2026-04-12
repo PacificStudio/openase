@@ -587,7 +587,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     targetName: string
     createTrackingBranch: boolean
     localBranchName?: string
-  }): Promise<{ ok: boolean; blockers: string[]; checkout?: ProjectConversationWorkspaceCheckoutResult }> {
+  }): Promise<{
+    ok: boolean
+    blockers: string[]
+    checkout?: ProjectConversationWorkspaceCheckoutResult
+  }> {
     const conversationId = input.getConversationId()
     if (!conversationId || !request.repoPath) {
       return { ok: false, blockers: ['Workspace conversation is unavailable.'] }

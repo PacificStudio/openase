@@ -63,13 +63,13 @@
 {:else}
   <div class="flex h-full min-h-0 flex-col">
     <div class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(240px,320px)] overflow-hidden">
-      <div class="min-h-0 overflow-auto border-r border-border/60">
+      <div class="border-border/60 min-h-0 overflow-auto border-r">
         {#each rows as row (row.commit.commitId)}
           <div
             role="button"
             tabindex="0"
             class={cn(
-              'hover:bg-muted/40 flex w-full items-stretch gap-3 border-b border-border/40 px-3 py-2 text-left transition-colors',
+              'hover:bg-muted/40 border-border/40 flex w-full items-stretch gap-3 border-b px-3 py-2 text-left transition-colors',
               selectedCommit?.commitId === row.commit.commitId && 'bg-primary/5',
             )}
             onclick={() => onSelectCommit?.(row.commit.commitId)}
@@ -82,11 +82,22 @@
             data-testid={`workspace-git-graph-commit-${row.commit.shortCommitId}`}
           >
             <div class="shrink-0 pt-1.5">
-              <svg width={Math.max(1, row.laneCount) * 14} height="28" viewBox={`0 0 ${Math.max(1, row.laneCount) * 14} 28`}>
+              <svg
+                width={Math.max(1, row.laneCount) * 14}
+                height="28"
+                viewBox={`0 0 ${Math.max(1, row.laneCount) * 14} 28`}
+              >
                 {#each Array.from({ length: row.laneCount }, (_, index) => index) as lane}
                   {@const x = lane * 14 + 7}
                   {#if row.activeBefore.includes(lane) || row.activeAfter.includes(lane)}
-                    <line x1={x} y1="0" x2={x} y2="28" stroke="currentColor" stroke-opacity="0.22" />
+                    <line
+                      x1={x}
+                      y1="0"
+                      x2={x}
+                      y2="28"
+                      stroke="currentColor"
+                      stroke-opacity="0.22"
+                    />
                   {/if}
                 {/each}
                 {#each row.parentColumns as parentColumn}
@@ -157,32 +168,34 @@
         {#if selectedCommit}
           <div class="space-y-3">
             <div>
-              <p class="text-muted-foreground text-[11px] font-semibold uppercase tracking-wide">
+              <p class="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
                 Commit
               </p>
               <p class="mt-1 text-sm font-medium">{selectedCommit.subject}</p>
             </div>
             <dl class="space-y-2 text-sm">
               <div>
-                <dt class="text-muted-foreground text-[11px] uppercase tracking-wide">SHA</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">SHA</dt>
                 <dd class="mt-1 font-mono text-[12px]">{selectedCommit.commitId}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] uppercase tracking-wide">Author</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Author</dt>
                 <dd class="mt-1">{selectedCommit.authorName}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] uppercase tracking-wide">Authored</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Authored</dt>
                 <dd class="mt-1">{new Date(selectedCommit.authoredAt).toLocaleString()}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] uppercase tracking-wide">Parents</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Parents</dt>
                 <dd class="mt-1 font-mono text-[12px]">
-                  {selectedCommit.parentIds.length > 0 ? selectedCommit.parentIds.join(', ') : 'Root commit'}
+                  {selectedCommit.parentIds.length > 0
+                    ? selectedCommit.parentIds.join(', ')
+                    : 'Root commit'}
                 </dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] uppercase tracking-wide">Labels</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Labels</dt>
                 <dd class="mt-2 flex flex-wrap gap-1.5">
                   {#if selectedCommit.labels.length === 0}
                     <span class="text-muted-foreground">No labels</span>

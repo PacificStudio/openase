@@ -342,7 +342,9 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
       }),
     )
 
-    const storage = window.localStorage.getItem('openase.project-conversation.workspace-file-drafts')
+    const storage = window.localStorage.getItem(
+      'openase.project-conversation.workspace-file-drafts',
+    )
     expect(storage).toContain('branch:refs/heads/feat/ase-162-workspace-editor')
     expect(storage).not.toContain('branch:refs/heads/feat/ase-170-other-branch::README.md')
   })

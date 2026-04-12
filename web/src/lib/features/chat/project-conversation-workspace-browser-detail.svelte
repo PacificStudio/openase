@@ -102,7 +102,11 @@
       }
     } catch (error) {
       graphActionError =
-        error instanceof ApiError ? error.detail : error instanceof Error ? error.message : 'Failed to switch branches.'
+        error instanceof ApiError
+          ? error.detail
+          : error instanceof Error
+            ? error.message
+            : 'Failed to switch branches.'
     }
   }
 
@@ -238,8 +242,8 @@
             <div
               class="bg-muted/40 text-muted-foreground border-border border-b px-3 py-1.5 text-[11px]"
             >
-              Project AI can keep updating this workspace during active turns. Your local draft stays
-              preserved.
+              Project AI can keep updating this workspace during active turns. Your local draft
+              stays preserved.
             </div>
           {/if}
 
@@ -255,7 +259,11 @@
                 {activeEditorState.errorMessage ||
                   'This file changed in the workspace while your draft was open.'}
               </span>
-              <Button size="sm" variant="ghost" onclick={() => browser.reloadSelectedSavedVersion()}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onclick={() => browser.reloadSelectedSavedVersion()}
+              >
                 Reload saved version
               </Button>
               <Button size="sm" variant="ghost" onclick={() => browser.keepSelectedDraft()}>
@@ -289,7 +297,10 @@
             </div>
           {/if}
 
-          <div class="min-h-0 flex-1 overflow-hidden" data-testid="workspace-browser-detail-content">
+          <div
+            class="min-h-0 flex-1 overflow-hidden"
+            data-testid="workspace-browser-detail-content"
+          >
             {#if activePreview?.previewKind === 'binary'}
               <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
                 <div class="mx-auto max-w-md">Binary file — not rendered inline.</div>
@@ -314,7 +325,9 @@
                   onFormatSelection={activePreview.writable
                     ? () => browser.formatSelectedSelection()
                     : undefined}
-                  onSave={activePreview.writable ? () => void browser.saveSelectedFile() : undefined}
+                  onSave={activePreview.writable
+                    ? () => void browser.saveSelectedFile()
+                    : undefined}
                   onRevert={activeEditorState.dirty && activeEditorState.savePhase !== 'saving'
                     ? () => browser.revertSelectedDraft()
                     : undefined}

@@ -1503,7 +1503,9 @@ function parseProjectConversationWorkspaceCurrentRef(
   fallbackSubject = '',
 ): ProjectConversationWorkspaceCurrentRef {
   if (!value) {
-    const kind: ProjectConversationWorkspaceCurrentRefKind = fallbackDisplayName.startsWith('detached')
+    const kind: ProjectConversationWorkspaceCurrentRefKind = fallbackDisplayName.startsWith(
+      'detached',
+    )
       ? 'detached'
       : 'branch'
     return {
