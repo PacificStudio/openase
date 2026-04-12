@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/ent"
+	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
@@ -147,6 +149,26 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	backendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("frontend").
+		SetRepositoryURL("https://github.com/acme/frontend.git").
+		SetDefaultBranch("develop").
+		SetWorkspaceDirname("frontend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
 
 	createResp := struct {
 		ScheduledJob scheduledJobResponse `json:"scheduled_job"`
@@ -165,6 +187,10 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 				"status":      "Backlog",
 				"priority":    "high",
 				"type":        "feature",
+				"repo_scopes": []map[string]any{
+					{"repo_id": backendRepo.ID.String()},
+					{"repo_id": frontendRepo.ID.String(), "branch_name": "release/train"},
+				},
 			},
 		},
 		http.StatusCreated,
@@ -175,6 +201,9 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 	}
 	if createResp.ScheduledJob.NextRunAt == nil || *createResp.ScheduledJob.NextRunAt != "2026-03-23T09:00:00Z" {
 		t.Fatalf("expected next run at 2026-03-23T09:00:00Z, got %+v", createResp.ScheduledJob.NextRunAt)
+	}
+	if len(createResp.ScheduledJob.TicketTemplate.RepoScopes) != 2 {
+		t.Fatalf("expected repo scopes in create response, got %+v", createResp.ScheduledJob.TicketTemplate.RepoScopes)
 	}
 
 	listResp := struct {
@@ -220,6 +249,30 @@ func TestScheduledJobRoutesCRUDAndTrigger(t *testing.T) {
 	}
 	if triggerResp.ScheduledJob.NextRunAt == nil || *triggerResp.ScheduledJob.NextRunAt != "2026-03-23T09:00:00Z" {
 		t.Fatalf("expected trigger to preserve future next_run_at, got %+v", triggerResp.ScheduledJob)
+	}
+	triggerTicketID, err := uuid.Parse(triggerResp.Ticket.ID)
+	if err != nil {
+		t.Fatalf("parse trigger ticket id: %v", err)
+	}
+	ticketScopes, err := client.TicketRepoScope.Query().
+		Where(entticketreposcope.TicketIDEQ(triggerTicketID)).
+		Order(ent.Asc(entticketreposcope.FieldRepoID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("load trigger repo scopes: %v", err)
+	}
+	if len(ticketScopes) != 2 {
+		t.Fatalf("expected trigger repo scopes, got %+v", ticketScopes)
+	}
+	scopeByRepoID := make(map[uuid.UUID]string, len(ticketScopes))
+	for _, scope := range ticketScopes {
+		scopeByRepoID[scope.RepoID] = scope.BranchName
+	}
+	if scopeByRepoID[backendRepo.ID] != "main" {
+		t.Fatalf("unexpected backend trigger repo scopes: %+v", ticketScopes)
+	}
+	if scopeByRepoID[frontendRepo.ID] != "release/train" {
+		t.Fatalf("unexpected frontend trigger repo scopes: %+v", ticketScopes)
 	}
 
 	updateResp := struct {

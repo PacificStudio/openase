@@ -306,6 +306,31 @@ This section walks through everything you need on a **fresh machine** — from i
 | **macOS** (Apple Silicon, Intel) | ✅ Supported | `setup`, `up/down/restart/logs`, and the managed user service use `launchd` with `~/Library/LaunchAgents/com.openase.plist` |
 | **Windows** | ⚠️ Untested | Native service management and shell scripts have not been validated. WSL2 is recommended as a workaround |
 
+### Fast Path: One-Command Installer
+
+For fresh Linux or macOS machines, the fastest supported path is the release
+installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pacificstudio/openase/main/scripts/install.sh | sh
+```
+
+The installer:
+
+- detects the current OS, architecture, package managers, Docker usability, and writable install targets
+- downloads the matching GitHub release archive plus `checksums.txt`
+- verifies the release checksum before installing `openase`
+- offers PostgreSQL bootstrap through a supported system package manager or Docker when available
+- writes a runnable `~/.openase/config.yaml` and `~/.openase/.env` when automatic setup completes successfully
+
+To pin a release version instead of installing the latest release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/pacificstudio/openase/main/scripts/install.sh | sh -s -- --version v0.4.0
+```
+
+If you prefer to build from source, continue with the manual steps below.
+
 ### Step 0: System Prerequisites
 
 <details>

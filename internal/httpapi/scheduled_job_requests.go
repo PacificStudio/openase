@@ -9,17 +9,28 @@ import (
 )
 
 type rawCreateScheduledJobRequest struct {
-	Name           string         `json:"name"`
-	CronExpression string         `json:"cron_expression"`
-	TicketTemplate map[string]any `json:"ticket_template"`
-	IsEnabled      *bool          `json:"is_enabled"`
+	Name           string                               `json:"name"`
+	CronExpression string                               `json:"cron_expression"`
+	TicketTemplate rawScheduledJobTicketTemplateRequest `json:"ticket_template"`
+	IsEnabled      *bool                                `json:"is_enabled"`
 }
 
 type rawUpdateScheduledJobRequest struct {
-	Name           *string         `json:"name"`
-	CronExpression *string         `json:"cron_expression"`
-	TicketTemplate *map[string]any `json:"ticket_template"`
-	IsEnabled      *bool           `json:"is_enabled"`
+	Name           *string                               `json:"name"`
+	CronExpression *string                               `json:"cron_expression"`
+	TicketTemplate *rawScheduledJobTicketTemplateRequest `json:"ticket_template"`
+	IsEnabled      *bool                                 `json:"is_enabled"`
+}
+
+type rawScheduledJobTicketTemplateRequest struct {
+	Title       string                            `json:"title"`
+	Description string                            `json:"description"`
+	Status      string                            `json:"status"`
+	Priority    string                            `json:"priority"`
+	Type        string                            `json:"type"`
+	CreatedBy   string                            `json:"created_by"`
+	BudgetUSD   *float64                          `json:"budget_usd"`
+	RepoScopes  []rawCreateTicketRepoScopeRequest `json:"repo_scopes"`
 }
 
 func parseCreateScheduledJobRequest(projectID uuid.UUID, raw rawCreateScheduledJobRequest) (scheduledjobservice.CreateInput, error) {
@@ -32,7 +43,7 @@ func parseCreateScheduledJobRequest(projectID uuid.UUID, raw rawCreateScheduledJ
 		return scheduledjobservice.CreateInput{}, fmt.Errorf("cron_expression must not be empty")
 	}
 
-	ticketTemplate, err := scheduledjobservice.ParseRawTicketTemplate(raw.TicketTemplate)
+	ticketTemplate, err := parseScheduledJobTicketTemplateRequest(raw.TicketTemplate)
 	if err != nil {
 		return scheduledjobservice.CreateInput{}, err
 	}
@@ -72,7 +83,7 @@ func parseUpdateScheduledJobRequest(jobID uuid.UUID, raw rawUpdateScheduledJobRe
 		input.CronExpression = scheduledjobservice.Some(cronExpression)
 	}
 	if raw.TicketTemplate != nil {
-		ticketTemplate, err := scheduledjobservice.ParseRawTicketTemplate(*raw.TicketTemplate)
+		ticketTemplate, err := parseScheduledJobTicketTemplateRequest(*raw.TicketTemplate)
 		if err != nil {
 			return scheduledjobservice.UpdateInput{}, err
 		}
@@ -86,4 +97,43 @@ func parseUpdateScheduledJobRequest(jobID uuid.UUID, raw rawUpdateScheduledJobRe
 	}
 
 	return input, nil
+}
+
+func parseScheduledJobTicketTemplateRequest(
+	raw rawScheduledJobTicketTemplateRequest,
+) (scheduledjobservice.TicketTemplate, error) {
+	template := map[string]any{
+		"title": raw.Title,
+	}
+	if strings.TrimSpace(raw.Description) != "" {
+		template["description"] = raw.Description
+	}
+	if strings.TrimSpace(raw.Status) != "" {
+		template["status"] = raw.Status
+	}
+	if strings.TrimSpace(raw.Priority) != "" {
+		template["priority"] = raw.Priority
+	}
+	if strings.TrimSpace(raw.Type) != "" {
+		template["type"] = raw.Type
+	}
+	if strings.TrimSpace(raw.CreatedBy) != "" {
+		template["created_by"] = raw.CreatedBy
+	}
+	if raw.BudgetUSD != nil {
+		template["budget_usd"] = *raw.BudgetUSD
+	}
+	if len(raw.RepoScopes) > 0 {
+		repoScopes := make([]map[string]any, 0, len(raw.RepoScopes))
+		for _, scope := range raw.RepoScopes {
+			item := map[string]any{"repo_id": scope.RepoID}
+			if scope.BranchName != nil {
+				item["branch_name"] = *scope.BranchName
+			}
+			repoScopes = append(repoScopes, item)
+		}
+		template["repo_scopes"] = repoScopes
+	}
+
+	return scheduledjobservice.ParseRawTicketTemplate(template)
 }

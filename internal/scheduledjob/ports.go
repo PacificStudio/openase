@@ -10,6 +10,7 @@ import (
 
 type Repository interface {
 	EnsureProjectExists(ctx context.Context, projectID uuid.UUID) error
+	ListProjectRepoIDs(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error)
 	List(ctx context.Context, projectID uuid.UUID) ([]domain.Job, error)
 	Get(ctx context.Context, jobID uuid.UUID) (domain.Job, error)
 	Create(ctx context.Context, job domain.Job) (domain.Job, error)

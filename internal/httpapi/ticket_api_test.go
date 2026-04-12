@@ -29,7 +29,6 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	providerapi "github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
-	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -2494,7 +2493,7 @@ func TestTicketRouteArchivingClearsAssignmentAndReleasesAgent(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		newTicketService(client),
 		ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client)),
 		nil,
 		nil,
