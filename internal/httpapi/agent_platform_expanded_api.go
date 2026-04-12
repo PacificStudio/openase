@@ -5,6 +5,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -13,7 +14,23 @@ import (
 
 func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/activity", s.handleAgentListActivityEvents)
+	api.GET("/projects/:projectId/github/namespaces", s.handleAgentListGitHubNamespaces)
+	api.GET("/projects/:projectId/github/repos", s.handleAgentListGitHubRepositories)
+	api.POST("/projects/:projectId/github/repos", s.handleAgentCreateGitHubRepository)
+	api.GET("/projects/:projectId/agents", s.handleAgentListAgents)
+	api.POST("/projects/:projectId/agents", s.handleAgentCreateProjectAgent)
+	api.GET("/projects/:projectId/agents/:agentId/output", s.handleAgentListProjectAgentOutput)
+	api.GET("/projects/:projectId/agents/:agentId/steps", s.handleAgentListProjectAgentSteps)
+	api.GET("/agents/:agentId", s.handleAgentGetProjectAgent)
+	api.PATCH("/agents/:agentId", s.handleAgentUpdateProjectAgent)
 	api.POST("/agents/:agentId/interrupt", s.handleAgentInterruptProjectAgent)
+	api.POST("/agents/:agentId/pause", s.handleAgentPauseProjectAgent)
+	api.POST("/agents/:agentId/resume", s.handleAgentResumeProjectAgent)
+	api.DELETE("/agents/:agentId", s.handleAgentDeleteProjectAgent)
+	api.GET("/projects/:projectId/notification-rules", s.handleAgentListNotificationRules)
+	api.POST("/projects/:projectId/notification-rules", s.handleAgentCreateNotificationRule)
+	api.PATCH("/notification-rules/:ruleId", s.handleAgentUpdateNotificationRule)
+	api.DELETE("/notification-rules/:ruleId", s.handleAgentDeleteNotificationRule)
 	api.GET("/projects/:projectId/statuses", s.handleAgentListTicketStatuses)
 	api.POST("/projects/:projectId/statuses", s.handleAgentCreateTicketStatus)
 	api.POST("/projects/:projectId/statuses/reset", s.handleAgentResetTicketStatuses)
@@ -103,11 +120,57 @@ func (s *Server) requireAgentProjectAgentAnyScope(c echo.Context, scopes ...agen
 	return item, true
 }
 
+func (s *Server) requireAgentProjectScopedAgentAnyScope(c echo.Context, scopes ...agentplatform.Scope) bool {
+	item, ok := s.requireAgentProjectAgentAnyScope(c, scopes...)
+	if !ok {
+		return false
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+		return false
+	}
+	if item.ProjectID != projectID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return false
+	}
+	return true
+}
+
 func (s *Server) handleAgentInterruptProjectAgent(c echo.Context) error {
 	if _, ok := s.requireAgentProjectAgentAnyScope(c, agentplatform.ScopeAgentsInterrupt); !ok {
 		return nil
 	}
 	return s.interruptAgent(c)
+}
+
+func (s *Server) requireAgentNotificationRuleAnyScope(c echo.Context, scopes ...agentplatform.Scope) bool {
+	if s.notificationService == nil {
+		_ = writeNotificationError(c, notificationservice.ErrUnavailable)
+		return false
+	}
+
+	claims, ok := requireAgentAnyScope(c, scopes...)
+	if !ok {
+		return false
+	}
+
+	ruleID, err := parseUUIDPathParamValue(c, "ruleId")
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_RULE_ID", err.Error())
+		return false
+	}
+	item, err := s.notificationService.GetRule(c.Request().Context(), ruleID)
+	if err != nil {
+		_ = writeNotificationError(c, err)
+		return false
+	}
+	if item.ProjectID != claims.ProjectID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return false
+	}
+	return true
 }
 
 func (s *Server) requireAgentWorkflowAnyScope(c echo.Context, scopes ...agentplatform.Scope) bool {
@@ -259,6 +322,145 @@ func (s *Server) handleAgentListActivityEvents(c echo.Context) error {
 		return nil
 	}
 	return s.listActivityEvents(c)
+}
+
+func (s *Server) handleAgentListGitHubNamespaces(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeProjectsAddRepo) {
+		return nil
+	}
+	return s.handleListGitHubNamespaces(c)
+}
+
+func (s *Server) handleAgentListGitHubRepositories(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeProjectsAddRepo) {
+		return nil
+	}
+	return s.handleListGitHubRepositories(c)
+}
+
+func (s *Server) handleAgentCreateGitHubRepository(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeProjectsAddRepo) {
+		return nil
+	}
+	return s.handleCreateGitHubRepository(c)
+}
+
+func (s *Server) handleAgentListAgents(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeAgentsRead) {
+		return nil
+	}
+	return s.listAgents(c)
+}
+
+func (s *Server) handleAgentCreateProjectAgent(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeAgentsCreate) {
+		return nil
+	}
+	return s.createAgent(c)
+}
+
+func (s *Server) handleAgentListProjectAgentOutput(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !s.requireAgentProjectScopedAgentAnyScope(c, agentplatform.ScopeAgentsRead) {
+		return nil
+	}
+	return s.listAgentOutput(c)
+}
+
+func (s *Server) handleAgentListProjectAgentSteps(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !s.requireAgentProjectScopedAgentAnyScope(c, agentplatform.ScopeAgentsRead) {
+		return nil
+	}
+	return s.listAgentSteps(c)
+}
+
+func (s *Server) handleAgentGetProjectAgent(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if _, ok := s.requireAgentProjectAgentAnyScope(c, agentplatform.ScopeAgentsRead); !ok {
+		return nil
+	}
+	return s.getAgent(c)
+}
+
+func (s *Server) handleAgentUpdateProjectAgent(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if _, ok := s.requireAgentProjectAgentAnyScope(c, agentplatform.ScopeAgentsUpdate); !ok {
+		return nil
+	}
+	return s.patchAgent(c)
+}
+
+func (s *Server) handleAgentPauseProjectAgent(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if _, ok := s.requireAgentProjectAgentAnyScope(c, agentplatform.ScopeAgentsPause); !ok {
+		return nil
+	}
+	return s.pauseAgent(c)
+}
+
+func (s *Server) handleAgentResumeProjectAgent(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if _, ok := s.requireAgentProjectAgentAnyScope(c, agentplatform.ScopeAgentsResume); !ok {
+		return nil
+	}
+	return s.resumeAgent(c)
+}
+
+func (s *Server) handleAgentDeleteProjectAgent(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if _, ok := s.requireAgentProjectAgentAnyScope(c, agentplatform.ScopeAgentsDelete); !ok {
+		return nil
+	}
+	return s.deleteAgent(c)
+}
+
+func (s *Server) handleAgentListNotificationRules(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeNotificationRulesList) {
+		return nil
+	}
+	return s.handleListNotificationRules(c)
+}
+
+func (s *Server) handleAgentCreateNotificationRule(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeNotificationRulesCreate) {
+		return nil
+	}
+	return s.handleCreateNotificationRule(c)
+}
+
+func (s *Server) handleAgentUpdateNotificationRule(c echo.Context) error {
+	if !s.requireAgentNotificationRuleAnyScope(c, agentplatform.ScopeNotificationRulesUpdate) {
+		return nil
+	}
+	return s.handleUpdateNotificationRule(c)
+}
+
+func (s *Server) handleAgentDeleteNotificationRule(c echo.Context) error {
+	if !s.requireAgentNotificationRuleAnyScope(c, agentplatform.ScopeNotificationRulesDelete) {
+		return nil
+	}
+	return s.handleDeleteNotificationRule(c)
 }
 
 func (s *Server) handleAgentListTicketStatuses(c echo.Context) error {

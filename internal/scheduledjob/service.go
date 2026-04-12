@@ -39,13 +39,19 @@ func Some[T any](value T) Optional[T] {
 }
 
 type TicketTemplate struct {
-	Title       string                 `json:"title"`
-	Description string                 `json:"description"`
-	Status      string                 `json:"status,omitempty"`
-	Priority    ticketservice.Priority `json:"priority"`
-	Type        ticketservice.Type     `json:"type"`
-	CreatedBy   string                 `json:"created_by"`
-	BudgetUSD   float64                `json:"budget_usd,omitempty"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Status      string                    `json:"status,omitempty"`
+	Priority    ticketservice.Priority    `json:"priority"`
+	Type        ticketservice.Type        `json:"type"`
+	CreatedBy   string                    `json:"created_by"`
+	BudgetUSD   float64                   `json:"budget_usd,omitempty"`
+	RepoScopes  []TicketTemplateRepoScope `json:"repo_scopes,omitempty"`
+}
+
+type TicketTemplateRepoScope struct {
+	RepoID     uuid.UUID `json:"repo_id"`
+	BranchName *string   `json:"branch_name,omitempty"`
 }
 
 type ScheduledJob struct {
@@ -132,7 +138,7 @@ func ParseRawTicketTemplate(raw map[string]any) (TicketTemplate, error) {
 
 	for key := range raw {
 		switch key {
-		case "title", "description", "status", "priority", "type", "created_by", "budget_usd":
+		case "title", "description", "status", "priority", "type", "created_by", "budget_usd", "repo_scopes":
 		default:
 			return TicketTemplate{}, fmt.Errorf("%w: ticket_template.%s is not supported", ErrInvalidTicketTemplate, key)
 		}
@@ -194,6 +200,10 @@ func ParseRawTicketTemplate(raw map[string]any) (TicketTemplate, error) {
 			return TicketTemplate{}, err
 		}
 	}
+	repoScopes, err := parseTicketTemplateRepoScopes(raw)
+	if err != nil {
+		return TicketTemplate{}, err
+	}
 
 	return TicketTemplate{
 		Title:       title,
@@ -203,6 +213,7 @@ func ParseRawTicketTemplate(raw map[string]any) (TicketTemplate, error) {
 		Type:        ticketType,
 		CreatedBy:   createdBy,
 		BudgetUSD:   budgetUSD,
+		RepoScopes:  repoScopes,
 	}, nil
 }
 
@@ -221,6 +232,9 @@ func (t TicketTemplate) Raw() map[string]any {
 	}
 	if t.BudgetUSD > 0 {
 		raw["budget_usd"] = t.BudgetUSD
+	}
+	if len(t.RepoScopes) > 0 {
+		raw["repo_scopes"] = rawTicketTemplateRepoScopes(t.RepoScopes)
 	}
 
 	return raw
@@ -272,6 +286,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (ScheduledJob, 
 	}
 	if strings.TrimSpace(input.TicketTemplate.Status) == "" {
 		return ScheduledJob{}, fmt.Errorf("%w: ticket_template.status must not be empty", ErrInvalidTicketTemplate)
+	}
+	if err := s.validateTicketTemplateRepoScopes(ctx, input.ProjectID, input.TicketTemplate.RepoScopes); err != nil {
+		return ScheduledJob{}, err
 	}
 
 	schedule, err := s.parseCron(input.CronExpression)
@@ -334,6 +351,9 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (ScheduledJob, 
 	if input.TicketTemplate.Set {
 		if strings.TrimSpace(input.TicketTemplate.Value.Status) == "" {
 			return ScheduledJob{}, fmt.Errorf("%w: ticket_template.status must not be empty", ErrInvalidTicketTemplate)
+		}
+		if err := s.validateTicketTemplateRepoScopes(ctx, current.ProjectID, input.TicketTemplate.Value.RepoScopes); err != nil {
+			return ScheduledJob{}, err
 		}
 		current.TicketTemplate = input.TicketTemplate.Value.Raw()
 	}
@@ -458,6 +478,9 @@ func (s *Service) createTicketForJob(ctx context.Context, item domain.Job, now t
 	if err != nil {
 		return ticketservice.Ticket{}, err
 	}
+	if err := s.validateTicketTemplateRepoScopes(ctx, item.ProjectID, template.RepoScopes); err != nil {
+		return ticketservice.Ticket{}, err
+	}
 
 	var workflowItem *domain.Workflow
 	if workflowItem == nil && item.WorkflowID != nil {
@@ -502,6 +525,7 @@ func (s *Service) createTicketForJob(ctx context.Context, item domain.Job, now t
 			Type:        template.Type,
 			CreatedBy:   template.CreatedBy,
 			BudgetUSD:   template.BudgetUSD,
+			RepoScopes:  ticketRepoScopesFromTemplate(template.RepoScopes),
 		})
 	}
 
@@ -523,6 +547,7 @@ func (s *Service) createTicketForJob(ctx context.Context, item domain.Job, now t
 		Type:        template.Type,
 		CreatedBy:   template.CreatedBy,
 		BudgetUSD:   template.BudgetUSD,
+		RepoScopes:  ticketRepoScopesFromTemplate(template.RepoScopes),
 	})
 }
 
@@ -536,6 +561,43 @@ func (s *Service) loadWorkflow(ctx context.Context, projectID uuid.UUID, workflo
 
 func (s *Service) resolveStatusIDByName(ctx context.Context, projectID uuid.UUID, statusName string) (uuid.UUID, error) {
 	return s.repo.ResolveStatusIDByName(ctx, projectID, statusName)
+}
+
+func (s *Service) validateTicketTemplateRepoScopes(
+	ctx context.Context,
+	projectID uuid.UUID,
+	scopes []TicketTemplateRepoScope,
+) error {
+	repoIDs, err := s.repo.ListProjectRepoIDs(ctx, projectID)
+	if err != nil {
+		return err
+	}
+
+	if len(scopes) == 0 {
+		if len(repoIDs) > 1 {
+			return fmt.Errorf(
+				"%w: ticket_template.repo_scopes must specify at least one repository when the project has multiple repos",
+				ErrInvalidTicketTemplate,
+			)
+		}
+		return nil
+	}
+
+	allowedRepoIDs := make(map[uuid.UUID]struct{}, len(repoIDs))
+	for _, repoID := range repoIDs {
+		allowedRepoIDs[repoID] = struct{}{}
+	}
+	for index, scope := range scopes {
+		if _, ok := allowedRepoIDs[scope.RepoID]; !ok {
+			return fmt.Errorf(
+				"%w: ticket_template.repo_scopes[%d].repo_id must reference a repository in the project",
+				ErrInvalidTicketTemplate,
+				index,
+			)
+		}
+	}
+
+	return nil
 }
 
 func resolveScheduledJobPickupStatus(templateStatus string, workflowItem *domain.Workflow) (uuid.UUID, error) {
@@ -642,6 +704,145 @@ func parseBudgetUSD(value any) (float64, error) {
 	return floatValue, nil
 }
 
+func parseTicketTemplateRepoScopes(raw map[string]any) ([]TicketTemplateRepoScope, error) {
+	value, ok := raw["repo_scopes"]
+	if !ok {
+		return nil, nil
+	}
+
+	items, err := rawTicketTemplateRepoScopeItems(value)
+	if err != nil {
+		return nil, err
+	}
+
+	scopes := make([]TicketTemplateRepoScope, 0, len(items))
+	seenRepoIDs := make(map[uuid.UUID]struct{}, len(items))
+	for index, item := range items {
+		for key := range item {
+			switch key {
+			case "repo_id", "branch_name":
+			default:
+				return nil, fmt.Errorf(
+					"%w: ticket_template.repo_scopes[%d].%s is not supported",
+					ErrInvalidTicketTemplate,
+					index,
+					key,
+				)
+			}
+		}
+
+		repoIDRaw, ok := item["repo_id"]
+		if !ok {
+			return nil, fmt.Errorf(
+				"%w: ticket_template.repo_scopes[%d].repo_id must not be empty",
+				ErrInvalidTicketTemplate,
+				index,
+			)
+		}
+		repoIDString, ok := repoIDRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf(
+				"%w: ticket_template.repo_scopes[%d].repo_id must be a string",
+				ErrInvalidTicketTemplate,
+				index,
+			)
+		}
+		repoID, err := uuid.Parse(strings.TrimSpace(repoIDString))
+		if err != nil {
+			return nil, fmt.Errorf(
+				"%w: ticket_template.repo_scopes[%d].repo_id must be a valid UUID",
+				ErrInvalidTicketTemplate,
+				index,
+			)
+		}
+		if _, duplicate := seenRepoIDs[repoID]; duplicate {
+			return nil, fmt.Errorf(
+				"%w: ticket_template.repo_scopes must not contain duplicate repo_id values",
+				ErrInvalidTicketTemplate,
+			)
+		}
+		seenRepoIDs[repoID] = struct{}{}
+
+		var branchName *string
+		if branchRaw, ok := item["branch_name"]; ok {
+			branchString, ok := branchRaw.(string)
+			if !ok {
+				return nil, fmt.Errorf(
+					"%w: ticket_template.repo_scopes[%d].branch_name must be a string",
+					ErrInvalidTicketTemplate,
+					index,
+				)
+			}
+			trimmed := strings.TrimSpace(branchString)
+			if trimmed != "" {
+				branchName = &trimmed
+			}
+		}
+
+		scopes = append(scopes, TicketTemplateRepoScope{
+			RepoID:     repoID,
+			BranchName: branchName,
+		})
+	}
+
+	return scopes, nil
+}
+
+func rawTicketTemplateRepoScopeItems(value any) ([]map[string]any, error) {
+	switch items := value.(type) {
+	case []any:
+		result := make([]map[string]any, 0, len(items))
+		for index, item := range items {
+			object, ok := item.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf(
+					"%w: ticket_template.repo_scopes[%d] must be an object",
+					ErrInvalidTicketTemplate,
+					index,
+				)
+			}
+			result = append(result, object)
+		}
+		return result, nil
+	case []map[string]any:
+		return items, nil
+	case nil:
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("%w: ticket_template.repo_scopes must be an array", ErrInvalidTicketTemplate)
+	}
+}
+
+func rawTicketTemplateRepoScopes(scopes []TicketTemplateRepoScope) []map[string]any {
+	result := make([]map[string]any, 0, len(scopes))
+	for _, scope := range scopes {
+		item := map[string]any{
+			"repo_id": scope.RepoID.String(),
+		}
+		if scope.BranchName != nil && strings.TrimSpace(*scope.BranchName) != "" {
+			item["branch_name"] = strings.TrimSpace(*scope.BranchName)
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
+func ticketRepoScopesFromTemplate(scopes []TicketTemplateRepoScope) []ticketservice.CreateRepoScopeInput {
+	if len(scopes) == 0 {
+		return nil
+	}
+
+	result := make([]ticketservice.CreateRepoScopeInput, 0, len(scopes))
+	for _, scope := range scopes {
+		result = append(result, ticketservice.CreateRepoScopeInput{
+			RepoID:     scope.RepoID,
+			BranchName: cloneString(scope.BranchName),
+		})
+	}
+
+	return result
+}
+
 func renderScheduledJobTemplateField(content string, data map[string]any) (string, error) {
 	if strings.TrimSpace(content) == "" {
 		return "", nil
@@ -693,5 +894,17 @@ func cloneTime(value *time.Time) *time.Time {
 	}
 
 	cloned := value.UTC()
+	return &cloned
+}
+
+func cloneString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	cloned := strings.TrimSpace(*value)
+	if cloned == "" {
+		return nil
+	}
 	return &cloned
 }

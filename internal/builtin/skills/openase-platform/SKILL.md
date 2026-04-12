@@ -138,10 +138,10 @@ When the principal is `project_conversation`:
 
 - Treat this as a project-scoped conversation runtime, not a ticket runtime.
 - Use the canonical ticket mutation routes when `tickets.update` is granted;
-  project scope still comes from the token claims even though the suffix stays
-  aligned with the human control plane.
-- Do not assume current-ticket comment/update/report-usage endpoints are
-  available.
+  this includes ticket comment operations, and project scope still comes from
+  the token claims even though the suffix stays aligned with the human control
+  plane.
+- Do not assume ticket usage-report endpoints are available.
 - Ticket-runtime-only routes can reject this principal kind even when
   `OPENASE_TICKET_ID` is present.
 - `OPENASE_CONVERSATION_ID` is often the stable runtime identity you should
@@ -735,8 +735,8 @@ Rules:
   of trying alternate endpoints blindly.
 - Do not assume a ticket identifier like `ASE-42` will be accepted where a UUID
   is required.
-- In `project_conversation` sessions, favor project-scoped routes and do not
-  assume current-ticket comment, update, or report-usage endpoints are
-  available.
+- In `project_conversation` sessions, favor project-scoped routes, use
+  `tickets.update` for canonical ticket mutations including comments, and do
+  not assume usage-report endpoints are available.
 - When comparing repo skill bundles to platform bundles, inspect both sides
   explicitly and preserve non-entrypoint bundle files during updates.

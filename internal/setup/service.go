@@ -45,6 +45,20 @@ type Installer interface {
 	Initialize(context.Context, InstallInput) error
 }
 
+type installerCatalog struct {
+	catalogservice.OrganizationService
+	catalogservice.ProjectService
+	catalogservice.AgentProviderService
+}
+
+func selectInstallerCatalog(services catalogservice.Services) installerCatalog {
+	return installerCatalog{
+		OrganizationService:  services.OrganizationService,
+		ProjectService:       services.ProjectService,
+		AgentProviderService: services.AgentProviderService,
+	}
+}
+
 type OrganizationConfig struct {
 	Name string
 	Slug string
@@ -900,7 +914,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 
 	repo := catalogrepo.NewEntRepository(client)
 	statusService := ticketstatus.NewService(ticketstatusrepo.NewEntRepository(client))
-	service := catalogservice.New(
+	catalog := selectInstallerCatalog(catalogservice.SplitServices(catalogservice.New(
 		repo,
 		executable.NewPathResolver(),
 		nil,
@@ -908,7 +922,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 			_, err := statusService.ResetToDefaultTemplate(ctx, projectID)
 			return err
 		})),
-	)
+	)))
 
 	orgCreate, err := catalogdomain.ParseCreateOrganization(catalogdomain.OrganizationInput{
 		Name: input.Organization.Name,
@@ -917,12 +931,12 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	if err != nil {
 		return err
 	}
-	org, err := service.CreateOrganization(ctx, orgCreate)
+	org, err := catalog.CreateOrganization(ctx, orgCreate)
 	if err != nil {
 		return fmt.Errorf("create organization: %w", err)
 	}
 
-	providers, err := service.ListAgentProviders(ctx, org.ID)
+	providers, err := catalog.ListAgentProviders(ctx, org.ID)
 	if err != nil {
 		return fmt.Errorf("list seeded agent providers: %w", err)
 	}
@@ -938,7 +952,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 	if err != nil {
 		return err
 	}
-	if _, err := service.CreateProject(ctx, projectCreate); err != nil {
+	if _, err := catalog.CreateProject(ctx, projectCreate); err != nil {
 		return fmt.Errorf("create project: %w", err)
 	}
 
@@ -951,7 +965,7 @@ func (defaultInstaller) Initialize(ctx context.Context, input InstallInput) (err
 		if updateErr != nil {
 			return updateErr
 		}
-		if _, updateErr = service.UpdateOrganization(ctx, updateOrg); updateErr != nil {
+		if _, updateErr = catalog.UpdateOrganization(ctx, updateOrg); updateErr != nil {
 			return fmt.Errorf("update organization default agent provider: %w", updateErr)
 		}
 	}

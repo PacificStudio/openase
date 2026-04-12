@@ -10,6 +10,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -45,6 +46,12 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 			Type:        ticketservice.TypeFeature,
 			CreatedBy:   "system:scheduled-job",
 			BudgetUSD:   12.5,
+			RepoScopes: []TicketTemplateRepoScope{{
+				RepoID: fixture.repoIDs["backend"],
+			}, {
+				RepoID:     fixture.repoIDs["frontend"],
+				BranchName: stringPtr("release/train"),
+			}},
 		},
 		IsEnabled: true,
 	})
@@ -59,8 +66,14 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 		ProjectID:      fixture.projectID,
 		Name:           created.Name,
 		CronExpression: "0 10 * * 1",
-		TicketTemplate: TicketTemplate{Title: "Duplicate", Status: "Todo"},
-		IsEnabled:      true,
+		TicketTemplate: TicketTemplate{
+			Title:  "Duplicate",
+			Status: "Todo",
+			RepoScopes: []TicketTemplateRepoScope{{
+				RepoID: fixture.repoIDs["backend"],
+			}},
+		},
+		IsEnabled: true,
 	}); !errors.Is(err, ErrScheduledJobConflict) {
 		t.Fatalf("Create() duplicate error = %v, want %v", err, ErrScheduledJobConflict)
 	}
@@ -97,6 +110,12 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 			Type:        ticketservice.TypeBugfix,
 			CreatedBy:   "system:scheduled-job",
 			BudgetUSD:   21.0,
+			RepoScopes: []TicketTemplateRepoScope{{
+				RepoID: fixture.repoIDs["backend"],
+			}, {
+				RepoID:     fixture.repoIDs["frontend"],
+				BranchName: stringPtr("release/train"),
+			}},
 		}),
 		IsEnabled: Some(true),
 	})
@@ -119,6 +138,26 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 	}
 	if triggerResult.Ticket.CreatedBy != "system:scheduled-job" || triggerResult.Ticket.BudgetUSD != 21.0 {
 		t.Fatalf("Trigger() ticket metadata = %+v", triggerResult.Ticket)
+	}
+	triggerScopes, err := client.TicketRepoScope.Query().
+		Where(entticketreposcope.TicketIDEQ(triggerResult.Ticket.ID)).
+		Order(ent.Asc(entticketreposcope.FieldRepoID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query trigger repo scopes: %v", err)
+	}
+	if len(triggerScopes) != 2 {
+		t.Fatalf("Trigger() repo scopes = %+v", triggerScopes)
+	}
+	triggerScopeByRepoID := make(map[uuid.UUID]string, len(triggerScopes))
+	for _, scope := range triggerScopes {
+		triggerScopeByRepoID[scope.RepoID] = scope.BranchName
+	}
+	if triggerScopeByRepoID[fixture.repoIDs["backend"]] != "main" {
+		t.Fatalf("Trigger() backend repo scope = %+v", triggerScopes)
+	}
+	if triggerScopeByRepoID[fixture.repoIDs["frontend"]] != "release/train" {
+		t.Fatalf("Trigger() frontend repo scope = %+v", triggerScopes)
 	}
 	if triggerResult.Job.LastRunAt == nil || !triggerResult.Job.LastRunAt.Equal(now) {
 		t.Fatalf("Trigger() job last run = %+v", triggerResult.Job.LastRunAt)
@@ -153,6 +192,9 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 			Priority:    ticketservice.PriorityMedium,
 			Type:        ticketservice.TypeChore,
 			CreatedBy:   "system:triage",
+			RepoScopes: []TicketTemplateRepoScope{{
+				RepoID: fixture.repoIDs["backend"],
+			}},
 		},
 		IsEnabled: true,
 	})
@@ -187,6 +229,15 @@ func TestScheduledJobServiceLifecycleTriggerAndRunDue(t *testing.T) {
 	}
 	if ticketsAfterRunDue[1].StatusID != fixture.statusIDs["Todo"] || ticketsAfterRunDue[1].CreatedBy != "system:triage" {
 		t.Fatalf("RunDue() created ticket = %+v", ticketsAfterRunDue[1])
+	}
+	runDueScopes, err := client.TicketRepoScope.Query().
+		Where(entticketreposcope.TicketIDEQ(ticketsAfterRunDue[1].ID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("query RunDue repo scopes: %v", err)
+	}
+	if len(runDueScopes) != 1 || runDueScopes[0].RepoID != fixture.repoIDs["backend"] || runDueScopes[0].BranchName != "main" {
+		t.Fatalf("RunDue() repo scopes = %+v", runDueScopes)
 	}
 
 	validDueAfter, err := client.ScheduledJob.Get(ctx, validDueJob.ID)
@@ -261,9 +312,23 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 	}
 	if _, err := service.Create(ctx, CreateInput{
 		ProjectID:      fixture.projectID,
+		Name:           "missing-repo-scope",
+		CronExpression: "0 9 * * 1",
+		TicketTemplate: TicketTemplate{Title: "Task", Status: "Todo"},
+	}); !errors.Is(err, ErrInvalidTicketTemplate) {
+		t.Fatalf("Create() missing repo scope error = %v, want %v", err, ErrInvalidTicketTemplate)
+	}
+	if _, err := service.Create(ctx, CreateInput{
+		ProjectID:      fixture.projectID,
 		Name:           "bad-cron",
 		CronExpression: "bad cron",
-		TicketTemplate: TicketTemplate{Title: "Task", Status: "Todo"},
+		TicketTemplate: TicketTemplate{
+			Title:  "Task",
+			Status: "Todo",
+			RepoScopes: []TicketTemplateRepoScope{{
+				RepoID: fixture.repoIDs["backend"],
+			}},
+		},
 	}); !errors.Is(err, ErrInvalidCronExpression) {
 		t.Fatalf("Create() bad cron error = %v, want %v", err, ErrInvalidCronExpression)
 	}
@@ -278,6 +343,9 @@ func TestScheduledJobServiceValidationAndErrorPaths(t *testing.T) {
 			Priority:  ticketservice.PriorityLow,
 			Type:      ticketservice.TypeFeature,
 			CreatedBy: "system:test",
+			RepoScopes: []TicketTemplateRepoScope{{
+				RepoID: fixture.repoIDs["backend"],
+			}},
 		},
 		IsEnabled: true,
 	})
@@ -315,6 +383,7 @@ type scheduledJobFixture struct {
 	workflowID    uuid.UUID
 	workflowAltID uuid.UUID
 	statusIDs     map[string]uuid.UUID
+	repoIDs       map[string]uuid.UUID
 }
 
 func seedScheduledJobFixture(ctx context.Context, t *testing.T, client *ent.Client) scheduledJobFixture {
@@ -368,12 +437,36 @@ func seedScheduledJobFixture(ctx context.Context, t *testing.T, client *ent.Clie
 	if err != nil {
 		t.Fatalf("create alternate workflow: %v", err)
 	}
+	backendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("frontend").
+		SetRepositoryURL("https://github.com/acme/frontend.git").
+		SetDefaultBranch("develop").
+		SetWorkspaceDirname("frontend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
 
 	return scheduledJobFixture{
 		projectID:     project.ID,
 		workflowID:    workflowItem.ID,
 		workflowAltID: workflowAlt.ID,
 		statusIDs:     statusIDs,
+		repoIDs: map[string]uuid.UUID{
+			"backend":  backendRepo.ID,
+			"frontend": frontendRepo.ID,
+		},
 	}
 }
 
@@ -381,4 +474,8 @@ func openScheduledJobTestEntClient(t *testing.T) *ent.Client {
 	t.Helper()
 
 	return testPostgres.NewIsolatedEntClient(t)
+}
+
+func stringPtr(value string) *string {
+	return &value
 }

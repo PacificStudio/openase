@@ -230,6 +230,33 @@ func NewServer(
 	workflowService *workflowservice.Service,
 	opts ...ServerOption,
 ) *Server {
+	return NewServerWithServices(
+		cfg,
+		github,
+		logger,
+		events,
+		ticketService,
+		ticketStatusService,
+		agentPlatform,
+		catalogservice.SplitServices(catalog),
+		workflowService,
+		opts...,
+	)
+}
+
+// NewServerWithServices keeps production wiring on the explicit narrow catalog ports.
+func NewServerWithServices(
+	cfg config.ServerConfig,
+	github config.GitHubConfig,
+	logger *slog.Logger,
+	events provider.EventProvider,
+	ticketService *ticketservice.Service,
+	ticketStatusService *ticketstatus.Service,
+	agentPlatform *agentplatform.Service,
+	catalog catalogservice.Services,
+	workflowService *workflowservice.Service,
+	opts ...ServerOption,
+) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -264,7 +291,7 @@ func NewServer(
 		ticketService:       ticketService,
 		ticketStatusService: ticketStatusService,
 		agentPlatform:       agentPlatform,
-		catalog:             catalogservice.SplitServices(catalog),
+		catalog:             catalog,
 		workflowService:     workflowService,
 		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
 		shutdownCtx:         shutdownCtx,
