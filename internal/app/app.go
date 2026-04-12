@@ -171,7 +171,15 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 	githubRepoSvc := githubreposervice.NewService(githubAuthSvc, http.DefaultClient)
-	ticketSvc := ticketservice.NewService(ticketrepo.NewEntRepository(client))
+	ticketSvc := ticketservice.NewService(ticketservice.Dependencies{
+		Activity: ticketrepo.NewActivityRepository(client),
+		Query:    ticketrepo.NewQueryRepository(client),
+		Command:  ticketrepo.NewCommandRepository(client),
+		Link:     ticketrepo.NewLinkRepository(client),
+		Comment:  ticketrepo.NewCommentRepository(client),
+		Usage:    ticketrepo.NewUsageRepository(client),
+		Runtime:  ticketrepo.NewRuntimeRepository(client),
+	})
 	ticketSvc.ConfigureSSHPool(sshPool)
 	ticketSvc.ConfigureTransportResolver(transportResolver)
 	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))

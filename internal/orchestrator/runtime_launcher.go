@@ -130,7 +130,15 @@ func NewRuntimeLauncher(
 		executions:               newRuntimeRunTracker(),
 		adapters:                 newDefaultAgentAdapterRegistry(),
 		runtime:                  NewRuntimeStateStore(),
-		tickets:                  ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		tickets: ticketservice.NewService(ticketservice.Dependencies{
+			Activity: ticketrepo.NewActivityRepository(client),
+			Query:    ticketrepo.NewQueryRepository(client),
+			Command:  ticketrepo.NewCommandRepository(client),
+			Link:     ticketrepo.NewLinkRepository(client),
+			Comment:  ticketrepo.NewCommentRepository(client),
+			Usage:    ticketrepo.NewUsageRepository(client),
+			Runtime:  ticketrepo.NewRuntimeRepository(client),
+		}),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
 	launcher.tickets.ConfigureTransportResolver(launcher.transports)

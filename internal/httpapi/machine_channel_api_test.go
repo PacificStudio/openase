@@ -22,9 +22,7 @@ import (
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
-	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -204,7 +202,7 @@ func TestMachineConnectWebsocketPublishesActivityAndMetrics(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		newTicketService(client),
 		nil,
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
@@ -291,7 +289,7 @@ func TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric(t *testing
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		newTicketService(client),
 		nil,
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
