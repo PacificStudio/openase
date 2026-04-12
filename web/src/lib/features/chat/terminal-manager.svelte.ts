@@ -1,34 +1,13 @@
-/* eslint-disable max-lines, max-lines-per-function, complexity */
 import {
-  createProjectConversationTerminalSession,
-  type ProjectConversationTerminalSession,
-} from '$lib/api/chat'
-import {
-  buildExitMessage,
-  buildTerminalWebSocketURL,
   encodeTerminalPayload,
   mountProjectConversationTerminal,
-  parseTerminalServerFrame,
-  type TerminalPanelStatus,
-  type TerminalServerFrame,
 } from './project-conversation-terminal-panel-helpers'
-
-export interface TerminalInstance {
-  id: string
-  label: string
-  status: TerminalPanelStatus
-  statusMessage: string
-  sessionID: string
-}
-
-type TerminalInstanceRuntime = {
-  mountRevision: number
-  connectRevision: number
-  reconnectAttempts: number
-  reconnectEnabled: boolean
-  reconnectTimer: ReturnType<typeof setTimeout> | null
-  session: ProjectConversationTerminalSession | null
-}
+import { createTerminalConnectionHelpers } from './terminal-manager-connection'
+import type {
+  MountedTerminal,
+  TerminalInstance,
+  TerminalInstanceRuntime,
+} from './terminal-manager-types'
 
 let nextId = 1
 const reconnectDelaysMs = [750, 1_500, 3_000, 5_000] as const
@@ -46,14 +25,7 @@ export function createTerminalManager(input: {
   let panelOpen = $state(false)
 
   // Internal state per instance (not reactive, keyed by id)
-  const xtermMap = new Map<
-    string,
-    {
-      terminal: import('@xterm/xterm').Terminal
-      fitAddon: import('@xterm/addon-fit').FitAddon
-      dispose: () => void
-    }
-  >()
+  const xtermMap = new Map<string, MountedTerminal>()
   const socketMap = new Map<string, WebSocket>()
   const elementMap = new Map<string, HTMLDivElement>()
   const resizeObserverMap = new Map<string, ResizeObserver>()
@@ -104,6 +76,17 @@ export function createTerminalManager(input: {
   function nextReconnectDelay(attempt: number) {
     return reconnectDelaysMs[Math.min(attempt - 1, reconnectDelaysMs.length - 1)]
   }
+
+  const { attachSocket, matchesConnectionState, resolveTerminalSession, setConnectingStatus } =
+    createTerminalConnectionHelpers({
+      getConversationId: input.getConversationId,
+      hasInstance,
+      listInstances: () => instances,
+      runtimeMap,
+      socketMap,
+      scheduleReconnect,
+      updateInstance,
+    })
 
   async function mountTerminal(id: string, element: HTMLDivElement) {
     // Prevent double-mount
@@ -252,154 +235,35 @@ export function createTerminalManager(input: {
     entry.fitAddon.fit()
 
     const label = workspacePath || 'workspace root'
-    updateInstance(id, {
-      status: 'connecting',
-      statusMessage: isReconnect
-        ? `Reconnecting shell in ${label}...`
-        : `Starting shell in ${label}...`,
-      label,
-    })
+    updateInstance(id, { label })
+    setConnectingStatus(id, label, isReconnect)
 
-    let session = runtime.session
+    const session = await resolveTerminalSession({
+      id,
+      conversationId,
+      connectRevision,
+      runtime,
+      terminal: entry.terminal,
+    })
     if (!session) {
-      entry.terminal.reset()
-      try {
-        const payload = await createProjectConversationTerminalSession(conversationId, {
-          mode: 'shell',
-          cols: entry.terminal.cols > 0 ? entry.terminal.cols : 120,
-          rows: entry.terminal.rows > 0 ? entry.terminal.rows : 32,
-        })
-        session = payload.terminalSession
-        runtime.session = session
-      } catch (error) {
-        if (
-          !hasInstance(id) ||
-          input.getConversationId() !== conversationId ||
-          runtimeMap.get(id)?.connectRevision !== connectRevision
-        ) {
-          return
-        }
-        updateInstance(id, {
-          status: 'error',
-          statusMessage:
-            error instanceof Error ? error.message : 'Failed to create terminal session.',
-        })
-        return
-      }
+      return
     }
 
     const currentEntry = xtermMap.get(id)
-    if (
-      !hasInstance(id) ||
-      input.getConversationId() !== conversationId ||
-      runtimeMap.get(id)?.connectRevision !== connectRevision ||
-      !currentEntry
-    ) {
+    if (!currentEntry || !matchesConnectionState(id, conversationId, connectRevision)) {
       return
     }
 
     runtime.session = session
     updateInstance(id, { sessionID: session.id })
-    const socket = new WebSocket(buildTerminalWebSocketURL(session))
-    socketMap.set(id, socket)
-
-    socket.onmessage = (event) => {
-      if (
-        socketMap.get(id) !== socket ||
-        runtimeMap.get(id)?.connectRevision !== connectRevision ||
-        !hasInstance(id)
-      ) {
-        return
-      }
-      try {
-        handleFrame(id, parseTerminalServerFrame(event.data), socket, currentEntry.terminal)
-      } catch (error) {
-        runtime.reconnectEnabled = false
-        updateInstance(id, {
-          status: 'error',
-          statusMessage:
-            error instanceof Error ? error.message : 'Failed to parse terminal output.',
-        })
-        runtime.session = null
-        socket.close()
-      }
-    }
-
-    socket.onerror = () => {
-      if (
-        socketMap.get(id) !== socket ||
-        runtimeMap.get(id)?.connectRevision !== connectRevision ||
-        !hasInstance(id)
-      ) {
-        return
-      }
-      updateInstance(id, {
-        status: 'connecting',
-        statusMessage: `Reconnecting shell in ${label}...`,
-      })
-    }
-
-    socket.onclose = () => {
-      if (
-        socketMap.get(id) !== socket ||
-        runtimeMap.get(id)?.connectRevision !== connectRevision ||
-        !hasInstance(id)
-      ) {
-        return
-      }
-      socketMap.delete(id)
-      const inst = instances.find((i) => i.id === id)
-      if (!inst) {
-        return
-      }
-      if (runtime.reconnectEnabled && (inst.status === 'connecting' || inst.status === 'open')) {
-        scheduleReconnect(id, inst.label)
-        return
-      }
-      if (inst.status === 'connecting' || inst.status === 'open') {
-        updateInstance(id, {
-          status: 'closed',
-          statusMessage: 'Terminal disconnected.',
-          sessionID: '',
-        })
-      }
-    }
-  }
-
-  function handleFrame(
-    id: string,
-    frame: TerminalServerFrame,
-    socket: WebSocket,
-    xterm: import('@xterm/xterm').Terminal,
-  ) {
-    const inst = instances.find((i) => i.id === id)
-    const runtime = ensureRuntime(id)
-    switch (frame.type) {
-      case 'ready':
-        runtime.reconnectAttempts = 0
-        updateInstance(id, { status: 'open', statusMessage: `Shell attached to ${inst?.label}.` })
-        xterm.focus()
-        return
-      case 'output':
-        xterm.write(frame.data)
-        return
-      case 'exit':
-        runtime.reconnectEnabled = false
-        runtime.session = null
-        updateInstance(id, {
-          status: 'closed',
-          statusMessage: buildExitMessage(frame.exitCode, frame.signal),
-          sessionID: '',
-        })
-        socket.close()
-        return
-      case 'error':
-        runtime.reconnectEnabled = false
-        runtime.session = null
-        updateInstance(id, { status: 'error', statusMessage: frame.message, sessionID: '' })
-        socket.close()
-        return
-    }
+    attachSocket({
+      id,
+      session,
+      connectRevision,
+      terminal: currentEntry.terminal,
+      runtime,
+      label,
+    })
   }
 
   function createInstance(): string {

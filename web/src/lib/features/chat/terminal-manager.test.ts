@@ -1,6 +1,5 @@
-/* eslint-disable max-lines-per-function */
 import { waitFor } from '@testing-library/svelte'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 
 const { createProjectConversationTerminalSession } = vi.hoisted(() => ({
   createProjectConversationTerminalSession: vi.fn(),
@@ -95,76 +94,28 @@ vi.mock('@xterm/addon-fit', () => ({
 
 import { createTerminalManager } from './terminal-manager.svelte'
 
-describe('terminal manager', () => {
-  beforeAll(() => {
-    globalThis.ResizeObserver ??= class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
-  })
+beforeAll(() => {
+  globalThis.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+})
 
-  beforeEach(() => {
-    vi.useRealTimers()
-  })
+beforeEach(() => {
+  vi.useRealTimers()
+})
 
-  afterEach(() => {
-    vi.clearAllMocks()
-    MockWebSocket.instances.length = 0
-    MockTerminal.instances.length = 0
-  })
+afterEach(() => {
+  vi.clearAllMocks()
+  MockWebSocket.instances.length = 0
+  MockTerminal.instances.length = 0
+})
 
-  it('keeps existing terminal tabs connected when another tab opens and closes', async () => {
-    createProjectConversationTerminalSession
-      .mockResolvedValueOnce({
-        terminalSession: {
-          id: 'terminal-1',
-          mode: 'shell',
-          cwd: '/tmp/conversation-1',
-          wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-1/attach',
-          attachToken: 'attach-token-1',
-        },
-      })
-      .mockResolvedValueOnce({
-        terminalSession: {
-          id: 'terminal-2',
-          mode: 'shell',
-          cwd: '/tmp/conversation-1',
-          wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-2/attach',
-          attachToken: 'attach-token-2',
-        },
-      })
-
-    const manager = createTerminalManager({
-      getConversationId: () => 'conversation-1',
-      getWorkspacePath: () => '/tmp/conversation-1',
-    })
-
-    const firstId = manager.createInstance()
-    await manager.mountTerminal(firstId, document.createElement('div'))
-    await manager.connectTerminal(firstId)
-    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
-    MockWebSocket.instances[0].emitMessage({ type: 'ready' })
-    await waitFor(() => expect(manager.instances[0]?.status).toBe('open'))
-
-    const secondId = manager.createInstance()
-    await manager.mountTerminal(secondId, document.createElement('div'))
-    await manager.connectTerminal(secondId)
-    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2))
-    MockWebSocket.instances[1].emitMessage({ type: 'ready' })
-    await waitFor(() => expect(manager.getActiveInstance()?.id).toBe(secondId))
-
-    manager.removeInstance(secondId)
-
-    expect(manager.activeId).toBe(firstId)
-    expect(MockWebSocket.instances[1]?.sent).toContain(JSON.stringify({ type: 'close' }))
-    expect(MockWebSocket.instances[0]?.readyState).toBe(MockWebSocket.OPEN)
-  })
-
-  it('reconnects a terminal after an unexpected socket close', async () => {
-    vi.useFakeTimers()
-    createProjectConversationTerminalSession.mockResolvedValue({
+it('keeps existing terminal tabs connected when another tab opens and closes', async () => {
+  createProjectConversationTerminalSession
+    .mockResolvedValueOnce({
       terminalSession: {
         id: 'terminal-1',
         mode: 'shell',
@@ -173,71 +124,117 @@ describe('terminal manager', () => {
         attachToken: 'attach-token-1',
       },
     })
-
-    const manager = createTerminalManager({
-      getConversationId: () => 'conversation-1',
-      getWorkspacePath: () => '/tmp/conversation-1',
-    })
-
-    const id = manager.createInstance()
-    await manager.mountTerminal(id, document.createElement('div'))
-    await manager.connectTerminal(id)
-    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
-    MockWebSocket.instances[0].emitMessage({ type: 'ready' })
-    await waitFor(() => expect(manager.instances[0]?.status).toBe('open'))
-    MockWebSocket.instances[0].emitMessage({ type: 'output', data: 'YmVmb3Jl' })
-    expect(MockTerminal.instances[0]?.output).toContain('before')
-
-    MockWebSocket.instances[0].close()
-    await waitFor(() => expect(manager.instances[0]?.status).toBe('connecting'))
-
-    await vi.advanceTimersByTimeAsync(750)
-    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2))
-
-    MockWebSocket.instances[1].emitMessage({ type: 'ready' })
-    MockWebSocket.instances[1].emitMessage({ type: 'output', data: 'YWZ0ZXI=' })
-    await waitFor(() => {
-      expect(manager.instances[0]?.status).toBe('open')
-      expect(manager.instances[0]?.sessionID).toBe('terminal-1')
-    })
-    expect(createProjectConversationTerminalSession).toHaveBeenCalledTimes(1)
-    expect(MockWebSocket.instances[1]?.url).toContain('/terminal-1/attach')
-    expect(MockTerminal.instances[0]?.output).toContain('beforeafter')
-  })
-
-  it('does not leak a websocket when a tab is removed during session creation', async () => {
-    let resolveSession: ((value: unknown) => void) | undefined
-    createProjectConversationTerminalSession.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveSession = resolve
-        }),
-    )
-
-    const manager = createTerminalManager({
-      getConversationId: () => 'conversation-1',
-      getWorkspacePath: () => '/tmp/conversation-1',
-    })
-
-    const id = manager.createInstance()
-    await manager.mountTerminal(id, document.createElement('div'))
-    const connectPromise = manager.connectTerminal(id)
-
-    manager.removeInstance(id)
-    resolveSession?.({
+    .mockResolvedValueOnce({
       terminalSession: {
-        id: 'terminal-1',
+        id: 'terminal-2',
         mode: 'shell',
         cwd: '/tmp/conversation-1',
-        wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-1/attach',
-        attachToken: 'attach-token-1',
+        wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-2/attach',
+        attachToken: 'attach-token-2',
       },
     })
 
-    await connectPromise
-    await Promise.resolve()
-
-    expect(manager.instances).toHaveLength(0)
-    expect(MockWebSocket.instances).toHaveLength(0)
+  const manager = createTerminalManager({
+    getConversationId: () => 'conversation-1',
+    getWorkspacePath: () => '/tmp/conversation-1',
   })
+
+  const firstId = manager.createInstance()
+  await manager.mountTerminal(firstId, document.createElement('div'))
+  await manager.connectTerminal(firstId)
+  await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
+  MockWebSocket.instances[0].emitMessage({ type: 'ready' })
+  await waitFor(() => expect(manager.instances[0]?.status).toBe('open'))
+
+  const secondId = manager.createInstance()
+  await manager.mountTerminal(secondId, document.createElement('div'))
+  await manager.connectTerminal(secondId)
+  await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2))
+  MockWebSocket.instances[1].emitMessage({ type: 'ready' })
+  await waitFor(() => expect(manager.getActiveInstance()?.id).toBe(secondId))
+
+  manager.removeInstance(secondId)
+
+  expect(manager.activeId).toBe(firstId)
+  expect(MockWebSocket.instances[1]?.sent).toContain(JSON.stringify({ type: 'close' }))
+  expect(MockWebSocket.instances[0]?.readyState).toBe(MockWebSocket.OPEN)
+})
+
+it('reconnects a terminal after an unexpected socket close', async () => {
+  vi.useFakeTimers()
+  createProjectConversationTerminalSession.mockResolvedValue({
+    terminalSession: {
+      id: 'terminal-1',
+      mode: 'shell',
+      cwd: '/tmp/conversation-1',
+      wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-1/attach',
+      attachToken: 'attach-token-1',
+    },
+  })
+
+  const manager = createTerminalManager({
+    getConversationId: () => 'conversation-1',
+    getWorkspacePath: () => '/tmp/conversation-1',
+  })
+
+  const id = manager.createInstance()
+  await manager.mountTerminal(id, document.createElement('div'))
+  await manager.connectTerminal(id)
+  await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
+  MockWebSocket.instances[0].emitMessage({ type: 'ready' })
+  await waitFor(() => expect(manager.instances[0]?.status).toBe('open'))
+  MockWebSocket.instances[0].emitMessage({ type: 'output', data: 'YmVmb3Jl' })
+  expect(MockTerminal.instances[0]?.output).toContain('before')
+
+  MockWebSocket.instances[0].close()
+  await waitFor(() => expect(manager.instances[0]?.status).toBe('connecting'))
+
+  await vi.advanceTimersByTimeAsync(750)
+  await waitFor(() => expect(MockWebSocket.instances).toHaveLength(2))
+
+  MockWebSocket.instances[1].emitMessage({ type: 'ready' })
+  MockWebSocket.instances[1].emitMessage({ type: 'output', data: 'YWZ0ZXI=' })
+  await waitFor(() => {
+    expect(manager.instances[0]?.status).toBe('open')
+    expect(manager.instances[0]?.sessionID).toBe('terminal-1')
+  })
+  expect(createProjectConversationTerminalSession).toHaveBeenCalledTimes(1)
+  expect(MockWebSocket.instances[1]?.url).toContain('/terminal-1/attach')
+  expect(MockTerminal.instances[0]?.output).toContain('beforeafter')
+})
+
+it('does not leak a websocket when a tab is removed during session creation', async () => {
+  let resolveSession: ((value: unknown) => void) | undefined
+  createProjectConversationTerminalSession.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolveSession = resolve
+      }),
+  )
+
+  const manager = createTerminalManager({
+    getConversationId: () => 'conversation-1',
+    getWorkspacePath: () => '/tmp/conversation-1',
+  })
+
+  const id = manager.createInstance()
+  await manager.mountTerminal(id, document.createElement('div'))
+  const connectPromise = manager.connectTerminal(id)
+
+  manager.removeInstance(id)
+  resolveSession?.({
+    terminalSession: {
+      id: 'terminal-1',
+      mode: 'shell',
+      cwd: '/tmp/conversation-1',
+      wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-1/attach',
+      attachToken: 'attach-token-1',
+    },
+  })
+
+  await connectPromise
+  await Promise.resolve()
+
+  expect(manager.instances).toHaveLength(0)
+  expect(MockWebSocket.instances).toHaveLength(0)
 })
