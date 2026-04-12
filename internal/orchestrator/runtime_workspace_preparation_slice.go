@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -129,89 +127,6 @@ func (s runtimeWorkspacePreparationSlice) buildGitHubOutboundEnvironment(
 	}
 
 	return buildGitHubTokenEnvironment(baseEnvironment, token), nil
-}
-
-func (s runtimeWorkspacePreparationSlice) refreshRemoteWorkspaceSkills(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowID *uuid.UUID,
-	machine catalogdomain.Machine,
-	workspaceRoot string,
-	adapterType string,
-) error {
-	l := s.launcher
-	if l == nil || l.workflow == nil {
-		return nil
-	}
-	if l.transports == nil {
-		return fmt.Errorf("machine transport resolver unavailable for remote machine %s", machine.Name)
-	}
-
-	skillNames, err := s.resolveLaunchSkillNames(ctx, projectID, workflowID)
-	if err != nil {
-		return err
-	}
-	target, err := workflowservice.ResolveSkillTargetForRuntime(workspaceRoot, adapterType)
-	if err != nil {
-		return err
-	}
-
-	resolved, err := l.transports.ResolveRuntime(machine)
-	if err != nil {
-		return err
-	}
-	commandSessionExecutor := resolved.CommandSessionExecutor()
-	if commandSessionExecutor == nil {
-		return fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
-	}
-	session, err := commandSessionExecutor.OpenCommandSession(ctx, machine)
-	if err != nil {
-		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
-	}
-	defer func() {
-		_ = session.Close()
-	}()
-
-	command := buildRemoteRefreshSkillsCommand(workspaceRoot, target.SkillsDir, skillNames)
-	if output, err := session.CombinedOutput(command); err != nil {
-		return fmt.Errorf("refresh remote skills: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	return nil
-}
-
-func (s runtimeWorkspacePreparationSlice) resolveLaunchSkillNames(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowID *uuid.UUID,
-) ([]string, error) {
-	l := s.launcher
-	items, err := l.workflow.ListSkills(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	selected := make([]string, 0, len(items))
-	for _, item := range items {
-		if !item.IsEnabled {
-			continue
-		}
-		if workflowID == nil {
-			selected = append(selected, item.Name)
-			continue
-		}
-		if item.Name == "openase-platform" {
-			selected = append(selected, item.Name)
-			continue
-		}
-		for _, binding := range item.BoundWorkflows {
-			if binding.ID == *workflowID {
-				selected = append(selected, item.Name)
-				break
-			}
-		}
-	}
-	sort.Strings(selected)
-	return selected, nil
 }
 
 func (s runtimeWorkspacePreparationSlice) buildDeveloperInstructions(

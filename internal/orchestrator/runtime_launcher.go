@@ -767,44 +767,6 @@ func buildGitHubTokenEnvironment(baseEnvironment []string, token string) []strin
 	return environment
 }
 
-func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowID *uuid.UUID,
-	machine catalogdomain.Machine,
-	workspaceRoot string,
-	adapterType string,
-) error {
-	return l.workspaceSlice().refreshRemoteWorkspaceSkills(ctx, projectID, workflowID, machine, workspaceRoot, adapterType)
-}
-
-func (l *RuntimeLauncher) resolveLaunchSkillNames(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowID *uuid.UUID,
-) ([]string, error) {
-	return l.workspaceSlice().resolveLaunchSkillNames(ctx, projectID, workflowID)
-}
-
-func buildRemoteRefreshSkillsCommand(workspaceRoot string, skillsDir string, skillNames []string) string {
-	lines := make([]string, 0, 3+len(skillNames))
-	lines = append(lines,
-		"set -eu",
-		"rm -rf "+sshinfra.ShellQuote(skillsDir),
-		"mkdir -p "+sshinfra.ShellQuote(skillsDir),
-	)
-
-	for _, skillName := range skillNames {
-		src := filepath.Join(workspaceRoot, ".openase", "skills", skillName)
-		dst := filepath.Join(skillsDir, skillName)
-		lines = append(lines,
-			"if [ -d "+sshinfra.ShellQuote(src)+" ]; then cp -R "+sshinfra.ShellQuote(src)+" "+sshinfra.ShellQuote(dst)+"; fi",
-		)
-	}
-
-	return strings.Join(lines, "\n")
-}
-
 func (l *RuntimeLauncher) buildDeveloperInstructions(
 	ctx context.Context,
 	launchContext runtimeLaunchContext,

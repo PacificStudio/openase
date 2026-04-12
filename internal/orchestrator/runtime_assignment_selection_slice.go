@@ -7,10 +7,10 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
-	"github.com/BetterAndBetterII/openase/ent/predicate"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
 )
