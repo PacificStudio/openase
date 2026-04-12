@@ -488,7 +488,13 @@
       wrapCompartment.of(buildWrapModeExtension(wrapMode)),
       // Custom bindings come first so Shift+Alt+F and Mod+S beat any default
       // binding that might otherwise swallow them.
-      keymap.of([...customKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+      keymap.of([
+        ...customKeymap,
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...searchKeymap,
+        indentWithTab,
+      ]),
     ]
 
     if (placeholder) {

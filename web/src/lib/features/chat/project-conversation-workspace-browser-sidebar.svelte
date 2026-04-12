@@ -53,7 +53,10 @@
     loadingDirs?: Set<string>
     selectedFilePath?: string
     recentFiles?: Array<{ repoPath: string; filePath: string }>
-    onSearchPaths?: (query: string, limit?: number) => Promise<ProjectConversationWorkspaceSearchResult[]>
+    onSearchPaths?: (
+      query: string,
+      limit?: number,
+    ) => Promise<ProjectConversationWorkspaceSearchResult[]>
     onOpenRepo?: (repoPath: string) => void
     onToggleDir?: (path: string) => void
     onSelectFile?: (path: string) => void

@@ -109,7 +109,6 @@ describe('ProjectConversationWorkspaceBrowserPane', () => {
 
     const input = await view.findByTestId('workspace-browser-inline-input')
     expect(document.activeElement).toBe(input)
-
     ;(input as HTMLInputElement).value = 'utils'
     await fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
@@ -143,7 +142,6 @@ describe('ProjectConversationWorkspaceBrowserPane', () => {
 
     const input = await view.findByTestId('workspace-browser-inline-input')
     expect(document.activeElement).toBe(input)
-
     ;(input as HTMLInputElement).value = 'index.ts'
     await fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
@@ -180,10 +178,10 @@ describe('ProjectConversationWorkspaceBrowserPane', () => {
 
     await fireEvent.contextMenu(mainFileButton, { clientX: 48, clientY: 64 })
     const relativeMenu = await view.findByTestId('workspace-browser-tree-menu')
-    await fireEvent.click(within(relativeMenu).getByRole('menuitem', { name: 'Copy Relative Path' }))
-    await waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith('services/openase/src/main.ts'),
+    await fireEvent.click(
+      within(relativeMenu).getByRole('menuitem', { name: 'Copy Relative Path' }),
     )
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('services/openase/src/main.ts'))
   })
 
   it('renames and deletes files through the inline tree actions', async () => {

@@ -10,10 +10,7 @@
     ProjectConversationWorkspaceFileStatus,
     ProjectConversationWorkspaceTreeEntry,
   } from '$lib/api/chat'
-  import {
-    fileIcon,
-    statusLabel,
-  } from './project-conversation-workspace-browser-helpers'
+  import { fileIcon, statusLabel } from './project-conversation-workspace-browser-helpers'
 
   type TreeEntry = ProjectConversationWorkspaceTreeEntry
 
@@ -74,11 +71,7 @@
     }
   }
 
-  function onInlineKey(
-    event: KeyboardEvent,
-    commit: (value: string) => void,
-    cancel: () => void,
-  ) {
+  function onInlineKey(event: KeyboardEvent, commit: (value: string) => void, cancel: () => void) {
     if (event.key === 'Enter') {
       event.preventDefault()
       commit((event.currentTarget as HTMLInputElement).value)

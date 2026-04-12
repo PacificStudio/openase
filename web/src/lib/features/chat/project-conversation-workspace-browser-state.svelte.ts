@@ -432,7 +432,10 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     return true
   }
 
-  async function searchPaths(query: string, limit = 20): Promise<ProjectConversationWorkspaceSearchResult[]> {
+  async function searchPaths(
+    query: string,
+    limit = 20,
+  ): Promise<ProjectConversationWorkspaceSearchResult[]> {
     const conversationId = input.getConversationId()
     const repoPath = treeRepoPath
     const trimmedQuery = query.trim()

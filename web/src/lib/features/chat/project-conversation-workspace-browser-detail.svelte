@@ -289,11 +289,11 @@
         data-testid="workspace-browser-status-bar"
       >
         {#if activeEditorState?.savePhase === 'saving'}
-          <span class="text-sky-700 dark:text-sky-300 font-medium">Saving…</span>
+          <span class="font-medium text-sky-700 dark:text-sky-300">Saving…</span>
         {:else if activeEditorState?.savePhase === 'conflict'}
-          <span class="text-amber-700 dark:text-amber-300 font-medium">Conflict</span>
+          <span class="font-medium text-amber-700 dark:text-amber-300">Conflict</span>
         {:else if activeEditorState?.externalChange}
-          <span class="text-amber-700 dark:text-amber-300 font-medium">Changed in workspace</span>
+          <span class="font-medium text-amber-700 dark:text-amber-300">Changed in workspace</span>
         {/if}
         {#if activePatch?.status && activePatch.status !== 'modified'}
           <span
@@ -362,7 +362,9 @@
               {/snippet}
             </Tooltip.Trigger>
             <Tooltip.Content side="top" class="text-xs">
-              {wrapMode === 'wrap' ? 'Word Wrap: On — click to disable' : 'Word Wrap: Off — click to enable'}
+              {wrapMode === 'wrap'
+                ? 'Word Wrap: On — click to disable'
+                : 'Word Wrap: Off — click to enable'}
             </Tooltip.Content>
           </Tooltip.Root>
         {/if}
@@ -391,7 +393,9 @@
             {/snippet}
           </Tooltip.Trigger>
           <Tooltip.Content side="top" class="text-xs">
-            {browser.autosaveEnabled ? 'Autosave: On — click to disable' : 'Autosave: Off — click to enable'}
+            {browser.autosaveEnabled
+              ? 'Autosave: On — click to disable'
+              : 'Autosave: Off — click to enable'}
           </Tooltip.Content>
         </Tooltip.Root>
       </div>

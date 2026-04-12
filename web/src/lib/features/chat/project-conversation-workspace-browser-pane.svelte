@@ -44,15 +44,14 @@
     return idx === -1 ? '' : path.slice(0, idx)
   }
 
-  async function handleCreateEntry(
-    parentPath: string,
-    name: string,
-    kind: 'file' | 'folder',
-  ) {
+  async function handleCreateEntry(parentPath: string, name: string, kind: 'file' | 'folder') {
     // The backend createFile endpoint auto-creates any missing parent
     // directories. For folders we create a sentinel `.gitkeep` inside so
     // the directory exists even when empty.
-    const leafPath = kind === 'folder' ? joinPath(joinPath(parentPath, name), '.gitkeep') : joinPath(parentPath, name)
+    const leafPath =
+      kind === 'folder'
+        ? joinPath(joinPath(parentPath, name), '.gitkeep')
+        : joinPath(parentPath, name)
     await browser.createFile(leafPath)
   }
 

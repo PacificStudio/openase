@@ -113,15 +113,15 @@ describe('CodeEditor', () => {
 
     const selectionMenu = await view.findByTestId('code-editor-context-menu')
     expect(within(selectionMenu).queryByRole('menuitem', { name: 'Format Document' })).toBeNull()
-    expect(
-      within(selectionMenu).getByRole('menuitem', { name: /^Format Selection/ }),
-    ).toBeTruthy()
+    expect(within(selectionMenu).getByRole('menuitem', { name: /^Format Selection/ })).toBeTruthy()
     expect(within(selectionMenu).getByRole('menuitem', { name: 'Revert File' })).toBeTruthy()
     expect(within(selectionMenu).getByRole('menuitem', { name: 'Explain Selection' })).toBeTruthy()
     expect(within(selectionMenu).getByRole('menuitem', { name: 'Rewrite Selection' })).toBeTruthy()
     expect(within(selectionMenu).queryByRole('menuitem', { name: 'Save' })).toBeNull()
 
-    await fireEvent.click(within(selectionMenu).getByRole('menuitem', { name: 'Explain Selection' }))
+    await fireEvent.click(
+      within(selectionMenu).getByRole('menuitem', { name: 'Explain Selection' }),
+    )
     expect(onExplainSelection).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(view.queryByTestId('code-editor-context-menu')).toBeNull())
 
