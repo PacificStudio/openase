@@ -13,6 +13,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/spf13/pflag"
 )
 
@@ -90,6 +91,13 @@ func (options apiCommandOptions) resolve() (apiCommandContext, error) {
 
 func (options apiCommandOptions) resolveResource() (apiCommandContext, error) {
 	return options.resolveWithResourceBase(true)
+}
+
+func (options apiCommandOptions) resolveForOperation(method string, path string) (apiCommandContext, error) {
+	if httpapi.HasAgentPlatformRoute(method, path) {
+		return options.resolve()
+	}
+	return options.resolveResource()
 }
 
 func normalizeResourceAPIBaseURL(baseURL string) string {

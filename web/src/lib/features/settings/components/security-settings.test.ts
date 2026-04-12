@@ -192,6 +192,48 @@ describe('Security settings', () => {
     expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual(['projects.update'])
   })
 
+  it('keeps project ai access explicitly empty after clearing all scopes', async () => {
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+    updateProject.mockResolvedValue({
+      project: {
+        ...currentProject(),
+        project_ai_platform_access_allowed: [],
+      },
+    })
+
+    const { findByRole, findByText } = render(SecuritySettings)
+
+    await fireEvent.click(await findByText('projects'))
+    await fireEvent.click(await findByText('update'))
+    await fireEvent.click(await findByText('add_repo'))
+    await fireEvent.click(await findByRole('button', { name: 'Save Project AI access' }))
+
+    await waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
+        project_ai_platform_access_allowed: [],
+      })
+    })
+    expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual([])
+  })
+
+  it('renders only backend-provided project ai scope groups', async () => {
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+
+    const { findByText, queryByText } = render(SecuritySettings)
+
+    expect(await findByText('projects')).toBeTruthy()
+    expect(queryByText('tickets')).toBeNull()
+    expect(queryByText('update.self')).toBeNull()
+  })
+
   it('imports, retests, and deletes credentials through scoped actions', async () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
