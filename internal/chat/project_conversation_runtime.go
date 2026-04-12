@@ -1,10 +1,8 @@
 package chat
 
 import (
-	"archive/tar"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -909,74 +907,6 @@ func skillTargetRelativePath(workspaceRoot string, adapterType string) string {
 		return ""
 	}
 	return filepath.ToSlash(relative)
-}
-
-func writeConversationWorkspaceArchive(
-	writer *tar.Writer,
-	root string,
-	relativePaths []string,
-) (returnErr error) {
-	rootFS, err := os.OpenRoot(root)
-	if err != nil {
-		return fmt.Errorf("open workspace root: %w", err)
-	}
-	defer func() {
-		if closeErr := rootFS.Close(); returnErr == nil && closeErr != nil {
-			returnErr = fmt.Errorf("close workspace root: %w", closeErr)
-		}
-	}()
-	for _, relative := range relativePaths {
-		absolute := filepath.Join(root, relative)
-		if _, err := os.Stat(absolute); err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return fmt.Errorf("stat workspace artifact %s: %w", relative, err)
-		}
-		if err := filepath.Walk(absolute, func(path string, info os.FileInfo, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if info == nil {
-				var err error
-				info, err = os.Lstat(path)
-				if err != nil {
-					return err
-				}
-			}
-			header, err := tar.FileInfoHeader(info, "")
-			if err != nil {
-				return err
-			}
-			relativeName, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
-			header.Name = filepath.ToSlash(relativeName)
-			if info.IsDir() {
-				header.Name += "/"
-			}
-			if err := writer.WriteHeader(header); err != nil {
-				return err
-			}
-			if !info.Mode().IsRegular() {
-				return nil
-			}
-			file, err := rootFS.Open(relativeName)
-			if err != nil {
-				return err
-			}
-			_, copyErr := io.Copy(writer, file)
-			closeErr := file.Close()
-			if copyErr != nil {
-				return copyErr
-			}
-			return closeErr
-		}); err != nil {
-			return fmt.Errorf("archive workspace artifact %s: %w", relative, err)
-		}
-	}
-	return nil
 }
 
 func mapConversationWorkspaceRepos(items []catalogdomain.ProjectRepo) []workspaceinfra.RepoInput {
