@@ -65,9 +65,9 @@ func NewScheduler(client *ent.Client, logger *slog.Logger, events provider.Event
 	}
 
 	return &Scheduler{
-		client:        client,
-		logger:        logger.With("component", "scheduler"),
-		events:        events,
+		client: client,
+		logger: logger.With("component", "scheduler"),
+		events: events,
 		scheduledJobs: scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketservice.NewService(ticketservice.Dependencies{
 			Activity: ticketrepo.NewActivityRepository(client),
 			Query:    ticketrepo.NewQueryRepository(client),
@@ -77,7 +77,7 @@ func NewScheduler(client *ent.Client, logger *slog.Logger, events provider.Event
 			Usage:    ticketrepo.NewUsageRepository(client),
 			Runtime:  ticketrepo.NewRuntimeRepository(client),
 		}), logger),
-		now:           time.Now,
+		now: time.Now,
 	}
 }
 
