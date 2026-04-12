@@ -4,11 +4,18 @@
   import { ChevronRight, FilePlus2, FolderPlus, GitBranch } from '@lucide/svelte'
   import type {
     ProjectConversationWorkspaceDiffRepo,
-    ProjectConversationWorkspaceFileStatus,
     ProjectConversationWorkspaceRepoMetadata,
     ProjectConversationWorkspaceSearchResult,
     ProjectConversationWorkspaceTreeEntry,
   } from '$lib/api/chat'
+  import {
+    buildDirtyFileStatusMap,
+    buildDirtyParentDirs,
+    buildTreeMenuItems,
+    dirtyFileColorClass,
+    filenameFromPath,
+    parentOf,
+  } from './project-conversation-workspace-browser-sidebar-helpers'
   import {
     fileIcon,
     formatTotals,
@@ -20,9 +27,7 @@
     type PendingCreate,
     type TreeMenuTarget,
   } from './project-conversation-workspace-browser-tree.svelte'
-  import WorkspaceBrowserTreeMenu, {
-    type TreeMenuItem,
-  } from './project-conversation-workspace-browser-tree-menu.svelte'
+  import WorkspaceBrowserTreeMenu from './project-conversation-workspace-browser-tree-menu.svelte'
 
   let {
     repos = [],
@@ -68,35 +73,8 @@
   } = $props()
 
   const dirtyFiles = $derived(selectedRepoDiff?.files ?? [])
-
-  const dirtyFileStatus = $derived(
-    new Map<string, ProjectConversationWorkspaceFileStatus>(
-      dirtyFiles.map((f) => [f.path, f.status]),
-    ),
-  )
-
-  const dirtyParentDirs = $derived.by(() => {
-    const dirs = new Set<string>()
-    for (const file of dirtyFiles) {
-      const parts = file.path.split('/')
-      for (let i = 1; i < parts.length; i++) {
-        dirs.add(parts.slice(0, i).join('/'))
-      }
-    }
-    return dirs
-  })
-
-  function dirtyFileColorClass(status: ProjectConversationWorkspaceFileStatus): string {
-    switch (status) {
-      case 'added':
-      case 'untracked':
-        return 'text-emerald-600 dark:text-emerald-400'
-      case 'deleted':
-        return 'text-rose-600 dark:text-rose-400'
-      default:
-        return 'text-amber-600 dark:text-amber-400'
-    }
-  }
+  const dirtyFileStatus = $derived(buildDirtyFileStatusMap(dirtyFiles))
+  const dirtyParentDirs = $derived.by(() => buildDirtyParentDirs(dirtyFiles))
 
   let explorerExpanded = $state(true)
   let changesExpanded = $state(true)
@@ -104,15 +82,6 @@
   let pendingCreate = $state<PendingCreate | null>(null)
   let renameTarget = $state<{ path: string } | null>(null)
   let contextMenu = $state<{ x: number; y: number; entry: TreeMenuTarget } | null>(null)
-
-  function parentOf(path: string): string {
-    const idx = path.lastIndexOf('/')
-    return idx === -1 ? '' : path.slice(0, idx)
-  }
-
-  function filenameFromPath(path: string): string {
-    return path.split('/').pop() ?? ''
-  }
 
   function ensureExpanded(path: string) {
     if (!path) return
@@ -155,42 +124,6 @@
     event.preventDefault()
     event.stopPropagation()
     contextMenu = { x: event.clientX, y: event.clientY, entry }
-  }
-
-  function buildMenuItems(entry: TreeMenuTarget): TreeMenuItem[] {
-    const items: TreeMenuItem[] = []
-    if (entry.kind === 'directory') {
-      items.push({
-        kind: 'item',
-        label: 'New File',
-        onSelect: () => startCreate('file', entry.path),
-      })
-      items.push({
-        kind: 'item',
-        label: 'New Folder',
-        onSelect: () => startCreate('folder', entry.path),
-      })
-      items.push({ kind: 'separator' })
-    }
-    items.push({ kind: 'item', label: 'Rename…', onSelect: () => startRename(entry.path) })
-    items.push({
-      kind: 'item',
-      label: 'Delete',
-      danger: true,
-      onSelect: () => onDeleteEntry?.(entry.path),
-    })
-    items.push({ kind: 'separator' })
-    items.push({
-      kind: 'item',
-      label: 'Copy Path',
-      onSelect: () => onCopyAbsolutePath?.(entry.path),
-    })
-    items.push({
-      kind: 'item',
-      label: 'Copy Relative Path',
-      onSelect: () => onCopyRelativePath?.(entry.path),
-    })
-    return items
   }
 </script>
 
@@ -368,7 +301,13 @@
   <WorkspaceBrowserTreeMenu
     x={contextMenu.x}
     y={contextMenu.y}
-    items={buildMenuItems(contextMenu.entry)}
+    items={buildTreeMenuItems(contextMenu.entry, {
+      onStartCreate: startCreate,
+      onStartRename: startRename,
+      onDeleteEntry,
+      onCopyAbsolutePath,
+      onCopyRelativePath,
+    })}
     onClose={() => (contextMenu = null)}
   />
 {/if}
