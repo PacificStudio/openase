@@ -890,7 +890,7 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if err := (*RuntimeLauncher)(nil).recordTokenUsage(context.Background(), uuid.New(), uuid.New(), uuid.New(), nil, highWater); err != nil {
 		t.Fatalf("recordTokenUsage(nil launcher) error = %v", err)
 	}
-	launcher.tickets = ticketservice.NewService(nil)
+	launcher.tickets = ticketservice.NewService(ticketservice.Dependencies{})
 	if err := launcher.recordTokenUsage(context.Background(), uuid.New(), uuid.New(), uuid.New(), &agentTokenUsageEvent{
 		TotalInputTokens:  5,
 		TotalOutputTokens: 3,

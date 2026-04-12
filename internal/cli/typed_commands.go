@@ -1158,7 +1158,7 @@ machine inspection with ` + "`openase machine list --project-id $OPENASE_PROJECT
   openase project current --project-id $OPENASE_PROJECT_ID --json project.organization_id
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
@@ -1223,7 +1223,7 @@ When project context is used, the CLI fetches the project first and derives orga
 `),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
@@ -1289,7 +1289,7 @@ Use Ctrl-C to stop the stream when running interactively.
 `),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
@@ -1564,7 +1564,7 @@ func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 		Example: strings.TrimSpace(spec.Example),
 		Args:    cobra.MaximumNArgs(len(spec.PositionalParams)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
@@ -1665,7 +1665,7 @@ func buildOpenAPIStreamHelp(spec openAPICommandSpec, summary string) string {
 }
 
 func runOpenAPIOperationCommand(cmd *cobra.Command, deps apiCommandDeps, contract openAPICommandContract, args []string) error {
-	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(contract.spec.Method, contract.spec.Path)
 	if err != nil {
 		return err
 	}
@@ -1689,7 +1689,7 @@ func runOpenAPIOperationCommand(cmd *cobra.Command, deps apiCommandDeps, contrac
 }
 
 func runOpenAPIStreamCommand(cmd *cobra.Command, deps apiCommandDeps, contract openAPICommandContract, args []string) error {
-	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(contract.spec.Method, contract.spec.Path)
 	if err != nil {
 		return err
 	}

@@ -27,6 +27,12 @@ var ErrNotFound = errors.New("agent platform record not found")
 type Scope string
 
 const (
+	ScopeAgentsRead                    Scope = "agents.read"
+	ScopeAgentsCreate                  Scope = "agents.create"
+	ScopeAgentsUpdate                  Scope = "agents.update"
+	ScopeAgentsDelete                  Scope = "agents.delete"
+	ScopeAgentsPause                   Scope = "agents.pause"
+	ScopeAgentsResume                  Scope = "agents.resume"
 	ScopeAgentsInterrupt               Scope = "agents.interrupt"
 	ScopeTicketsCreate                 Scope = "tickets.create"
 	ScopeTicketsList                   Scope = "tickets.list"
@@ -55,6 +61,10 @@ const (
 	ScopeSkillsEnable                  Scope = "skills.enable"
 	ScopeSkillsDisable                 Scope = "skills.disable"
 	ScopeSkillsBind                    Scope = "skills.bind"
+	ScopeNotificationRulesList         Scope = "notification_rules.list"
+	ScopeNotificationRulesCreate       Scope = "notification_rules.create"
+	ScopeNotificationRulesUpdate       Scope = "notification_rules.update"
+	ScopeNotificationRulesDelete       Scope = "notification_rules.delete"
 	ScopeStatusesList                  Scope = "statuses.list"
 	ScopeStatusesCreate                Scope = "statuses.create"
 	ScopeStatusesUpdate                Scope = "statuses.update"
@@ -115,8 +125,18 @@ func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
 
 func SupportedAgentScopes() []string {
 	return []string{
+		string(ScopeAgentsCreate),
+		string(ScopeAgentsDelete),
+		string(ScopeAgentsPause),
+		string(ScopeAgentsRead),
 		string(ScopeAgentsInterrupt),
+		string(ScopeAgentsResume),
+		string(ScopeAgentsUpdate),
 		string(ScopeActivityRead),
+		string(ScopeNotificationRulesCreate),
+		string(ScopeNotificationRulesDelete),
+		string(ScopeNotificationRulesList),
+		string(ScopeNotificationRulesUpdate),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),
 		string(ScopeReposCreate),
@@ -171,7 +191,7 @@ func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
 		supported := SupportedAgentScopes()
 		scopes := make([]string, 0, len(supported))
 		for _, scope := range supported {
-			if scope == string(ScopeTicketsUpdateSelf) {
+			if scope == string(ScopeTicketsUpdateSelf) || scope == string(ScopeTicketsReportUsage) {
 				continue
 			}
 			scopes = append(scopes, scope)
@@ -399,8 +419,8 @@ func BuildCapabilityContract(input RuntimeContractInput) string {
 	switch input.PrincipalKind {
 	case PrincipalKindProjectConversation:
 		builder.WriteString("- Treat this as a project-scoped conversation runtime, not a ticket runtime.\n")
-		builder.WriteString("- Use project-scoped ticket mutation routes when `tickets.update` is granted.\n")
-		builder.WriteString("- Do not assume current-ticket comment/update/report-usage endpoints are available.\n")
+		builder.WriteString("- Use canonical ticket mutation routes when `tickets.update` is granted, including ticket comment operations.\n")
+		builder.WriteString("- Do not assume ticket usage-report endpoints are available.\n")
 		builder.WriteString("- Ticket-runtime-only routes can reject this principal kind even when `OPENASE_TICKET_ID` is present.\n")
 	default:
 		builder.WriteString("- Treat this as the current ticket runtime.\n")

@@ -14,7 +14,7 @@ func (s *Service) RecordUsage(
 	input RecordUsageInput,
 	metrics provider.MetricsProvider,
 ) (RecordUsageResult, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.usageRepo == nil {
 		return RecordUsageResult{}, ErrUnavailable
 	}
 	if input.AgentID == uuid.Nil {
@@ -35,7 +35,7 @@ func (s *Service) RecordUsage(
 		return RecordUsageResult{}, err
 	}
 
-	persisted, err := s.repo.RecordUsage(ctx, input, usageDelta)
+	persisted, err := s.usageRepo.RecordUsage(ctx, input, usageDelta)
 	if err != nil {
 		return RecordUsageResult{}, err
 	}

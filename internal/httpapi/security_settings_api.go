@@ -576,8 +576,8 @@ func buildSecuritySettingsResponse(
 			EnvironmentVariable:    securitySettingsAgentTokenEnvVar,
 			TokenPrefix:            agentplatform.TokenPrefix,
 			DefaultScopes:          slices.Clone(agentplatform.DefaultScopes()),
-			SupportedProjectScopes: slices.Clone(agentplatform.SupportedScopes()),
-			SupportedScopeGroups:   mapSecurityScopeGroups(agentplatform.SupportedScopeGroups()),
+			SupportedProjectScopes: slices.Clone(agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)),
+			SupportedScopeGroups:   mapSecurityScopeGroups(agentplatform.SupportedScopeGroupsForPrincipalKind(agentplatform.PrincipalKindProjectConversation)),
 		},
 		GitHub: github,
 		Webhooks: securityWebhookBoundaryResponse{

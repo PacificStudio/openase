@@ -1281,13 +1281,19 @@ type OpenAPIVersionSummary struct {
 }
 
 type OpenAPIScheduledJobTicketTemplate struct {
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Status      string  `json:"status,omitempty"`
-	Priority    string  `json:"priority"`
-	Type        string  `json:"type"`
-	CreatedBy   string  `json:"created_by"`
-	BudgetUSD   float64 `json:"budget_usd,omitempty"`
+	Title       string                                 `json:"title"`
+	Description string                                 `json:"description"`
+	Status      string                                 `json:"status,omitempty"`
+	Priority    string                                 `json:"priority"`
+	Type        string                                 `json:"type"`
+	CreatedBy   string                                 `json:"created_by"`
+	BudgetUSD   float64                                `json:"budget_usd,omitempty"`
+	RepoScopes  []OpenAPIScheduledJobTicketTemplateRef `json:"repo_scopes,omitempty"`
+}
+
+type OpenAPIScheduledJobTicketTemplateRef struct {
+	RepoID     string  `json:"repo_id"`
+	BranchName *string `json:"branch_name,omitempty"`
 }
 
 type OpenAPIScheduledJob struct {
@@ -2741,10 +2747,20 @@ var (
 		"content": "Harness content to write or validate.",
 	}
 	openAPIScheduledJobDescriptions = map[string]string{
-		"name":            "Human-readable scheduled job name.",
-		"cron_expression": "Cron expression that controls when the job triggers.",
-		"ticket_template": "Ticket template used to create a ticket for each scheduled run.",
-		"is_enabled":      "Whether the scheduled job is enabled.",
+		"name":                                      "Human-readable scheduled job name.",
+		"cron_expression":                           "Cron expression that controls when the job triggers.",
+		"ticket_template":                           "Ticket template used to create a ticket for each scheduled run.",
+		"ticket_template.title":                     "Rendered ticket title template for each scheduled run.",
+		"ticket_template.description":               "Optional rendered ticket description template for each scheduled run.",
+		"ticket_template.status":                    "Ticket status name applied to tickets created by this scheduled job.",
+		"ticket_template.priority":                  "Ticket priority applied to tickets created by this scheduled job.",
+		"ticket_template.type":                      "Ticket type applied to tickets created by this scheduled job.",
+		"ticket_template.created_by":                "Optional audit actor recorded on tickets created by this scheduled job.",
+		"ticket_template.budget_usd":                "Optional budget cap in USD applied to tickets created by this scheduled job.",
+		"ticket_template.repo_scopes":               "Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope.",
+		"ticket_template.repo_scopes[].repo_id":     "Repository ID attached to tickets created by this scheduled job.",
+		"ticket_template.repo_scopes[].branch_name": "Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation.",
+		"is_enabled":                                "Whether the scheduled job is enabled.",
 	}
 	openAPITicketRequestDescriptions = map[string]string{
 		"title":                     "Human-readable ticket title.",

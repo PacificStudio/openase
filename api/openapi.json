@@ -23261,6 +23261,21 @@
                               "priority": {
                                 "type": "string"
                               },
+                              "repo_scopes": {
+                                "items": {
+                                  "properties": {
+                                    "branch_name": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "repo_id": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
                               "status": {
                                 "type": "string"
                               },
@@ -23378,8 +23393,57 @@
                     "type": "string"
                   },
                   "ticket_template": {
-                    "additionalProperties": {},
                     "description": "Ticket template used to create a ticket for each scheduled run.",
+                    "properties": {
+                      "budget_usd": {
+                        "description": "Optional budget cap in USD applied to tickets created by this scheduled job.",
+                        "format": "double",
+                        "nullable": true,
+                        "type": "number"
+                      },
+                      "created_by": {
+                        "description": "Optional audit actor recorded on tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "description": "Optional rendered ticket description template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "priority": {
+                        "description": "Ticket priority applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "repo_scopes": {
+                        "description": "Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID attached to tickets created by this scheduled job.",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "description": "Ticket status name applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "Rendered ticket title template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "Ticket type applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      }
+                    },
                     "type": "object"
                   }
                 },
@@ -23435,6 +23499,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"
@@ -38517,9 +38596,58 @@
                     "type": "string"
                   },
                   "ticket_template": {
-                    "additionalProperties": {},
                     "description": "Ticket template used to create a ticket for each scheduled run.",
                     "nullable": true,
+                    "properties": {
+                      "budget_usd": {
+                        "description": "Optional budget cap in USD applied to tickets created by this scheduled job.",
+                        "format": "double",
+                        "nullable": true,
+                        "type": "number"
+                      },
+                      "created_by": {
+                        "description": "Optional audit actor recorded on tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "description": "Optional rendered ticket description template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "priority": {
+                        "description": "Ticket priority applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "repo_scopes": {
+                        "description": "Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID attached to tickets created by this scheduled job.",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "description": "Ticket status name applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "Rendered ticket title template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "Ticket type applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      }
+                    },
                     "type": "object"
                   }
                 },
@@ -38575,6 +38703,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"
@@ -38737,6 +38880,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"

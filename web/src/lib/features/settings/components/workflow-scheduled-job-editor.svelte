@@ -9,6 +9,7 @@
   import { ChevronDown, ChevronRight } from '@lucide/svelte'
   import { Switch } from '$ui/switch'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
+  import type { RepoScopeOption as TicketRepoOption } from '$lib/features/repo-scope-selection'
   import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { type ScheduledJobDraft } from './workflow-scheduled-jobs'
   import WorkflowScheduledJobCronHelperDialog from './workflow-scheduled-job-cron-helper-dialog.svelte'
@@ -19,12 +20,15 @@
     open = $bindable(false),
     draft,
     projectId,
+    repoOptions,
     selectedJob = null,
     statusOptions,
     saving = false,
     deleting = false,
     triggering = false,
     onFieldChange,
+    onToggleRepoScope,
+    onUpdateRepoBranchOverride,
     onSubmit,
     onDelete,
     onTrigger,
@@ -33,12 +37,15 @@
     open?: boolean
     draft: ScheduledJobDraft
     projectId: string
+    repoOptions: TicketRepoOption[]
     selectedJob?: ScheduledJob | null
     statusOptions: WorkflowStatusOption[]
     saving?: boolean
     deleting?: boolean
     triggering?: boolean
     onFieldChange?: (field: keyof ScheduledJobDraft, value: string | boolean) => void
+    onToggleRepoScope?: (repoId: string) => void
+    onUpdateRepoBranchOverride?: (repoId: string, value: string) => void
     onSubmit?: () => void
     onDelete?: () => void
     onTrigger?: () => void
@@ -63,6 +70,10 @@
         ].join('\n')
       : 'The user is creating a scheduled job for this project and needs help drafting a cron expression.',
   )
+  const hasExplicitRepoTemplateConfig = $derived(
+    Object.keys(draft.ticketRepoBranchOverrides).length > 0 ||
+      (repoOptions.length > 1 && draft.ticketRepoIds.length > 0),
+  )
 
   const hasTemplateValues = $derived(
     !!(
@@ -70,6 +81,7 @@
       draft.ticketDescription ||
       draft.ticketCreatedBy ||
       draft.ticketBudgetUsd ||
+      hasExplicitRepoTemplateConfig ||
       draft.ticketPriority !== 'medium' ||
       draft.ticketType !== 'feature'
     ),
@@ -190,7 +202,13 @@
           </button>
 
           {#if templateExpanded}
-            <WorkflowScheduledJobTemplateFields {draft} {onFieldChange} />
+            <WorkflowScheduledJobTemplateFields
+              {draft}
+              {repoOptions}
+              {onFieldChange}
+              {onToggleRepoScope}
+              {onUpdateRepoBranchOverride}
+            />
           {/if}
         </div>
       </div>

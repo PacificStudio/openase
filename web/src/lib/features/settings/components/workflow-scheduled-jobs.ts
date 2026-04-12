@@ -1,4 +1,10 @@
 import type { ScheduledJob } from '$lib/api/contracts'
+import {
+  buildRepoScopePayload,
+  defaultRepoScopeSelection,
+  type RepoScopePayload,
+  type RepoScopeOption,
+} from '$lib/features/repo-scope-selection'
 import type { WorkflowStatusOption } from '$lib/features/workflows'
 
 export type ScheduledJobDraft = {
@@ -12,12 +18,17 @@ export type ScheduledJobDraft = {
   ticketType: string
   ticketBudgetUsd: string
   ticketCreatedBy: string
+  ticketRepoIds: string[]
+  ticketRepoBranchOverrides: Record<string, string>
 }
 
 export const scheduledJobPriorityOptions = ['urgent', 'high', 'medium', 'low'] as const
 export const scheduledJobTypeOptions = ['feature', 'bugfix', 'refactor', 'chore'] as const
 
-export function emptyScheduledJobDraft(defaultStatusId: string): ScheduledJobDraft {
+export function emptyScheduledJobDraft(
+  defaultStatusId: string,
+  repoOptions: RepoScopeOption[],
+): ScheduledJobDraft {
   return {
     name: '',
     cronExpression: '',
@@ -29,17 +40,25 @@ export function emptyScheduledJobDraft(defaultStatusId: string): ScheduledJobDra
     ticketType: 'feature',
     ticketBudgetUsd: '',
     ticketCreatedBy: '',
+    ticketRepoIds: defaultRepoScopeSelection(repoOptions),
+    ticketRepoBranchOverrides: {},
   }
 }
 
 export function scheduledJobDraftFromRecord(
   job: ScheduledJob,
   statuses: WorkflowStatusOption[],
+  repoOptions: RepoScopeOption[],
 ): ScheduledJobDraft {
   const statusId =
     statuses.find((status) => status.name === (job.ticket_template.status ?? ''))?.id ??
     statuses[0]?.id ??
     ''
+  const configuredRepoScopes = job.ticket_template.repo_scopes ?? []
+  const selectedRepoIds =
+    configuredRepoScopes.length > 0
+      ? configuredRepoScopes.map((scope) => scope.repo_id)
+      : defaultRepoScopeSelection(repoOptions)
 
   return {
     name: job.name,
@@ -53,10 +72,21 @@ export function scheduledJobDraftFromRecord(
     ticketBudgetUsd:
       job.ticket_template.budget_usd > 0 ? String(job.ticket_template.budget_usd) : '',
     ticketCreatedBy: job.ticket_template.created_by ?? '',
+    ticketRepoIds: selectedRepoIds,
+    ticketRepoBranchOverrides: configuredRepoScopes.reduce<Record<string, string>>((acc, scope) => {
+      if (typeof scope.branch_name === 'string' && scope.branch_name.length > 0) {
+        acc[scope.repo_id] = scope.branch_name
+      }
+      return acc
+    }, {}),
   }
 }
 
-export function parseScheduledJobDraft(value: ScheduledJobDraft, statuses: WorkflowStatusOption[]) {
+export function parseScheduledJobDraft(
+  value: ScheduledJobDraft,
+  statuses: WorkflowStatusOption[],
+  repoOptions: RepoScopeOption[],
+) {
   const name = value.name.trim()
   const cronExpression = value.cronExpression.trim()
   const ticketStatusId = value.ticketStatusId.trim()
@@ -82,6 +112,15 @@ export function parseScheduledJobDraft(value: ScheduledJobDraft, statuses: Workf
   if (!selectedStatus) {
     return { ok: false as const, error: 'Target status is invalid.' }
   }
+  const repoScopes = buildRepoScopePayload(
+    repoOptions,
+    value.ticketRepoIds,
+    value.ticketRepoBranchOverrides,
+    'Select at least one repository scope for tickets created by this scheduled job.',
+  )
+  if ('error' in repoScopes) {
+    return { ok: false as const, error: repoScopes.error }
+  }
 
   let budgetUsd: number | undefined
   if (ticketBudgetRaw) {
@@ -97,6 +136,7 @@ export function parseScheduledJobDraft(value: ScheduledJobDraft, statuses: Workf
     created_by?: string
     description?: string
     priority?: string
+    repo_scopes?: RepoScopePayload
     status?: string
     title?: string
     type?: string
@@ -106,6 +146,7 @@ export function parseScheduledJobDraft(value: ScheduledJobDraft, statuses: Workf
   if (ticketDescription) ticket_template.description = ticketDescription
   if (ticketCreatedBy) ticket_template.created_by = ticketCreatedBy
   if (budgetUsd != null) ticket_template.budget_usd = budgetUsd
+  if (repoScopes.value) ticket_template.repo_scopes = repoScopes.value
   ticket_template.status = selectedStatus.name
   if (value.ticketPriority) ticket_template.priority = value.ticketPriority
   if (value.ticketType) ticket_template.type = value.ticketType
