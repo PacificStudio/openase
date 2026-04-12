@@ -1,10 +1,13 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { i18nStore } from '$lib/i18n/store.svelte'
+
 import TopBar from './top-bar.svelte'
 
 describe('TopBar', () => {
   afterEach(() => {
+    i18nStore.setLocale('en')
     cleanup()
   })
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import { pageTitle } from '$lib/i18n'
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
 
@@ -13,24 +15,23 @@
   let { data }: { data: PageData } = $props()
 
   let pending = $state(false)
-  let message = $state('Authorize this browser as the local instance admin.')
+  let message = $state(i18nStore.t('auth.localAuthorizationInitialStatus'))
 
   async function redeem() {
     if (!data.requestID || !data.code || !data.nonce) {
-      message =
-        'This authorization bundle is incomplete. Generate a fresh local bootstrap bundle from the CLI.'
+      message = i18nStore.t('auth.localAuthorizationIncomplete')
       return
     }
 
     pending = true
-    message = 'Authorizing this browser session...'
+    message = i18nStore.t('auth.localAuthorizationAuthorizing')
     try {
       await redeemLocalBootstrapBrowserSession({
         requestID: data.requestID,
         code: data.code,
         nonce: data.nonce,
       })
-      message = 'Authorization succeeded. Redirecting into OpenASE...'
+      message = i18nStore.t('auth.localAuthorizationSucceeded')
       await goto(data.returnTo, { replaceState: true })
     } catch (error) {
       message = describeLocalBootstrapRedeemError(error)
@@ -45,33 +46,34 @@
 </script>
 
 <svelte:head>
-  <title>Local Authorization - OpenASE</title>
+  <title>{pageTitle(i18nStore.t('auth.localAuthorizationPageTitle'), i18nStore.locale)}</title>
 </svelte:head>
 
 <div class="bg-background flex min-h-screen items-center justify-center px-6 py-12">
   <Card.Root class="w-full max-w-xl gap-6 border shadow-sm">
     <Card.Header class="gap-2">
-      <Card.Title class="text-2xl">Local Authorization</Card.Title>
+      <Card.Title class="text-2xl">{i18nStore.t('auth.localAuthorizationTitle')}</Card.Title>
       <Card.Description>
-        Complete a one-time local bootstrap authorization before entering the control plane.
+        {i18nStore.t('auth.localAuthorizationDescription')}
       </Card.Description>
     </Card.Header>
 
     <Card.Content class="space-y-4">
       <div class="bg-muted/40 border-border rounded-xl border px-4 py-3 text-sm">
-        <div class="text-muted-foreground">Status</div>
+        <div class="text-muted-foreground">{i18nStore.t('common.status')}</div>
         <div class="text-foreground mt-1 font-medium">{message}</div>
       </div>
 
       <div class="flex gap-3">
         <Button onclick={() => void redeem()} disabled={pending} class="w-full">
-          {pending ? 'Authorizing...' : 'Retry authorization'}
+          {pending
+            ? i18nStore.t('auth.localAuthorizationRetrying')
+            : i18nStore.t('auth.localAuthorizationRetry')}
         </Button>
       </div>
 
       <p class="text-muted-foreground text-xs">
-        The URL carries only short-lived, single-use authorization material. OpenASE stores the
-        resulting browser session in an httpOnly cookie after redemption.
+        {i18nStore.t('auth.localAuthorizationNotice')}
       </p>
     </Card.Content>
   </Card.Root>
