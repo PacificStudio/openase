@@ -5545,6 +5545,9 @@ func publishRuntimeLauncherWorkflowVersionContent(
 		Save(ctx); err != nil {
 		t.Fatalf("set current workflow version: %v", err)
 	}
+	if err := workflowrepo.NewEntRepository(client).MigrateLegacyMetadata(ctx); err != nil {
+		t.Fatalf("run explicit workflow metadata migration for test setup: %v", err)
+	}
 }
 
 func ticketStatusIDStrings(statuses []*ent.TicketStatus) pgarray.StringArray {
