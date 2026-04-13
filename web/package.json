@@ -21,14 +21,14 @@
     "lint:eslint": "eslint . --quiet",
     "lint:i18n": "node scripts/check-i18n-registry.mjs && node scripts/check-i18n.mjs",
     "lint:structure": "node scripts/check-file-budgets.mjs",
-    "lint:deps": "node scripts/check-dependency-boundaries.mjs",
+    "lint:deps": "node scripts/check-dependency-boundaries.mjs && node scripts/check-lockfile-security.mjs",
     "lint:mobile": "node scripts/check-mobile-route-gates.mjs",
     "check:security-overrides": "node scripts/check-security-overrides.mjs",
     "lint:fix": "eslint . --fix",
     "sort:i18n-locales": "node scripts/sort-i18n-locales.mjs",
     "format": "pnpm run sort:i18n-locales && prettier --log-level warn --write .",
     "format:check": "pnpm run sort:i18n-locales -- --check && prettier --log-level warn --check .",
-    "ci": "pnpm run format:check && pnpm run lint && node scripts/check-file-budgets.mjs && node scripts/check-dependency-boundaries.mjs && node scripts/check-mobile-route-gates.mjs && pnpm run check:security-overrides && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --output machine --threshold error && vitest run --reporter=dot src/lib/i18n/index.test.ts src/lib/components/layout/top-bar.test.ts src/lib/components/layout/top-bar-user-menu.test.ts src/lib/components/layout/sidebar-nav.test.ts src/lib/components/layout/theme-root.test.ts src/lib/features/ticket-detail/run-transcript-real-samples.test.ts src/lib/features/ticket-detail/run-transcript-live-updates.test.ts src/lib/features/ticket-detail/run-transcript.test.ts && vite build --logLevel warn && playwright test --reporter=dot --quiet"
+    "ci": "pnpm run format:check && pnpm run lint && node scripts/check-file-budgets.mjs && pnpm run lint:deps && node scripts/check-mobile-route-gates.mjs && pnpm run check:security-overrides && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --output machine --threshold error && vitest run --reporter=dot src/lib/i18n/index.test.ts src/lib/components/layout/top-bar.test.ts src/lib/components/layout/top-bar-user-menu.test.ts src/lib/components/layout/sidebar-nav.test.ts src/lib/components/layout/theme-root.test.ts src/lib/features/ticket-detail/run-transcript-real-samples.test.ts src/lib/features/ticket-detail/run-transcript-live-updates.test.ts src/lib/features/ticket-detail/run-transcript.test.ts && vite build --logLevel warn && playwright test --reporter=dot --quiet"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
