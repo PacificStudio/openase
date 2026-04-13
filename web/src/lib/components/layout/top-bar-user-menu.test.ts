@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { i18nStore } from '$lib/i18n/store.svelte'
 
@@ -7,11 +7,14 @@ import TopBarUserMenu from './top-bar-user-menu.svelte'
 
 describe('TopBarUserMenu', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     i18nStore.setLocale('en')
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     cleanup()
+    await vi.runOnlyPendingTimersAsync()
+    vi.useRealTimers()
     i18nStore.setLocale('en')
   })
 
