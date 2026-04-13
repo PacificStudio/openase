@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
-  import { formatRelativeTime } from '$lib/utils'
+  import { formatMachineRelativeTime } from '../machine-i18n'
   import {
     machineDetectedArchLabel,
     machineDetectedOSLabel,
@@ -21,7 +21,7 @@
         {i18nStore.t('machines.machineProbeCard.heading.latestConnectionTest')}
       </h4>
       <p class="text-muted-foreground mt-1 text-xs">
-        {formatRelativeTime(probe.checked_at)}
+        {formatMachineRelativeTime(probe.checked_at)}
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{friendlyTransportLabel(probe.transport)}</Badge>

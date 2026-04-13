@@ -1,3 +1,4 @@
+import { i18nStore } from '$lib/i18n/store.svelte'
 import type { Machine } from '$lib/api/contracts'
 import type { MachineDraft, MachineStatus } from './types'
 import { normalizeReachabilityMode } from './machine-guidance'
@@ -15,20 +16,30 @@ export function normalizeMachineStatus(status: string): MachineStatus {
 }
 
 export function machineStatusLabel(status: string): string {
-  return normalizeMachineStatus(status)
+  switch (normalizeMachineStatus(status)) {
+    case 'online':
+      return i18nStore.t('machines.status.label.online')
+    case 'degraded':
+      return i18nStore.t('machines.status.label.degraded')
+    case 'offline':
+      return i18nStore.t('machines.status.label.offline')
+    case 'maintenance':
+    default:
+      return i18nStore.t('machines.status.label.maintenance')
+  }
 }
 
 export function machineStatusDescription(status: string): string {
   switch (normalizeMachineStatus(status)) {
     case 'online':
-      return 'Healthy and currently eligible for orchestration.'
+      return i18nStore.t('machines.status.description.online')
     case 'degraded':
-      return 'Reachable, but monitoring has detected issues that need attention.'
+      return i18nStore.t('machines.status.description.degraded')
     case 'offline':
-      return 'Currently unreachable or unable to report a healthy heartbeat.'
+      return i18nStore.t('machines.status.description.offline')
     case 'maintenance':
     default:
-      return 'Held out of scheduling while configuration or maintenance work is in progress.'
+      return i18nStore.t('machines.status.description.maintenance')
   }
 }
 

@@ -1,6 +1,6 @@
-import { formatRelativeTime } from '$lib/utils'
 import { i18nStore } from '$lib/i18n/store.svelte'
 import { friendlyTransportLabel } from '../machine-setup'
+import { formatMachineRelativeTime } from '../machine-i18n'
 import type { MachineCLIStatus, MachineSnapshot } from '../types'
 
 export type HealthStatCard = {
@@ -50,10 +50,10 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
       label: i18nStore.t('machines.shared.reachability'),
       value:
         snapshot.monitor.l1?.reachable === undefined
-          ? 'Unknown'
+          ? i18nStore.t('machines.machineHealthPanel.status.unknown')
           : snapshot.monitor.l1.reachable
-            ? 'Reachable'
-            : 'Unavailable',
+            ? i18nStore.t('machines.machineHealthPanel.dynamic.reachable')
+            : i18nStore.t('machines.machineHealthPanel.dynamic.unavailable'),
       meta: snapshot.monitor.l1?.latencyMs
         ? `${snapshot.monitor.l1.latencyMs.toFixed(0)} ms`
         : friendlyTransportLabel(snapshot.transport),
@@ -62,34 +62,42 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
       label: i18nStore.t('machines.machineHealthPanel.stats.cpu'),
       value:
         snapshot.cpuUsagePercent === undefined
-          ? 'Pending'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.pending')
           : `${snapshot.cpuUsagePercent.toFixed(1)}%`,
       meta:
-        snapshot.cpuCores === undefined ? 'No core count' : `${snapshot.cpuCores.toFixed(0)} cores`,
+        snapshot.cpuCores === undefined
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.noCoreCount')
+          : i18nStore.t('machines.machineHealthPanel.dynamic.cores', {
+              count: snapshot.cpuCores.toFixed(0),
+            }),
     },
     {
       label: i18nStore.t('machines.shared.memory'),
       value:
         snapshot.memoryUsedGB === undefined
-          ? 'Pending'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.pending')
           : `${snapshot.memoryUsedGB.toFixed(1)} / ${snapshot.memoryTotalGB?.toFixed(1) ?? '?'} GB`,
       meta:
         snapshot.memoryAvailableGB === undefined
-          ? 'No free memory data'
-          : `${snapshot.memoryAvailableGB.toFixed(1)} GB free`,
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.noFreeMemoryData')
+          : i18nStore.t('machines.machineHealthPanel.dynamic.freeMemory', {
+              count: snapshot.memoryAvailableGB.toFixed(1),
+            }),
     },
     {
       label: i18nStore.t('machines.shared.disk'),
       value:
         snapshot.diskAvailableGB === undefined
-          ? 'Pending'
-          : `${snapshot.diskAvailableGB.toFixed(1)} GB free`,
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.pending')
+          : i18nStore.t('machines.machineRowCard.resources.freeGb', {
+              free: snapshot.diskAvailableGB.toFixed(1),
+            }),
       meta:
         snapshot.agentDispatchable === undefined
-          ? 'Agent dispatch unknown'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.agentDispatchUnknown')
           : snapshot.agentDispatchable
-            ? 'At least one runtime ready'
-            : 'No runtime currently dispatchable',
+            ? i18nStore.t('machines.machineHealthPanel.dynamic.atLeastOneRuntimeReady')
+            : i18nStore.t('machines.machineHealthPanel.dynamic.noRuntimeDispatchable'),
     },
   ]
 }
@@ -108,10 +116,10 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
           : 'unknown',
       value:
         snapshot.monitor.l1?.reachable === undefined
-          ? 'No reachability sample yet'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.noReachabilitySample')
           : snapshot.monitor.l1.reachable
-            ? 'Machine is reachable'
-            : 'Machine is unreachable',
+            ? i18nStore.t('machines.machineHealthPanel.dynamic.machineReachable')
+            : i18nStore.t('machines.machineHealthPanel.dynamic.machineUnreachable'),
       meta: checkedAtLabel(snapshot.monitor.l1?.checkedAt),
     },
     {
@@ -124,7 +132,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
           : 'unknown',
       value:
         snapshot.cpuUsagePercent === undefined
-          ? 'No system resource snapshot yet'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.noSystemSnapshot')
           : `CPU ${snapshot.cpuUsagePercent.toFixed(1)}% · RAM ${snapshot.memoryAvailableGB?.toFixed(1) ?? '?'} GB free`,
       meta: checkedAtLabel(snapshot.monitor.l2?.checkedAt),
     },
@@ -138,10 +146,12 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
           : 'unknown',
       value:
         snapshot.monitor.l3?.available === undefined
-          ? 'No GPU probe snapshot yet'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.noGpuProbe')
           : snapshot.monitor.l3.available
-            ? `${snapshot.gpus.length} GPU detected`
-            : 'No GPU detected',
+            ? i18nStore.t('machines.machineHealthPanel.dynamic.gpuDetected', {
+                count: snapshot.gpus.length,
+              })
+            : i18nStore.t('machines.machineHealthPanel.dynamic.noGpuDetected'),
       meta: checkedAtLabel(snapshot.monitor.l3?.checkedAt),
     },
     {
@@ -154,8 +164,11 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
           : 'unknown',
       value:
         snapshot.agentEnvironment.length === 0
-          ? 'No runtime environment snapshot yet'
-          : `${readyRuntimeCount}/${snapshot.agentEnvironment.length} runtimes ready`,
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.noRuntimeSnapshot')
+          : i18nStore.t('machines.machineHealthPanel.dynamic.runtimesReady', {
+              ready: readyRuntimeCount,
+              total: snapshot.agentEnvironment.length,
+            }),
       meta: checkedAtLabel(snapshot.monitor.l4?.checkedAt),
     },
     {
@@ -167,8 +180,8 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
           ? 'ok'
           : 'unknown',
       value: snapshot.fullAudit?.checkedAt
-        ? 'Git, GitHub CLI observation, and network audit captured'
-        : 'No tooling audit snapshot yet',
+        ? i18nStore.t('machines.machineHealthPanel.dynamic.auditCaptured')
+        : i18nStore.t('machines.machineHealthPanel.dynamic.noToolingAudit'),
       meta: checkedAtLabel(snapshot.monitor.l5?.checkedAt),
     },
   ]
@@ -218,7 +231,11 @@ export function toTruthyState(value: boolean | undefined): TruthyState {
 }
 
 export function checkedAtLabel(value: string | undefined): string {
-  return value ? `Checked ${formatRelativeTime(value)}` : 'Not checked yet'
+  return value
+    ? i18nStore.t('machines.machineHealthPanel.dynamic.checkedAt', {
+        time: formatMachineRelativeTime(value),
+      })
+    : i18nStore.t('machines.machineHealthPanel.dynamic.notCheckedYet')
 }
 
 export function runtimeLabel(runtime: MachineCLIStatus): string {
@@ -259,6 +276,6 @@ export function stateLabel(state: string): string {
     case 'error':
       return 'Error'
     default:
-      return 'Unknown'
+      return i18nStore.t('machines.machineHealthPanel.status.unknown')
   }
 }
