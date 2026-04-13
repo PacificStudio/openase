@@ -157,18 +157,15 @@ describe('TicketRunHistoryPanel', () => {
 
   it('requests a run switch and renders historical terminal summaries', async () => {
     const onSelectRun = vi.fn()
-    const { getAllByRole, getAllByText, getByText, rerender } = render(
-      TicketRunHistoryPanel,
-      {
-        props: {
-          ticket,
-          runs: [latestRun, failedRun],
-          currentRun: latestRun,
-          blocks: latestBlocks,
-          onSelectRun,
-        },
+    const { getAllByRole, getAllByText, getByText, rerender } = render(TicketRunHistoryPanel, {
+      props: {
+        ticket,
+        runs: [latestRun, failedRun],
+        currentRun: latestRun,
+        blocks: latestBlocks,
+        onSelectRun,
       },
-    )
+    })
 
     const runButtons = getAllByRole('button', { name: 'View attempt' })
     await fireEvent.click(runButtons[0]!)
