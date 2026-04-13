@@ -20,8 +20,7 @@ type ReplayFixture = {
   supplement_frames: Array<{ event: string; payload: Record<string, unknown> }>
 }
 
-const legacyClaudeExecutionFailure =
-  'Claude Code reported an empty error_during_execution result.'
+const legacyClaudeExecutionFailure = 'Claude Code reported an empty error_during_execution result.'
 const humanFriendlyClaudeExecutionFailure =
   'Claude Code failed while executing the task. Try again or check the logs for more details.'
 
@@ -121,16 +120,15 @@ describe('ticket run transcript real sample replay', () => {
   })
 
   it('preserves user-facing Claude execution failure text through hydrate and replay', () => {
-    const fixture = withFriendlyClaudeExecutionFailure(loadFixture('claude-code-replay-fixture.json'))
+    const fixture = withFriendlyClaudeExecutionFailure(
+      loadFixture('claude-code-replay-fixture.json'),
+    )
     const state = replayFrames(fixture.supplement_frames, fixture.detail, true)
 
     const errorBlock = state.blocks.find(
       (
         block,
-      ): block is Extract<
-        TicketRunTranscriptBlock,
-        { kind: 'task_status'; statusType: 'error' }
-      > =>
+      ): block is Extract<TicketRunTranscriptBlock, { kind: 'task_status'; statusType: 'error' }> =>
         block.kind === 'task_status' &&
         block.statusType === 'error' &&
         block.raw?.subtype === 'error_during_execution',
