@@ -8,6 +8,9 @@ import {
 import { latestRun } from './run-transcript.test-fixtures'
 import type { TicketRunTranscriptBlock } from './types'
 
+const humanFriendlyClaudeExecutionFailure =
+  'Claude Code failed while executing the task. Try again or check the logs for more details.'
+
 describe('ticket run transcript reducer Claude traces', () => {
   it('renders Claude task traces as command output, tool calls, session status, and errors', () => {
     let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun])
@@ -87,10 +90,10 @@ describe('ticket run transcript reducer Claude traces', () => {
           provider: 'claude',
           kind: 'error',
           stream: 'task',
-          output: 'Claude Code reported an empty error result.',
+          output: humanFriendlyClaudeExecutionFailure,
           payload: {
             type: 'result',
-            subtype: 'error',
+            subtype: 'error_during_execution',
           },
           created_at: '2026-04-01T10:06:13Z',
         },
@@ -120,7 +123,7 @@ describe('ticket run transcript reducer Claude traces', () => {
       kind: 'task_status',
       id: 'status:trace-session-state',
       statusType: 'session_state',
-      title: 'Claude session status',
+      title: 'Claude Session',
       detail: 'active · Running · running',
       raw: { status: 'active', detail: 'Running', active_flags: ['running'] },
       at: '2026-04-01T10:06:12Z',
@@ -130,8 +133,8 @@ describe('ticket run transcript reducer Claude traces', () => {
       id: 'status:trace-error',
       statusType: 'error',
       title: 'Turn failed',
-      detail: 'Claude Code reported an empty error result.',
-      raw: { type: 'result', subtype: 'error' },
+      detail: humanFriendlyClaudeExecutionFailure,
+      raw: { type: 'result', subtype: 'error_during_execution' },
       at: '2026-04-01T10:06:13Z',
     })
   })

@@ -624,8 +624,9 @@ func TestMapClaudeEventPromotesClaudeResultErrorsIntoErrorEvents(t *testing.T) {
 	if events[0].Event != "error" || !ok {
 		t.Fatalf("event = %+v, want error payload", events[0])
 	}
-	if !strings.Contains(payload.Message, "error_during_execution") {
-		t.Fatalf("error payload = %#v, want subtype summary", payload)
+	expected := "Claude Code failed while executing the task. Try again or check the logs for more details."
+	if payload.Message != expected {
+		t.Fatalf("error payload = %#v, want %q", payload, expected)
 	}
 }
 
