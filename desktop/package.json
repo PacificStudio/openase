@@ -9,6 +9,9 @@
     "url": "https://github.com/pacificstudio/openase.git"
   },
   "pnpm": {
+    "overrides": {
+      "axios": "^1.15.0"
+    },
     "onlyBuiltDependencies": [
       "electron",
       "electron-winstaller"
