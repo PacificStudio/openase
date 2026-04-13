@@ -52,6 +52,24 @@ describe('MarkdownContent policy', () => {
     expect(queryByText('unsafe html')).toBeNull()
     expect(container.querySelector('script')).toBeNull()
   })
+
+  it('keeps mermaid fences on the non-rendering fallback path', async () => {
+    const { container } = render(MarkdownContent, {
+      props: {
+        source: ['```mermaid', 'graph TD', '  A --> B', '```'].join('\n'),
+      },
+    })
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-streamdown-mermaid]')).toBeTruthy()
+    })
+
+    const fallbackMermaid = container.querySelector('[data-streamdown-mermaid]')
+
+    expect(fallbackMermaid?.textContent).toContain('graph TD')
+    expect(fallbackMermaid?.querySelector('pre code')).toBeTruthy()
+    expect(container.querySelector('[data-mermaid-svg]')).toBeNull()
+  })
 })
 
 describe.each([
