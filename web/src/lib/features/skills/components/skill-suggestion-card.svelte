@@ -3,6 +3,7 @@
   import type { DiffPreview, SkillSuggestion } from '$lib/features/skills/assistant'
   import { cn } from '$lib/utils'
   import { Check, X } from '@lucide/svelte'
+  import { skillsT } from './i18n'
 
   let {
     suggestion,
@@ -32,7 +33,9 @@
       </p>
     </div>
     {#if suggestionAlreadyApplied}
-      <span class="text-muted-foreground shrink-0 text-[10px] italic">Applied</span>
+      <span class="text-muted-foreground shrink-0 text-[10px] italic">
+        {skillsT('skills.suggestion.status.applied')}
+      </span>
     {:else}
       <div class="flex shrink-0 items-center gap-1">
         <button
@@ -50,7 +53,7 @@
           type="button"
           class="text-muted-foreground hover:text-foreground rounded-md p-0.5 transition-colors"
           onclick={() => onDismiss?.()}
-          aria-label="Dismiss suggestion"
+          aria-label={skillsT('skills.suggestion.actions.dismiss')}
         >
           <X class="size-3.5" />
         </button>

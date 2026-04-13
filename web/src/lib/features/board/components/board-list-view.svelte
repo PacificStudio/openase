@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Ban, Cog, Loader, CircleX } from '@lucide/svelte'
@@ -35,20 +36,20 @@
     <div
       class="text-muted-foreground flex h-full items-center justify-center rounded-md border px-4 py-10 text-sm"
     >
-      No tickets match the current filters.
+      {i18nStore.t('board.noTicketsMatch')}
     </div>
   {:else}
     <div class="border-border rounded-md border">
       <table class="w-full text-sm">
         <thead>
           <tr class="border-border text-muted-foreground border-b text-left text-xs">
-            <th class="px-4 py-2.5 font-medium">Ticket</th>
-            <th class="px-4 py-2.5 font-medium">Status</th>
-            <th class="px-4 py-2.5 font-medium">Priority</th>
-            <th class="px-4 py-2.5 font-medium">Workflow</th>
-            <th class="px-4 py-2.5 font-medium">Agent</th>
-            <th class="px-4 py-2.5 font-medium">Links</th>
-            <th class="px-4 py-2.5 text-right font-medium">Updated</th>
+            <th class="px-4 py-2.5 font-medium">{i18nStore.t('common.ticket')}</th>
+            <th class="px-4 py-2.5 font-medium">{i18nStore.t('common.status')}</th>
+            <th class="px-4 py-2.5 font-medium">{i18nStore.t('common.priority')}</th>
+            <th class="px-4 py-2.5 font-medium">{i18nStore.t('common.workflow')}</th>
+            <th class="px-4 py-2.5 font-medium">{i18nStore.t('common.agent')}</th>
+            <th class="px-4 py-2.5 font-medium">{i18nStore.t('common.links')}</th>
+            <th class="px-4 py-2.5 text-right font-medium">{i18nStore.t('common.updated')}</th>
           </tr>
         </thead>
         <tbody>
@@ -70,7 +71,7 @@
                       class="h-4 gap-0.5 border-red-500/30 bg-red-500/10 py-0 text-[10px] text-red-500"
                     >
                       <Ban class="size-2.5" />
-                      Blocked
+                      {i18nStore.t('common.blocked')}
                     </Badge>
                   {/if}
                 </div>
@@ -85,18 +86,18 @@
                 <div class="flex items-center gap-1.5">
                   <PriorityIcon priority={row.ticket.priority} />
                   <span class="text-muted-foreground text-xs">
-                    {formatBoardPriorityLabel(row.ticket.priority)}
+                    {formatBoardPriorityLabel(row.ticket.priority, i18nStore.locale)}
                   </span>
                 </div>
               </td>
               <td class="px-4 py-3">
                 <span class="text-muted-foreground text-xs">
-                  {row.ticket.workflowType ?? 'Unassigned'}
+                  {row.ticket.workflowType ?? i18nStore.t('common.unassigned')}
                 </span>
               </td>
               <td class="px-4 py-3">
                 <span class="text-muted-foreground flex items-center gap-1.5 text-xs">
-                  {row.ticket.agentName ?? 'Unassigned'}
+                  {row.ticket.agentName ?? i18nStore.t('common.unassigned')}
                   {#if row.ticket.runtimePhase === 'executing'}
                     <Cog class="size-3 animate-spin text-emerald-500" />
                   {:else if row.ticket.runtimePhase === 'launching'}

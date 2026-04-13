@@ -5,6 +5,7 @@
   import { Mail, Plus, X } from '@lucide/svelte'
   import OrganizationMemberRow from './organization-member-row.svelte'
   import OrganizationMembersInvitePanel from './organization-members-invite-panel.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type MembershipRole = 'owner' | 'admin' | 'member'
 
@@ -135,10 +136,10 @@
         <Button size="sm" variant="outline" onclick={() => (inviteOpen = !inviteOpen)}>
           {#if inviteOpen}
             <X class="size-3.5" />
-            Cancel
+            {i18nStore.t('orgMembers.panel.actions.cancel')}
           {:else}
             <Plus class="size-3.5" />
-            Invite
+            {i18nStore.t('orgMembers.panel.actions.invite')}
           {/if}
         </Button>
       {/if}
@@ -147,7 +148,7 @@
 
   {#if !canManageMemberships}
     <p class="text-muted-foreground text-sm">
-      Organization admin access is required to edit memberships, invitations, and ownership.
+      {i18nStore.t('orgMembers.panel.notice.accessRequired')}
     </p>
   {:else if inviteOpen}
     <OrganizationMembersInvitePanel

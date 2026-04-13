@@ -8,8 +8,8 @@ export function buildLiveContext(
     ticket: {
       id: 'ticket-1',
       identifier: 'ASE-336',
-      title: 'Align Ticket Detail refresh wiring',
-      description: 'Initial description',
+      title: 'Align Ticket Detail refresh wiring', // i18n-exempt fixture title
+      description: 'Initial description', // i18n-exempt fixture description
       archived: false,
       status: { id: 'status-1', name: 'Todo', color: '#2563eb' },
       priority: 'high',
@@ -36,7 +36,7 @@ export function buildLiveContext(
         ticketId: 'ticket-1',
         kind: 'description',
         actor: { name: 'codex', type: 'user' },
-        title: 'Align Ticket Detail refresh wiring',
+        title: 'Align Ticket Detail refresh wiring', // i18n-exempt fixture title
         bodyMarkdown: 'Initial description',
         createdAt: '2026-03-29T10:00:00Z',
         updatedAt: '2026-03-29T10:00:00Z',
@@ -57,7 +57,7 @@ export function buildReferenceData(
   return {
     statusLookup: [{ id: 'status-1', stage: 'unstarted', color: '#2563eb' }],
     statuses: [{ id: 'status-1', name: 'Todo', color: '#2563eb' }],
-    dependencyCandidatesByTicketId: [{ id: 'ticket-2', identifier: 'ASE-337', title: 'Follow-up' }],
+    dependencyCandidatesByTicketId: [{ id: 'ticket-2', identifier: 'ASE-337', title: 'Follow-up' }], // i18n-exempt fixture title
     repoOptions: [{ id: 'repo-1', name: 'openase', defaultBranch: 'main' }],
     ...overrides,
   }

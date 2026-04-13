@@ -1,3 +1,6 @@
+import type { TranslationKey } from '$lib/i18n'
+import { chatT } from './i18n'
+
 export type ProjectAIFocus =
   | {
       kind: 'workflow'
@@ -169,60 +172,80 @@ export function projectAIFocusKey(focus: ProjectAIFocus | null | undefined): str
   }
 }
 
+function focusAreaOrFallback(value: string | undefined, fallbackKey: TranslationKey) {
+  return value ?? chatT(fallbackKey)
+}
+
 export function describeProjectAIFocus(focus: ProjectAIFocus): ProjectAIFocusCard {
   switch (focus.kind) {
     case 'workflow': {
+      const areaLabel = focusAreaOrFallback(focus.selectedArea, 'chat.focus.area.harness')
       const detail = [
         focus.workflowType,
-        focus.selectedArea ?? 'harness',
-        focus.hasDirtyDraft ? 'unsaved draft' : '',
+        areaLabel,
+        focus.hasDirtyDraft ? chatT('chat.focus.unsavedDraft') : '',
       ]
         .filter(Boolean)
         .join(' · ')
       return {
-        label: 'Workflow',
-        title: `${focus.workflowName} / ${focus.selectedArea ?? 'harness'}`,
+        label: chatT('chat.focus.label.workflow'),
+        title: `${focus.workflowName} / ${areaLabel}`,
         detail,
       }
     }
     case 'skill': {
       const detail = [
         focus.boundWorkflowNames.length > 0
-          ? `bound to ${focus.boundWorkflowNames.join(', ')}`
-          : 'not bound to a workflow',
-        focus.hasDirtyDraft ? 'unsaved draft' : '',
+          ? chatT('chat.focus.boundToWorkflow', {
+              workflows: focus.boundWorkflowNames.join(', '),
+            })
+          : chatT('chat.focus.notBoundToWorkflow'),
+        focus.hasDirtyDraft ? chatT('chat.focus.unsavedDraft') : '',
       ]
         .filter(Boolean)
         .join(' · ')
       return {
-        label: 'Skill',
+        label: chatT('chat.focus.label.skill'),
         title: `${focus.skillName} / ${focus.selectedFilePath}`,
         detail,
       }
     }
     case 'ticket':
       return {
-        label: 'Ticket',
+        label: chatT('chat.focus.label.ticket'),
         title: `${focus.ticketIdentifier} / ${focus.ticketTitle}`,
-        detail: [focus.ticketStatus, focus.selectedArea ?? 'detail'].filter(Boolean).join(' · '),
+        detail: [
+          focus.ticketStatus,
+          focusAreaOrFallback(focus.selectedArea, 'chat.focus.area.detail'),
+        ]
+          .filter(Boolean)
+          .join(' · '),
       }
     case 'machine':
       return {
-        label: 'Machine',
-        title: `${focus.machineName} / ${focus.selectedArea ?? 'health'}`,
+        label: chatT('chat.focus.label.machine'),
+        title: `${focus.machineName} / ${focusAreaOrFallback(focus.selectedArea, 'chat.focus.area.health')}`,
         detail: [focus.machineHost, focus.machineStatus, focus.healthSummary]
           .filter(Boolean)
           .join(' · '),
       }
     case 'workspace_file': {
-      const parts: string[] = []
-      if (focus.selection) {
-        parts.push(`Ln ${focus.selection.startLine}:${focus.selection.endLine}`)
-      }
+      const detail = [
+        focusAreaOrFallback(focus.selectedArea, 'chat.focus.area.edit'),
+        focus.hasDirtyDraft ? chatT('chat.focus.unsavedDraft') : chatT('chat.focus.saved'),
+        focus.selection
+          ? chatT('chat.focus.selectionLines', {
+              startLine: focus.selection.startLine,
+              endLine: focus.selection.endLine,
+            })
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
       return {
-        label: 'Workspace file',
+        label: chatT('chat.focus.label.workspaceFile'),
         title: `${focus.repoPath} / ${focus.filePath}`,
-        detail: parts.join(' · ') || '',
+        detail,
       }
     }
   }

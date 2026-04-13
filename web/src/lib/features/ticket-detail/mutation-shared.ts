@@ -1,18 +1,54 @@
 import type { TicketDetail } from './types'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
 export const dependencyRelationOptions = [
-  { value: 'blocks', label: 'Blocks' },
-  { value: 'blocked_by', label: 'Blocked by' },
-  { value: 'sub_issue', label: 'Sub-issue' },
+  {
+    value: 'blocks',
+    get label() {
+      return i18nStore.t('ticketDetail.dependencies.blocks')
+    },
+  },
+  {
+    value: 'blocked_by',
+    get label() {
+      return i18nStore.t('ticketDetail.dependencies.blockedBy')
+    },
+  },
+  {
+    value: 'sub_issue',
+    get label() {
+      return i18nStore.t('ticketDetail.dependencies.subIssue')
+    },
+  },
 ] as const
 
 export const dependencyRelationActions = [
-  { relation: 'sub_issue', label: 'Add parent', description: 'This ticket becomes a sub-issue' },
-  { relation: 'blocks', label: 'Mark as blocking', description: 'This ticket blocks another' },
+  {
+    relation: 'sub_issue',
+    get label() {
+      return i18nStore.t('ticketDetail.dependencies.addParent')
+    },
+    get description() {
+      return i18nStore.t('ticketDetail.dependencies.addParentDescription')
+    },
+  },
+  {
+    relation: 'blocks',
+    get label() {
+      return i18nStore.t('ticketDetail.dependencies.markAsBlocking')
+    },
+    get description() {
+      return i18nStore.t('ticketDetail.dependencies.markAsBlockingDescription')
+    },
+  },
   {
     relation: 'blocked_by',
-    label: 'Mark as blocked by',
-    description: 'Another ticket blocks this one',
+    get label() {
+      return i18nStore.t('ticketDetail.dependencies.markAsBlockedBy')
+    },
+    get description() {
+      return i18nStore.t('ticketDetail.dependencies.markAsBlockedByDescription')
+    },
   },
 ] as const
 

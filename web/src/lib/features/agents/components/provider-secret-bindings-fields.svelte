@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { requiredProviderSecretBindingEnvVars } from '../provider-secret-bindings'
 
   let {
@@ -28,7 +29,7 @@
 </script>
 
 <div class="space-y-2">
-  <Label for="provider-secret-bindings">Secret bindings</Label>
+  <Label for="provider-secret-bindings">{i18nStore.t('agents.providerSecretBindings.label')}</Label>
   <Textarea
     id="provider-secret-bindings"
     rows={5}
@@ -37,12 +38,13 @@
     oninput={(event) => onValueChange?.((event.currentTarget as HTMLTextAreaElement).value)}
   />
   <p class="text-muted-foreground text-xs">
-    JSON object mapping runtime env vars to OpenASE secret aliases. Leave blank to keep using legacy
-    inline secrets during migration.
+    {i18nStore.t('agents.providerSecretBindings.description')}
   </p>
   {#if requiredSecretEnvVars.length > 0}
     <p class="text-muted-foreground text-xs">
-      Recommended env vars for this adapter: {requiredSecretEnvVars.join(', ')}.
+      {i18nStore.t('agents.providerSecretBindings.recommendedEnvVars', {
+        envVars: requiredSecretEnvVars.join(', '),
+      })}
     </p>
   {/if}
 </div>

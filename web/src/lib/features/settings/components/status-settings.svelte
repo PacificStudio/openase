@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
   import { RotateCcw } from '@lucide/svelte'
@@ -11,9 +12,11 @@
 <div class="space-y-6 pb-8">
   <div class="flex items-start justify-between gap-4">
     <div>
-      <h2 class="text-foreground text-base font-semibold">Statuses</h2>
+      <h2 class="text-foreground text-base font-semibold">
+        {i18nStore.t('settings.statuses.title')}
+      </h2>
       <p class="text-muted-foreground mt-1 text-sm">
-        Configure the board order, default status, and optional status-level concurrency limits.
+        {i18nStore.t('settings.statuses.description')}
       </p>
     </div>
     <Button
@@ -23,7 +26,9 @@
       onclick={state.resetStatuses}
     >
       <RotateCcw class="size-3.5" />
-      {state.ui.resetting ? 'Resetting…' : 'Reset'}
+      {state.ui.resetting
+        ? i18nStore.t('settings.statuses.actions.resetting')
+        : i18nStore.t('settings.statuses.actions.reset')}
     </Button>
   </div>
 

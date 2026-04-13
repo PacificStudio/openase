@@ -7,6 +7,7 @@
   import * as Select from '$ui/select'
   import Plus from '@lucide/svelte/icons/plus'
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     name = $bindable(''),
@@ -36,31 +37,39 @@
 <div class="border-border bg-card space-y-4 rounded-md border p-4">
   <div class="flex items-center justify-between gap-3">
     <div>
-      <h3 class="text-foreground text-sm font-medium">Add Status</h3>
+      <h3 class="text-foreground text-sm font-medium">
+        {i18nStore.t('settings.status.create.heading')}
+      </h3>
       <p class="text-muted-foreground text-xs">
-        Create statuses, set the default lane, and keep board order aligned with product flow.
+        {i18nStore.t('settings.status.create.description')}
       </p>
     </div>
     <Button variant="outline" size="sm" disabled={resetting || loading} onclick={onReset}>
       <RotateCcw class="size-3.5" />
-      {resetting ? 'Resetting…' : 'Reset'}
+      {resetting
+        ? i18nStore.t('settings.status.create.actions.resetting')
+        : i18nStore.t('settings.status.create.actions.reset')}
     </Button>
   </div>
 
   <div class="space-y-3">
     <div class="flex items-center gap-2">
       <ColorPicker bind:value={color} />
-      <Input bind:value={name} class="h-9 flex-1 text-sm" placeholder="New status name" />
+      <Input
+        bind:value={name}
+        class="h-9 flex-1 text-sm"
+        placeholder={i18nStore.t('settings.status.create.placeholders.name')}
+      />
       <Select.Root
         type="single"
         value={stage}
         disabled={creating || loading}
         onValueChange={(value) => (stage = (value as TicketStatusStage) || 'unstarted')}
       >
-        <Select.Trigger class="h-9 w-40"
-          >{ticketStatusStageOptions.find((option) => option.value === stage)?.label ??
-            'Stage'}</Select.Trigger
-        >
+        <Select.Trigger class="h-9 w-40">
+          {ticketStatusStageOptions.find((option) => option.value === stage)?.label ??
+            i18nStore.t('settings.status.create.placeholders.stage')}
+        </Select.Trigger>
         <Select.Content>
           {#each ticketStatusStageOptions as option (option.value)}
             <Select.Item value={option.value}>{option.label}</Select.Item>
@@ -73,24 +82,28 @@
         min="1"
         step="1"
         class="h-9 w-40 text-sm"
-        placeholder="Unlimited"
+        placeholder={i18nStore.t('settings.status.create.placeholders.unlimited')}
       />
       <Button class="shrink-0" onclick={onCreate} disabled={creating || loading}>
         <Plus class="size-3.5" />
-        {creating ? 'Adding…' : 'Add'}
+        {creating
+          ? i18nStore.t('settings.status.create.actions.adding')
+          : i18nStore.t('settings.status.create.actions.add')}
       </Button>
     </div>
     <label class="flex items-center gap-2">
       <Checkbox bind:checked={isDefault} disabled={creating || loading} />
-      <span class="text-sm font-medium">Create as default</span>
+      <span class="text-sm font-medium">
+        {i18nStore.t('settings.status.create.labels.createAsDefault')}
+      </span>
       <span class="text-muted-foreground text-xs">
         {isDefault
-          ? 'The new status will replace the current default.'
-          : 'Leave this off to keep the current default status.'}
+          ? i18nStore.t('settings.status.create.hints.replaceDefault')
+          : i18nStore.t('settings.status.create.hints.keepDefault')}
       </span>
     </label>
     <p class="text-muted-foreground text-xs">
-      Stage controls lifecycle semantics such as dependency resolution and workflow terminal states.
+      {i18nStore.t('settings.status.create.hints.stageControls')}
     </p>
   </div>
 </div>

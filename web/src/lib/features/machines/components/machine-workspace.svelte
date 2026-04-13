@@ -3,6 +3,7 @@
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
   import { Search, Server } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import MachineEditorSheet from './machine-editor-sheet.svelte'
   import MachineRowCard from './machine-row-card.svelte'
   import { machineToDraft } from '../model'
@@ -75,7 +76,9 @@
   } = $props()
 
   const emptyMessage = $derived(
-    searchQuery.trim() ? 'No machines match the current filter.' : 'No machines registered yet.',
+    searchQuery.trim()
+      ? i18nStore.t('machines.machineWorkspace.emptyState.filtered')
+      : i18nStore.t('machines.machineWorkspace.emptyState.noneRegistered'),
   )
   const selectedDraft = $derived(
     selectedMachine && mode === 'edit' ? machineToDraft(selectedMachine) : null,
@@ -96,9 +99,11 @@
       <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
         <Server class="text-muted-foreground size-5" />
       </div>
-      <p class="text-foreground text-sm font-medium">No organization selected</p>
+      <p class="text-foreground text-sm font-medium">
+        {i18nStore.t('machines.machineWorkspace.noOrg.title')}
+      </p>
       <p class="text-muted-foreground mt-1 text-sm">
-        Create an organization before managing machines.
+        {i18nStore.t('machines.machineWorkspace.noOrg.description')}
       </p>
     </div>
   {:else if state === 'loading' || loading}
@@ -138,9 +143,13 @@
     </div>
   {:else if state === 'error'}
     <div class="border-border bg-card rounded-xl border px-4 py-10 text-center text-sm">
-      <p class="text-foreground">{stateMessage || 'Failed to load machines.'}</p>
+      <p class="text-foreground">
+        {stateMessage || i18nStore.t('machines.machineWorkspace.error.loadFailed')}
+      </p>
       <div class="mt-4">
-        <Button variant="outline" onclick={onRetry}>Retry</Button>
+        <Button variant="outline" onclick={onRetry}>
+          {i18nStore.t('machines.machineWorkspace.actions.retry')}
+        </Button>
       </div>
     </div>
   {:else if state === 'empty'}
@@ -150,13 +159,16 @@
       <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
         <Server class="text-muted-foreground size-5" />
       </div>
-      <p class="text-foreground text-sm font-medium">No machines configured</p>
+      <p class="text-foreground text-sm font-medium">
+        {i18nStore.t('machines.machineWorkspace.empty.title')}
+      </p>
       <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-        Machines are remote workers that run agent tasks. Register one to connect a development
-        environment and make it available for ticket execution.
+        {i18nStore.t('machines.machineWorkspace.empty.description')}
       </p>
       <div class="mt-4">
-        <Button onclick={onCreate}>New machine</Button>
+        <Button onclick={onCreate}>
+          {i18nStore.t('machines.machineWorkspace.actions.newMachine')}
+        </Button>
       </div>
     </div>
   {:else}
@@ -166,7 +178,7 @@
         <Input
           value={searchQuery}
           class="h-9 pl-8 text-sm"
-          placeholder="Search machines..."
+          placeholder={i18nStore.t('machines.machineWorkspace.searchPlaceholder')}
           oninput={(event) => onSearchChange?.((event.currentTarget as HTMLInputElement).value)}
         />
       </div>

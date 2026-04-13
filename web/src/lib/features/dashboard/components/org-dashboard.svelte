@@ -11,6 +11,7 @@
   import * as Popover from '$ui/popover'
   import { Bot, Coins, Cpu, MessageSquare, Ticket } from '@lucide/svelte'
   import ProjectTokenUsagePanel from './project-token-usage-panel.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const controller = createOrgDashboardController()
 </script>
@@ -67,21 +68,27 @@
           {:else}
             <div class="flex items-center gap-1">
               <Bot class="text-muted-foreground size-3" />
-              <span class="text-muted-foreground text-[11px]">Agents</span>
+              <span class="text-muted-foreground text-[11px]">
+                {i18nStore.t('dashboard.orgDashboard.stats.agents')}
+              </span>
               <span class="text-foreground text-xs font-semibold"
                 >{controller.stats.runningAgents}</span
               >
             </div>
             <div class="flex items-center gap-1">
               <Ticket class="text-muted-foreground size-3" />
-              <span class="text-muted-foreground text-[11px]">Tickets</span>
+              <span class="text-muted-foreground text-[11px]">
+                {i18nStore.t('dashboard.orgDashboard.stats.tickets')}
+              </span>
               <span class="text-foreground text-xs font-semibold"
                 >{controller.stats.activeTickets}</span
               >
             </div>
             <div class="flex items-center gap-1">
               <Coins class="text-muted-foreground size-3" />
-              <span class="text-muted-foreground text-[11px]">Spend</span>
+              <span class="text-muted-foreground text-[11px]">
+                {i18nStore.t('dashboard.orgDashboard.stats.spend')}
+              </span>
               <span class="text-foreground text-xs font-semibold"
                 >{formatCurrency(controller.stats.ticketSpendToday)}</span
               >
@@ -89,7 +96,9 @@
             <Popover.Root>
               <Popover.Trigger class="flex cursor-default items-center gap-1">
                 <MessageSquare class="text-muted-foreground size-3" />
-                <span class="text-muted-foreground text-[11px]">Tokens</span>
+                <span class="text-muted-foreground text-[11px]">
+                  {i18nStore.t('dashboard.orgDashboard.stats.tokens')}
+                </span>
                 <span class="text-foreground text-xs font-semibold"
                   >{formatCount(controller.totalTicketTokens)}</span
                 >
@@ -101,24 +110,32 @@
                 onOpenAutoFocus={(e) => e.preventDefault()}
               >
                 <div class="border-border border-b px-3 py-2">
-                  <div class="text-foreground text-xs font-medium">Token Breakdown</div>
+                  <div class="text-foreground text-xs font-medium">
+                    {i18nStore.t('dashboard.orgDashboard.tokens.title')}
+                  </div>
                 </div>
                 <div class="space-y-1.5 px-3 py-2.5">
                   <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-muted-foreground">Input tokens</span>
+                    <span class="text-muted-foreground">
+                      {i18nStore.t('dashboard.orgDashboard.tokens.inputTokens')}
+                    </span>
                     <span class="text-foreground font-medium"
                       >{formatCount(controller.stats.ticketInputTokens)}</span
                     >
                   </div>
                   <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-muted-foreground">Output tokens</span>
+                    <span class="text-muted-foreground">
+                      {i18nStore.t('dashboard.orgDashboard.tokens.outputTokens')}
+                    </span>
                     <span class="text-foreground font-medium"
                       >{formatCount(controller.stats.ticketOutputTokens)}</span
                     >
                   </div>
                   <div class="border-border border-t pt-1.5">
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Total (tickets)</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.tokens.totalTickets')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{formatCount(controller.totalTicketTokens)}</span
                       >
@@ -126,7 +143,9 @@
                   </div>
                   {#if controller.stats.agentLifetimeTokens > 0}
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Agent lifetime</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.tokens.agentLifetime')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{formatCount(controller.stats.agentLifetimeTokens)}</span
                       >
@@ -138,7 +157,9 @@
             <Popover.Root>
               <Popover.Trigger class="flex cursor-default items-center gap-1">
                 <Cpu class="text-muted-foreground size-3" />
-                <span class="text-muted-foreground text-[11px]">Heap</span>
+                <span class="text-muted-foreground text-[11px]">
+                  {i18nStore.t('dashboard.orgDashboard.memory.heapLabel')}
+                </span>
                 <span class="text-foreground text-xs font-semibold"
                   >{controller.memory ? formatBytes(controller.memory.heap_inuse_bytes) : '—'}</span
                 >
@@ -150,7 +171,9 @@
                 onOpenAutoFocus={(e) => e.preventDefault()}
               >
                 <div class="border-border border-b px-3 py-2">
-                  <div class="text-foreground text-xs font-medium">Memory</div>
+                  <div class="text-foreground text-xs font-medium">
+                    {i18nStore.t('dashboard.orgDashboard.memory.title')}
+                  </div>
                 </div>
                 {#if controller.memory}
                   {@const mem = controller.memory}
@@ -160,41 +183,55 @@
                       : '0'}
                   <div class="space-y-1.5 px-3 py-2.5">
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Heap in use</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.heapInUse')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{formatBytes(mem.heap_inuse_bytes)}</span
                       >
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Reserved from OS</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.reservedFromOS')}
+                      </span>
                       <span class="text-foreground font-medium">{formatBytes(mem.sys_bytes)}</span>
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Heap pressure</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.heapPressure')}
+                      </span>
                       <span class="text-foreground font-medium">{heapPercent}%</span>
                     </div>
                     <div class="border-border border-t pt-1.5">
                       <div class="flex items-center justify-between text-[11px]">
-                        <span class="text-muted-foreground">Heap idle</span>
-                        <span class="text-foreground font-medium"
-                          >{formatBytes(mem.heap_idle_bytes)}</span
-                        >
+                        <span class="text-muted-foreground">
+                          {i18nStore.t('dashboard.orgDashboard.memory.heapIdle')}
+                        </span>
+                        <span class="text-foreground font-medium">
+                          {formatBytes(mem.heap_idle_bytes)}
+                        </span>
                       </div>
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Stack in use</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.stackInUse')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{formatBytes(mem.stack_inuse_bytes)}</span
                       >
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">GC cycles</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.gcCycles')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{mem.gc_cycles.toLocaleString()}</span
                       >
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                      <span class="text-muted-foreground">Goroutines</span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.goroutines')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{mem.goroutines.toLocaleString()}</span
                       >
@@ -202,7 +239,7 @@
                   </div>
                 {:else}
                   <div class="text-muted-foreground px-3 py-3 text-center text-[11px]">
-                    No memory sample available.
+                    {i18nStore.t('dashboard.orgDashboard.memory.emptyState')}
                   </div>
                 {/if}
               </Popover.Content>
@@ -214,7 +251,9 @@
                   >{controller.exceptions.length}</span
                 >
                 <span class="text-destructive text-[11px]">
-                  {controller.exceptions.length === 1 ? 'exception' : 'exceptions'}
+                  {controller.exceptions.length === 1
+                    ? i18nStore.t('dashboard.orgDashboard.exceptions.singular')
+                    : i18nStore.t('dashboard.orgDashboard.exceptions.plural')}
                 </span>
               </div>
             {/if}

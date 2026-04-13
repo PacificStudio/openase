@@ -1,5 +1,6 @@
 import { AlertTriangle, CircleCheck, CircleX } from '@lucide/svelte'
 import type { ProjectUpdateStatus } from './types'
+import { projectUpdatesT } from './i18n'
 
 export const projectUpdateStatusConfig: Record<
   ProjectUpdateStatus,
@@ -28,7 +29,22 @@ export const projectUpdateStatusOptions: Array<{
   icon: typeof CircleCheck
   textClass: string
 }> = [
-  { value: 'on_track', label: 'On track', icon: CircleCheck, textClass: 'text-emerald-600' },
-  { value: 'at_risk', label: 'At risk', icon: AlertTriangle, textClass: 'text-amber-600' },
-  { value: 'off_track', label: 'Off track', icon: CircleX, textClass: 'text-rose-600' },
+  {
+    value: 'on_track',
+    label: projectUpdatesT('projectUpdates.status.onTrack'),
+    icon: CircleCheck,
+    textClass: 'text-emerald-600',
+  },
+  {
+    value: 'at_risk',
+    label: projectUpdatesT('projectUpdates.status.atRisk'),
+    icon: AlertTriangle,
+    textClass: 'text-amber-600',
+  },
+  {
+    value: 'off_track',
+    label: projectUpdatesT('projectUpdates.status.offTrack'),
+    icon: CircleX,
+    textClass: 'text-rose-600',
+  },
 ]

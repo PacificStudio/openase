@@ -1,3 +1,5 @@
+import { i18nStore } from '$lib/i18n/store.svelte'
+
 type SubjectKind = 'user' | 'group'
 
 type BindingDraft = {
@@ -16,18 +18,30 @@ type RoleOption = {
 const roleOptions: RoleOption[] = [
   {
     key: 'org_owner',
-    label: 'Org Owner',
-    summary: 'Full organization and project control, including RBAC.',
+    get label() {
+      return i18nStore.t('orgAdmin.roles.owner.label')
+    },
+    get summary() {
+      return i18nStore.t('orgAdmin.roles.owner.summary')
+    },
   },
   {
     key: 'org_admin',
-    label: 'Org Admin',
-    summary: 'Manage organization settings and descendant project operations.',
+    get label() {
+      return i18nStore.t('orgAdmin.roles.admin.label')
+    },
+    get summary() {
+      return i18nStore.t('orgAdmin.roles.admin.summary')
+    },
   },
   {
     key: 'org_member',
-    label: 'Org Member',
-    summary: 'Read organization resources and perform standard project work.',
+    get label() {
+      return i18nStore.t('orgAdmin.roles.member.label')
+    },
+    get summary() {
+      return i18nStore.t('orgAdmin.roles.member.summary')
+    },
   },
 ]
 
@@ -45,7 +59,7 @@ function resolveRoleOption(roleKey: string) {
 }
 
 function formatTimestamp(value: string | undefined) {
-  if (!value) return 'Never'
+  if (!value) return i18nStore.t('common.never')
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
 }

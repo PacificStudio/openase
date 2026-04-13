@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
   import { KeyRound } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type Security = SecuritySettingsResponse['security']
 
@@ -12,30 +13,45 @@
   <div class="space-y-2">
     <div class="flex items-center gap-2">
       <KeyRound class="text-muted-foreground size-3.5" />
-      <h3 class="text-sm font-semibold">Agent runtime tokens</h3>
+      <h3 class="text-sm font-semibold">
+        {i18nStore.t('settings.security.platformDetails.headings.agentTokens')}
+      </h3>
     </div>
     <div class="bg-muted/30 rounded-lg px-4 py-3">
       <div class="grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <span class="text-muted-foreground">Transport</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.platformDetails.labels.transport')}
+          </span>
           <div>{security.agent_tokens.transport}</div>
         </div>
         <div>
-          <span class="text-muted-foreground">Env variable</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.platformDetails.labels.envVariable')}
+          </span>
           <div class="font-mono">{security.agent_tokens.environment_variable}</div>
         </div>
         <div>
-          <span class="text-muted-foreground">Token prefix</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.platformDetails.labels.tokenPrefix')}
+          </span>
           <div class="font-mono">{security.agent_tokens.token_prefix}</div>
         </div>
         <div>
-          <span class="text-muted-foreground">Default scopes</span>
-          <div>{security.agent_tokens.default_scopes.join(', ') || 'None'}</div>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.platformDetails.labels.defaultScopes')}
+          </span>
+          <div>
+            {security.agent_tokens.default_scopes.join(', ') ||
+              i18nStore.t('settings.security.platformDetails.messages.none')}
+          </div>
         </div>
       </div>
       {#if security.agent_tokens.supported_project_scopes.length}
         <div class="mt-2 text-xs">
-          <span class="text-muted-foreground">Mintable project scopes</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.platformDetails.labels.mintableProjectScopes')}
+          </span>
           <div class="mt-0.5 flex flex-wrap gap-1">
             {#each security.agent_tokens.supported_project_scopes as scope (scope)}
               <code class="bg-background rounded px-1.5 py-0.5 text-[10px]">{scope}</code>

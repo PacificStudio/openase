@@ -3,6 +3,7 @@
   import { loadAppContext } from '$lib/api/app-context'
   import { getProject } from '$lib/api/openase'
   import type { ProjectAIFocus } from '$lib/features/chat'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import {
     isProjectDashboardRefreshEvent,
     readProjectDashboardRefreshSections,
@@ -97,7 +98,9 @@
       } catch (caughtError) {
         if (cancelled) return
         appStore.appContextError =
-          caughtError instanceof Error ? caughtError.message : 'Failed to refresh app context.'
+          caughtError instanceof Error
+            ? caughtError.message
+            : i18nStore.t('settings.general.errors.saveFailure')
       } finally {
         if (!cancelled) {
           appStore.appContextLoading = false
@@ -161,7 +164,7 @@
         } while (queuedRefresh && !cancelled)
       } catch (caughtError) {
         if (!cancelled) {
-          console.error('Failed to refresh project after passive project event:', caughtError)
+          console.error(i18nStore.t('settings.general.errors.saveFailure'), caughtError)
         }
       } finally {
         refreshInFlight = false

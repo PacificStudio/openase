@@ -1,7 +1,9 @@
 <script lang="ts">
+  import type { TranslationKey } from '$lib/i18n'
   import { cn } from '$lib/utils'
   import { Send, CircleCheck, AlertTriangle, CircleX } from '@lucide/svelte'
   import * as Select from '$ui/select'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { ProjectUpdateStatus } from '../types'
 
   let {
@@ -50,13 +52,28 @@
 
   const statusOptions: Array<{
     value: ProjectUpdateStatus
-    label: string
+    labelKey: TranslationKey
     icon: typeof CircleCheck
     textClass: string
   }> = [
-    { value: 'on_track', label: 'On track', icon: CircleCheck, textClass: 'text-emerald-600' },
-    { value: 'at_risk', label: 'At risk', icon: AlertTriangle, textClass: 'text-amber-600' },
-    { value: 'off_track', label: 'Off track', icon: CircleX, textClass: 'text-rose-600' },
+    {
+      value: 'on_track',
+      labelKey: 'projectUpdates.status.onTrack',
+      icon: CircleCheck,
+      textClass: 'text-emerald-600',
+    },
+    {
+      value: 'at_risk',
+      labelKey: 'projectUpdates.status.atRisk',
+      icon: AlertTriangle,
+      textClass: 'text-amber-600',
+    },
+    {
+      value: 'off_track',
+      labelKey: 'projectUpdates.status.offTrack',
+      icon: CircleX,
+      textClass: 'text-rose-600',
+    },
   ]
 
   const currentStatusOption = $derived(
@@ -82,14 +99,14 @@
         )}
       >
         <CurrentStatusIcon class="size-3" />
-        {currentStatusOption.label}
+        {i18nStore.t(currentStatusOption.labelKey)}
       </Select.Trigger>
       <Select.Content>
         {#each statusOptions as opt (opt.value)}
           {@const Icon = opt.icon}
           <Select.Item value={opt.value}>
             <Icon class={cn('size-3', opt.textClass)} />
-            {opt.label}
+            {i18nStore.t(opt.labelKey)}
           </Select.Item>
         {/each}
       </Select.Content>
@@ -99,8 +116,8 @@
       bind:value={body}
       onkeydown={handleKeydown}
       oninput={autoResize}
-      placeholder="Write an update..."
-      aria-label="New update body"
+      placeholder={i18nStore.t('projectUpdates.composer.placeholder')}
+      aria-label={i18nStore.t('projectUpdates.composer.aria.newUpdateBody')}
       rows="1"
       class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 resize-none bg-transparent text-sm leading-5 outline-none"
       style="height: 20px; overflow-y: hidden;"
@@ -115,7 +132,9 @@
       )}
       disabled={!body.trim() || creating}
       onclick={handleSubmit}
-      aria-label={creating ? 'Posting...' : 'Post update'}
+      aria-label={creating
+        ? i18nStore.t('projectUpdates.composer.actions.posting')
+        : i18nStore.t('projectUpdates.composer.actions.postUpdate')}
     >
       <Send class="size-4" />
     </button>

@@ -12,6 +12,8 @@
     MachineWorkspaceState,
   } from '../types'
 
+  import { i18nStore } from '$lib/i18n/store.svelte'
+
   let {
     routeOrgId = '',
     loading = false,
@@ -75,6 +77,7 @@
     onDelete?: (machineId: string) => void
     onReset?: (machineId?: string) => void
   } = $props()
+  const t = i18nStore.t
 </script>
 
 {#snippet actions()}
@@ -88,8 +91,8 @@
 {/snippet}
 
 <PageScaffold
-  title="Machines"
-  description="Machine topology, helper setup flows, and runtime health."
+  title={t('machines.page.title')}
+  description={t('machines.page.description')}
   variant="workspace"
   {actions}
 >

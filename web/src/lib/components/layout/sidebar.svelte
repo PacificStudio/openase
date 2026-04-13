@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { preloadCode } from '$app/navigation'
   import { buildGlobalNav, buildProjectNav, type SidebarNavItem } from './sidebar-nav'
   import { cn } from '$lib/utils'
@@ -32,9 +33,17 @@
     onNavigate?: () => void
   } = $props()
 
-  const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId))
+  const globalNav: SidebarNavItem[] = $derived(
+    buildGlobalNav(currentPath, currentOrgId, i18nStore.locale),
+  )
   const projectNav: SidebarNavItem[] = $derived(
-    buildProjectNav({ currentPath, currentOrgId, currentProjectId, agentCount }),
+    buildProjectNav({
+      currentPath,
+      currentOrgId,
+      currentProjectId,
+      agentCount,
+      locale: i18nStore.locale,
+    }),
   )
 
   function warmRoute(href: string) {
@@ -129,14 +138,14 @@
                 class="mb-1 w-full"
                 {...props}
                 onclick={onOpenProjectAssistant}
-                aria-label="Ask AI"
+                aria-label={i18nStore.t('layout.askAI')}
               >
                 <Bot class="size-4" />
               </Button>
             {/snippet}
           </Tooltip.Trigger>
           <Tooltip.Content side="right" class="text-xs">
-            Ask AI
+            {i18nStore.t('layout.askAI')}
             <kbd
               class="bg-muted text-muted-foreground ml-1.5 rounded px-1 py-0.5 font-mono text-[10px]"
               >⌘I</kbd
@@ -151,7 +160,7 @@
           onclick={onOpenProjectAssistant}
         >
           <Bot class="mr-2 size-4" />
-          <span class="flex-1 text-left text-xs">Ask AI</span>
+          <span class="flex-1 text-left text-xs">{i18nStore.t('layout.askAI')}</span>
           {#if !mobile}
             <kbd class="text-muted-foreground/50 text-[10px] font-normal">⌘I</kbd>
           {/if}
@@ -169,7 +178,7 @@
           <ChevronsRight class="size-4" />
         {:else}
           <ChevronsLeft class="mr-2 size-4" />
-          <span class="text-muted-foreground text-xs">Collapse</span>
+          <span class="text-muted-foreground text-xs">{i18nStore.t('layout.collapse')}</span>
         {/if}
       </Button>
     {/if}

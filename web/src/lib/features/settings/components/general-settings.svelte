@@ -11,6 +11,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import ProjectArchivePanel from '$lib/features/settings/components/project-archive-panel.svelte'
   import ProjectAIRetentionSettings from '$lib/features/settings/components/project-ai-retention-settings.svelte'
   import { Button } from '$ui/button'
@@ -40,7 +41,7 @@
     if (!Number.isInteger(parsed) || parsed < 0) {
       return {
         value: 0,
-        error: `${label} must be a non-negative integer or left blank.`,
+        error: i18nStore.t('settings.general.errors.nonNegativeInteger', { label }),
       }
     }
     return { value: parsed }
@@ -113,11 +114,11 @@
         ? Number(normalizedMaxConcurrentAgents)
         : 0
       if (!Number.isInteger(parsedMaxConcurrentAgents) || parsedMaxConcurrentAgents < 0) {
-        toastStore.error('Max concurrent agents must be a positive integer or left blank.')
+        toastStore.error(i18nStore.t('settings.general.errors.invalidMaxConcurrentAgents'))
         return
       }
       if (parsedMaxConcurrentAgents === 0 && normalizedMaxConcurrentAgents !== '') {
-        toastStore.error('Max concurrent agents must be a positive integer or left blank.')
+        toastStore.error(i18nStore.t('settings.general.errors.invalidMaxConcurrentAgents'))
         return
       }
       const parsedKeepLatestN = parseNonNegativeIntegerOrBlank(
@@ -137,9 +138,7 @@
         return
       }
       if (retentionEnabled && parsedKeepLatestN.value === 0 && parsedKeepRecentDays.value === 0) {
-        toastStore.error(
-          'Enable Project AI retention with at least one keep rule: latest conversations or recent days.',
-        )
+        toastStore.error(i18nStore.t('settings.general.errors.retentionRule'))
         return
       }
       const normalizedPrompt = agentRunSummaryPrompt.trim()
@@ -161,10 +160,12 @@
         },
       })
       appStore.currentProject = payload.project
-      toastStore.success('Project settings saved.')
+      toastStore.success(i18nStore.t('settings.general.messages.saveSuccess'))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save project settings.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.general.errors.saveFailure'),
       )
     } finally {
       saving = false
@@ -176,9 +177,7 @@
     const orgId = appStore.currentOrg?.id
     if (!projectId) return
 
-    const confirmed = window.confirm(
-      'Archive this project? The project will remain in the system but leave the active workspace surface.',
-    )
+    const confirmed = window.confirm(i18nStore.t('settings.general.archive.confirmation'))
     if (!confirmed) return
 
     archiving = true
@@ -189,7 +188,9 @@
       await goto(orgId ? organizationPath(orgId) : '/')
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive project.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.archive.errors.failure'),
       )
     } finally {
       archiving = false
@@ -199,9 +200,11 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">General</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.general.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Project name, summary prompt, retention rules, description, and archive controls.
+      {i18nStore.t('settings.general.description')}
     </p>
   </div>
 
@@ -209,29 +212,30 @@
 
   <div class="space-y-4">
     <div class="space-y-2">
-      <Label for="project-name">Project name</Label>
+      <Label for="project-name">{i18nStore.t('settings.general.labels.projectName')}</Label>
       <Input id="project-name" bind:value={projectName} />
     </div>
 
     <div class="space-y-2">
-      <Label for="description">Description</Label>
+      <Label for="description">{i18nStore.t('settings.general.labels.description')}</Label>
       <Input id="description" bind:value={description} />
     </div>
 
     <div class="space-y-3">
       <div class="space-y-1">
-        <Label for="agent-run-summary-prompt" class="text-sm font-medium">Run summary prompt</Label>
+        <Label for="agent-run-summary-prompt" class="text-sm font-medium">
+          {i18nStore.t('settings.general.labels.runSummaryPrompt')}
+        </Label>
         <p class="text-muted-foreground text-xs">
-          The editor starts with the prompt currently in effect. Click a section pill to append it.
+          {i18nStore.t('settings.general.hints.runSummaryGuide')}
         </p>
         {#if agentRunSummaryPromptSource === 'builtin'}
           <p class="text-muted-foreground text-xs">
-            Using the built-in default. Saving without edits keeps the project on the built-in
-            prompt.
+            {i18nStore.t('settings.general.hints.runSummaryBuiltin')}
           </p>
         {:else}
           <p class="text-muted-foreground text-xs">
-            Using a project override. Clear the editor and save to revert to the built-in prompt.
+            {i18nStore.t('settings.general.hints.runSummaryOverride')}
           </p>
         {/if}
       </div>
@@ -254,12 +258,12 @@
         bind:value={agentRunSummaryPrompt}
         rows={14}
         class="min-h-56 font-mono text-xs leading-relaxed"
-        placeholder="Leave blank to use the built-in post-run summary prompt."
+        placeholder={i18nStore.t('settings.general.hints.runSummaryPlaceholder')}
       />
     </div>
 
     <div class="space-y-2">
-      <Label for="max-agents">Max concurrent agents</Label>
+      <Label for="max-agents">{i18nStore.t('settings.general.labels.maxConcurrentAgents')}</Label>
       <Input
         id="max-agents"
         type="number"
@@ -270,10 +274,10 @@
           maxConcurrentAgents = (event.currentTarget as HTMLInputElement).value
         }}
         class="w-24"
-        placeholder="Unlimited"
+        placeholder={i18nStore.t('settings.general.placeholders.unlimited')}
       />
       <p class="text-muted-foreground text-xs">
-        Leave blank for unlimited. If set, use a positive integer.
+        {i18nStore.t('settings.general.hints.maxAgentsReminder')}
       </p>
     </div>
 
@@ -286,7 +290,9 @@
 
   <div class="flex justify-start pt-2">
     <Button onclick={handleSave} disabled={saving}>
-      {saving ? 'Saving…' : 'Save changes'}
+      {saving
+        ? i18nStore.t('settings.general.button.saving')
+        : i18nStore.t('settings.general.button.saveChanges')}
     </Button>
   </div>
 

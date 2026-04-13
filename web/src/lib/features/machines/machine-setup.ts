@@ -1,4 +1,5 @@
 import type { Machine } from '$lib/api/contracts'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import type { MachineDraft, MachineSnapshot } from './types'
 import { normalizeReachabilityMode } from './machine-guidance'
 import {
@@ -75,19 +76,21 @@ export function buildMachineSetupGuide(input: {
 
   if (reachabilityMode === 'local') {
     return {
-      topologyLabel: 'Local control-plane host',
-      topologySummary: 'OpenASE runs on the same host, so no remote bootstrap path is needed.',
-      runtimeLabel: 'Local process runtime',
-      runtimeSummary: 'Commands execute directly on the control-plane machine.',
-      helperLabel: 'SSH helper unused',
-      helperSummary: 'Local machines do not use SSH helper access.',
-      stateLabel: snapshot?.checkedAt ? 'Local checks recorded' : 'Waiting for local checks',
+      topologyLabel: i18nStore.t('machines.setup.local.topologyLabel'),
+      topologySummary: i18nStore.t('machines.setup.local.topologySummary'),
+      runtimeLabel: i18nStore.t('machines.setup.local.runtimeLabel'),
+      runtimeSummary: i18nStore.t('machines.setup.local.runtimeSummary'),
+      helperLabel: i18nStore.t('machines.setup.local.helperLabel'),
+      helperSummary: i18nStore.t('machines.setup.local.helperSummary'),
+      stateLabel: snapshot?.checkedAt
+        ? i18nStore.t('machines.setup.local.stateLabelRecorded')
+        : i18nStore.t('machines.setup.local.stateLabelWaiting'),
       stateSummary: snapshot?.checkedAt
-        ? 'The latest snapshot reflects the local host.'
-        : 'Run checks to confirm the local runtime environment.',
+        ? i18nStore.t('machines.setup.local.stateSummaryRecorded')
+        : i18nStore.t('machines.setup.local.stateSummaryWaiting'),
       nextSteps: [
-        'Confirm the workspace root and agent CLI path on this host.',
-        'Run checks after local toolchain changes to refresh runtime health.',
+        i18nStore.t('machines.setup.local.nextSteps.confirmWorkspace'),
+        i18nStore.t('machines.setup.local.nextSteps.refreshChecks'),
       ],
       commands: [],
     }
@@ -115,63 +118,58 @@ function buildDirectConnectGuide(input: {
   const nextSteps: string[] = []
   const commands: MachineSetupCommand[] = []
 
-  const runtimeLabel = 'Listener runtime'
-  const runtimeSummary =
-    'The control plane opens a websocket connection to the machine’s advertised listener endpoint.'
-  const helperLabel = sshPreview ? 'SSH helper available' : 'No SSH helper saved'
+  const runtimeLabel = i18nStore.t('machines.setup.directConnect.runtimeLabel')
+  const runtimeSummary = i18nStore.t('machines.setup.directConnect.runtimeSummary')
+  const helperLabel = sshPreview
+    ? i18nStore.t('machines.setup.directConnect.helperLabelAvailable')
+    : i18nStore.t('machines.setup.directConnect.helperLabelMissing')
   const helperSummary = sshPreview
-    ? 'Use SSH only for quick bootstrap, diagnostics, or emergency repair.'
-    : 'Add an SSH user and key path if you want a helper lane for bootstrap or diagnostics.'
-  let stateLabel = 'Waiting for listener'
-  let stateSummary =
-    'Add the listener endpoint, then run a connection test so OpenASE can verify reachability.'
+    ? i18nStore.t('machines.setup.directConnect.helperSummaryAvailable')
+    : i18nStore.t('machines.setup.directConnect.helperSummaryMissing')
+  let stateLabel = i18nStore.t('machines.setup.directConnect.stateLabelWaiting')
+  let stateSummary = i18nStore.t('machines.setup.directConnect.stateSummaryWaiting')
 
   if (!advertisedEndpoint) {
-    nextSteps.push('Add the direct-connect listener endpoint before running connection checks.')
+    nextSteps.push(i18nStore.t('machines.setup.directConnect.nextSteps.addEndpoint'))
   } else {
     const reachability = snapshot?.monitor.l1?.reachable
     stateLabel =
       reachability === true
-        ? 'Listener healthy'
+        ? i18nStore.t('machines.setup.directConnect.stateLabelHealthy')
         : reachability === false
-          ? 'Listener checks failing'
-          : 'Listener configured'
+          ? i18nStore.t('machines.setup.directConnect.stateLabelFailing')
+          : i18nStore.t('machines.setup.directConnect.stateLabelConfigured')
     stateSummary =
       reachability === true
-        ? 'The listener endpoint is saved and recent reachability checks succeeded.'
+        ? i18nStore.t('machines.setup.directConnect.stateSummaryHealthy')
         : reachability === false
-          ? 'The listener endpoint is saved, but the latest reachability check failed.'
-          : 'The listener endpoint is saved. Run a connection test to verify it from the control plane.'
-    nextSteps.push('Run a connection test from OpenASE to verify the listener path end to end.')
+          ? i18nStore.t('machines.setup.directConnect.stateSummaryFailing')
+          : i18nStore.t('machines.setup.directConnect.stateSummaryConfigured')
+    nextSteps.push(i18nStore.t('machines.setup.directConnect.nextSteps.runConnectionTest'))
   }
 
   if (sshPreview) {
-    nextSteps.push(
-      'Use the SSH helper lane for bootstrap or repair, then return here to rerun checks.',
-    )
+    nextSteps.push(i18nStore.t('machines.setup.directConnect.nextSteps.useSshHelper'))
     commands.push({
-      title: 'SSH quick setup',
-      description:
-        'Open a helper session on the machine to install or repair OpenASE before retesting.',
+      title: i18nStore.t('machines.setup.directConnect.commands.sshQuickSetup.title'),
+      description: i18nStore.t('machines.setup.directConnect.commands.sshQuickSetup.description'),
       command: sshPreview,
     })
   } else {
-    nextSteps.push(
-      'Optional: add SSH helper credentials if you want a direct bootstrap and diagnostics path.',
-    )
+    nextSteps.push(i18nStore.t('machines.setup.directConnect.nextSteps.addSshHelper'))
   }
 
   if (machine?.id) {
     commands.push({
-      title: 'Control-plane connection test',
-      description: 'Verify that OpenASE can reach the advertised direct-connect path.',
+      title: i18nStore.t('machines.setup.directConnect.commands.connectionTest.title'),
+      description: i18nStore.t('machines.setup.directConnect.commands.connectionTest.description'),
       command: `openase machine test ${machine.id}`,
     })
   }
 
   return {
-    topologyLabel: 'Control plane connects directly',
-    topologySummary: 'Choose this when OpenASE can dial the machine over the network.',
+    topologyLabel: i18nStore.t('machines.setup.directConnect.topologyLabel'),
+    topologySummary: i18nStore.t('machines.setup.directConnect.topologySummary'),
     runtimeLabel,
     runtimeSummary,
     helperLabel,
@@ -194,81 +192,76 @@ function buildReverseConnectGuide(
   const nextSteps: string[] = []
   const commands: MachineSetupCommand[] = [
     {
-      title: '1. Issue a machine channel token on the control plane',
-      description: 'Copy the exported OPENASE_MACHINE_* values from this command.',
+      title: i18nStore.t('machines.setup.reverseConnect.commands.issueToken.title'),
+      description: i18nStore.t('machines.setup.reverseConnect.commands.issueToken.description'),
       command: `openase machine issue-channel-token --machine-id ${machine?.id ?? '<saved-machine-id>'} --format shell`,
     },
     {
-      title: '2. Paste those exports on the remote machine and start the daemon',
-      description:
-        'Run this after pasting the exported environment variables onto the remote host.',
+      title: i18nStore.t('machines.setup.reverseConnect.commands.startDaemon.title'),
+      description: i18nStore.t('machines.setup.reverseConnect.commands.startDaemon.description'),
       command: 'openase machine-agent run',
     },
   ]
 
   if (machine?.id && sshPreview) {
     commands.push({
-      title: 'Optional SSH bootstrap',
-      description:
-        'Upload the OpenASE binary and install the reverse-connect user service over SSH.',
+      title: i18nStore.t('machines.setup.reverseConnect.commands.sshBootstrap.title'),
+      description: i18nStore.t('machines.setup.reverseConnect.commands.sshBootstrap.description'),
       command: `openase machine ssh-bootstrap ${machine.id}`,
     })
     commands.push({
-      title: 'SSH diagnostics',
-      description:
-        'Inspect bootstrap, service, workspace, and daemon registration health over the helper lane.',
+      title: i18nStore.t('machines.setup.reverseConnect.commands.sshDiagnostics.title'),
+      description: i18nStore.t('machines.setup.reverseConnect.commands.sshDiagnostics.description'),
       command: `openase machine ssh-diagnostics ${machine.id}`,
     })
   }
 
   if (!registered) {
-    nextSteps.push(
-      'Issue a machine channel token, paste the exported OPENASE_MACHINE_* variables on the remote host, and start `openase machine-agent run`.',
-    )
+    nextSteps.push(i18nStore.t('machines.setup.reverseConnect.nextSteps.registerDaemon'))
   } else if (!sessionConnected) {
     nextSteps.push(
-      `The machine is registered but the current daemon session is ${humanizeSessionState(sessionState).toLowerCase()}. Restart the daemon or rerun bootstrap to reconnect it.`,
+      i18nStore.t('machines.setup.reverseConnect.nextSteps.restartDaemon', {
+        state: humanizeSessionState(sessionState).toLowerCase(),
+      }),
     )
   } else {
-    nextSteps.push('The daemon is connected. Run checks to confirm runtime and tooling readiness.')
+    nextSteps.push(i18nStore.t('machines.setup.reverseConnect.nextSteps.runChecks'))
   }
 
   if (sshPreview) {
-    nextSteps.push(
-      'Use the SSH bootstrap helper if you want OpenASE to install or refresh the daemon service for you.',
-    )
+    nextSteps.push(i18nStore.t('machines.setup.reverseConnect.nextSteps.useSshBootstrap'))
   } else {
-    nextSteps.push(
-      'Add SSH helper credentials if you want an assisted bootstrap and diagnostics lane.',
-    )
+    nextSteps.push(i18nStore.t('machines.setup.reverseConnect.nextSteps.addSshHelper'))
   }
   if (snapshot?.monitor.l4?.checkedAt || snapshot?.monitor.l5?.checkedAt) {
-    nextSteps.push(
-      'Review the health panel below for runtime and tooling readiness after the daemon connects.',
-    )
+    nextSteps.push(i18nStore.t('machines.setup.reverseConnect.nextSteps.reviewHealthPanel'))
   }
 
   return {
-    topologyLabel: 'Machine dials out to OpenASE',
-    topologySummary:
-      'Choose this when the machine can reach the control plane but cannot accept direct inbound control-plane connections.',
-    runtimeLabel: 'Reverse-connect daemon',
-    runtimeSummary:
-      'Runtime execution rides on the machine-agent websocket session instead of an advertised listener endpoint.',
-    helperLabel: sshPreview ? 'SSH bootstrap available' : 'No SSH bootstrap helper saved',
+    topologyLabel: i18nStore.t('machines.setup.reverseConnect.topologyLabel'),
+    topologySummary: i18nStore.t('machines.setup.reverseConnect.topologySummary'),
+    runtimeLabel: i18nStore.t('machines.setup.reverseConnect.runtimeLabel'),
+    runtimeSummary: i18nStore.t('machines.setup.reverseConnect.runtimeSummary'),
+    helperLabel: sshPreview
+      ? i18nStore.t('machines.setup.reverseConnect.helperLabelAvailable')
+      : i18nStore.t('machines.setup.reverseConnect.helperLabelMissing'),
     helperSummary: sshPreview
-      ? 'SSH remains optional. Use it when you want OpenASE to upload the binary and install the daemon service for you.'
-      : 'Self-serve daemon startup works without SSH. Add helper credentials only if you want assisted bootstrap and diagnostics.',
+      ? i18nStore.t('machines.setup.reverseConnect.helperSummaryAvailable')
+      : i18nStore.t('machines.setup.reverseConnect.helperSummaryMissing'),
     stateLabel: sessionConnected
-      ? 'Daemon connected'
+      ? i18nStore.t('machines.setup.reverseConnect.stateLabelConnected')
       : registered
-        ? `Daemon ${humanizeSessionState(sessionState)}`
-        : 'Waiting for daemon registration',
+        ? i18nStore.t('machines.setup.reverseConnect.stateLabelRegistered', {
+            state: humanizeSessionState(sessionState),
+          })
+        : i18nStore.t('machines.setup.reverseConnect.stateLabelWaiting'),
     stateSummary: sessionConnected
-      ? 'The control plane currently sees an active reverse-connect daemon session.'
+      ? i18nStore.t('machines.setup.reverseConnect.stateSummaryConnected')
       : registered
-        ? `The machine is registered, but the current daemon session is ${humanizeSessionState(sessionState).toLowerCase()}.`
-        : 'The control plane has not seen an active reverse-connect daemon registration for this machine yet.',
+        ? i18nStore.t('machines.setup.reverseConnect.stateSummaryRegistered', {
+            state: humanizeSessionState(sessionState).toLowerCase(),
+          })
+        : i18nStore.t('machines.setup.reverseConnect.stateSummaryWaiting'),
     nextSteps,
     commands,
   }

@@ -42,7 +42,7 @@ export const ticketsFixture: Ticket[] = [
     id: 'ticket-1',
     project_id: 'project-1',
     identifier: 'ASE-101',
-    title: 'Build runtime tab',
+    title: 'Build runtime tab', // i18n-exempt fixture title
     description: '',
     status_id: 'status-1',
     status_name: 'In Progress',
@@ -77,7 +77,7 @@ export const ticketsFixture: Ticket[] = [
     id: 'ticket-2',
     project_id: 'project-1',
     identifier: 'ASE-102',
-    title: 'Show concurrent runs',
+    title: 'Show concurrent runs', // i18n-exempt fixture title
     description: '',
     status_id: 'status-1',
     status_name: 'In Progress',

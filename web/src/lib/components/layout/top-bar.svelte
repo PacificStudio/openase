@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { preloadCode, preloadData } from '$app/navigation'
   import type { Organization, Project } from '$lib/api/contracts'
   import type { ProjectSection } from '$lib/stores/app-context'
@@ -111,7 +112,7 @@
       size="icon-sm"
       class="shrink-0"
       onclick={onOpenMobileNav}
-      aria-label="Open navigation"
+      aria-label={i18nStore.t('layout.openNavigation')}
     >
       <Menu class="size-4" />
     </Button>

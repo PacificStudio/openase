@@ -11,6 +11,7 @@
   import { createEphemeralChatSessionController } from './ephemeral-chat-session-controller.svelte'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
   import EphemeralChatTranscript from './ephemeral-chat-transcript.svelte'
+  import { chatT } from './i18n'
   import type { ChatSource } from '$lib/api/chat'
 
   type EphemeralChatPanelContext = {
@@ -25,8 +26,8 @@
     organizationId = '',
     providers = [],
     defaultProviderId = null,
-    title = 'Ask AI',
-    placeholder = 'Ask a question…',
+    title = chatT('chat.assistant.title'),
+    placeholder = chatT('chat.assistant.placeholder'),
     contextNote = '',
     initialPrompt = '',
     messagePrefix = '',
@@ -110,7 +111,9 @@
         }
 
         providerError =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load chat providers.'
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : chatT('chat.loadingProvidersFailed')
       } finally {
         if (!cancelled) {
           loadingProviders = false
@@ -145,7 +148,7 @@
       return message
     }
 
-    return `${normalizedPrefix}\n\nUser request: ${message}`
+    return `${normalizedPrefix}\n\n${chatT('chat.requestLabel', { message })}`
   }
 
   let sending = $state(false)
@@ -205,7 +208,7 @@
       variant="ghost"
       size="sm"
       class="size-7 p-0"
-      aria-label="Reset conversation"
+      aria-label={chatT('chat.resetConversation')}
       onclick={() => void handleResetConversation()}
       disabled={entries.length === 0 && !pending}
     >
@@ -219,11 +222,11 @@
 
   <div class="border-border border-t px-4 py-3">
     {#if loadingProviders}
-      <div class="text-muted-foreground mb-2 text-xs">Loading providers…</div>
+      <div class="text-muted-foreground mb-2 text-xs">{chatT('chat.loadingProviders')}</div>
     {:else if providerError}
       <div class="text-destructive mb-2 text-xs">{providerError}</div>
     {:else if providerUnavailable}
-      <div class="text-muted-foreground mb-2 text-xs">No chat provider available.</div>
+      <div class="text-muted-foreground mb-2 text-xs">{chatT('chat.noChatProvider')}</div>
     {/if}
 
     {#if contextNote}

@@ -1,4 +1,5 @@
 import type { BadgeVariant } from '$ui/badge'
+import { providersT } from './i18n'
 
 export type ProviderAvailabilityState = 'unknown' | 'available' | 'unavailable' | 'stale'
 
@@ -15,13 +16,13 @@ export function normalizeProviderAvailabilityState(
 export function providerAvailabilityLabel(raw: string | null | undefined): string {
   switch (normalizeProviderAvailabilityState(raw)) {
     case 'available':
-      return 'Ready'
+      return providersT('providers.availability.label.ready')
     case 'unavailable':
-      return 'Unavailable'
+      return providersT('providers.availability.label.unavailable')
     case 'stale':
-      return 'Stale'
+      return providersT('providers.availability.label.stale')
     default:
-      return 'Unknown'
+      return providersT('providers.availability.label.unknown')
   }
 }
 
@@ -48,35 +49,35 @@ export function providerAvailabilityHeadline(
 ): string {
   switch (reason) {
     case 'machine_offline':
-      return 'Host machine is offline.'
+      return providersT('providers.availability.headline.machineOffline')
     case 'machine_degraded':
-      return 'Host machine is degraded.'
+      return providersT('providers.availability.headline.machineDegraded')
     case 'machine_maintenance':
-      return 'Host machine is in maintenance mode.'
+      return providersT('providers.availability.headline.machineMaintenance')
     case 'l4_snapshot_missing':
-      return 'No environment snapshot is available yet.'
+      return providersT('providers.availability.headline.snapshotMissing')
     case 'stale_l4_snapshot':
-      return 'Environment snapshot is stale.'
+      return providersT('providers.availability.headline.snapshotStale')
     case 'cli_missing':
-      return 'Provider CLI is missing.'
+      return providersT('providers.availability.headline.cliMissing')
     case 'not_logged_in':
-      return 'Provider authentication is not ready.'
+      return providersT('providers.availability.headline.notLoggedIn')
     case 'not_ready':
-      return 'Provider is not launch-ready.'
+      return providersT('providers.availability.headline.notReady')
     case 'config_incomplete':
-      return 'Provider configuration is incomplete.'
+      return providersT('providers.availability.headline.configIncomplete')
     case 'unsupported_adapter':
-      return 'Provider adapter is unsupported.'
+      return providersT('providers.availability.headline.unsupportedAdapter')
     default:
       switch (normalizeProviderAvailabilityState(state)) {
         case 'available':
-          return 'Provider is ready for dispatch.'
+          return providersT('providers.availability.headline.ready')
         case 'stale':
-          return 'Provider health data is stale.'
+          return providersT('providers.availability.headline.healthStale')
         case 'unavailable':
-          return 'Provider is not dispatch-ready.'
+          return providersT('providers.availability.headline.dispatchBlocked')
         default:
-          return 'Provider health is still unknown.'
+          return providersT('providers.availability.headline.unknown')
       }
   }
 }
@@ -87,35 +88,35 @@ export function providerAvailabilityDescription(
 ): string {
   switch (reason) {
     case 'machine_offline':
-      return 'OpenASE cannot reach the bound machine, so this provider is blocked from scheduling.'
+      return providersT('providers.availability.description.machineOffline')
     case 'machine_degraded':
-      return 'The bound machine is reachable but degraded, so provider scheduling is held back.'
+      return providersT('providers.availability.description.machineDegraded')
     case 'machine_maintenance':
-      return 'The bound machine is explicitly in maintenance mode and will not accept work.'
+      return providersT('providers.availability.description.machineMaintenance')
     case 'l4_snapshot_missing':
-      return 'The machine has not produced a usable L4 agent environment snapshot for this provider yet.'
+      return providersT('providers.availability.description.snapshotMissing')
     case 'stale_l4_snapshot':
-      return 'The last L4 agent environment snapshot is too old to trust for scheduling decisions.'
+      return providersT('providers.availability.description.snapshotStale')
     case 'cli_missing':
-      return 'The expected provider CLI is not installed or was not detected on the bound machine.'
+      return providersT('providers.availability.description.cliMissing')
     case 'not_logged_in':
-      return 'The provider CLI exists, but authentication has not been completed or is no longer valid.'
+      return providersT('providers.availability.description.notLoggedIn')
     case 'not_ready':
-      return 'The provider CLI was found, but its readiness probe still reports that it cannot launch work.'
+      return providersT('providers.availability.description.notReady')
     case 'config_incomplete':
-      return 'Required launch configuration is missing, such as the CLI command or remote workspace root.'
+      return providersT('providers.availability.description.configIncomplete')
     case 'unsupported_adapter':
-      return 'OpenASE does not have an availability probe contract for this provider adapter type yet.'
+      return providersT('providers.availability.description.unsupportedAdapter')
     default:
       switch (normalizeProviderAvailabilityState(state)) {
         case 'available':
-          return 'The latest machine and provider readiness checks passed, so this provider can take work.'
+          return providersT('providers.availability.description.ready')
         case 'stale':
-          return 'OpenASE has health data for this provider, but it is too old to trust until refreshed.'
+          return providersT('providers.availability.description.healthStale')
         case 'unavailable':
-          return 'OpenASE has recent health data for this provider and it is currently blocked from taking work.'
+          return providersT('providers.availability.description.unavailable')
         default:
-          return 'OpenASE does not yet have enough recent machine health data to judge this provider.'
+          return providersT('providers.availability.description.unknown')
       }
   }
 }

@@ -3,6 +3,7 @@
   import { cn } from '$lib/utils'
   import { Check, X } from '@lucide/svelte'
   import HarnessDiffPreview from './harness-diff-preview.svelte'
+  import { t } from './i18n'
 
   let {
     suggestion,
@@ -23,7 +24,9 @@
   <div class="flex items-center justify-between gap-2">
     <p class="text-muted-foreground min-w-0 truncate text-[11px]">{suggestion.summary}</p>
     {#if suggestionAlreadyApplied}
-      <span class="text-muted-foreground shrink-0 text-[10px] italic">Applied</span>
+      <span class="text-muted-foreground shrink-0 text-[10px] italic">
+        {t('workflows.harness.suggestion.status.applied')}
+      </span>
     {:else}
       <div class="flex shrink-0 items-center gap-1">
         <button
@@ -35,13 +38,13 @@
           onclick={() => onApply?.()}
         >
           <Check class="size-3" />
-          Apply
+          {t('workflows.harness.suggestion.actions.apply')}
         </button>
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground rounded-md p-0.5 transition-colors"
           onclick={() => onDismiss?.()}
-          aria-label="Dismiss suggestion"
+          aria-label={t('workflows.harness.suggestion.actions.dismissLabel')}
         >
           <X class="size-3.5" />
         </button>

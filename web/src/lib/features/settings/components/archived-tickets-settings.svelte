@@ -8,6 +8,7 @@
   import { Checkbox } from '$ui/checkbox'
   import { Separator } from '$ui/separator'
   import { Archive, ArchiveRestore, Loader2 } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type ArchivedTicket = {
     id: string
@@ -86,7 +87,9 @@
       }))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load archived tickets.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.archivedTickets.errors.load'),
       )
     } finally {
       loading = false
@@ -122,7 +125,9 @@
 
     try {
       await Promise.all(ids.map((id) => updateTicket(id, { archived: false })))
-      toastStore.success(`${ids.length} ticket${ids.length > 1 ? 's' : ''} restored.`)
+      toastStore.success(
+        i18nStore.t('settings.archivedTickets.messages.restored', { count: ids.length }),
+      )
       selectedIds = new Set()
       if (tickets.length === ids.length && currentPage > 1) {
         currentPage -= 1
@@ -131,7 +136,9 @@
       }
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to restore tickets.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.archivedTickets.errors.restore'),
       )
     } finally {
       restoring = false
@@ -141,9 +148,11 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Archived Tickets</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.archivedTickets.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Tickets with archive enabled. Select tickets and restore them to put them back on the board.
+      {i18nStore.t('settings.archivedTickets.description')}
     </p>
   </div>
 
@@ -152,15 +161,19 @@
   {#if loading}
     <div class="text-muted-foreground flex items-center gap-2 py-8 text-sm">
       <Loader2 class="size-4 animate-spin" />
-      Loading archived tickets…
+      {i18nStore.t('settings.archivedTickets.status.loading')}
     </div>
   {:else if tickets.length === 0}
     <div class="flex flex-col items-center gap-2 py-12">
       <div class="bg-muted/60 flex size-10 items-center justify-center rounded-full">
         <Archive class="text-muted-foreground size-5" />
       </div>
-      <p class="text-foreground text-sm font-medium">No archived tickets</p>
-      <p class="text-muted-foreground text-sm">Archived tickets will appear here.</p>
+      <p class="text-foreground text-sm font-medium">
+        {i18nStore.t('settings.archivedTickets.messages.emptyTitle')}
+      </p>
+      <p class="text-muted-foreground text-sm">
+        {i18nStore.t('settings.archivedTickets.messages.emptyDescription')}
+      </p>
     </div>
   {:else}
     <div class="space-y-3">
@@ -174,9 +187,11 @@
           />
           <span class="text-muted-foreground text-xs">
             {#if someSelected}
-              {selectedIds.size} selected
+              {i18nStore.t('settings.archivedTickets.toolbar.selected', {
+                count: selectedIds.size,
+              })}
             {:else}
-              Select all
+              {i18nStore.t('settings.archivedTickets.toolbar.selectAll')}
             {/if}
           </span>
         </label>
@@ -191,17 +206,21 @@
           >
             <ArchiveRestore class="size-3" />
             {restoring
-              ? 'Restoring…'
-              : `Restore ${selectedIds.size} ticket${selectedIds.size > 1 ? 's' : ''}`}
+              ? i18nStore.t('settings.archivedTickets.toolbar.buttons.restoring')
+              : i18nStore.t('settings.archivedTickets.toolbar.buttons.restore', {
+                  count: selectedIds.size,
+                })}
           </Button>
         {/if}
       </div>
 
       <div class="flex items-center justify-between gap-3">
         <p class="text-muted-foreground text-xs">
-          Showing {pageStart}-{pageEnd} of {totalTickets} archived ticket{totalTickets !== 1
-            ? 's'
-            : ''}
+          {i18nStore.t('settings.archivedTickets.pagination.summary', {
+            start: pageStart,
+            end: pageEnd,
+            total: totalTickets,
+          })}
         </p>
         <div class="flex items-center gap-2">
           <Button
@@ -210,13 +229,16 @@
             disabled={!canGoPrevious}
             onclick={() => currentPage--}
           >
-            Previous
+            {i18nStore.t('settings.archivedTickets.pagination.previous')}
           </Button>
           <span class="text-muted-foreground min-w-16 text-center text-xs">
-            Page {currentPage} / {totalPages}
+            {i18nStore.t('settings.archivedTickets.pagination.pageCount', {
+              current: currentPage,
+              total: totalPages,
+            })}
           </span>
           <Button size="sm" variant="outline" disabled={!canGoNext} onclick={() => currentPage++}>
-            Next
+            {i18nStore.t('settings.archivedTickets.pagination.next')}
           </Button>
         </div>
       </div>

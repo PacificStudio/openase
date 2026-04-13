@@ -14,6 +14,7 @@
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     open = $bindable(false),
@@ -61,7 +62,9 @@
       await goto(organizationPath(payload.organization.id))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create organization.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('catalog.organization.dialog.errors.create'),
       )
     } finally {
       creating = false
@@ -77,8 +80,12 @@
 >
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Create organization</Dialog.Title>
-      <Dialog.Description>Set up a new workspace with a stable URL slug.</Dialog.Description>
+      <Dialog.Title>
+        {i18nStore.t('catalog.organization.dialog.title')}
+      </Dialog.Title>
+      <Dialog.Description>
+        {i18nStore.t('catalog.organization.dialog.description')}
+      </Dialog.Description>
     </Dialog.Header>
 
     <form
@@ -89,36 +96,44 @@
       }}
     >
       <div class="space-y-2">
-        <Label for="org-name">Organization name</Label>
+        <Label for="org-name">
+          {i18nStore.t('catalog.organization.dialog.labels.organizationName')}
+        </Label>
         <Input
           id="org-name"
           value={draft.name}
-          placeholder="Better & Better"
+          placeholder={i18nStore.t('catalog.organization.dialog.placeholders.organizationName')}
           oninput={(event) => updateName((event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 
       <div class="space-y-2">
-        <Label for="org-slug">Slug</Label>
+        <Label for="org-slug">
+          {i18nStore.t('catalog.organization.dialog.labels.slug')}
+        </Label>
         <Input
           id="org-slug"
           value={draft.slug}
-          placeholder="better-and-better"
+          placeholder={i18nStore.t('catalog.organization.dialog.placeholders.slug')}
           oninput={(event) => updateSlug((event.currentTarget as HTMLInputElement).value)}
         />
         <p class="text-muted-foreground text-xs">
-          Lowercase letters, numbers, and hyphens. This becomes the stable org route handle.
+          {i18nStore.t('catalog.organization.dialog.slugHint')}
         </p>
       </div>
 
       <Dialog.Footer>
         <Dialog.Close>
           {#snippet child({ props })}
-            <Button variant="outline" {...props}>Cancel</Button>
+            <Button variant="outline" {...props}>
+              {i18nStore.t('catalog.organization.dialog.actions.cancel')}
+            </Button>
           {/snippet}
         </Dialog.Close>
         <Button type="submit" disabled={creating}>
-          {creating ? 'Creating...' : 'Create organization'}
+          {creating
+            ? i18nStore.t('catalog.organization.dialog.actions.creating')
+            : i18nStore.t('catalog.organization.dialog.actions.create')}
         </Button>
       </Dialog.Footer>
     </form>

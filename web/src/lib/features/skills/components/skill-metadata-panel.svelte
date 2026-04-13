@@ -4,6 +4,7 @@
   import { Badge } from '$ui/badge'
   import { Input } from '$ui/input'
   import { Clock, Link2, Link2Off } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type SkillHistoryEntry = {
     id: string
@@ -37,11 +38,11 @@
   <!-- Description -->
   <section class="space-y-1.5">
     <h4 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-      Description
+      {i18nStore.t('skills.metadataPanel.labels.description')}
     </h4>
     <Input
       bind:value={editDescription}
-      placeholder="Human-readable description"
+      placeholder={i18nStore.t('skills.metadataPanel.placeholders.description')}
       class="h-8 text-xs"
       disabled={busy}
     />
@@ -49,21 +50,36 @@
 
   <!-- Metadata -->
   <section class="space-y-1">
-    <h4 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">Info</h4>
+    <h4 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+      {i18nStore.t('skills.metadataPanel.labels.info')}
+    </h4>
     <div class="text-muted-foreground space-y-0.5 text-xs">
-      <p>by {skill.created_by}</p>
-      <p>{formatRelativeTime(skill.created_at)}</p>
+      <p>
+        {i18nStore.t('skills.metadataPanel.labels.createdBy', {
+          name: skill.created_by,
+        })}
+      </p>
+      <p>
+        {i18nStore.t('skills.metadataPanel.labels.createdAt', {
+          time: formatRelativeTime(skill.created_at),
+        })}
+      </p>
       <p>{skill.path}</p>
     </div>
   </section>
 
   <!-- Workflow bindings -->
   <section class="space-y-2">
-    <h4 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">Bindings</h4>
+    <h4 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+      {i18nStore.t('skills.metadataPanel.labels.bindings')}
+    </h4>
     {#if workflows.length > 0}
       <div class="flex flex-wrap gap-1">
         {#each workflows as workflow (workflow.id)}
           {@const bound = isBound(workflow.id)}
+          {@const bindingLabel = bound
+            ? i18nStore.t('skills.metadataPanel.buttons.unbind')
+            : i18nStore.t('skills.metadataPanel.buttons.bind')}
           <button
             type="button"
             disabled={busy}
@@ -71,7 +87,7 @@
               {bound
               ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
               : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border-transparent'}"
-            title="{bound ? 'Unbind from' : 'Bind to'} {workflow.name}"
+            title={`${bindingLabel} ${workflow.name}`}
             onclick={() => void onToggleBinding?.(workflow.id, !bound)}
           >
             {#if bound}
@@ -84,7 +100,9 @@
         {/each}
       </div>
     {:else}
-      <p class="text-muted-foreground text-xs">No workflows in project.</p>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t('skills.metadataPanel.messages.noWorkflows')}
+      </p>
     {/if}
   </section>
 
@@ -100,7 +118,9 @@
             <Clock class="text-muted-foreground size-3 shrink-0" />
             <span class="text-foreground font-medium">v{item.version}</span>
             {#if item.version === skill.current_version}
-              <Badge variant="secondary" class="h-4 px-1 text-[9px]">current</Badge>
+              <Badge variant="secondary" class="h-4 px-1 text-[9px]">
+                {i18nStore.t('skills.metadataPanel.badge.current')}
+              </Badge>
             {/if}
             <span class="text-muted-foreground truncate">{item.created_by}</span>
             <span class="text-muted-foreground ml-auto shrink-0 text-[10px]">

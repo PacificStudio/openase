@@ -22,6 +22,7 @@
     statusClass,
     statusLabel,
   } from './project-conversation-workspace-browser-helpers'
+  import { chatT } from './i18n'
   import WorkspaceBrowserSearch from './project-conversation-workspace-browser-search.svelte'
   import WorkspaceBrowserTree, {
     type PendingCreate,
@@ -166,13 +167,13 @@
             explorerExpanded && 'rotate-90',
           )}
         />
-        Explorer
+        {chatT('chat.explorer.title')}
       </button>
       <Button
         size="icon-xs"
         variant="ghost"
         class="size-5"
-        title="New File"
+        title={chatT('chat.explorer.newFile')}
         data-testid="workspace-browser-new-file"
         onclick={() => startCreate('file')}
       >
@@ -182,7 +183,7 @@
         size="icon-xs"
         variant="ghost"
         class="size-5"
-        title="New Folder"
+        title={chatT('chat.explorer.newFolder')}
         data-testid="workspace-browser-new-folder"
         onclick={() => startCreate('folder')}
       >
@@ -231,7 +232,7 @@
             changesExpanded && 'rotate-90',
           )}
         />
-        Changes
+        {chatT('chat.explorer.changesTitle')}
         <span class="bg-primary/15 text-primary ml-auto rounded-full px-1.5 text-[9px] font-bold">
           {dirtyFiles.length}
         </span>

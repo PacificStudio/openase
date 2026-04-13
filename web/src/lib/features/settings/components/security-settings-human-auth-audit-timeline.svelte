@@ -8,6 +8,7 @@
     formatAuthAuditEventSeverity,
     formatTimestamp,
   } from './security-settings-human-auth.model'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let { auditEvents }: { auditEvents: AuthAuditEvent[] } = $props()
   let open = $state(false)
@@ -24,7 +25,9 @@
         >
           <div class="flex min-w-0 items-center gap-2">
             <Clock3 class="text-muted-foreground size-4 shrink-0" />
-            <h5 class="text-sm font-semibold">Auth audit timeline</h5>
+            <h5 class="text-sm font-semibold">
+              {i18nStore.t('settings.security.humanAuth.auditTimeline.heading')}
+            </h5>
             {#if auditEvents.length > 0}
               <span class="text-muted-foreground text-xs font-normal">
                 {auditEvents.length}
@@ -62,7 +65,7 @@
           </ul>
         {:else}
           <div class="text-muted-foreground px-4 py-3 text-xs">
-            Auth audit events appear here after sign-in, logout, expiry, and revoke actions.
+            {i18nStore.t('settings.security.humanAuth.auditTimeline.messages.empty')}
           </div>
         {/if}
       </div>

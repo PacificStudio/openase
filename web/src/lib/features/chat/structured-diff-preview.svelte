@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { ScrollArea } from '$ui/scroll-area'
   import type { DiffPreview } from './structured-diff'
+  import { chatT } from './i18n'
 
   let {
     preview,
@@ -12,7 +13,7 @@
 
 <div class="border-border overflow-hidden rounded-md border">
   <div class="bg-muted/40 border-border flex items-center justify-between border-b px-2.5 py-1">
-    <div class="text-muted-foreground text-[11px]">Diff</div>
+    <div class="text-muted-foreground text-[11px]">{chatT('chat.diff.label')}</div>
     <div class="flex items-center gap-2 text-[10px] font-medium">
       <span class="text-emerald-400">+{preview.addedCount}</span>
       <span class="text-rose-400">-{preview.removedCount}</span>

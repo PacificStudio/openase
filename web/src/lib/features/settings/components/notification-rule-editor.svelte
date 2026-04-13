@@ -11,6 +11,7 @@
     getTemplateVariables,
     type EventSeverity,
   } from '../notification-event-catalog'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     channels,
@@ -29,6 +30,9 @@
 
   let showVariables = $state(false)
   let templateRef = $state<HTMLTextAreaElement | null>(null)
+
+  const stateLabel = (enabled: boolean) =>
+    i18nStore.t(`settings.notificationRule.states.${enabled ? 'enabled' : 'disabled'}`)
 
   function updateTextField(field: 'name' | 'filterText' | 'template', event: Event) {
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
@@ -56,17 +60,19 @@
 <div class="space-y-4">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label for="notification-rule-name">Rule name</Label>
+      <Label for="notification-rule-name"
+        >{i18nStore.t('settings.notificationRule.labels.ruleName')}</Label
+      >
       <Input
         id="notification-rule-name"
-        placeholder="e.g. Alert on failures"
+        placeholder={i18nStore.t('settings.notificationRule.placeholders.ruleNameExample')}
         value={draft.name}
         oninput={(event) => updateTextField('name', event)}
       />
     </div>
 
     <div class="space-y-1.5">
-      <Label>Channel</Label>
+      <Label>{i18nStore.t('settings.notificationRule.labels.channel')}</Label>
       <Select.Root
         type="single"
         value={draft.channelId}
@@ -75,7 +81,8 @@
         }}
       >
         <Select.Trigger class="w-full">
-          {channels.find((channel) => channel.id === draft.channelId)?.name ?? 'Select channel'}
+          {channels.find((channel) => channel.id === draft.channelId)?.name ??
+            i18nStore.t('settings.notificationRule.messages.selectChannel')}
         </Select.Trigger>
         <Select.Content>
           {#each channels as channel (channel.id)}
@@ -83,7 +90,9 @@
               <span class="flex items-center gap-2">
                 {channel.name}
                 {#if !channel.is_enabled}
-                  <span class="text-muted-foreground text-xs">(disabled)</span>
+                  <span class="text-muted-foreground text-xs">
+                    {i18nStore.t('settings.notificationRule.status.disabled')}
+                  </span>
                 {/if}
               </span>
             </Select.Item>
@@ -95,7 +104,7 @@
 
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label>Event type</Label>
+      <Label>{i18nStore.t('settings.notificationRule.labels.eventType')}</Label>
       <Select.Root
         type="single"
         value={draft.eventType}
@@ -104,7 +113,8 @@
         }}
       >
         <Select.Trigger class="w-full">
-          {findEventType(eventTypes, draft.eventType)?.label ?? 'Select event type'}
+          {findEventType(eventTypes, draft.eventType)?.label ??
+            i18nStore.t('settings.notificationRule.messages.selectEventType')}
         </Select.Trigger>
         <Select.Content>
           {#each eventTypes as eventType (eventType.event_type)}
@@ -114,7 +124,7 @@
       </Select.Root>
       {#if draft.eventType}
         <p class="text-xs">
-          Severity:
+          {i18nStore.t('settings.notificationRule.labels.severity')}
           <span
             class="font-medium {currentSeverity === 'critical'
               ? 'text-red-500'
@@ -129,7 +139,7 @@
     </div>
 
     <div class="space-y-1.5">
-      <Label>Initial state</Label>
+      <Label>{i18nStore.t('settings.notificationRule.labels.initialState')}</Label>
       <Select.Root
         type="single"
         value={draft.isEnabled ? 'enabled' : 'disabled'}
@@ -138,18 +148,24 @@
         }}
       >
         <Select.Trigger class="w-full capitalize">
-          {draft.isEnabled ? 'Enabled' : 'Disabled'}
+          {stateLabel(draft.isEnabled)}
         </Select.Trigger>
         <Select.Content>
-          <Select.Item value="enabled">Enabled</Select.Item>
-          <Select.Item value="disabled">Disabled</Select.Item>
+          <Select.Item value="enabled"
+            >{i18nStore.t('settings.notificationRule.states.enabled')}</Select.Item
+          >
+          <Select.Item value="disabled"
+            >{i18nStore.t('settings.notificationRule.states.disabled')}</Select.Item
+          >
         </Select.Content>
       </Select.Root>
     </div>
   </div>
 
   <div class="space-y-1.5">
-    <Label for="notification-rule-template">Message template</Label>
+    <Label for="notification-rule-template"
+      >{i18nStore.t('settings.notificationRule.labels.messageTemplate')}</Label
+    >
     <Textarea
       id="notification-rule-template"
       bind:ref={templateRef}
@@ -160,7 +176,7 @@
     />
     <div class="flex items-center justify-between">
       <p class="text-muted-foreground text-xs">
-        Jinja2 syntax — e.g.
+        {i18nStore.t('settings.notificationRule.hints.jinjaSyntax')}{' '}
         <code class="bg-muted rounded px-1">{'{{ ticket.identifier }}'}</code>
       </p>
       {#if templateVarGroups.length > 0}
@@ -169,7 +185,9 @@
           class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline"
           onclick={() => (showVariables = !showVariables)}
         >
-          {showVariables ? 'Hide variables' : 'Available variables'}
+          {showVariables
+            ? i18nStore.t('settings.notificationRule.buttons.hideVariables')
+            : i18nStore.t('settings.notificationRule.buttons.showVariables')}
         </button>
       {/if}
     </div>
@@ -195,23 +213,27 @@
             </div>
           </div>
         {/each}
-        <p class="text-muted-foreground text-xs">Click a variable to insert it at the cursor.</p>
+        <p class="text-muted-foreground text-xs">
+          {i18nStore.t('settings.notificationRule.hints.clickVariable')}
+        </p>
       </div>
     {/if}
   </div>
 
   <div class="space-y-1.5">
-    <Label for="notification-rule-filter">Filter (optional)</Label>
+    <Label for="notification-rule-filter"
+      >{i18nStore.t('settings.notificationRule.labels.filterOptional')}</Label
+    >
     <Textarea
       id="notification-rule-filter"
       value={draft.filterText}
       rows={3}
       class="font-mono text-xs"
-      placeholder={'e.g. {"priority":"high"}'}
+      placeholder={i18nStore.t('settings.notificationRule.placeholders.filterExample')}
       oninput={(event) => updateTextField('filterText', event)}
     />
     <p class="text-muted-foreground text-xs">
-      JSON object to narrow delivery. Only events matching all filter keys will trigger this rule.
+      {i18nStore.t('settings.notificationRule.hints.filterDescription')}
     </p>
   </div>
 </div>

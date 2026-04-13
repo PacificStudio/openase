@@ -147,7 +147,7 @@ export const projectPageMobilePolicies = [
       heading: 'Activity',
       criticalControls: [
         { kind: 'placeholder', value: 'Search events...' },
-        { kind: 'button', value: 'All events' },
+        { kind: 'button', value: 'All' },
       ],
     },
     interaction: {

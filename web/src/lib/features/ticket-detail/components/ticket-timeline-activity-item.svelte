@@ -7,6 +7,7 @@
   import Play from '@lucide/svelte/icons/play'
   import Settings from '@lucide/svelte/icons/settings'
   import { activityEventLabel, activityEventTone } from '$lib/features/activity'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { cn, formatRelativeTime } from '$lib/utils'
   import type { TicketActivityTimelineItem } from '../types'
 
@@ -62,25 +63,41 @@
     const entries: Array<{ key: string; label: string; value: string }> = []
 
     if (item.actor.type === 'agent' && item.actor.name && item.actor.name !== 'Unknown') {
-      entries.push({ key: 'actor', label: 'Agent', value: item.actor.name })
+      entries.push({ key: 'actor', label: i18nStore.t('common.agent'), value: item.actor.name })
     } else if (item.actor.type !== 'system' && item.actor.name && item.actor.name !== 'Unknown') {
-      entries.push({ key: 'actor', label: 'Source', value: item.actor.name })
+      entries.push({
+        key: 'actor',
+        label: i18nStore.t('ticketDetail.timeline.badges.source'),
+        value: item.actor.name,
+      })
     }
 
     const machineName = stringMetadata(item.metadata, 'target_machine_name')
     if (machineName) {
-      entries.push({ key: 'machine', label: 'Machine', value: machineName })
+      entries.push({
+        key: 'machine',
+        label: i18nStore.t('ticketDetail.timeline.badges.machine'),
+        value: machineName,
+      })
     }
 
     const controlState = stringMetadata(item.metadata, 'runtime_control_state')
     if (controlState && controlState !== 'active') {
-      entries.push({ key: 'control', label: 'Control', value: humanizeValue(controlState) })
+      entries.push({
+        key: 'control',
+        label: i18nStore.t('ticketDetail.timeline.badges.control'),
+        value: humanizeValue(controlState),
+      })
     }
 
     const runID =
       stringMetadata(item.metadata, 'current_run_id') || stringMetadata(item.metadata, 'run_id')
     if (runID) {
-      entries.push({ key: 'run', label: 'Run', value: shortenIdentifier(runID) })
+      entries.push({
+        key: 'run',
+        label: i18nStore.t('ticketDetail.timeline.badges.run'),
+        value: shortenIdentifier(runID),
+      })
     }
 
     return entries

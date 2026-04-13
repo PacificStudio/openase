@@ -9,6 +9,7 @@
   import ProjectConversationHeader from './project-conversation-header.svelte'
   import { runProjectConversationDeleteFlow } from './project-conversation-panel-delete'
   import { interruptFocusedProjectAgent } from './project-conversation-panel-interrupt'
+  import { chatT } from './i18n'
   import {
     describeProjectAIFocus,
     projectAIFocusKey,
@@ -25,8 +26,8 @@
     providers = [],
     defaultProviderId = null,
     focus = null,
-    title = 'Project AI',
-    placeholder = 'Ask anything about this project…',
+    title = chatT('layout.projectAI'),
+    placeholder = chatT('chat.composerPlaceholder'),
     initialPrompt = '',
     onClose,
   }: {
@@ -210,7 +211,7 @@
       conversationId,
       force,
       deleteConversation: controller.deleteConversation,
-      onDeleted: () => toastStore.success('Project AI conversation deleted.'),
+      onDeleted: () => toastStore.success(chatT('chat.conversationDeletedSuccess')),
       onError: (message) => toastStore.error(message),
     })
   }
@@ -253,7 +254,7 @@
     providerCount={chatProviders.length}
     statusMessage={statusMessage ?? undefined}
     {focusCard}
-    focusActionLabel={focusInterruptTarget ? 'Interrupt Agent' : ''}
+    focusActionLabel={focusInterruptTarget ? chatT('chat.interruptAgent') : ''}
     focusActionDisabled={!focusInterruptTarget}
     {queuedTurns}
     hasPendingInterrupt={controller.hasPendingInterrupt}
