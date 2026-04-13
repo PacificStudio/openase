@@ -258,7 +258,7 @@ func TestClaudeCodeAgentAdapterPreservesTaskAndSessionEventsAndFallbackFailureDe
 	if sixth.Type != agentEventTypeTurnFailed || sixth.Turn == nil || sixth.Turn.Error == nil {
 		t.Fatalf("unexpected sixth event: %+v", sixth)
 	}
-	if !strings.Contains(sixth.Turn.Error.Message, "empty error result") {
+	if sixth.Turn.Error.Message != "Claude Code failed before it returned a result. Try again or check the logs for more details." {
 		t.Fatalf("unexpected turn failure message: %+v", sixth.Turn.Error)
 	}
 	if !strings.Contains(sixth.Turn.Error.AdditionalDetails, `"subtype":"error"`) {

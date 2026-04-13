@@ -2,7 +2,6 @@ package provider
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 )
 
@@ -172,16 +171,27 @@ func ClaudeCodeTurnFailure(event ClaudeCodeEvent) (string, string) {
 
 	subtype := strings.TrimSpace(event.Subtype)
 	if subtype != "" {
-		summary := fmt.Sprintf("Claude Code reported an empty %s result.", subtype)
-		if subtype == "error" {
-			summary = "Claude Code reported an empty error result."
-		}
-		return summary, additionalDetails
+		return claudeCodeFailureMessageForSubtype(subtype), additionalDetails
 	}
 	if additionalDetails != "" {
-		return "Claude Code reported an empty result error.", additionalDetails
+		return claudeCodeGenericFailureMessage(), additionalDetails
 	}
-	return "Claude Code reported an empty result error.", ""
+	return claudeCodeGenericFailureMessage(), ""
+}
+
+func claudeCodeFailureMessageForSubtype(subtype string) string {
+	switch strings.TrimSpace(subtype) {
+	case "error_during_execution":
+		return "Claude Code failed while executing the task. Try again or check the logs for more details."
+	case "error":
+		return "Claude Code failed before it returned a result. Try again or check the logs for more details."
+	default:
+		return claudeCodeGenericFailureMessage()
+	}
+}
+
+func claudeCodeGenericFailureMessage() string {
+	return "Claude Code failed before it returned a result. Try again or check the logs for more details."
 }
 
 func ClaudeCodeAssistantSnapshotContinues(previous string, next string) bool {
