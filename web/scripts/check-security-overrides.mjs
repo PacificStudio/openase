@@ -7,7 +7,6 @@ const lockfilePath = path.join(repoRoot, 'pnpm-lock.yaml')
 
 const requiredOverrides = {
   'lodash-es': '4.18.1',
-  picomatch: '4.0.4',
 }
 
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))

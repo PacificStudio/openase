@@ -6,7 +6,6 @@ settings:
 
 overrides:
   lodash-es: 4.18.1
-  picomatch: 4.0.4
 
 importers:
   .:
@@ -3324,7 +3323,7 @@ packages:
       }
     engines: { node: '>=12.0.0' }
     peerDependencies:
-      picomatch: 4.0.4
+      picomatch: ^3 || ^4
     peerDependenciesMeta:
       picomatch:
         optional: true
