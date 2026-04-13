@@ -11,6 +11,7 @@ import {
 } from './run-transcript'
 import { mapTicketRunDetail } from './run-transcript-data'
 import type { TicketRunDetailPayload } from '$lib/api/contracts'
+import type { TicketRunTranscriptBlock } from './types'
 
 type ReplayFixture = {
   provider_name: string
@@ -19,9 +20,23 @@ type ReplayFixture = {
   supplement_frames: Array<{ event: string; payload: Record<string, unknown> }>
 }
 
+const legacyClaudeExecutionFailure =
+  'Claude Code reported an empty error_during_execution result.'
+const humanFriendlyClaudeExecutionFailure =
+  'Claude Code failed while executing the task. Try again or check the logs for more details.'
+
 function loadFixture(name: string): ReplayFixture {
   const fixturePath = resolve(process.cwd(), 'src/lib/features/ticket-detail/testdata', name)
   return JSON.parse(readFileSync(fixturePath, 'utf-8')) as ReplayFixture
+}
+
+function withFriendlyClaudeExecutionFailure(fixture: ReplayFixture): ReplayFixture {
+  return JSON.parse(
+    JSON.stringify(fixture).replaceAll(
+      legacyClaudeExecutionFailure,
+      humanFriendlyClaudeExecutionFailure,
+    ),
+  ) as ReplayFixture
 }
 
 function replayFrames(
@@ -103,5 +118,25 @@ describe('ticket run transcript real sample replay', () => {
       true,
     )
     expect(pagedState).toEqual(fullHydrationThenSupplement)
+  })
+
+  it('preserves user-facing Claude execution failure text through hydrate and replay', () => {
+    const fixture = withFriendlyClaudeExecutionFailure(loadFixture('claude-code-replay-fixture.json'))
+    const state = replayFrames(fixture.supplement_frames, fixture.detail, true)
+
+    const errorBlock = state.blocks.find(
+      (
+        block,
+      ): block is Extract<
+        TicketRunTranscriptBlock,
+        { kind: 'task_status'; statusType: 'error' }
+      > =>
+        block.kind === 'task_status' &&
+        block.statusType === 'error' &&
+        block.raw?.subtype === 'error_during_execution',
+    )
+
+    expect(errorBlock?.detail).toBe(humanFriendlyClaudeExecutionFailure)
+    expect(errorBlock?.detail).not.toContain('error_during_execution')
   })
 })
