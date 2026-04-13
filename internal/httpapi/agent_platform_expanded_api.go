@@ -52,6 +52,7 @@ func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/tickets/:ticketId/repo-scopes", s.handleAgentCreateTicketRepoScope)
 	api.PATCH("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.handleAgentPatchTicketRepoScope)
 	api.DELETE("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.handleAgentDeleteTicketRepoScope)
+	api.POST("/projects/:projectId/tickets/:ticketId/workspace/reset", s.handleAgentResetTicketWorkspace)
 	api.GET("/projects/:projectId/scheduled-jobs", s.handleAgentListScheduledJobs)
 	api.POST("/projects/:projectId/scheduled-jobs", s.handleAgentCreateScheduledJob)
 	api.PATCH("/scheduled-jobs/:jobId", s.handleAgentUpdateScheduledJob)
@@ -629,6 +630,16 @@ func (s *Server) handleAgentDeleteTicketRepoScope(c echo.Context) error {
 		return nil
 	}
 	return s.deleteTicketRepoScope(c)
+}
+
+func (s *Server) handleAgentResetTicketWorkspace(c echo.Context) error {
+	if s.ticketService == nil || s.ticketWorkspaceResetter == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket workspace reset unavailable")
+	}
+	if !s.requireAgentOwnTicketInProject(c, agentplatform.ScopeTicketsUpdate) {
+		return nil
+	}
+	return s.handleResetTicketWorkspace(c)
 }
 
 func (s *Server) handleAgentListScheduledJobs(c echo.Context) error {

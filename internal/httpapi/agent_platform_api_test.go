@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -19,6 +20,8 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -29,6 +32,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
+	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
@@ -1733,6 +1737,20 @@ func TestAgentPlatformExpandedTicketRepoScopeRoutesRequireExplicitScopes(t *test
 	}
 }
 
+func TestAgentPlatformExpandedTicketWorkspaceResetRouteRequiresExplicitScope(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	assertPlatformScopeRoute(
+		t,
+		fixture,
+		agentplatform.ScopeTicketsUpdate,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/workspace/reset", fixture.projectID, fixture.ticketID),
+		nil,
+		http.StatusOK,
+		`"reset":true`,
+	)
+}
+
 func TestAgentPlatformExpandedAgentRoutesRequireExplicitScopes(t *testing.T) {
 	fixture := newAgentPlatformExpandedFixture(t)
 
@@ -2090,6 +2108,7 @@ func projectConversationScopeContracts(fixture *agentPlatformExpandedFixture) []
 		{scope: agentplatform.ScopeTicketRepoScopesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes/%s", fixture.projectID, fixture.ticketID, fixture.ticketRepoScopeID), body: map[string]any{"branch_name": "feature/platform-update"}, wantStatus: http.StatusOK, wantBody: `"branch_name":"feature/platform-update"`},
 		{scope: agentplatform.ScopeTicketsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets", fixture.projectID), body: map[string]any{"title": "Conversation-created follow-up", "description": "Created from project conversation token"}, prepare: prepareSingleRepoProjectForDerivedTicketCreation, wantStatus: http.StatusCreated, wantBody: `"title":"Conversation-created follow-up"`},
 		{scope: agentplatform.ScopeTicketsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"tickets":[`},
+		{scope: agentplatform.ScopeTicketsUpdate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/workspace/reset", fixture.projectID, fixture.ticketID), wantStatus: http.StatusOK, wantBody: `"reset":true`},
 		{scope: agentplatform.ScopeTicketsUpdate, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/tickets/%s/comments", fixture.ticketID), wantStatus: http.StatusOK, wantBody: `"comments":[`},
 		{scope: agentplatform.ScopeWorkflowsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/workflows", fixture.projectID), body: map[string]any{"agent_id": fixture.agentID.String(), "name": "Platform Workflow Create", "type": "coding", "pickup_status_ids": []string{fixture.statusUpdateID.String()}, "finish_status_ids": []string{fixture.statusDeleteID.String()}, "harness_content": "# Platform Create\n", "is_active": false}, wantStatus: http.StatusCreated, wantBody: `"name":"Platform Workflow Create"`},
 		{scope: agentplatform.ScopeWorkflowsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/workflows/%s", fixture.deleteWorkflowID), wantStatus: http.StatusOK, wantBody: fixture.deleteWorkflowID.String()},
@@ -2154,6 +2173,97 @@ func runProjectConversationScopeContracts(t *testing.T, fixture *agentPlatformEx
 				t.Fatalf("expected %s %s response to contain %q, got %s", contract.method, contract.path, contract.wantBody, rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestAgentPlatformExpandedTicketWorkspaceResetCleansWorkspace(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	ctx := context.Background()
+
+	machineItem, err := fixture.client.Machine.Create().
+		SetOrganizationID(fixture.organizationID).
+		SetName("platform-workspace-reset-local").
+		SetHost(catalogdomain.LocalMachineHost).
+		SetPort(0).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	providerItem, err := fixture.client.AgentProvider.Create().
+		SetOrganizationID(fixture.organizationID).
+		SetMachineID(machineItem.ID).
+		SetName("platform-workspace-reset-provider").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create reset provider: %v", err)
+	}
+	agentItem, err := fixture.client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(providerItem.ID).
+		SetName("platform-workspace-reset-agent").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create reset agent: %v", err)
+	}
+	runItem, err := fixture.client.AgentRun.Create().
+		SetTicketID(fixture.ticketID).
+		SetWorkflowID(fixture.mainWorkflowID).
+		SetAgentID(agentItem.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entagentrun.StatusCompleted).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create reset run: %v", err)
+	}
+
+	workspaceRoot := filepath.Join(t.TempDir(), "platform-workspace-reset")
+	repoPath := filepath.Join(workspaceRoot, "repo")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("mkdir repo path: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "DIRTY.txt"), []byte("dirty\n"), 0o600); err != nil {
+		t.Fatalf("write dirty file: %v", err)
+	}
+
+	workspaceItem, err := fixture.client.TicketRepoWorkspace.Create().
+		SetTicketID(fixture.ticketID).
+		SetAgentRunID(runItem.ID).
+		SetRepoID(fixture.repoReadID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("feature/platform-reset").
+		SetState(entticketrepoworkspace.StateReady).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workspace row: %v", err)
+	}
+
+	token := fixture.issueToken(t, agentplatform.ScopeTicketsUpdate)
+	rec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/workspace/reset", fixture.projectID, fixture.ticketID),
+		nil,
+		token,
+	)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"reset":true`) {
+		t.Fatalf("expected workspace reset response, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if _, err := os.Stat(workspaceRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected workspace root removed, got err=%v", err)
+	}
+
+	workspaceAfter, err := fixture.client.TicketRepoWorkspace.Get(ctx, workspaceItem.ID)
+	if err != nil {
+		t.Fatalf("reload workspace row: %v", err)
+	}
+	if workspaceAfter.State != entticketrepoworkspace.StateCleaned || workspaceAfter.CleanedAt == nil {
+		t.Fatalf("expected cleaned workspace row, got %+v", workspaceAfter)
 	}
 }
 
@@ -2615,6 +2725,13 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		WithScheduledJobService(scheduledJobSvc),
 		WithNotificationService(notificationSvc),
 		WithGitHubRepoService(githubRepoSvc),
+		WithTicketWorkspaceResetter(
+			orchestrator.NewTicketWorkspaceResetService(
+				client,
+				slog.New(slog.NewTextHandler(io.Discard, nil)),
+				nil,
+			),
+		),
 	)
 
 	return &agentPlatformExpandedFixture{
