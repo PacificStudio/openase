@@ -157,7 +157,7 @@ describe('TicketRunHistoryPanel', () => {
 
   it('requests a run switch and renders historical terminal summaries', async () => {
     const onSelectRun = vi.fn()
-    const { getByRole, getAllByRole, getAllByText, getByText, rerender } = render(
+    const { getAllByRole, getAllByText, getByText, rerender } = render(
       TicketRunHistoryPanel,
       {
         props: {
