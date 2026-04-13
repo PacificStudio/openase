@@ -3,6 +3,7 @@
   import type { Organization } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { archiveOrganization } from '$lib/api/openase'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
@@ -19,6 +20,8 @@
 
   let confirmation = $state('')
   let archiving = $state(false)
+
+  const t = i18nStore.t
 
   const confirmed = $derived(confirmation === organization.name)
 
@@ -39,7 +42,9 @@
       await invalidateAll()
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive organization.',
+        caughtError instanceof ApiError && 'detail' in caughtError && caughtError.detail
+          ? caughtError.detail
+          : t('catalog.organization.delete.errors.generic'),
       )
     } finally {
       archiving = false
@@ -55,10 +60,9 @@
 >
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Archive organization</Dialog.Title>
+      <Dialog.Title>{t('catalog.organization.delete.title')}</Dialog.Title>
       <Dialog.Description>
-        This will archive <strong>{organization.name}</strong>, automatically archive every project
-        in it, and remove the organization from active navigation.
+        {t('catalog.organization.delete.description', { name: organization.name })}
       </Dialog.Description>
     </Dialog.Header>
 
@@ -71,7 +75,7 @@
     >
       <div class="space-y-2">
         <Label for="delete-confirmation">
-          Type <strong class="text-foreground">{organization.name}</strong> to confirm
+          {t('catalog.organization.delete.confirmLabel', { name: organization.name })}
         </Label>
         <Input
           id="delete-confirmation"
@@ -86,11 +90,15 @@
       <Dialog.Footer>
         <Dialog.Close>
           {#snippet child({ props })}
-            <Button variant="outline" {...props}>Cancel</Button>
+            <Button variant="outline" {...props}>
+              {t('catalog.organization.delete.actions.cancel')}
+            </Button>
           {/snippet}
         </Dialog.Close>
         <Button variant="destructive" type="submit" disabled={!confirmed || archiving}>
-          {archiving ? 'Archiving...' : 'Archive organization'}
+          {archiving
+            ? t('catalog.organization.delete.actions.archiving')
+            : t('catalog.organization.delete.actions.archive')}
         </Button>
       </Dialog.Footer>
     </form>

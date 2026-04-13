@@ -2,6 +2,7 @@
   import { ChatMarkdownContent } from '$lib/features/chat'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { ChevronRight, Sparkles } from '@lucide/svelte'
+  import { ticketsT } from '$lib/features/tickets'
   import {
     completionSummaryClass,
     completionSummaryLabel,
@@ -63,7 +64,9 @@
           {run.completionSummary.error || 'Post-run summary generation failed.'}
         </p>
       {:else}
-        <p class="text-muted-foreground text-xs">Generating post-run summary...</p>
+        <p class="text-muted-foreground text-xs">
+          {ticketsT('tickets.runSummary.generating')}
+        </p>
       {/if}
     </div>
   {/if}

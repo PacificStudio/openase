@@ -1,5 +1,6 @@
 <script lang="ts">
   import { PageScaffold } from '$lib/components/layout'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
   import { ticketBoardToolbarStore } from '../board-toolbar-store.svelte'
@@ -10,8 +11,8 @@
 </script>
 
 <PageScaffold
-  title="Tickets"
-  description="Track delivery status, filter active work, and open ticket details."
+  title={i18nStore.t('tickets.pageTitle')}
+  description={i18nStore.t('tickets.pageDescription')}
   variant="workspace"
   contentClass="overflow-hidden"
 >

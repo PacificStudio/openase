@@ -8,6 +8,7 @@
     providerAvailabilityHeadline,
     providerAvailabilityLabel,
   } from './availability'
+  import { providersT } from './i18n'
 
   let {
     availabilityState,
@@ -56,7 +57,7 @@
       {#if availabilityReason}
         <div class="space-y-1">
           <div class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-            Signal
+            {providersT('providers.signalLabel')}
           </div>
           <code class="bg-muted text-foreground inline-flex rounded px-2 py-1 text-[11px]">
             {availabilityReason}
@@ -67,7 +68,7 @@
       {#if checkedAtText}
         <div class="space-y-1">
           <div class="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-            Last Checked
+            {providersT('providers.lastCheckedLabel')}
           </div>
           <div class="text-xs">{checkedAtText}</div>
         </div>

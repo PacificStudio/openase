@@ -1612,6 +1612,7 @@ func TestProjectConversationWorkspaceGitDiscardRouteRestoresFile(t *testing.T) {
 		t.Fatalf("expected discarded file to disappear from diff, got %s", diffRec.Body.String())
 	}
 
+	//nolint:gosec // Test reads a fixture-controlled temp repo file.
 	content, err := os.ReadFile(targetPath)
 	if err != nil {
 		t.Fatalf("read restored file: %v", err)

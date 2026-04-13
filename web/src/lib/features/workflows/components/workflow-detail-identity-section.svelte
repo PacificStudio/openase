@@ -12,6 +12,8 @@
   import WorkflowAgentSelectOption from './workflow-agent-select-option.svelte'
   import WorkflowAgentSelectTrigger from './workflow-agent-select-trigger.svelte'
   import ScopeGroupPicker from './scope-group-picker.svelte'
+  import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     draft,
@@ -40,6 +42,10 @@
     ),
   )
 
+  function t(key: TranslationKey, params?: TranslationParams) {
+    return i18nStore.t(key, params)
+  }
+
   function handleScopeChange(scopes: string[]) {
     onFieldChange('platformAccessAllowed', ensureWorkflowRequiredPlatformScopes(scopes).join('\n'))
   }
@@ -51,8 +57,9 @@
       <Label
         for="workflow-name"
         class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-        >Workflow Name</Label
       >
+        {t('workflows.detail.identity.labels.workflowName')}
+      </Label>
       <Input
         id="workflow-name"
         value={draft.name}
@@ -64,8 +71,10 @@
     <div class="space-y-1.5">
       <Label
         for="workflow-type-label"
-        class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Type Label</Label
+        class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
       >
+        {t('workflows.detail.identity.labels.typeLabel')}
+      </Label>
       <Input
         id="workflow-type-label"
         value={draft.typeLabel}
@@ -80,8 +89,10 @@
     <div class="space-y-1.5">
       <Label
         for="workflow-role-name"
-        class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Role Name</Label
+        class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
       >
+        {t('workflows.detail.identity.labels.roleName')}
+      </Label>
       <Input
         id="workflow-role-name"
         value={draft.roleName}
@@ -96,8 +107,9 @@
     <Label
       for="workflow-role-description"
       class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-      >Role Description</Label
     >
+      {t('workflows.detail.identity.labels.roleDescription')}
+    </Label>
     <textarea
       id="workflow-role-description"
       class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
@@ -109,16 +121,18 @@
   </div>
 
   <div class="space-y-1.5">
-    <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-      >Platform Access Allowed</Label
-    >
+    <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+      {t('workflows.detail.identity.labels.platformAccessAllowed')}
+    </Label>
     <div class="bg-muted/40 rounded-md border px-3 py-2 text-xs leading-relaxed">
-      <span class="font-medium">System required.</span>
-      Workflow ticket runtimes always keep
+      <span class="font-medium">
+        {t('workflows.detail.identity.platformAccess.systemRequired')}
+      </span>
+      {t('workflows.detail.identity.platformAccess.description.prefix')}
       <code class="bg-background rounded px-1 py-0.5 font-mono"
         >{REQUIRED_WORKFLOW_PLATFORM_SCOPE}</code
       >
-      so the assigned agent can update its own ticket safely.
+      {t('workflows.detail.identity.platformAccess.description.suffix')}
     </div>
     {#if scopeGroups.length > 0}
       <ScopeGroupPicker
@@ -134,7 +148,7 @@
         class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring min-h-24 w-full rounded-md border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
         value={draft.platformAccessAllowed}
         disabled={saving || deleting}
-        placeholder="One scope per line, e.g. tickets.list"
+        placeholder={t('workflows.detail.identity.placeholders.platformScope')}
         oninput={(event) =>
           onFieldChange(
             'platformAccessAllowed',
@@ -145,15 +159,15 @@
         <code class="bg-background rounded px-1 py-0.5 font-mono"
           >{REQUIRED_WORKFLOW_PLATFORM_SCOPE}</code
         >
-        is always re-applied by the system and cannot be removed.
+        {t('workflows.detail.identity.platformAccess.note')}
       </p>
     {/if}
   </div>
 
   <div class="space-y-1.5">
-    <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-      >Bound Agent</Label
-    >
+    <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+      {t('workflows.detail.identity.labels.boundAgent')}
+    </Label>
     <Select.Root
       type="single"
       value={draft.agentId}

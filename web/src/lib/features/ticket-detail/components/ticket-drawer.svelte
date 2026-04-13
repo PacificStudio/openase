@@ -7,6 +7,7 @@
   import { createTicketDrawerActions } from '../ticket-drawer-actions'
   import TicketDrawerContent from './ticket-drawer-content.svelte'
   import TicketDrawerLoading from './ticket-drawer-loading.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { TicketDetail } from '../types'
 
   let {
@@ -116,8 +117,10 @@
     showCloseButton={false}
   >
     <SheetHeader class="sr-only">
-      <SheetTitle>{drawerState.ticket?.identifier ?? 'Ticket detail'}</SheetTitle>
-      <SheetDescription>Ticket detail drawer</SheetDescription>
+      <SheetTitle>
+        {drawerState.ticket?.identifier ?? i18nStore.t('ticketDetail.drawer.defaultTitle')}
+      </SheetTitle>
+      <SheetDescription>{i18nStore.t('ticketDetail.drawer.defaultDescription')}</SheetDescription>
     </SheetHeader>
 
     {#if drawerState.loading}

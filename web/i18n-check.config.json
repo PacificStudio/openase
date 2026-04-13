@@ -1,0 +1,53 @@
+{
+  "ignorePathPrefixes": [
+    "web/src/lib/api/",
+    "web/src/lib/assets/",
+    "web/src/lib/components/ui/",
+    "web/src/lib/i18n/",
+    "web/src/lib/testing/",
+    "web/src/test/"
+  ],
+  "ignorePathSubstrings": [
+    "/testdata/",
+    ".test.",
+    ".spec.",
+    ".test-support.",
+    ".test-helpers.",
+    ".fixtures."
+  ],
+  "translatableAttributes": ["aria-label", "title", "placeholder", "alt"],
+  "suspiciousPropertyNames": [
+    "label",
+    "title",
+    "description",
+    "placeholder",
+    "message",
+    "subtitle",
+    "helperText",
+    "emptyText",
+    "buttonText",
+    "ctaLabel",
+    "prompt"
+  ],
+  "allowedLiteralPatterns": [
+    "^OpenASE$",
+    "^&(middot|mdash);$",
+    "^⌘[A-Z]$",
+    "^https?://",
+    "^wss?://",
+    "^file:///",
+    "^/[A-Za-z0-9_./:?=&-]+$",
+    "^[A-Z0-9_:-]+$",
+    "^[A-Za-z0-9_.-]+@[A-Za-z0-9.-]+$",
+    "^openase(?: [a-z0-9:_./-]+)+$",
+    "^git@$",
+    "^gh auth (login|token)$",
+    "^ghu_xxx$",
+    "^github_pat_xxx$",
+    "^local_instance_admin:default$",
+    "^org_(owner|admin)$",
+    "^security_setting\\.(read|update)$",
+    "^codex$",
+    "^[a-z0-9_-]+(?:, [a-z0-9_-]+)+$"
+  ]
+}

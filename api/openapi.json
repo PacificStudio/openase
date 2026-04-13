@@ -6381,14 +6381,23 @@
                                     "added": {
                                       "type": "integer"
                                     },
+                                    "old_path": {
+                                      "type": "string"
+                                    },
                                     "path": {
                                       "type": "string"
                                     },
                                     "removed": {
                                       "type": "integer"
                                     },
+                                    "staged": {
+                                      "type": "boolean"
+                                    },
                                     "status": {
                                       "type": "string"
+                                    },
+                                    "unstaged": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "type": "object"

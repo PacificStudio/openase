@@ -6444,9 +6444,12 @@ export interface operations {
                 dirty?: boolean
                 files?: {
                   added?: number
+                  old_path?: string
                   path?: string
                   removed?: number
+                  staged?: boolean
                   status?: string
+                  unstaged?: boolean
                 }[]
                 files_changed?: number
                 name?: string

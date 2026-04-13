@@ -26,6 +26,7 @@
   } from './ticket-run-history-panel-view-model'
   import { groupRunTranscriptBlocks, type NoiseGroup } from '../run-transcript-grouping'
   import type { TicketDetail, TicketRun, TicketRunTranscriptBlock } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     run,
@@ -78,6 +79,7 @@
 
   const displayItems = $derived(groupRunTranscriptBlocks(blocks))
   const isOutputExpanded = (blockId: string) => expandedOutputIds.includes(blockId)
+  const t = i18nStore.t
 </script>
 
 <button
@@ -86,7 +88,9 @@
     'border-border flex w-full items-center gap-2 border-b px-4 py-1.5 text-left text-xs transition',
     selected ? 'bg-muted sticky top-0 z-10' : 'hover:bg-muted/50',
   )}
-  aria-label={`View Attempt ${run.attemptNumber}`}
+  aria-label={t('ticketDetail.runHistoryAttempt.actions.viewAttempt', {
+    attemptNumber: run.attemptNumber,
+  })}
   aria-pressed={selected}
   onclick={() => onSelectRun?.(run.id)}
 >
@@ -127,7 +131,9 @@
 {#if selected}
   <div class="px-4 py-3" data-run-content={run.id}>
     {#if loading}
-      <p class="text-muted-foreground text-xs">Loading transcript…</p>
+      <p class="text-muted-foreground text-xs">
+        {t('ticketDetail.runHistoryAttempt.loadingTranscript')}
+      </p>
     {:else}
       <div class="space-y-3">
         {#if run.completionSummary}
@@ -142,13 +148,17 @@
             onclick={() => void onLoadOlderHistory?.(run.id)}
           >
             {loadingOlderHistory
-              ? 'Loading earlier events…'
-              : `${hiddenOlderCount} earlier events hidden`}
+              ? t('ticketDetail.runHistoryAttempt.actions.loadingEarlierEvents')
+              : t('ticketDetail.runHistoryAttempt.actions.hiddenEvents', {
+                  count: hiddenOlderCount,
+                })}
           </button>
         {/if}
 
         {#if displayItems.length === 0}
-          <p class="text-muted-foreground text-xs">Waiting for transcript events…</p>
+          <p class="text-muted-foreground text-xs">
+            {t('ticketDetail.runHistoryAttempt.status.waiting')}
+          </p>
         {:else}
           <div class="space-y-2">
             {#each displayItems as item (item.type === 'content' ? item.block.id : item.id)}
@@ -268,7 +278,9 @@
           disabled={resumingRetry}
           onclick={() => void onResumeRetry()}
         >
-          {resumingRetry ? 'Continuing…' : 'Continue Retry'}
+          {resumingRetry
+            ? t('ticketDetail.runHistoryAttempt.actions.continuing')
+            : t('ticketDetail.runHistoryAttempt.actions.resumeRetry')}
         </Button>
       </div>
     {/if}
@@ -284,7 +296,7 @@
         class="h-6 px-2 text-[11px]"
         onclick={() => void onJumpToLive?.()}
       >
-        Jump to live
+        {t('ticketDetail.runHistoryAttempt.actions.jumpToLive')}
       </Button>
     </div>
   {/if}

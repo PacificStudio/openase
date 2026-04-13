@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { Bot, Ticket, ShieldCheck } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     runningAgents,
@@ -16,7 +17,9 @@
 </script>
 
 <div class={cn('border-border bg-card rounded-md border p-4', className)}>
-  <h3 class="text-foreground mb-4 text-sm font-medium">Running Now</h3>
+  <h3 class="text-foreground mb-4 text-sm font-medium">
+    {i18nStore.t('dashboard.runningNow.labels.heading')}
+  </h3>
 
   <div class="space-y-4">
     <div class="flex items-center gap-3">
@@ -24,8 +27,13 @@
         <Bot class="size-4 text-emerald-500" />
       </div>
       <div class="min-w-0 flex-1">
-        <span class="text-foreground text-sm">{runningAgents} agents</span>
-        <p class="text-muted-foreground text-xs">Currently executing</p>
+        <span class="text-foreground text-sm">
+          {runningAgents}
+          {i18nStore.t('dashboard.runningNow.labels.agents')}
+        </span>
+        <p class="text-muted-foreground text-xs">
+          {i18nStore.t('dashboard.runningNow.labels.currentlyExecuting')}
+        </p>
       </div>
     </div>
 
@@ -34,8 +42,13 @@
         <Ticket class="size-4 text-blue-500" />
       </div>
       <div class="min-w-0 flex-1">
-        <span class="text-foreground text-sm">{activeTickets} tickets</span>
-        <p class="text-muted-foreground text-xs">In progress</p>
+        <span class="text-foreground text-sm">
+          {activeTickets}
+          {i18nStore.t('dashboard.runningNow.labels.tickets')}
+        </span>
+        <p class="text-muted-foreground text-xs">
+          {i18nStore.t('dashboard.runningNow.labels.inProgress')}
+        </p>
       </div>
     </div>
 
@@ -44,8 +57,13 @@
         <ShieldCheck class="size-4 text-amber-500" />
       </div>
       <div class="min-w-0 flex-1">
-        <span class="text-foreground text-sm">{pendingApprovals} approvals</span>
-        <p class="text-muted-foreground text-xs">Awaiting review</p>
+        <span class="text-foreground text-sm">
+          {pendingApprovals}
+          {i18nStore.t('dashboard.runningNow.labels.approvals')}
+        </span>
+        <p class="text-muted-foreground text-xs">
+          {i18nStore.t('dashboard.runningNow.labels.awaitingReview')}
+        </p>
       </div>
     </div>
   </div>

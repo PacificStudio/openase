@@ -1,6 +1,19 @@
 import type { NotificationRuleEventType } from '$lib/api/contracts'
+import type { TranslationKey } from '$lib/i18n'
+import { i18nStore } from '$lib/i18n/store.svelte'
+import {
+  DEFAULT_TEMPLATE_VARIABLE_GROUPS,
+  SEVERITY_LABEL_KEYS,
+  TEMPLATE_VARIABLE_GROUP_DEFINITIONS,
+  type TemplateVariableGroupDefinition,
+} from './notification-event-catalog-data'
+import type { EventSeverity } from './notification-event-catalog-data'
 
-export type EventSeverity = 'info' | 'warning' | 'critical'
+export type { EventSeverity } from './notification-event-catalog-data'
+
+function translateRaw(key: TranslationKey) {
+  return i18nStore.t(key)
+}
 
 export type EventGroup = {
   key: string
@@ -26,189 +39,25 @@ export type TemplateVariableGroup = {
   variables: TemplateVariable[]
 }
 
-const COMMON_VARS: TemplateVariable[] = [
-  { name: 'event_type', description: 'Event type identifier' },
-  { name: 'project_id', description: 'Project UUID' },
-  { name: 'published_at', description: 'Event timestamp (RFC3339)' },
-]
-
-const TICKET_VARS: TemplateVariable[] = [
-  { name: 'ticket.identifier', description: 'Ticket identifier (e.g. PROJ-42)' },
-  { name: 'ticket.title', description: 'Ticket title' },
-  { name: 'ticket.status_name', description: 'Current status name' },
-  { name: 'ticket.priority', description: 'Priority level' },
-]
-
-const TICKET_SHORTHAND_VARS: TemplateVariable[] = [
-  { name: 'identifier', description: 'Shorthand: ticket identifier' },
-  { name: 'title', description: 'Shorthand: ticket title' },
-  { name: 'status_name', description: 'Shorthand: status name' },
-  { name: 'priority', description: 'Shorthand: priority' },
-]
-
-const HOOK_VARS: TemplateVariable[] = [
-  { name: 'ticket_identifier', description: 'Ticket identifier' },
-  { name: 'hook_name', description: 'Name of the hook' },
-  { name: 'message', description: 'Event message' },
-]
-
-const PR_VARS: TemplateVariable[] = [
-  { name: 'ticket_identifier', description: 'Ticket identifier' },
-  { name: 'pull_request_url', description: 'Pull request URL' },
-  { name: 'message', description: 'Event message' },
-]
-
-const MACHINE_VARS: TemplateVariable[] = [
-  { name: 'machine_id', description: 'Machine UUID' },
-  { name: 'session_id', description: 'Reverse websocket session ID' },
-  { name: 'transport_mode', description: 'Transport mode, for example ws_reverse' },
-  { name: 'connection_mode', description: 'Connection mode, for example reverse_websocket' },
-]
-
-const AGENT_VARS: TemplateVariable[] = [
-  { name: 'agent.name', description: 'Agent name' },
-  { name: 'agent.status', description: 'Agent status' },
-  { name: 'current_ticket_id', description: 'ID of the assigned ticket' },
-  { name: 'ticket_id', description: 'Alias: current ticket ID' },
-  { name: 'name', description: 'Shorthand: agent name' },
-  { name: 'status', description: 'Shorthand: agent status' },
-]
-
-const TEMPLATE_VARS: Record<string, TemplateVariableGroup[]> = {
-  'ticket.created': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.updated': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.status_changed': [
-    {
-      label: 'Ticket',
-      variables: [...TICKET_VARS, { name: 'new_status', description: 'New status after change' }],
-    },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.completed': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.cancelled': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.retry_scheduled': [
-    {
-      label: 'Event',
-      variables: [
-        { name: 'next_retry_at', description: 'Scheduled retry timestamp (RFC3339)' },
-        { name: 'consecutive_errors', description: 'Current consecutive failure count' },
-      ],
-    },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.retry_resumed': [
-    {
-      label: 'Event',
-      variables: [{ name: 'pause_reason', description: 'Previous retry pause reason' }],
-    },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.retry_paused': [
-    {
-      label: 'Event',
-      variables: [
-        { name: 'message', description: 'Event message' },
-        { name: 'pause_reason', description: 'Reason pausing retry' },
-      ],
-    },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'ticket.budget_exhausted': [
-    {
-      label: 'Event',
-      variables: [
-        { name: 'budget_usd', description: 'Configured ticket budget in USD' },
-        { name: 'cost_amount', description: 'Observed ticket cost in USD' },
-      ],
-    },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'agent.claimed': [
-    { label: 'Agent', variables: AGENT_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'agent.failed': [
-    { label: 'Agent', variables: AGENT_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'hook.passed': [
-    { label: 'Hook', variables: HOOK_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'hook.failed': [
-    {
-      label: 'Hook',
-      variables: [...HOOK_VARS, { name: 'error', description: 'Error message' }],
-    },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'pr.opened': [
-    { label: 'Pull Request', variables: PR_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'pr.closed': [
-    { label: 'Pull Request', variables: PR_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'machine.connected': [
-    { label: 'Machine', variables: MACHINE_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'machine.reconnected': [
-    { label: 'Machine', variables: MACHINE_VARS },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'machine.disconnected': [
-    {
-      label: 'Machine',
-      variables: [
-        ...MACHINE_VARS,
-        { name: 'reason', description: 'Disconnect reason when present' },
-      ],
-    },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
-  'machine.daemon_auth_failed': [
-    {
-      label: 'Machine',
-      variables: [
-        ...MACHINE_VARS,
-        { name: 'failure_code', description: 'Structured auth failure code' },
-        { name: 'error', description: 'Underlying auth error message' },
-      ],
-    },
-    { label: 'Common', variables: COMMON_VARS },
-  ],
+function resolveTemplateVariableGroup(
+  group: TemplateVariableGroupDefinition,
+): TemplateVariableGroup {
+  return {
+    label: translateRaw(group.labelKey),
+    variables: group.variables.map((variable) => ({
+      name: variable.name,
+      description: translateRaw(variable.descriptionKey),
+    })),
+  }
 }
 
 export function getTemplateVariables(eventType: string): TemplateVariableGroup[] {
-  return TEMPLATE_VARS[eventType] ?? [{ label: 'Common', variables: COMMON_VARS }]
+  const definitions =
+    TEMPLATE_VARIABLE_GROUP_DEFINITIONS[eventType] ?? DEFAULT_TEMPLATE_VARIABLE_GROUPS
+  return definitions.map(resolveTemplateVariableGroup)
 }
 
+const EVENT_GROUP_OTHER_KEY: TranslationKey = 'settings.notification.eventGroup.other'
 function normalizeSeverity(level: string | undefined): EventSeverity {
   if (level === 'critical' || level === 'warning' || level === 'info') return level
   return 'info'
@@ -219,7 +68,7 @@ function normalizeGroupKey(group: string): string {
 }
 
 function buildCatalogEvent(et: NotificationRuleEventType): CatalogEvent {
-  const groupLabel = et.group || 'Other'
+  const groupLabel = et.group || translateRaw(EVENT_GROUP_OTHER_KEY)
   return {
     eventType: et.event_type,
     label: et.label,
@@ -234,7 +83,7 @@ export function buildEventCatalog(eventTypes: NotificationRuleEventType[]): Even
 
   for (const et of eventTypes) {
     const catalogEvent = buildCatalogEvent(et)
-    const groupLabel = et.group || 'Other'
+    const groupLabel = et.group || translateRaw(EVENT_GROUP_OTHER_KEY)
     const groupKey = catalogEvent.groupKey
 
     const existing = groupMap.get(groupKey)
@@ -261,12 +110,5 @@ export function getSeverity(
 }
 
 export function severityLabel(severity: EventSeverity): string {
-  switch (severity) {
-    case 'info':
-      return 'Info'
-    case 'warning':
-      return 'Warning'
-    case 'critical':
-      return 'Critical'
-  }
+  return translateRaw(SEVERITY_LABEL_KEYS[severity])
 }

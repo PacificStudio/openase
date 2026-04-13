@@ -26,6 +26,7 @@ import {
   type WorkspaceFileLineDiffMarkers,
   type WorkspaceRecentFile,
 } from './project-conversation-workspace-browser-state-helpers'
+import { chatT } from './i18n'
 
 const WORKSPACE_AUTOSAVE_DELAY_MS = 1000
 
@@ -370,7 +371,7 @@ export function createWorkspaceFileEditorStore(input: {
       if (formatted == null) {
         setEditorState(repoPath, filePath, {
           ...editor,
-          errorMessage: 'Formatting is only available for JSON files right now.',
+          errorMessage: chatT('chat.formatDocumentUnavailable'),
         })
         return false
       }
@@ -385,7 +386,7 @@ export function createWorkspaceFileEditorStore(input: {
     } catch (error) {
       setEditorState(repoPath, filePath, {
         ...editor,
-        errorMessage: error instanceof Error ? error.message : 'Failed to format the document.',
+        errorMessage: error instanceof Error ? error.message : chatT('chat.formatDocumentFailed'),
       })
       return false
     }
@@ -403,7 +404,7 @@ export function createWorkspaceFileEditorStore(input: {
       if (formatted == null) {
         setEditorState(repoPath, filePath, {
           ...editor,
-          errorMessage: 'Formatting is only available for a JSON selection right now.',
+          errorMessage: chatT('chat.formatSelectionUnavailable'),
         })
         return false
       }
@@ -418,7 +419,7 @@ export function createWorkspaceFileEditorStore(input: {
     } catch (error) {
       setEditorState(repoPath, filePath, {
         ...editor,
-        errorMessage: error instanceof Error ? error.message : 'Failed to format the selection.',
+        errorMessage: error instanceof Error ? error.message : chatT('chat.formatSelectionFailed'),
       })
       return false
     }
@@ -565,7 +566,7 @@ export function createWorkspaceFileEditorStore(input: {
       setEditorState(repoPath, filePath, {
         ...latestEditor,
         savePhase: 'error',
-        errorMessage: error instanceof Error ? error.message : 'Failed to save the workspace file.',
+        errorMessage: error instanceof Error ? error.message : chatT('chat.workspace.errors.save'),
       })
       return false
     }

@@ -163,8 +163,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
         workspaceDiffLoading: false,
       },
     })
-    await view.findByText('Workspace sync required')
-    await fireEvent.click(view.getByRole('button', { name: 'Sync repos' }))
+    await fireEvent.click(await view.findByRole('button', { name: /Sync Repos/i }))
     await waitFor(() => {
       expect(syncProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1')
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
@@ -222,7 +221,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(1)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(1)
     })
-    await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
+    await fireEvent.click(view.getByRole('button', { name: 'Refresh Workspace Browser' }))
     await waitFor(() => {
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
       expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
@@ -293,7 +292,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     await waitFor(() => {
       expect(view.container.textContent).toContain('export const stable = true;')
     })
-    await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
+    await fireEvent.click(view.getByRole('button', { name: 'Refresh Workspace Browser' }))
     await waitFor(() => {
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(2)
@@ -419,7 +418,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     await waitFor(() => {
       expect(view.container.textContent).toContain('export const stable = true;')
     })
-    await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
+    await fireEvent.click(view.getByRole('button', { name: 'Refresh Workspace Browser' }))
     await waitFor(() =>
       expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
         repoPath: 'services/openase',

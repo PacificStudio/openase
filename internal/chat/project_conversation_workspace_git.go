@@ -1240,7 +1240,8 @@ func (s *ProjectConversationService) UnstageWorkspace(
 	}
 
 	if headExists {
-		args := []string{"git", "-C", resolved.repo.repoPath, "reset", "--quiet", "HEAD", "--"}
+		args := make([]string, 0, 7+len(headPaths))
+		args = append(args, "git", "-C", resolved.repo.repoPath, "reset", "--quiet", "HEAD", "--")
 		args = append(args, headPaths...)
 		if _, err := s.runProjectConversationGitCommand(ctx, resolved.machine, args, false); err != nil {
 			return ProjectConversationWorkspaceUnstageResult{}, err

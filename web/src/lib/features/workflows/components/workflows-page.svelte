@@ -5,6 +5,7 @@
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
   import WorkflowTemplateGallery from './workflow-template-gallery.svelte'
   import { createWorkflowsPageController } from './workflows-page-controller.svelte'
+  import { t } from './i18n'
 
   const controller = createWorkflowsPageController()
 </script>
@@ -19,8 +20,8 @@
 {/snippet}
 
 <PageScaffold
-  title="Workflows"
-  description="Edit published harnesses and manage workflow lifecycle settings."
+  title={t('workflows.page.title')}
+  description={t('workflows.page.description')}
   variant="workspace"
   {actions}
 >

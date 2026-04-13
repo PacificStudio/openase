@@ -1,4 +1,5 @@
 import { formatRelativeTime } from '$lib/utils'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import type { MachineItem, MachineSnapshot } from '../types'
 
 export type StatusDot = {
@@ -36,12 +37,12 @@ export function buildStatusDots(
       label: machine.last_heartbeat_at
         ? formatRelativeTime(machine.last_heartbeat_at)
         : 'No heartbeat',
-      description: 'Heartbeat',
+      description: i18nStore.t('machines.shared.heartbeat'),
       color: machine.last_heartbeat_at ? 'green' : 'gray',
     },
     {
       key: 'l1',
-      label: 'Reachability',
+      label: i18nStore.t('machines.shared.reachability'),
       description:
         monitor?.l1?.reachable === true
           ? 'Reachable'
@@ -52,7 +53,7 @@ export function buildStatusDots(
     },
     {
       key: 'l2',
-      label: 'System',
+      label: i18nStore.t('machines.shared.system'),
       description:
         snapshot?.cpuUsagePercent !== undefined
           ? `CPU ${snapshot.cpuUsagePercent.toFixed(0)}%`
@@ -67,7 +68,7 @@ export function buildStatusDots(
     },
     {
       key: 'l4',
-      label: 'Runtime',
+      label: i18nStore.t('machines.shared.runtime'),
       description: snapshot?.agentEnvironment.length
         ? `${snapshot.agentEnvironment.filter((runtime) => runtime.ready).length}/${snapshot.agentEnvironment.length} ready`
         : 'Not checked',
@@ -75,7 +76,7 @@ export function buildStatusDots(
     },
     {
       key: 'l5',
-      label: 'Tooling',
+      label: i18nStore.t('machines.shared.tooling'),
       description: snapshot?.fullAudit?.checkedAt ? 'Audit captured' : 'Not checked',
       color: monitorColor(monitor?.l5),
     },
@@ -106,7 +107,7 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
     },
     {
       key: 'memory',
-      label: 'Memory',
+      label: i18nStore.t('machines.shared.memory'),
       percent:
         snapshot?.memoryTotalGB && snapshot.memoryUsedGB !== undefined
           ? clampPercent((snapshot.memoryUsedGB / snapshot.memoryTotalGB) * 100)
@@ -127,7 +128,7 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
     },
     {
       key: 'disk',
-      label: 'Disk',
+      label: i18nStore.t('machines.shared.disk'),
       percent:
         snapshot?.diskTotalGB && snapshot.diskAvailableGB !== undefined
           ? clampPercent(
@@ -180,7 +181,7 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
               ),
             },
             {
-              label: 'Util',
+              label: i18nStore.t('machines.shared.utilization'),
               percent: clampPercent(gpuAverage ?? 0),
               barClass: snapshot.gpuDispatchable ? 'bg-sky-500' : 'bg-slate-400',
             },

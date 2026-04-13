@@ -9,14 +9,7 @@
   import { cn } from '$lib/utils'
   import * as Popover from '$ui/popover'
   import * as Command from '$ui/command'
-  import {
-    ChevronRight,
-    ChevronDown,
-    GitBranch,
-    Minus,
-    Plus,
-    Undo2,
-  } from '@lucide/svelte'
+  import { ChevronRight, ChevronDown, GitBranch, Minus, Plus, Undo2 } from '@lucide/svelte'
   import { fileIcon, formatTotals } from './project-conversation-workspace-browser-helpers'
   import {
     dirtyFileColorClass,
@@ -443,7 +436,9 @@
                 />
                 Staged
                 <span class="sr-only">{stagedFileCount} staged</span>
-                <span class="text-muted-foreground/50 ml-auto text-[9px] font-normal normal-case tracking-normal">
+                <span
+                  class="text-muted-foreground/50 ml-auto text-[9px] font-normal tracking-normal normal-case"
+                >
                   {stagedFileCount}
                 </span>
               </button>
@@ -531,7 +526,9 @@
                   )}
                 />
                 Changes
-                <span class="text-muted-foreground/50 ml-auto text-[9px] font-normal normal-case tracking-normal">
+                <span
+                  class="text-muted-foreground/50 ml-auto text-[9px] font-normal tracking-normal normal-case"
+                >
                   {unstagedFileCount}
                 </span>
               </button>
@@ -587,7 +584,9 @@
                   {:else}
                     <span class="shrink-0 font-mono text-[9px] font-bold text-amber-500">M</span>
                   {/if}
-                  <div class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div
+                    class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+                  >
                     <button
                       type="button"
                       class="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-0.5 transition-colors"
@@ -637,7 +636,9 @@
     border-radius: 0 !important;
     border-bottom: 1px solid var(--color-border) !important;
   }
-  :global(.branch-picker-popover [data-slot='command-input-wrapper'] [data-slot='input-group-addon']) {
+  :global(
+    .branch-picker-popover [data-slot='command-input-wrapper'] [data-slot='input-group-addon']
+  ) {
     display: none;
   }
   :global(.branch-picker-popover [data-slot='command-input']) {

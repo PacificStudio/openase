@@ -12,6 +12,7 @@
   import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
   import { ChevronRight, Wrench } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     draft,
@@ -40,7 +41,9 @@
 
 <Card.Root class="rounded-2xl">
   <Card.Header>
-    <Card.Title>Create project</Card.Title>
+    <Card.Title>
+      {i18nStore.t('catalog.project.panel.title')}
+    </Card.Title>
   </Card.Header>
 
   <Card.Content>
@@ -52,22 +55,26 @@
       }}
     >
       <div class="space-y-2">
-        <Label for="project-name">Name</Label>
+        <Label for="project-name">
+          {i18nStore.t('catalog.project.dialog.labels.name')}
+        </Label>
         <Input
           id="project-name"
           value={draft.name}
-          placeholder="Automation Platform"
+          placeholder={i18nStore.t('catalog.project.dialog.placeholders.name')}
           oninput={(event) => onNameInput?.((event.currentTarget as HTMLInputElement).value)}
         />
       </div>
 
       <div class="space-y-2">
-        <Label for="project-description">Description</Label>
+        <Label for="project-description">
+          {i18nStore.t('catalog.project.dialog.labels.description')}
+        </Label>
         <Textarea
           id="project-description"
           rows={2}
           value={draft.description}
-          placeholder="Brief project description"
+          placeholder={i18nStore.t('catalog.project.dialog.placeholders.description')}
           oninput={(event) =>
             onFieldChange?.('description', (event.currentTarget as HTMLTextAreaElement).value)}
         />
@@ -75,7 +82,9 @@
 
       <div class="grid gap-4 md:grid-cols-2">
         <div class="space-y-2">
-          <Label>Status</Label>
+          <Label>
+            {i18nStore.t('catalog.project.dialog.labels.status')}
+          </Label>
           <Select.Root
             type="single"
             value={draft.status}
@@ -91,7 +100,9 @@
         </div>
 
         <div class="space-y-2">
-          <Label>Provider</Label>
+          <Label>
+            {i18nStore.t('catalog.project.dialog.labels.provider')}
+          </Label>
           <Select.Root
             type="single"
             value={draft.defaultAgentProviderId}
@@ -113,11 +124,13 @@
                   </span>
                 </span>
               {:else}
-                None
+                {i18nStore.t('catalog.project.dialog.labels.none')}
               {/if}
             </Select.Trigger>
             <Select.Content>
-              <Select.Item value="">None</Select.Item>
+              <Select.Item value="">
+                {i18nStore.t('catalog.project.dialog.labels.none')}
+              </Select.Item>
               {#each providers as provider (provider.id)}
                 {@const iconPath = adapterIconPath(provider.adapter_type)}
                 <Select.Item value={provider.id}>
@@ -152,31 +165,35 @@
               class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
             >
               <ChevronRight class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}" />
-              Advanced settings
+              {i18nStore.t('catalog.project.dialog.actions.advanced')}
             </button>
           {/snippet}
         </Collapsible.Trigger>
         <Collapsible.Content>
           <div class="mt-3 grid gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <Label for="project-slug">Slug</Label>
+              <Label for="project-slug">
+                {i18nStore.t('catalog.project.dialog.labels.slug')}
+              </Label>
               <Input
                 id="project-slug"
                 value={draft.slug}
-                placeholder="auto-generated"
+                placeholder={i18nStore.t('catalog.project.dialog.placeholders.slug')}
                 oninput={(event) => onSlugInput?.((event.currentTarget as HTMLInputElement).value)}
               />
             </div>
 
             <div class="space-y-2">
-              <Label for="project-max-concurrent-agents">Max agents</Label>
+              <Label for="project-max-concurrent-agents">
+                {i18nStore.t('catalog.project.dialog.labels.maxAgents')}
+              </Label>
               <Input
                 id="project-max-concurrent-agents"
                 type="number"
                 min="1"
                 step="1"
                 value={draft.maxConcurrentAgents}
-                placeholder="Unlimited"
+                placeholder={i18nStore.t('catalog.project.dialog.placeholders.unlimited')}
                 oninput={(event) =>
                   onFieldChange?.(
                     'maxConcurrentAgents',
@@ -190,7 +207,9 @@
 
       <div class="flex justify-end">
         <Button type="submit" disabled={creating}>
-          {creating ? 'Creating…' : 'Create project'}
+          {creating
+            ? i18nStore.t('catalog.project.dialog.actions.creating')
+            : i18nStore.t('catalog.project.dialog.actions.create')}
         </Button>
       </div>
     </form>

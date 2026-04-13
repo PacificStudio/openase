@@ -6,6 +6,8 @@
   import * as Popover from '$ui/popover'
   import { ChevronDown, ChevronUp, Link, Unlink } from '@lucide/svelte'
   import type { SkillState } from '../model'
+  import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     skill,
@@ -21,6 +23,10 @@
   let loadError = $state('')
   let expanded = $state(false)
 
+  function t(key: TranslationKey, params?: TranslationParams) {
+    return i18nStore.t(key, params)
+  }
+
   async function fetchContent() {
     if (content !== null || loadingContent) return
     loadingContent = true
@@ -29,7 +35,7 @@
       const payload = await getSkill(skill.id)
       content = payload.content || ''
     } catch {
-      loadError = 'Failed to load skill content.'
+      loadError = t('workflows.skills.popover.errors.loadFailed')
     } finally {
       loadingContent = false
     }
@@ -91,7 +97,9 @@
               skill.bound ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
             )}
           >
-            {skill.bound ? 'Bound' : 'Unbound'}
+            {skill.bound
+              ? t('workflows.skills.popover.status.bound')
+              : t('workflows.skills.popover.status.unbound')}
           </span>
         </div>
         {#if skill.description}
@@ -131,15 +139,19 @@
             >
               {#if expanded}
                 <ChevronUp class="size-3" />
-                Show less
+                {t('workflows.skills.popover.actions.showLess')}
               {:else}
                 <ChevronDown class="size-3" />
-                {contentLines.length - 12} more lines
+                {t('workflows.skills.popover.actions.moreLines', {
+                  count: contentLines.length - 12,
+                })}
               {/if}
             </button>
           {/if}
         {:else}
-          <p class="text-muted-foreground pb-1 text-xs italic">No content.</p>
+          <p class="text-muted-foreground pb-1 text-xs italic">
+            {t('workflows.skills.popover.labels.noContent')}
+          </p>
         {/if}
       </div>
     </div>
@@ -155,10 +167,10 @@
       >
         {#if skill.bound}
           <Unlink class="size-3" />
-          Unbind
+          {t('workflows.skills.popover.actions.unbind')}
         {:else}
           <Link class="size-3" />
-          Bind
+          {t('workflows.skills.popover.actions.bind')}
         {/if}
       </Button>
     </div>

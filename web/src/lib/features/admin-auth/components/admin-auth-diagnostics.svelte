@@ -4,6 +4,7 @@
   import { Badge } from '$ui/badge'
   import * as Collapsible from '$ui/collapsible'
   import { CheckCircle2, ChevronDown, LockKeyhole } from '@lucide/svelte'
+  import { adminAuthT } from './i18n'
 
   let {
     auth,
@@ -28,7 +29,9 @@
   <div class="border-border bg-card rounded-2xl border">
     <Collapsible.Trigger class="flex w-full items-center justify-between px-5 py-4 text-left">
       <div class="flex items-center gap-3">
-        <span class="text-sm font-semibold">Validation</span>
+        <span class="text-sm font-semibold">
+          {adminAuthT('adminAuth.diagnostics.title')}
+        </span>
         <Badge
           variant={auth.last_validation.status === 'ok'
             ? 'secondary'
@@ -64,29 +67,39 @@
         <!-- Endpoint details -->
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
-            <div class="text-muted-foreground text-xs">Issuer</div>
+            <div class="text-muted-foreground text-xs">
+              {adminAuthT('adminAuth.diagnostics.issuerLabel')}
+            </div>
             <div class="mt-1 text-sm break-all">
-              {auth.last_validation.issuer_url || 'Not recorded'}
+              {auth.last_validation.issuer_url || adminAuthT('adminAuth.diagnostics.notRecorded')}
             </div>
           </div>
           <div>
-            <div class="text-muted-foreground text-xs">Authorization endpoint</div>
+            <div class="text-muted-foreground text-xs">
+              {adminAuthT('adminAuth.diagnostics.authorizationEndpointLabel')}
+            </div>
             <div class="mt-1 text-sm break-all">
-              {auth.last_validation.authorization_endpoint || 'Not recorded'}
+              {auth.last_validation.authorization_endpoint ||
+                adminAuthT('adminAuth.diagnostics.notRecorded')}
             </div>
           </div>
           <div>
-            <div class="text-muted-foreground text-xs">Token endpoint</div>
+            <div class="text-muted-foreground text-xs">
+              {adminAuthT('adminAuth.diagnostics.tokenEndpointLabel')}
+            </div>
             <div class="mt-1 text-sm break-all">
-              {auth.last_validation.token_endpoint || 'Not recorded'}
+              {auth.last_validation.token_endpoint ||
+                adminAuthT('adminAuth.diagnostics.notRecorded')}
             </div>
           </div>
           <div>
-            <div class="text-muted-foreground text-xs">Redirect URL</div>
+            <div class="text-muted-foreground text-xs">
+              {adminAuthT('adminAuth.diagnostics.redirectUrlLabel')}
+            </div>
             <div class="mt-1 text-sm break-all">
               {auth.last_validation.redirect_url ||
                 auth.oidc_draft.fixed_redirect_url ||
-                'Not configured'}
+                adminAuthT('adminAuth.diagnostics.notConfigured')}
             </div>
           </div>
         </div>
@@ -111,7 +124,7 @@
                 <div class="font-medium">{transition.message}</div>
                 {#if transition.restart_required}
                   <div class="text-xs font-medium tracking-wide text-emerald-800 uppercase">
-                    Restart required
+                    {adminAuthT('adminAuth.diagnostics.restartRequired')}
                   </div>
                 {/if}
                 <ol class="list-inside list-decimal space-y-1 text-xs leading-relaxed">

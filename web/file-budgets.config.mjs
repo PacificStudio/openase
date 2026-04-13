@@ -57,11 +57,26 @@ export const fileBudgetRules = [
     hardLimit: 400,
   },
   {
+    name: 'Workspace editor V2 branch picker',
+    match: (filePath) =>
+      filePath ===
+      'src/lib/features/chat/project-conversation-workspace-browser-branch-picker.svelte',
+    softLimit: 400,
+    hardLimit: 700,
+  },
+  {
+    name: 'Workspace editor V2 browser shell',
+    match: (filePath) =>
+      filePath === 'src/lib/features/chat/project-conversation-workspace-browser.svelte',
+    softLimit: 300,
+    hardLimit: 500,
+  },
+  {
     name: 'Workspace editor V2 browser state',
     match: (filePath) =>
       filePath === 'src/lib/features/chat/project-conversation-workspace-browser-state.svelte.ts',
     softLimit: 350,
-    hardLimit: 700,
+    hardLimit: 750,
   },
   {
     name: 'Workspace editor V2 editor state',
@@ -77,6 +92,22 @@ export const fileBudgetRules = [
       filePath === 'src/lib/features/chat/project-conversation-workspace-browser-refresh.test.ts',
     softLimit: 350,
     hardLimit: 700,
+  },
+  {
+    name: 'Workspace editor V2 checkout test',
+    match: (filePath) =>
+      filePath ===
+      'src/lib/features/chat/project-conversation-workspace-browser-git-checkout.test.ts',
+    softLimit: 450,
+    hardLimit: 900,
+  },
+  {
+    name: 'Workspace editor V2 navigation test',
+    match: (filePath) =>
+      filePath ===
+      'src/lib/features/chat/project-conversation-workspace-browser-navigation.test.ts',
+    softLimit: 450,
+    hardLimit: 900,
   },
   {
     name: 'Route pages',

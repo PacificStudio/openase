@@ -154,7 +154,9 @@ export function computeDraftLineDiff(
   }
 }
 
-export function isWorkspaceFileLineDiffEmpty(markers: WorkspaceFileLineDiffMarkers | null): boolean {
+export function isWorkspaceFileLineDiffEmpty(
+  markers: WorkspaceFileLineDiffMarkers | null,
+): boolean {
   return (
     markers == null ||
     (markers.added.length === 0 &&

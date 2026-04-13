@@ -1,5 +1,7 @@
 <script lang="ts">
   import { toastStore } from '$lib/stores/toast.svelte'
+  import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type {
     ScopeGroup,
     WorkflowAgentOption,
@@ -22,6 +24,10 @@
     workflowImpactFromError,
   } from '../workflow-api-errors'
   import WorkflowDetailPanel from './workflow-detail-panel.svelte'
+
+  function t(key: TranslationKey, params?: TranslationParams) {
+    return i18nStore.t(key, params)
+  }
 
   let {
     workflow,
@@ -52,9 +58,11 @@
     try {
       const updated = await saveWorkflowLifecycle(workflow.id, payload, statuses, workflow)
       onWorkflowsChange?.(workflows.map((item) => (item.id === updated.id ? updated : item)))
-      toastStore.success('Workflow updated.')
+      toastStore.success(t('workflows.lifecycle.sidebar.toast.updated'))
     } catch (caughtError) {
-      toastStore.error(describeWorkflowApiError(caughtError, 'Failed to update workflow.'))
+      toastStore.error(
+        describeWorkflowApiError(caughtError, t('workflows.lifecycle.sidebar.toast.updateFailed')),
+      )
     } finally {
       saving = false
     }
@@ -67,9 +75,7 @@
       if (workflow.isActive) {
         const updated = await retireWorkflowLifecycle(workflow.id, statuses, workflow)
         onWorkflowsChange?.(workflows.map((item) => (item.id === updated.id ? updated : item)))
-        toastStore.success(
-          'Workflow retired. It will no longer receive new pickup or scheduled traffic.',
-        )
+        toastStore.success(t('workflows.lifecycle.sidebar.toast.retired'))
         return
       }
 
@@ -99,14 +105,16 @@
       const nextState = removeWorkflowFromList(workflows, workflow.id)
       onWorkflowsChange?.(nextState.remaining)
       onSelectedIdChange?.(nextState.nextSelectedId)
-      toastStore.success('Workflow deleted.')
+      toastStore.success(t('workflows.lifecycle.sidebar.toast.deleted'))
     } catch (caughtError) {
       const impact = workflowImpactFromError(caughtError)
       if (impact) {
         toastStore.error(describeWorkflowImpact(impact))
         return
       }
-      toastStore.error(describeWorkflowApiError(caughtError, 'Failed to delete workflow.'))
+      toastStore.error(
+        describeWorkflowApiError(caughtError, t('workflows.lifecycle.sidebar.toast.deleteFailed')),
+      )
     } finally {
       deleting = false
     }
@@ -118,12 +126,13 @@
       return null
     }
 
-    const message = [
-      'This workflow still has replaceable ticket or scheduled job references.',
-      'Enter the replacement workflow ID to migrate those references before purge.',
+    const messageLines = [
+      t('workflows.lifecycle.sidebar.prompt.replacementReferences'),
+      t('workflows.lifecycle.sidebar.prompt.replacementInstructions'),
       '',
       ...replacementChoices.map((item) => `${item.id}  ${item.name}`),
-    ].join('\n')
+    ]
+    const message = messageLines.join('\n')
 
     const input = window.prompt(message, replacementChoices[0]?.id ?? '')
     const replacementId = input?.trim()
@@ -136,17 +145,26 @@
   function describeReplacementResult(result: WorkflowReplaceReferencesResult, canPurge: boolean) {
     const moved: string[] = []
     if (result.ticket_count > 0) {
-      moved.push(`${result.ticket_count} active tickets`)
+      moved.push(
+        t('workflows.lifecycle.sidebar.replacementResult.activeTickets', {
+          count: result.ticket_count,
+        }),
+      )
     }
     if (result.scheduled_job_count > 0) {
-      moved.push(`${result.scheduled_job_count} scheduled jobs`)
+      moved.push(
+        t('workflows.lifecycle.sidebar.replacementResult.scheduledJobs', {
+          count: result.scheduled_job_count,
+        }),
+      )
     }
-    const summary = moved.length > 0 ? moved.join(', ') : 'No references'
+    const summary =
+      moved.length > 0 ? moved.join(', ') : t('workflows.lifecycle.sidebar.replacementResult.none')
 
     if (canPurge) {
-      return `${summary} moved to the replacement workflow. Purging will continue.`
+      return t('workflows.lifecycle.sidebar.replacementResult.canPurge', { summary })
     }
-    return `${summary} moved to the replacement workflow.`
+    return t('workflows.lifecycle.sidebar.replacementResult.cannotPurge', { summary })
   }
 </script>
 

@@ -2,6 +2,7 @@
   import type { SkillFile } from '$lib/api/contracts'
   import { CodeEditor } from '$lib/components/code'
   import { FileWarning } from '@lucide/svelte'
+  import { skillsT } from './i18n'
 
   let {
     file,
@@ -19,7 +20,7 @@
 
 {#if !file}
   <div class="text-muted-foreground flex h-full flex-col items-center justify-center gap-2 text-sm">
-    <p>Select a file from the tree to view or edit it.</p>
+    <p>{skillsT('skills.fileEditor.empty')}</p>
   </div>
 {:else if isBinary}
   <div class="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 text-sm">

@@ -2,6 +2,7 @@
   import { Checkbox } from '$ui/checkbox'
   import { ChevronRight } from '@lucide/svelte'
   import type { ScopeGroup } from '../types'
+  import { t } from './i18n'
 
   let {
     groups = [],
@@ -123,7 +124,7 @@
                 <span
                   class="text-primary rounded-full border border-current px-1.5 py-0.5 text-[10px] font-medium uppercase"
                 >
-                  Required
+                  {t('workflows.lifecycle.scopePicker.requiredBadge')}
                 </span>
               {/if}
             </label>

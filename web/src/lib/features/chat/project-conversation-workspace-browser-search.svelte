@@ -6,6 +6,7 @@
     ProjectConversationWorkspaceTreeEntry,
   } from '$lib/api/chat'
   import { fileIcon } from './project-conversation-workspace-browser-helpers'
+  import { chatT } from './i18n'
 
   type RecentFile = { repoPath: string; filePath: string }
   type SearchResult = { path: string; kind: 'recent' | 'tree' | 'search' }
@@ -175,7 +176,7 @@
       bind:this={inputEl}
       bind:value={query}
       type="text"
-      placeholder="Search…"
+      placeholder={chatT('chat.explorer.searchPlaceholder')}
       class="placeholder:text-muted-foreground/40 min-w-0 flex-1 bg-transparent text-[11px] outline-none"
       onfocus={() => (focused = true)}
       onblur={onInputBlur}
@@ -187,7 +188,7 @@
         type="button"
         class="text-muted-foreground/40 hover:text-muted-foreground shrink-0"
         onclick={clearQuery}
-        aria-label="Clear search"
+        aria-label={chatT('chat.explorer.clearSearch')}
       >
         <X class="size-2.5" />
       </button>
@@ -206,15 +207,19 @@
         <div
           class="text-muted-foreground/50 px-2 pt-1 pb-0.5 text-[9px] font-semibold tracking-wider uppercase"
         >
-          Recent
+          {chatT('chat.explorer.recent')}
         </div>
       {/if}
 
       {#if searching}
-        <div class="text-muted-foreground/50 px-2.5 py-1.5 text-[10px]">Searching…</div>
+        <div class="text-muted-foreground/50 px-2.5 py-1.5 text-[10px]">
+          {chatT('chat.explorer.searching')}
+        </div>
       {:else if results.length === 0}
         <div class="text-muted-foreground/50 px-2.5 py-1.5 text-[10px]">
-          {query === '' ? 'No recent files' : `No matches for "${query}"`}
+          {query === ''
+            ? chatT('chat.explorer.noRecentFiles')
+            : chatT('chat.explorer.noMatches', { query })}
         </div>
       {:else}
         {#each results as result (result.path)}

@@ -13,6 +13,7 @@
   import * as Select from '$ui/select'
   import { Loader2, Ticket, Info, CheckCircle2 } from '@lucide/svelte'
   import { bootstrapPresets, getBootstrapPreset } from '../model'
+  import { onboardingT } from '../i18n'
   import type { BootstrapPresetKey } from '../types'
 
   let {
@@ -71,17 +72,21 @@
     void load()
   })
 
-  const pickupStatusLabel = $derived(pickupStatus ? `enter "${pickupStatus.name}"` : '—')
+  const pickupStatusLabel = $derived(
+    pickupStatus
+      ? onboardingT('onboarding.firstTicket.labels.pickupStatus.enter', {
+          statusName: pickupStatus.name,
+        })
+      : onboardingT('onboarding.firstTicket.labels.pickupStatus.unavailable'),
+  )
 
   async function handleCreate() {
     if (!title.trim()) {
-      toastStore.error('Enter a ticket title.')
+      toastStore.error(onboardingT('onboarding.firstTicket.toasts.titleRequired'))
       return
     }
     if (!pickupStatus) {
-      toastStore.error(
-        'Could not find the recommended pickup status. Check the project status configuration first.',
-      )
+      toastStore.error(onboardingT('onboarding.firstTicket.toasts.pickupStatusMissing'))
       return
     }
     creating = true
@@ -93,14 +98,20 @@
         repo_scopes: selectedRepoId ? [{ repo_id: selectedRepoId }] : undefined,
       })
 
-      toastStore.success(`Ticket ${payload.ticket.identifier} created.`)
+      toastStore.success(
+        onboardingT('onboarding.firstTicket.toasts.created', {
+          identifier: payload.ticket.identifier,
+        }),
+      )
       onComplete()
 
       // Navigate to ticket detail by opening right panel
       appStore.openRightPanel({ type: 'ticket', id: payload.ticket.id })
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the ticket.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : onboardingT('onboarding.firstTicket.toasts.creationFailed'),
       )
     } finally {
       creating = false
@@ -117,9 +128,16 @@
       <Ticket class="text-muted-foreground size-4 shrink-0" />
       <div>
         <p class="text-foreground text-sm font-medium">
-          {ticketCount} ticket{ticketCount === 1 ? '' : 's'} created
+          {onboardingT(
+            ticketCount === 1
+              ? 'onboarding.firstTicket.status.createdTickets.one'
+              : 'onboarding.firstTicket.status.createdTickets.other',
+            { count: ticketCount },
+          )}
         </p>
-        <p class="text-muted-foreground text-xs">Open the Tickets page to view details</p>
+        <p class="text-muted-foreground text-xs">
+          {onboardingT('onboarding.firstTicket.status.viewDetails')}
+        </p>
       </div>
       <Button
         variant="outline"
@@ -127,13 +145,15 @@
         class="ml-auto"
         onclick={() => void goto(projectPath(orgId, projectId, 'tickets'))}
       >
-        View Tickets
+        {onboardingT('onboarding.firstTicket.actions.viewTickets')}
       </Button>
     </div>
   {:else}
     <div class="space-y-3">
       <div>
-        <p class="text-foreground mb-1 text-xs font-medium">Ticket title</p>
+        <p class="text-foreground mb-1 text-xs font-medium">
+          {onboardingT('onboarding.firstTicket.fields.title')}
+        </p>
         <Input
           bind:value={title}
           placeholder={preset.exampleTicketTitle}
@@ -143,7 +163,9 @@
       </div>
 
       <div>
-        <p class="text-foreground mb-1 text-xs font-medium">Description (optional)</p>
+        <p class="text-foreground mb-1 text-xs font-medium">
+          {onboardingT('onboarding.firstTicket.fields.descriptionOptional')}
+        </p>
         <Textarea
           bind:value={description}
           placeholder={preset.exampleTicketDescription}
@@ -155,7 +177,9 @@
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {#if repos.length > 1}
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Repository scope</p>
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {onboardingT('onboarding.firstTicket.fields.repoScope')}
+            </p>
             <Select.Root
               type="single"
               value={selectedRepoId}
@@ -164,7 +188,8 @@
               }}
             >
               <Select.Trigger class="h-9 w-full text-sm">
-                {repos.find((r) => r.id === selectedRepoId)?.name ?? 'Select a repository'}
+                {repos.find((r) => r.id === selectedRepoId)?.name ??
+                  onboardingT('onboarding.firstTicket.fields.selectRepository')}
               </Select.Trigger>
               <Select.Content>
                 {#each repos as repo (repo.id)}
@@ -181,23 +206,21 @@
         <Info class="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
         <div class="text-muted-foreground space-y-1 text-xs">
           <p>
-            The ticket will {pickupStatusLabel}, and the orchestrator will automatically pick it up
-            and assign it to an agent based on the status pickup rules.
+            {onboardingT('onboarding.firstTicket.info.ticketWill', {
+              pickupStatusLabel,
+            })}
           </p>
-          <p>
-            The agent's progress will appear in real time on the timeline in the ticket details
-            view.
-          </p>
+          <p>{onboardingT('onboarding.firstTicket.info.agentProgress')}</p>
         </div>
       </div>
 
       <Button class="w-full" onclick={handleCreate} disabled={creating || !title.trim()}>
         {#if creating}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Creating...
+          {onboardingT('onboarding.firstTicket.actions.creating')}
         {:else}
           <Ticket class="mr-1.5 size-3.5" />
-          Create ticket
+          {onboardingT('onboarding.firstTicket.actions.create')}
         {/if}
       </Button>
     </div>

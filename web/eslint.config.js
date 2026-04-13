@@ -99,12 +99,31 @@ export default defineConfig(
     },
   },
   {
+    files: [
+      'src/lib/features/chat/project-conversation-workspace-browser-branch-picker.svelte',
+      'src/lib/features/chat/project-conversation-workspace-browser-sidebar.svelte',
+      'src/lib/features/chat/project-conversation-workspace-browser.svelte',
+    ],
+    rules: {
+      'max-lines': ['error', { max: 700, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
     files: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}'],
     rules: {
       'max-lines': [
         'error',
         { max: fileBudgetLimits.featureTest.hard, skipBlankLines: true, skipComments: true },
       ],
+    },
+  },
+  {
+    files: [
+      'src/lib/features/chat/project-conversation-workspace-browser-git-checkout.test.ts',
+      'src/lib/features/chat/project-conversation-workspace-browser-navigation.test.ts',
+    ],
+    rules: {
+      'max-lines': ['error', { max: 900, skipBlankLines: true, skipComments: true }],
     },
   },
   {

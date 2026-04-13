@@ -5,17 +5,37 @@
   import Clock from '@lucide/svelte/icons/clock'
   import ChevronDown from '@lucide/svelte/icons/chevron-down'
   import { cn, formatRelativeTime } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { HookExecution } from '../types'
 
   let { hooks }: { hooks: HookExecution[] } = $props()
 
   let expandedId = $state<string | null>(null)
 
-  const statusConfig: Record<string, { icon: typeof CircleCheck; class: string; label: string }> = {
-    pass: { icon: CircleCheck, class: 'text-green-400', label: 'Pass' },
-    fail: { icon: CircleX, class: 'text-red-400', label: 'Fail' },
-    running: { icon: Loader, class: 'text-yellow-400 animate-spin', label: 'Running' },
-    timeout: { icon: Clock, class: 'text-orange-400', label: 'Timeout' },
+  const statusConfig: Record<
+    string,
+    { icon: typeof CircleCheck; class: string; labelKey: string }
+  > = {
+    pass: {
+      icon: CircleCheck,
+      class: 'text-green-400',
+      labelKey: 'ticketDetail.hooks.status.pass',
+    },
+    fail: {
+      icon: CircleX,
+      class: 'text-red-400',
+      labelKey: 'ticketDetail.hooks.status.fail',
+    },
+    running: {
+      icon: Loader,
+      class: 'text-yellow-400 animate-spin',
+      labelKey: 'ticketDetail.hooks.status.running',
+    },
+    timeout: {
+      icon: Clock,
+      class: 'text-orange-400',
+      labelKey: 'ticketDetail.hooks.status.timeout',
+    },
   }
 
   function toggle(id: string) {
@@ -25,11 +45,13 @@
 
 <div class="flex flex-col gap-2">
   <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-    Hook Executions
+    {i18nStore.t('ticketDetail.hooks.title')}
   </span>
 
   {#if hooks.length === 0}
-    <p class="text-muted-foreground py-4 text-center text-xs">No hook executions yet</p>
+    <p class="text-muted-foreground py-4 text-center text-xs">
+      {i18nStore.t('ticketDetail.hooks.empty')}
+    </p>
   {/if}
 
   {#each hooks as hook}

@@ -11,6 +11,7 @@ import {
 import { createProjectUpdateMutationHandlers } from './project-updates-controller-mutations'
 import { markProjectUpdatesCacheDirty, readProjectUpdatesCache } from './project-updates-cache'
 import type { ProjectUpdateThread } from './types'
+import { projectUpdatesT } from './i18n'
 
 type CreateProjectUpdatesControllerInput = {
   getProjectId: () => string
@@ -109,7 +110,10 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
       if (version !== requestVersion || activeProjectId !== projectId) {
         return
       }
-      loadError = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load updates.'
+      loadError =
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.loadFailed')
     } finally {
       if (version === requestVersion && activeProjectId === projectId) {
         loading = false
@@ -148,7 +152,9 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     } catch (caughtError) {
       if (activeProjectId === projectId) {
         toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load older updates.',
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : projectUpdatesT('projectUpdates.loadOlderFailed'),
         )
       }
       return false

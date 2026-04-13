@@ -3,6 +3,7 @@
   import { Button } from '$ui/button'
   import Textarea from '$ui/textarea/textarea.svelte'
   import { ChevronRight, ShieldAlert, CheckCircle } from '@lucide/svelte'
+  import { chatT } from './i18n'
   import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
 
   let {
@@ -188,7 +189,7 @@
             bind:value={answer}
             rows={2}
             class="min-h-0 resize-none text-sm"
-            placeholder="Enter your answer…"
+            placeholder={chatT('chat.interrupt.answerPlaceholder')}
           />
           <Button
             size="sm"

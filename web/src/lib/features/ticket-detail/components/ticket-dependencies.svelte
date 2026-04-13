@@ -11,7 +11,9 @@
   import Ban from '@lucide/svelte/icons/ban'
   import { dependencyRelationActions, type DependencyDraft } from '../mutation-shared'
   import type { TicketDetail, TicketReferenceOption } from '../types'
+  import type { TranslationKey } from '$lib/i18n'
   import { cn } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     ticket,
@@ -33,11 +35,14 @@
   let selectedRelation = $state<DependencyDraft['relation'] | null>(null)
   let search = $state('')
 
-  const dependencyRelationLabels: Record<string, string> = {
-    blocked_by: 'Blocked by',
-    blocks: 'Blocks',
-    sub_issue: 'Sub-issue',
+  type DependencyRelation = TicketDetail['dependencies'][number]['relation']
+
+  const dependencyRelationLabelKeys: Record<DependencyRelation, TranslationKey> = {
+    blocked_by: 'ticketDetail.dependencies.blockedBy',
+    blocks: 'ticketDetail.dependencies.blocks',
+    sub_issue: 'ticketDetail.dependencies.subIssue',
   }
+  const unknownRelationLabelKey: TranslationKey = 'ticketDetail.dependencies.relation.unknown'
 
   const dependencyOptions = $derived.by(() =>
     availableTickets.filter(
@@ -63,11 +68,28 @@
       (dependency) => dependency.relation === 'sub_issue',
     )
 
-    return [
-      { key: 'blocked_by', title: 'Blocked by', items: blockedBy },
-      { key: 'blocks', title: 'Blocking', items: blocking },
-      { key: 'sub_issue', title: 'Hierarchy', items: hierarchy },
-    ].filter((group) => group.items.length > 0)
+    const groups: Array<{
+      key: string
+      titleKey: TranslationKey
+      items: typeof blockedBy
+    }> = [
+      {
+        key: 'blocked_by',
+        titleKey: 'ticketDetail.dependencies.blockedBy',
+        items: blockedBy,
+      },
+      {
+        key: 'blocks',
+        titleKey: 'ticketDetail.dependencies.group.blocks',
+        items: blocking,
+      },
+      {
+        key: 'sub_issue',
+        titleKey: 'ticketDetail.dependencies.group.hierarchy',
+        items: hierarchy,
+      },
+    ]
+    return groups.filter((group) => group.items.length > 0)
   })
 
   function resetPopover() {
@@ -94,13 +116,13 @@
 <section class="space-y-3">
   <div class="flex items-center justify-between gap-3">
     <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-      Dependencies
+      {i18nStore.t('ticketDetail.dependencies.title')}
     </span>
 
     <Popover.Root open={popoverOpen} onOpenChange={handleOpenChange}>
       <Popover.Trigger
         class={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
-        aria-label="Add dependency"
+        aria-label={i18nStore.t('ticketDetail.dependencies.actions.add')}
         disabled={!dependencyOptions.length}
       >
         <Plus class="size-3.5" />
@@ -133,22 +155,24 @@
                   selectedRelation = null
                   search = ''
                 }}
-                aria-label="Back"
+                aria-label={i18nStore.t('ticketDetail.dependencies.actions.back')}
               >
                 <ArrowLeft class="size-3.5" />
               </button>
               <Command.Input
-                placeholder="Search tickets…"
+                placeholder={i18nStore.t('ticketDetail.dependencies.actions.searchPlaceholder')}
                 class="text-foreground placeholder:text-muted-foreground h-8 flex-1 border-0 bg-transparent text-sm shadow-none outline-none focus:ring-0"
                 bind:value={search}
               />
             </div>
             <Command.List class="max-h-52 overflow-y-auto p-1">
               {#if creatingDependency}
-                <div class="text-muted-foreground px-3 py-4 text-center text-xs">Adding…</div>
+                <div class="text-muted-foreground px-3 py-4 text-center text-xs">
+                  {i18nStore.t('ticketDetail.dependencies.actions.adding')}
+                </div>
               {:else if filteredTickets.length === 0}
                 <Command.Empty class="text-muted-foreground px-3 py-4 text-center text-xs">
-                  No matching tickets.
+                  {i18nStore.t('ticketDetail.dependencies.actions.noMatches')}
                 </Command.Empty>
               {:else}
                 {#each filteredTickets as option (option.id)}
@@ -175,7 +199,7 @@
       {#each dependencyGroups as group (group.key)}
         <div class="space-y-2">
           <div class="text-muted-foreground px-1 text-[10px] font-medium tracking-wider uppercase">
-            {group.title}
+            {i18nStore.t(group.titleKey)}
           </div>
           {#each group.items as dependency (dependency.id)}
             {@const isTerminal =
@@ -204,14 +228,16 @@
                     {dependency.identifier}
                   </span>
                   <Badge variant="outline" class="h-4 py-0 text-[10px]">
-                    {dependencyRelationLabels[dependency.relation] ?? dependency.relation}
+                    {i18nStore.t(
+                      dependencyRelationLabelKeys[dependency.relation] ?? unknownRelationLabelKey,
+                    )}
                   </Badge>
                   {#if isBlocked}
                     <Badge
                       variant="outline"
                       class="h-4 border-red-500/30 bg-red-500/10 py-0 text-[10px] text-red-500"
                     >
-                      Blocked
+                      {i18nStore.t('ticketDetail.dependencies.badge.blocked')}
                     </Badge>
                   {/if}
                 </div>
@@ -229,7 +255,9 @@
                 size="icon-sm"
                 disabled={deletingDependencyId === dependency.id}
                 onclick={() => onDeleteDependency?.(dependency.id)}
-                aria-label={`Remove ${dependency.identifier} relationship`}
+                aria-label={i18nStore.t('ticketDetail.dependencies.actions.remove', {
+                  identifier: dependency.identifier,
+                })}
               >
                 <Trash2 class="size-3.5" />
               </Button>

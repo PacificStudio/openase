@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import ProviderPricingSummary from './provider-pricing-summary.svelte'
@@ -30,7 +31,7 @@
 </script>
 
 <div class="space-y-2">
-  <Label for="provider-cost-input">Input pricing (USD / 1M tokens)</Label>
+  <Label for="provider-cost-input">{i18nStore.t('agents.pricing.inputLabel')}</Label>
   <Input
     id="provider-cost-input"
     type="number"
@@ -48,7 +49,7 @@
 </div>
 
 <div class="space-y-2">
-  <Label for="provider-cost-output">Output pricing (USD / 1M tokens)</Label>
+  <Label for="provider-cost-output">{i18nStore.t('agents.pricing.outputLabel')}</Label>
   <Input
     id="provider-cost-output"
     type="number"

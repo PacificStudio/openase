@@ -65,7 +65,10 @@
     }
   }
 
-  function handleContextMenu(event: MouseEvent, commit: ProjectConversationWorkspaceGitGraphCommit) {
+  function handleContextMenu(
+    event: MouseEvent,
+    commit: ProjectConversationWorkspaceGitGraphCommit,
+  ) {
     event.preventDefault()
     event.stopPropagation()
     contextMenu = { commit, x: event.clientX, y: event.clientY }
@@ -84,7 +87,8 @@
     {@const graphW = Math.max(1, row.laneCount) * laneW}
     <div
       class="hover:bg-muted/40 flex min-h-7 items-stretch gap-2 px-2"
-      title="{row.commit.authorName} · {new Date(row.commit.authoredAt).toLocaleString()}\n{row.commit.commitId}"
+      title="{row.commit.authorName} · {new Date(row.commit.authoredAt).toLocaleString()}\n{row
+        .commit.commitId}"
       oncontextmenu={(e) => handleContextMenu(e, row.commit)}
       role="button"
       tabindex="0"
@@ -189,20 +193,40 @@
       class="w-52"
       style="position: fixed; left: {contextMenu.x}px; top: {contextMenu.y}px;"
     >
-      <DropdownMenu.Item onclick={() => { copyText(commit.commitId); contextMenu = null }}>
+      <DropdownMenu.Item
+        onclick={() => {
+          copyText(commit.commitId)
+          contextMenu = null
+        }}
+      >
         <Copy class="size-3.5" />
         <span>Copy commit hash</span>
       </DropdownMenu.Item>
-      <DropdownMenu.Item onclick={() => { copyText(commit.shortCommitId); contextMenu = null }}>
+      <DropdownMenu.Item
+        onclick={() => {
+          copyText(commit.shortCommitId)
+          contextMenu = null
+        }}
+      >
         <Copy class="size-3.5" />
         <span>Copy short hash</span>
       </DropdownMenu.Item>
-      <DropdownMenu.Item onclick={() => { copyText(commit.subject); contextMenu = null }}>
+      <DropdownMenu.Item
+        onclick={() => {
+          copyText(commit.subject)
+          contextMenu = null
+        }}
+      >
         <Copy class="size-3.5" />
         <span>Copy commit message</span>
       </DropdownMenu.Item>
       <DropdownMenu.Separator />
-      <DropdownMenu.Item onclick={() => { onCreateBranch?.(commit.commitId); contextMenu = null }}>
+      <DropdownMenu.Item
+        onclick={() => {
+          onCreateBranch?.(commit.commitId)
+          contextMenu = null
+        }}
+      >
         <GitBranchPlus class="size-3.5" />
         <span>Create branch here…</span>
       </DropdownMenu.Item>

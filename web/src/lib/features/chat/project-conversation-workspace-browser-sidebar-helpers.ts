@@ -4,6 +4,7 @@ import type {
 } from '$lib/api/chat'
 import type { TreeMenuItem } from './project-conversation-workspace-browser-tree-menu.svelte'
 import type { TreeMenuTarget } from './project-conversation-workspace-browser-tree.svelte'
+import { chatT } from './i18n'
 
 export function dirtyFileColorClass(status: ProjectConversationWorkspaceFileStatus): string {
   switch (status) {
@@ -42,36 +43,36 @@ export function buildTreeMenuItems(
   if (entry.kind === 'directory') {
     items.push({
       kind: 'item',
-      label: 'New File',
+      label: chatT('chat.explorer.newFile'),
       onSelect: () => actions.onStartCreate('file', entry.path),
     })
     items.push({
       kind: 'item',
-      label: 'New Folder',
+      label: chatT('chat.explorer.newFolder'),
       onSelect: () => actions.onStartCreate('folder', entry.path),
     })
     items.push({ kind: 'separator' })
   }
   items.push({
     kind: 'item',
-    label: 'Rename…',
+    label: chatT('chat.explorer.rename'),
     onSelect: () => actions.onStartRename(entry.path),
   })
   items.push({
     kind: 'item',
-    label: 'Delete',
+    label: chatT('chat.explorer.delete'),
     danger: true,
     onSelect: () => actions.onDeleteEntry?.(entry.path),
   })
   items.push({ kind: 'separator' })
   items.push({
     kind: 'item',
-    label: 'Copy Path',
+    label: chatT('chat.explorer.copyPath'),
     onSelect: () => actions.onCopyAbsolutePath?.(entry.path),
   })
   items.push({
     kind: 'item',
-    label: 'Copy Relative Path',
+    label: chatT('chat.explorer.copyRelativePath'),
     onSelect: () => actions.onCopyRelativePath?.(entry.path),
   })
   return items

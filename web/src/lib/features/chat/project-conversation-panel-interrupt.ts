@@ -1,4 +1,5 @@
 import { ApiError } from '$lib/api/client'
+import { chatT } from './i18n'
 
 type InterruptFocusedAgentInput = {
   agentId: string
@@ -16,7 +17,7 @@ export async function interruptFocusedProjectAgent(
   }
 
   const confirmed = window.confirm(
-    `Interrupt "${input.agentName}"? This stops the current agent run. Use Close Runtime separately if you want to stop Project AI itself.`,
+    chatT('chat.confirmInterruptAgent', { agentName: input.agentName }),
   )
   if (!confirmed) {
     return
@@ -24,10 +25,8 @@ export async function interruptFocusedProjectAgent(
 
   try {
     await input.interruptAgent(input.agentId)
-    input.onSuccess(`Interrupt requested for "${input.agentName}".`)
+    input.onSuccess(chatT('chat.interruptRequestedNotification', { agentName: input.agentName }))
   } catch (error) {
-    input.onError(
-      error instanceof ApiError ? error.detail : 'Failed to interrupt the focused agent.',
-    )
+    input.onError(error instanceof ApiError ? error.detail : chatT('chat.interruptFailed'))
   }
 }

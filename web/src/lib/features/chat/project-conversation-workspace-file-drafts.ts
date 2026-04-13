@@ -78,15 +78,17 @@ export function deletePersistedWorkspaceFileDraft(key: string) {
   writeDraftStorage(storage)
 }
 
+import { chatT } from './i18n'
+
 export function workspaceFileReadOnlyMessage(reason: string) {
   switch (reason) {
     case 'binary_file':
-      return 'Binary files stay read-only in Project AI workspace editing.'
+      return chatT('chat.binaryFileReadOnly')
     case 'file_too_large':
-      return 'This file is too large for the V1 editor and stays read-only.'
+      return chatT('chat.fileTooLargeReadOnly')
     case 'unsupported_encoding':
-      return 'Only UTF-8 text files are editable in the V1 workspace editor.'
+      return chatT('chat.unsupportedEncodingReadOnly')
     default:
-      return 'This file is read-only in the Project AI workspace editor.'
+      return chatT('chat.genericReadOnlyFile')
   }
 }

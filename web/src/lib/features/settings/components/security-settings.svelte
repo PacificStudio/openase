@@ -10,6 +10,8 @@
   } from '$lib/api/openase'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import type { TranslationKey } from '$lib/i18n'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Separator } from '$ui/separator'
 
   import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
@@ -47,7 +49,7 @@
       } catch (caughtError) {
         if (cancelled) return
         security = null
-        error = formatError(caughtError, 'Failed to load security settings.')
+        error = formatError(caughtError, 'settings.security.errors.load')
       } finally {
         if (!cancelled) loading = false
       }
@@ -59,8 +61,8 @@
     }
   })
 
-  function formatError(caughtError: unknown, fallback: string) {
-    return caughtError instanceof ApiError ? caughtError.detail : fallback
+  function formatError(caughtError: unknown, fallbackKey: TranslationKey) {
+    return caughtError instanceof ApiError ? caughtError.detail : i18nStore.t(fallbackKey)
   }
 
   async function mutate(action: 'save' | 'import' | 'retest' | 'delete') {
@@ -75,26 +77,29 @@
       if (action === 'save') {
         const token = manualToken.trim()
         if (!token) {
-          toastStore.error('GitHub token is required.')
+          toastStore.error(i18nStore.t('settings.security.errors.githubTokenRequired'))
           return
         }
         payload = await saveGitHubOutboundCredential(projectId, { token })
         manualToken = ''
-        toastStore.success('Saved project GitHub credential.')
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialSaved'))
       } else if (action === 'import') {
         payload = await importGitHubOutboundCredentialFromGHCLI(projectId)
-        toastStore.success('Imported project credential from gh.')
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialImported'))
       } else if (action === 'retest') {
         payload = await retestGitHubOutboundCredential(projectId)
-        toastStore.success('Retested project GitHub credential.')
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialRetested'))
       } else {
         payload = await deleteGitHubOutboundCredential(projectId)
         manualToken = ''
-        toastStore.success('Deleted project GitHub credential.')
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialDeleted'))
       }
       security = normalizeSecuritySettings(payload.security)
     } catch (caughtError) {
-      const message = formatError(caughtError, 'GitHub credential update failed.')
+      const message = formatError(
+        caughtError,
+        'settings.security.errors.githubCredentialUpdateFailed',
+      )
       error = message
       toastStore.error(message)
     } finally {
@@ -105,9 +110,11 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Security</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.security.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Project-owned credentials, webhook boundaries, and runtime token policies.
+      {i18nStore.t('settings.security.description')}
     </p>
   </div>
 

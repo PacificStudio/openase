@@ -18,6 +18,7 @@
   } from '$ui/sheet'
   import type { AgentProvider } from '$lib/api/contracts'
   import type { AgentRegistrationDraft, AgentRegistrationDraftField } from '../registration'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     open = $bindable(false),
@@ -67,11 +68,11 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="w-full sm:max-w-xl">
+  <SheetContent side="right" class="w-full sm:max-w-xl" data-testid="agent-registration-sheet">
     <SheetHeader class="space-y-1 px-4 py-4 sm:px-6 sm:py-6">
-      <SheetTitle>Register agent</SheetTitle>
+      <SheetTitle>{i18nStore.t('agents.registrationSheet.title')}</SheetTitle>
       <SheetDescription>
-        Create a runnable agent instance for the current project using an existing provider.
+        {i18nStore.t('agents.registrationSheet.description')}
       </SheetDescription>
     </SheetHeader>
 
@@ -81,13 +82,13 @@
           <div
             class="border-border bg-muted/40 text-muted-foreground rounded-md border px-4 py-3 text-sm"
           >
-            Register an agent provider first. Agent registration needs at least one provider.
+            {i18nStore.t('agents.registrationSheet.messages.noProviders')}
           </div>
         {/if}
 
         <div class="grid gap-4">
           <div class="space-y-2">
-            <Label>Provider</Label>
+            <Label>{i18nStore.t('agents.registrationSheet.labels.provider')}</Label>
             <Select.Root
               type="single"
               value={draft.providerId}
@@ -118,7 +119,9 @@
                     ></span>
                   </div>
                 {:else}
-                  <span class="text-muted-foreground">Select provider</span>
+                  <span class="text-muted-foreground">
+                    {i18nStore.t('agents.registrationSheet.placeholders.selectProvider')}
+                  </span>
                 {/if}
               </Select.Trigger>
               <Select.Content>
@@ -149,21 +152,21 @@
           </div>
 
           <div class="space-y-2">
-            <Label for="agent-name">Name</Label>
+            <Label for="agent-name">{i18nStore.t('agents.registrationSheet.labels.name')}</Label>
             <Input
               id="agent-name"
               value={draft.name}
-              placeholder="coding-01"
+              placeholder={i18nStore.t('agents.registrationSheet.placeholders.name')}
               oninput={(event) => updateField('name', event)}
             />
           </div>
 
           <div class="space-y-2">
-            <Label>Workspace convention</Label>
+            <Label>{i18nStore.t('agents.registrationSheet.labels.workspaceConvention')}</Label>
             <div class="border-border text-muted-foreground rounded-md border px-3 py-2 text-sm">
               <div class="font-mono break-all">{workspaceConvention}</div>
               <div class="mt-2 text-xs">
-                Ticket workspaces are derived by OpenASE from org, project, and ticket identity.
+                {i18nStore.t('agents.registrationSheet.hints.workspaceConvention')}
               </div>
             </div>
           </div>
@@ -177,10 +180,12 @@
           onclick={() => onOpenChange?.(false)}
           disabled={saving}
         >
-          Cancel
+          {i18nStore.t('agents.registrationSheet.actions.cancel')}
         </Button>
         <Button type="submit" disabled={saving || providers.length === 0}>
-          {saving ? 'Registering…' : 'Register agent'}
+          {saving
+            ? i18nStore.t('agents.registrationSheet.actions.registering')
+            : i18nStore.t('agents.registrationSheet.actions.register')}
         </Button>
       </SheetFooter>
     </form>

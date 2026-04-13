@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ManagedAuthSession } from '$lib/api/auth'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { formatTimestamp } from './security-settings-human-auth.model'
@@ -19,9 +20,11 @@
 
 <div class="space-y-2">
   <div class="space-y-0.5">
-    <div class="text-sm font-medium">Active browser sessions</div>
+    <div class="text-sm font-medium">
+      {i18nStore.t('settings.security.userDirectory.sessions.title')}
+    </div>
     <div class="text-muted-foreground text-xs leading-relaxed">
-      Clear distinction: these are governable user sessions, not just the current browser.
+      {i18nStore.t('settings.security.userDirectory.sessions.description')}
     </div>
   </div>
   {#if activeSessions.length > 0}
@@ -33,16 +36,24 @@
               <div class="flex flex-wrap items-center gap-2">
                 <div class="font-medium">{session.device.label}</div>
                 {#if session.current}
-                  <Badge variant="secondary">Current admin session</Badge>
+                  <Badge variant="secondary">
+                    {i18nStore.t('settings.security.userDirectory.sessions.currentAdmin')}
+                  </Badge>
                 {/if}
               </div>
               <div class="text-muted-foreground">
-                {session.device.browser || 'Unknown browser'}
+                {session.device.browser ||
+                  i18nStore.t('settings.security.userDirectory.sessions.unknownBrowser')}
                 {#if session.device.os}
-                  on {session.device.os}
+                  {i18nStore.t('settings.security.userDirectory.sessions.onOs', {
+                    os: session.device.os,
+                  })}
                 {/if}
                 {#if session.ipSummary}
-                  · IP {session.ipSummary}
+                  ·{' '}
+                  {i18nStore.t('settings.security.userDirectory.sessions.ip', {
+                    ip: session.ipSummary,
+                  })}
                 {/if}
               </div>
             </div>
@@ -52,20 +63,32 @@
               disabled={!canManage || (actionKey !== '' && actionKey !== `revoke:${session.id}`)}
               onclick={() => onRevokeSession(session.id)}
             >
-              Revoke session
+              {i18nStore.t('settings.security.userDirectory.sessions.actions.revoke')}
             </Button>
           </div>
           <div class="text-muted-foreground mt-3 grid gap-2 sm:grid-cols-3">
-            <div>Created {formatTimestamp(session.createdAt)}</div>
-            <div>Last active {formatTimestamp(session.lastActiveAt)}</div>
-            <div>Idle expiry {formatTimestamp(session.idleExpiresAt)}</div>
+            <div>
+              {i18nStore.t('settings.security.userDirectory.sessions.labels.created', {
+                time: formatTimestamp(session.createdAt),
+              })}
+            </div>
+            <div>
+              {i18nStore.t('settings.security.userDirectory.sessions.labels.lastActive', {
+                time: formatTimestamp(session.lastActiveAt),
+              })}
+            </div>
+            <div>
+              {i18nStore.t('settings.security.userDirectory.sessions.labels.idleExpiry', {
+                time: formatTimestamp(session.idleExpiresAt),
+              })}
+            </div>
           </div>
         </div>
       {/each}
     </div>
   {:else}
     <div class="text-muted-foreground rounded-lg border border-dashed px-3 py-4 text-xs">
-      No active browser sessions for this user.
+      {i18nStore.t('settings.security.userDirectory.sessions.messages.noSessions')}
     </div>
   {/if}
 </div>

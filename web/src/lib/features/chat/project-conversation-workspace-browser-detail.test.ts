@@ -138,7 +138,7 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
 
     const wrapToggle = firstView.getByTestId('workspace-browser-wrap-toggle')
     expect(wrapToggle.getAttribute('aria-pressed')).toBe('true')
-    expect(wrapToggle.getAttribute('aria-label')).toBe('Disable line wrap')
+    expect(wrapToggle.getAttribute('aria-label')).toBe('Chat Disable Line Wrap')
     expect(firstView.container.querySelector('.cm-lineWrapping')).not.toBeNull()
 
     await fireEvent.click(wrapToggle)
@@ -146,7 +146,7 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     await waitFor(() => expect(firstView.container.querySelector('.cm-lineWrapping')).toBeNull())
     expect(window.localStorage.getItem(EDITOR_WRAP_MODE_STORAGE_KEY)).toBe('nowrap')
     expect(wrapToggle.getAttribute('aria-pressed')).toBe('false')
-    expect(wrapToggle.getAttribute('aria-label')).toBe('Enable line wrap')
+    expect(wrapToggle.getAttribute('aria-label')).toBe('Enable Line Wrap')
 
     firstView.unmount()
 
@@ -180,7 +180,7 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     await waitFor(() => expect(secondView.container.querySelector('.cm-editor')).not.toBeNull())
     const persistedToggle = secondView.getByTestId('workspace-browser-wrap-toggle')
     expect(persistedToggle.getAttribute('aria-pressed')).toBe('false')
-    expect(persistedToggle.getAttribute('aria-label')).toBe('Enable line wrap')
+    expect(persistedToggle.getAttribute('aria-label')).toBe('Enable Line Wrap')
     expect(secondView.container.querySelector('.cm-lineWrapping')).toBeNull()
   })
 
@@ -257,24 +257,24 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
 
     const menu = await view.findByTestId('code-editor-context-menu')
     expect(within(menu).queryByRole('menuitem', { name: 'Format Document' })).toBeNull()
-    expect(within(menu).getByRole('menuitem', { name: /^Format Selection/ })).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: 'Revert File' })).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: 'Explain Selection' })).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: 'Rewrite Selection' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: /^Format selection/ })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Revert file' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Explain selection' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Rewrite selection' })).toBeTruthy()
 
-    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Explain Selection' }))
+    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Explain selection' }))
     expect(requestProjectAssistant).toHaveBeenCalledWith('Explain the selected code.')
 
     editorView.dispatch({ selection: { anchor: 0, head: 5 } })
     await fireEvent.contextMenu(editorShell, { clientX: 80, clientY: 96 })
     const rewriteMenu = await view.findByTestId('code-editor-context-menu')
-    await fireEvent.click(within(rewriteMenu).getByRole('menuitem', { name: 'Rewrite Selection' }))
+    await fireEvent.click(within(rewriteMenu).getByRole('menuitem', { name: 'Rewrite selection' }))
     expect(requestProjectAssistant).toHaveBeenCalledWith('Rewrite the selected code.')
 
     editorView.dispatch({ selection: { anchor: 0, head: 0 } })
     await fireEvent.contextMenu(editorShell, { clientX: 88, clientY: 104 })
     const revertMenu = await view.findByTestId('code-editor-context-menu')
-    await fireEvent.click(within(revertMenu).getByRole('menuitem', { name: 'Revert File' }))
+    await fireEvent.click(within(revertMenu).getByRole('menuitem', { name: 'Revert file' }))
     expect(revertSelectedDraft).toHaveBeenCalledTimes(1)
   })
 

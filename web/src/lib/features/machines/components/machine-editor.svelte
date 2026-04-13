@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { Input } from '$ui/input'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
   import MachineEditorGuidance from './machine-editor-guidance.svelte'
@@ -55,18 +56,22 @@
 <div class="space-y-5">
   {#if localMachine}
     <div class="border-info/40 bg-info/10 rounded-lg border px-3.5 py-2.5 text-xs">
-      Local machine identity is reserved. Name, host, and helper access settings are fixed.
+      {i18nStore.t('machines.machineEditor.warning.localIdentityReserved')}
     </div>
   {/if}
 
   <MachineEditorGuidance {machine} {draft} onSelectReachability={updateReachability} />
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">Identity & connection</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {i18nStore.t('machines.machineEditor.heading.identityAndConnection')}
+    </h3>
 
     <div class="grid gap-3 md:grid-cols-3">
       <div class="space-y-1.5">
-        <Label for="machine-name" class="text-xs">Name</Label>
+        <Label for="machine-name" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.name')}
+        </Label>
         <Input
           id="machine-name"
           value={draft.name}
@@ -76,7 +81,9 @@
       </div>
 
       <div class="space-y-1.5">
-        <Label for="machine-host" class="text-xs">Host</Label>
+        <Label for="machine-host" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.host')}
+        </Label>
         <Input
           id="machine-host"
           value={draft.host}
@@ -86,7 +93,9 @@
       </div>
 
       <div class="space-y-1.5">
-        <Label for="machine-port" class="text-xs">Port</Label>
+        <Label for="machine-port" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.port')}
+        </Label>
         <Input
           id="machine-port"
           value={draft.port}
@@ -97,9 +106,9 @@
 
     {#if reachabilityMode === 'direct_connect' && executionMode === 'websocket'}
       <div class="space-y-1.5">
-        <Label for="machine-advertised-endpoint" class="text-xs"
-          >Direct-connect listener endpoint</Label
-        >
+        <Label for="machine-advertised-endpoint" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.directConnectEndpoint')}
+        </Label>
         <Input
           id="machine-advertised-endpoint"
           value={draft.advertisedEndpoint}
@@ -107,22 +116,27 @@
           oninput={(event) => updateField('advertisedEndpoint', event)}
         />
         <p class="text-muted-foreground text-[11px]">
-          OpenASE dials this websocket listener when the control plane can reach the machine
-          directly.
+          {i18nStore.t('machines.machineEditor.hints.directConnectListener')}
         </p>
       </div>
     {/if}
   </section>
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">SSH helper lane</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {i18nStore.t('machines.machineEditor.heading.sshHelper')}
+    </h3>
 
     {#if localMachine}
-      <p class="text-muted-foreground text-xs">Local execution does not use SSH helper access.</p>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t('machines.machineEditor.helperAccess.localExecution')}
+      </p>
     {:else}
       <div class="grid gap-3 md:grid-cols-2">
         <div class="space-y-1.5">
-          <Label for="machine-ssh-user" class="text-xs">SSH user</Label>
+          <Label for="machine-ssh-user" class="text-xs">
+            {i18nStore.t('machines.machineEditor.labels.sshUser')}
+          </Label>
           <Input
             id="machine-ssh-user"
             value={draft.sshUser}
@@ -132,7 +146,9 @@
         </div>
 
         <div class="space-y-1.5">
-          <Label for="machine-ssh-key" class="text-xs">SSH key path</Label>
+          <Label for="machine-ssh-key" class="text-xs">
+            {i18nStore.t('machines.machineEditor.labels.sshKeyPath')}
+          </Label>
           <Input
             id="machine-ssh-key"
             value={draft.sshKeyPath}
@@ -143,18 +159,18 @@
       </div>
       <p class="text-muted-foreground text-xs">
         {#if reachabilityMode === 'reverse_connect'}
-          Optional helper access for assisted daemon bootstrap, diagnostics, or emergency repair.
-          Runtime execution stays on the reverse-connect daemon.
+          {i18nStore.t('machines.machineEditor.helperAccess.reverseConnect')}
         {:else}
-          Optional helper access for quick bootstrap, diagnostics, or emergency repair. Runtime
-          execution stays on the direct-connect listener above.
+          {i18nStore.t('machines.machineEditor.helperAccess.directConnect')}
         {/if}
       </p>
     {/if}
   </section>
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">Workspace & runtime</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {i18nStore.t('machines.machineEditor.heading.workspaceRuntime')}
+    </h3>
 
     <div class="border-border bg-card flex items-center gap-3 rounded-lg border px-3.5 py-2.5">
       <div class="flex flex-wrap items-center gap-2">
@@ -169,7 +185,9 @@
 
     <div class="grid gap-3 md:grid-cols-2">
       <div class="space-y-1.5">
-        <Label for="machine-workspace-root" class="text-xs">Workspace root</Label>
+        <Label for="machine-workspace-root" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.workspaceRoot')}
+        </Label>
         <Input
           id="machine-workspace-root"
           value={draft.workspaceRoot}
@@ -179,7 +197,9 @@
       </div>
 
       <div class="space-y-1.5">
-        <Label for="machine-agent-cli" class="text-xs">Agent CLI path</Label>
+        <Label for="machine-agent-cli" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.agentCLIPath')}
+        </Label>
         <Input
           id="machine-agent-cli"
           value={draft.agentCLIPath}
@@ -190,10 +210,14 @@
   </section>
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">Metadata</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {i18nStore.t('machines.machineEditor.heading.metadata')}
+    </h3>
 
     <div class="space-y-1.5">
-      <Label for="machine-description" class="text-xs">Description</Label>
+      <Label for="machine-description" class="text-xs">
+        {i18nStore.t('machines.machineEditor.labels.description')}
+      </Label>
       <Textarea
         id="machine-description"
         value={draft.description}
@@ -204,7 +228,9 @@
 
     <div class="grid gap-3 lg:grid-cols-2">
       <div class="space-y-1.5">
-        <Label for="machine-labels" class="text-xs">Labels</Label>
+        <Label for="machine-labels" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.labels')}
+        </Label>
         <Textarea
           id="machine-labels"
           value={draft.labels}
@@ -212,11 +238,15 @@
           placeholder="gpu, a100, europe-west"
           oninput={(event) => updateField('labels', event)}
         />
-        <p class="text-muted-foreground text-[11px]">Comma or newline separated.</p>
+        <p class="text-muted-foreground text-[11px]">
+          {i18nStore.t('machines.machineEditor.hints.labelSeparator')}
+        </p>
       </div>
 
       <div class="space-y-1.5">
-        <Label for="machine-env-vars" class="text-xs">Environment variables</Label>
+        <Label for="machine-env-vars" class="text-xs">
+          {i18nStore.t('machines.machineEditor.labels.environmentVariables')}
+        </Label>
         <Textarea
           id="machine-env-vars"
           value={draft.envVars}
@@ -225,8 +255,7 @@
           oninput={(event) => updateField('envVars', event)}
         />
         <p class="text-muted-foreground text-[11px]">
-          One KEY=VALUE per line. Secret-like values may appear as `[redacted]`; leave them as-is to
-          preserve the stored value, or replace the value to rotate it.
+          {i18nStore.t('machines.machineEditor.hints.envVarsHelper')}
         </p>
       </div>
     </div>

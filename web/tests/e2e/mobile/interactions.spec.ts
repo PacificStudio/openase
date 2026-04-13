@@ -75,7 +75,7 @@ for (const policy of projectPageMobilePolicies.filter(isResponsiveRoutePolicy)) 
         await expect(
           page.getByText(interaction.expectedText ?? 'coding-main started work.'),
         ).toBeVisible()
-        await page.getByRole('button', { name: 'All events' }).click()
+        await page.getByRole('button', { name: 'All' }).click()
         await page.getByRole('option', { name: interaction.filterOption }).click()
         await expect(page.getByRole('button', { name: interaction.expectedButton })).toBeVisible()
         await expect(

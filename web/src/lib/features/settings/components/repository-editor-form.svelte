@@ -6,6 +6,7 @@
   import { Textarea } from '$ui/textarea'
   import { ChevronDown } from '@lucide/svelte'
   import { cn } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { RepositoryDraft } from '../repositories-model'
 
   let {
@@ -60,21 +61,25 @@
 <div class="space-y-4" data-testid="repository-editor-form">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label for="repo-name" class="text-xs">Name</Label>
+      <Label for="repo-name" class="text-xs"
+        >{i18nStore.t('settings.repositoryEditorForm.labels.name')}</Label
+      >
       <Input
         id="repo-name"
         value={draft.name}
-        placeholder="backend"
+        placeholder={i18nStore.t('settings.repositoryEditorForm.placeholders.nameExample')}
         class="h-9 text-sm"
         oninput={(event) => update('name', event)}
       />
     </div>
     <div class="space-y-1.5">
-      <Label for="repo-default-branch" class="text-xs">Default branch</Label>
+      <Label for="repo-default-branch" class="text-xs">
+        {i18nStore.t('settings.repositoryEditorForm.labels.defaultBranch')}
+      </Label>
       <Input
         id="repo-default-branch"
         value={draft.defaultBranch}
-        placeholder="main"
+        placeholder={i18nStore.t('settings.repositoryEditorForm.placeholders.defaultBranch')}
         class="h-9 text-sm"
         oninput={(event) => update('defaultBranch', event)}
       />
@@ -82,7 +87,9 @@
   </div>
 
   <div class="space-y-1.5">
-    <Label class="text-xs">Repository URL</Label>
+    <Label class="text-xs"
+      >{i18nStore.t('settings.repositoryEditorForm.labels.repositoryUrl')}</Label
+    >
     <div class="bg-muted flex rounded-md p-0.5 text-xs">
       <button
         type="button"
@@ -94,7 +101,7 @@
         )}
         onclick={() => switchUrlType('remote')}
       >
-        Remote
+        {i18nStore.t('settings.repositoryEditorForm.buttons.remote')}
       </button>
       <button
         type="button"
@@ -106,39 +113,43 @@
         )}
         onclick={() => switchUrlType('file')}
       >
-        Local path
+        {i18nStore.t('settings.repositoryEditorForm.buttons.localPath')}
       </button>
     </div>
     <Input
       id="repo-url"
       value={draft.repositoryURL}
       placeholder={urlType === 'file'
-        ? 'file:///home/user/repos/backend.git'
-        : 'https://github.com/acme/backend.git'}
+        ? i18nStore.t('settings.repositoryEditorForm.placeholders.fileUrl')
+        : i18nStore.t('settings.repositoryEditorForm.placeholders.remoteUrl')}
       class="h-9 text-sm"
       oninput={(event) => update('repositoryURL', event)}
     />
     {#if urlType === 'file'}
       <p class="text-muted-foreground text-[11px]">
-        Uses a local Git repository on the machine running the agent. The path must be accessible
-        from that machine at clone/fetch time.
+        {i18nStore.t('settings.repositoryEditorForm.hints.localRepoIntro')}
       </p>
     {:else}
       <p class="text-muted-foreground text-[11px]">
-        Supports <code class="font-mono">https://</code> and <code class="font-mono">git@</code>
-        SSH URLs. Works with GitHub, GitLab, Gitea, and any hosted or self-hosted Git server.
+        {i18nStore.t('settings.repositoryEditorForm.hints.remoteRepoSupports')}
+        <code class="font-mono">https://</code>
+        {i18nStore.t('settings.repositoryEditorForm.hints.remoteRepoSupportsAnd')}
+        <code class="font-mono">git@</code>
+        {i18nStore.t('settings.repositoryEditorForm.hints.remoteRepoSupportsRest')}
       </p>
     {/if}
   </div>
 
   {#if !compact}
     <div class="space-y-1.5">
-      <Label for="repo-labels" class="text-xs">Labels</Label>
+      <Label for="repo-labels" class="text-xs"
+        >{i18nStore.t('settings.repositoryEditorForm.labels.labels')}</Label
+      >
       <Textarea
         id="repo-labels"
         rows={2}
         value={draft.labels}
-        placeholder="go, backend, api"
+        placeholder={i18nStore.t('settings.repositoryEditorForm.placeholders.labels')}
         class="text-sm"
         oninput={(event) => update('labels', event)}
       />
@@ -151,22 +162,24 @@
         class="text-muted-foreground hover:text-foreground h-7 gap-1 px-0 text-xs"
         onclick={() => (showAdvanced = !showAdvanced)}
       >
-        Advanced
+        {i18nStore.t('settings.repositoryEditorForm.buttons.advanced')}
         <ChevronDown class="size-3 transition-transform {showAdvanced ? 'rotate-180' : ''}" />
       </Button>
 
       {#if showAdvanced}
         <div class="mt-2 space-y-1.5">
-          <Label for="repo-workspace-dirname" class="text-xs">Workspace path</Label>
+          <Label for="repo-workspace-dirname" class="text-xs">
+            {i18nStore.t('settings.repositoryEditorForm.labels.workspacePath')}
+          </Label>
           <Input
             id="repo-workspace-dirname"
             value={draft.workspaceDirname}
-            placeholder="Auto-derived from repo name"
+            placeholder={i18nStore.t('settings.repositoryEditorForm.placeholders.workspacePath')}
             class="h-9 text-sm"
             oninput={(event) => update('workspaceDirname', event)}
           />
           <p class="text-muted-foreground text-[11px]">
-            Override the checkout subdirectory for monorepo setups. Leave empty for default.
+            {i18nStore.t('settings.repositoryEditorForm.hints.workspacePath')}
           </p>
         </div>
       {/if}

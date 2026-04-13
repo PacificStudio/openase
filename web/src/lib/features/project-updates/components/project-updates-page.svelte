@@ -8,14 +8,15 @@
   import { createProjectUpdatesController } from '../project-updates-controller.svelte'
   import ProjectUpdateComposer from './project-update-composer.svelte'
   import ProjectUpdateThreadCard from './project-update-thread-card.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   const projectUpdates = createProjectUpdatesController({
     getProjectId: () => appStore.currentProject?.id ?? '',
   })
 </script>
 
 <PageScaffold
-  title="Updates"
-  description="Curated project progress threads with status and discussion. Raw runtime logs stay in Activity."
+  title={i18nStore.t('projectUpdates.pageTitle')}
+  description={i18nStore.t('projectUpdates.pageDescription')}
 >
   <div class="w-full space-y-5">
     <ProjectUpdateComposer
@@ -57,10 +58,9 @@
         <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
           <MessageSquare class="text-muted-foreground size-5" />
         </div>
-        <p class="text-sm font-medium">No updates yet</p>
+        <p class="text-sm font-medium">{i18nStore.t('projectUpdates.emptyState.title')}</p>
         <p class="text-muted-foreground mt-1 max-w-md text-sm">
-          Updates are hand-written progress snapshots for stakeholders. Use the composer above to
-          post the first one — raw agent events stay in Activity.
+          {i18nStore.t('projectUpdates.emptyState.description')}
         </p>
       </div>
     {:else}
@@ -84,7 +84,9 @@
               onclick={() => void projectUpdates.handleLoadMoreThreads()}
               disabled={projectUpdates.loadingMoreThreads}
             >
-              {projectUpdates.loadingMoreThreads ? 'Loading…' : 'Load more'}
+              {projectUpdates.loadingMoreThreads
+                ? i18nStore.t('projectUpdates.actions.loading')
+                : i18nStore.t('projectUpdates.actions.loadMore')}
             </Button>
           </div>
         {/if}

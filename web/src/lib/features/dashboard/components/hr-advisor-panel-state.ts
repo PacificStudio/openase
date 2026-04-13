@@ -1,11 +1,12 @@
 import type { HRAdvisorRecommendation } from '$lib/api/contracts'
 import type { HRAdvisorSnapshot } from '../types'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
 export type PrioritySectionKey = 'high' | 'medium' | 'low' | 'other'
 
 export type PrioritySectionMeta = {
   key: PrioritySectionKey
-  label: string
+  labelKey: string
   accentClass: string
 }
 
@@ -14,22 +15,22 @@ const deferredStoragePrefix = 'openase.dashboard.hrAdvisor.deferred.'
 export const prioritySectionsMeta: PrioritySectionMeta[] = [
   {
     key: 'high',
-    label: 'High priority',
+    labelKey: 'dashboard.hrAdvisor.prioritySections.high',
     accentClass: 'border-rose-500/20 bg-rose-500/5',
   },
   {
     key: 'medium',
-    label: 'Medium priority',
+    labelKey: 'dashboard.hrAdvisor.prioritySections.medium',
     accentClass: 'border-amber-500/20 bg-amber-500/5',
   },
   {
     key: 'low',
-    label: 'Low priority',
+    labelKey: 'dashboard.hrAdvisor.prioritySections.low',
     accentClass: 'border-sky-500/20 bg-sky-500/5',
   },
   {
     key: 'other',
-    label: 'Other recommendations',
+    labelKey: 'dashboard.hrAdvisor.prioritySections.other',
     accentClass: 'border-border bg-muted/20',
   },
 ]
@@ -49,11 +50,15 @@ export function toPrioritySectionKey(priority: string): PrioritySectionKey {
 
 export function activationStatusText(recommendation: HRAdvisorRecommendation) {
   if (recommendation.activation_ready) {
-    return `Ready to create the ${recommendation.suggested_workflow_name} workflow.`
+    return i18nStore.t('dashboard.hrAdvisor.activation.ready', {
+      workflow: recommendation.suggested_workflow_name,
+    })
   }
 
   const workflowName = recommendation.active_workflow_name || recommendation.suggested_workflow_name
-  return `Activated through ${workflowName}.`
+  return i18nStore.t('dashboard.hrAdvisor.activation.activated', {
+    workflow: workflowName,
+  })
 }
 
 export function loadDeferredRecommendationKeys(projectId: string) {

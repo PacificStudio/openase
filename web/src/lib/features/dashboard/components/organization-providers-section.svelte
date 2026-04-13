@@ -8,6 +8,7 @@
   } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     providers = [],
@@ -23,13 +24,17 @@
 <div class="space-y-3">
   <div class="flex items-center justify-between gap-4">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Providers</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('dashboard.organizationProviders.labels.heading')}
+      </h3>
       <p class="text-muted-foreground mt-0.5 text-xs">
-        Agent execution backends for this organization.
+        {i18nStore.t('dashboard.organizationProviders.labels.description')}
       </p>
     </div>
     {#if onAddProvider}
-      <Button variant="outline" size="sm" onclick={onAddProvider}>Add provider</Button>
+      <Button variant="outline" size="sm" onclick={onAddProvider}>
+        {i18nStore.t('dashboard.organizationProviders.actions.addProvider')}
+      </Button>
     {/if}
   </div>
 
@@ -52,7 +57,9 @@
               {providerAvailabilityLabel(provider.availability_state)}
             </Badge>
             {#if defaultProviderId === provider.id}
-              <Badge variant="secondary">Default</Badge>
+              <Badge variant="secondary">
+                {i18nStore.t('dashboard.organizationProviders.badge.default')}
+              </Badge>
             {/if}
           </div>
         </div>
@@ -64,9 +71,11 @@
       class="border-border hover:border-border/80 hover:bg-muted/30 w-full rounded-md border border-dashed px-4 py-8 text-center transition-colors"
       onclick={onAddProvider}
     >
-      <p class="text-muted-foreground text-sm">No providers configured.</p>
+      <p class="text-muted-foreground text-sm">
+        {i18nStore.t('dashboard.organizationProviders.messages.noProviders')}
+      </p>
       <p class="text-foreground mt-1 text-sm font-medium">
-        Add a provider to enable agent execution
+        {i18nStore.t('dashboard.organizationProviders.messages.addProviderHint')}
       </p>
     </button>
   {/if}

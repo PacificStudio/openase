@@ -396,7 +396,16 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       repos: [
         {
           ...workspaceDiff.repos[0],
-          files: [{ path: 'src/new.ts', status: 'added', staged: false, unstaged: true, added: 5, removed: 0 }],
+          files: [
+            {
+              path: 'src/new.ts',
+              status: 'added',
+              staged: false,
+              unstaged: true,
+              added: 5,
+              removed: 0,
+            },
+          ],
         },
       ],
     } satisfies ProjectConversationWorkspaceDiff
@@ -665,7 +674,16 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       repos: [
         {
           ...workspaceDiff.repos[0],
-          files: [{ path: 'src/new.ts', status: 'added', staged: false, unstaged: true, added: 5, removed: 0 }],
+          files: [
+            {
+              path: 'src/new.ts',
+              status: 'added',
+              staged: false,
+              unstaged: true,
+              added: 5,
+              removed: 0,
+            },
+          ],
         },
       ],
     } satisfies ProjectConversationWorkspaceDiff

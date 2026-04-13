@@ -195,7 +195,7 @@ describe('ProjectConversationWorkspaceBrowser terminal layout', () => {
     })
 
     await waitFor(() => expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(1))
-    await fireEvent.click(view.getByRole('button', { name: 'Toggle terminal' }))
+    await fireEvent.click(view.getByRole('button', { name: 'Toggle Terminal' }))
 
     const viewport = await view.findByTestId('workspace-terminal-instance')
     const panelContent = viewport.parentElement as HTMLElement

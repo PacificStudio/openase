@@ -7,6 +7,9 @@ pre-commit:
     go-build:
       glob: "*.go"
       run: make build
+    web-format:
+      glob: "web/**/*.{css,html,js,json,svelte,ts}"
+      run: make web-format-check
     web-check:
       glob: "web/**/*.{css,html,js,json,svelte,ts}"
       run: make web-check

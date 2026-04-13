@@ -538,6 +538,7 @@ func TestProjectConversationWorkspaceDiscardFileRestoresWorkspaceState(t *testin
 	if diff.Dirty {
 		t.Fatalf("expected clean diff after discard, got %+v", diff)
 	}
+	//nolint:gosec // Test reads a fixture-controlled temp repo file.
 	content, err := os.ReadFile(filepath.Join(repoPath, "README.md"))
 	if err != nil {
 		t.Fatalf("ReadFile() error = %v", err)
