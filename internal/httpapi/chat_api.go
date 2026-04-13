@@ -42,6 +42,13 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.GET("/chat/conversations/:conversationId/workspace/repo-refs", s.handleGetProjectConversationWorkspaceRepoRefs)
 	api.GET("/chat/conversations/:conversationId/workspace/git-graph", s.handleGetProjectConversationWorkspaceGitGraph)
 	api.POST("/chat/conversations/:conversationId/workspace/checkout", s.handlePostProjectConversationWorkspaceCheckout)
+	api.POST("/chat/conversations/:conversationId/workspace/git-remote-op", s.handlePostProjectConversationWorkspaceGitRemoteOp)
+	api.POST("/chat/conversations/:conversationId/workspace/git-stage", s.handlePostProjectConversationWorkspaceGitStage)
+	api.POST("/chat/conversations/:conversationId/workspace/git-stage-all", s.handlePostProjectConversationWorkspaceGitStageAll)
+	api.POST("/chat/conversations/:conversationId/workspace/git-unstage", s.handlePostProjectConversationWorkspaceGitUnstage)
+	api.POST("/chat/conversations/:conversationId/workspace/git-commit", s.handlePostProjectConversationWorkspaceGitCommit)
+	api.POST("/chat/conversations/:conversationId/workspace/git-discard", s.handlePostProjectConversationWorkspaceGitDiscard)
+	api.POST("/chat/conversations/:conversationId/workspace/create-branch", s.handlePostProjectConversationWorkspaceCreateBranch)
 	api.GET("/chat/conversations/:conversationId/workspace/tree", s.handleListProjectConversationWorkspaceTree)
 	api.GET("/chat/conversations/:conversationId/workspace/search", s.handleSearchProjectConversationWorkspacePaths)
 	api.GET("/chat/conversations/:conversationId/workspace/file", s.handleGetProjectConversationWorkspaceFile)
@@ -668,6 +675,335 @@ func (s *Server) handlePostProjectConversationWorkspaceCheckout(c echo.Context) 
 		return writeProjectConversationError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"checkout": mapProjectConversationWorkspaceCheckoutResponse(item)})
+}
+
+func (s *Server) handlePostProjectConversationWorkspaceGitRemoteOp(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw struct {
+		RepoPath string `json:"repo_path"`
+		Op       string `json:"op"`
+	}
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	op := chatservice.ProjectConversationWorkspaceGitRemoteOpKind(raw.Op)
+	switch op {
+	case chatservice.ProjectConversationWorkspaceGitRemoteOpFetch,
+		chatservice.ProjectConversationWorkspaceGitRemoteOpPull,
+		chatservice.ProjectConversationWorkspaceGitRemoteOpPush:
+	default:
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "op must be fetch, pull, or push")
+	}
+
+	item, err := s.projectConversationService.RunWorkspaceGitRemoteOp(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatservice.ProjectConversationWorkspaceGitRemoteOpInput{
+			RepoPath: repoPath,
+			Op:       op,
+		},
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"op":              string(item.Op),
+		"output":          item.Output,
+	})
+}
+
+func (s *Server) handlePostProjectConversationWorkspaceGitStage(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw struct {
+		RepoPath string `json:"repo_path"`
+		Path     string `json:"path"`
+	}
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	if strings.TrimSpace(raw.Path) == "" {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "path is required")
+	}
+
+	item, err := s.projectConversationService.StageWorkspaceFile(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatservice.ProjectConversationWorkspaceStageFileInput{
+			RepoPath: repoPath,
+			Path:     raw.Path,
+		},
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"path":            item.Path,
+	})
+}
+
+func (s *Server) handlePostProjectConversationWorkspaceGitStageAll(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw struct {
+		RepoPath string `json:"repo_path"`
+	}
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.projectConversationService.StageWorkspaceAll(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatservice.ProjectConversationWorkspaceStageAllInput{
+			RepoPath: repoPath,
+		},
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+	})
+}
+
+func (s *Server) handlePostProjectConversationWorkspaceGitUnstage(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw struct {
+		RepoPath string `json:"repo_path"`
+		Path     string `json:"path"`
+	}
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.projectConversationService.UnstageWorkspace(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatservice.ProjectConversationWorkspaceUnstageInput{
+			RepoPath: repoPath,
+			Path:     raw.Path,
+		},
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"path":            item.Path,
+	})
+}
+
+func (s *Server) handlePostProjectConversationWorkspaceGitCommit(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw struct {
+		RepoPath string `json:"repo_path"`
+		Message  string `json:"message"`
+	}
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	if strings.TrimSpace(raw.Message) == "" {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "message is required")
+	}
+
+	item, err := s.projectConversationService.CommitWorkspace(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatservice.ProjectConversationWorkspaceCommitInput{
+			RepoPath: repoPath,
+			Message:  raw.Message,
+		},
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"output":          item.Output,
+	})
+}
+
+func (s *Server) handlePostProjectConversationWorkspaceGitDiscard(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw struct {
+		RepoPath string `json:"repo_path"`
+		Path     string `json:"path"`
+	}
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	if strings.TrimSpace(raw.Path) == "" {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "path is required")
+	}
+
+	item, err := s.projectConversationService.DiscardWorkspaceFile(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatservice.ProjectConversationWorkspaceDiscardFileInput{
+			RepoPath: repoPath,
+			Path:     raw.Path,
+		},
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"path":            item.Path,
+	})
+}
+
+func (s *Server) handlePostProjectConversationWorkspaceCreateBranch(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw struct {
+		RepoPath   string `json:"repo_path"`
+		BranchName string `json:"branch_name"`
+		StartPoint string `json:"start_point"`
+	}
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	branchName := chatservice.WorkspaceBranchName(raw.BranchName)
+	if branchName.String() == "" {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "branch_name is required")
+	}
+
+	item, err := s.projectConversationService.CreateWorkspaceBranch(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatservice.ProjectConversationWorkspaceCreateBranchInput{
+			RepoPath:   repoPath,
+			BranchName: branchName,
+			StartPoint: raw.StartPoint,
+		},
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"branch_name":     item.BranchName,
+	})
 }
 
 func (s *Server) handleListProjectConversationWorkspaceTree(c echo.Context) error {
@@ -1533,10 +1869,13 @@ func mapProjectConversationWorkspaceDiffResponse(
 		files := make([]map[string]any, 0, len(repo.Files))
 		for _, file := range repo.Files {
 			files = append(files, map[string]any{
-				"path":    file.Path,
-				"status":  string(file.Status),
-				"added":   file.Added,
-				"removed": file.Removed,
+				"path":     file.Path,
+				"old_path": file.OldPath,
+				"status":   string(file.Status),
+				"staged":   file.Staged,
+				"unstaged": file.Unstaged,
+				"added":    file.Added,
+				"removed":  file.Removed,
 			})
 		}
 		repos = append(repos, map[string]any{

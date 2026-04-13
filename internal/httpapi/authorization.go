@@ -328,6 +328,13 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 		"/api/v1/chat/conversations/:conversationId/workspace/repo-refs",
 		"/api/v1/chat/conversations/:conversationId/workspace/git-graph",
 		"/api/v1/chat/conversations/:conversationId/workspace/checkout",
+		"/api/v1/chat/conversations/:conversationId/workspace/git-remote-op",
+		"/api/v1/chat/conversations/:conversationId/workspace/git-stage",
+		"/api/v1/chat/conversations/:conversationId/workspace/git-stage-all",
+		"/api/v1/chat/conversations/:conversationId/workspace/git-unstage",
+		"/api/v1/chat/conversations/:conversationId/workspace/git-commit",
+		"/api/v1/chat/conversations/:conversationId/workspace/git-discard",
+		"/api/v1/chat/conversations/:conversationId/workspace/create-branch",
 		"/api/v1/chat/conversations/:conversationId/workspace/sync",
 		"/api/v1/chat/conversations/:conversationId/workspace/tree",
 		"/api/v1/chat/conversations/:conversationId/workspace/search",
@@ -767,7 +774,16 @@ func ticketPermissionForPath(path, method string) humanauthdomain.PermissionKey 
 }
 
 func chatPermissionForPath(path, method string) humanauthdomain.PermissionKey {
-	if strings.Contains(path, "/terminal-sessions") || strings.HasSuffix(path, "/workspace/sync") {
+	if strings.Contains(path, "/terminal-sessions") ||
+		strings.HasSuffix(path, "/workspace/sync") ||
+		strings.HasSuffix(path, "/workspace/checkout") ||
+		strings.HasSuffix(path, "/workspace/git-remote-op") ||
+		strings.HasSuffix(path, "/workspace/git-stage") ||
+		strings.HasSuffix(path, "/workspace/git-stage-all") ||
+		strings.HasSuffix(path, "/workspace/git-unstage") ||
+		strings.HasSuffix(path, "/workspace/git-commit") ||
+		strings.HasSuffix(path, "/workspace/git-discard") ||
+		strings.HasSuffix(path, "/workspace/create-branch") {
 		return humanauthdomain.PermissionConversationUpdate
 	}
 	switch method {

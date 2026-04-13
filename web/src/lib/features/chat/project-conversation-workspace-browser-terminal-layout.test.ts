@@ -3,8 +3,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 const {
   checkoutProjectConversationWorkspaceBranch,
+  commitProjectConversationWorkspace,
   createProjectConversationTerminalSession,
   createProjectConversationWorkspaceFile,
+  discardProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
@@ -14,10 +16,13 @@ const {
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
+  stageProjectConversationWorkspaceFile,
 } = vi.hoisted(() => ({
   checkoutProjectConversationWorkspaceBranch: vi.fn(),
+  commitProjectConversationWorkspace: vi.fn(),
   createProjectConversationTerminalSession: vi.fn(),
   createProjectConversationWorkspaceFile: vi.fn(),
+  discardProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
   getProjectConversationWorkspaceGitGraph: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
@@ -27,12 +32,15 @@ const {
   listProjectConversationWorkspaceTree: vi.fn(),
   renameProjectConversationWorkspaceFile: vi.fn(),
   searchProjectConversationWorkspacePaths: vi.fn(),
+  stageProjectConversationWorkspaceFile: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
   checkoutProjectConversationWorkspaceBranch,
+  commitProjectConversationWorkspace,
   createProjectConversationTerminalSession,
   createProjectConversationWorkspaceFile,
+  discardProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
@@ -42,6 +50,7 @@ vi.mock('$lib/api/chat', () => ({
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
+  stageProjectConversationWorkspaceFile,
 }))
 
 vi.mock('@xterm/xterm', () => ({

@@ -379,6 +379,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     )
   }
 
+  async function reloadFile(repoPath: string, filePath: string) {
+    if (!repoPath || !filePath) return
+    await loadFile(repoPath, filePath, { silent: true })
+  }
+
   function openRepo(repoPath: string) {
     if (!repoPath || repoPath === treeRepoPath) return
     treeRepoPath = repoPath
@@ -654,6 +659,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     reset,
     refreshWorkspace,
     refreshRepoGitContext,
+    reloadFile,
     toggleDir,
     openRepo,
     selectFile,
@@ -667,6 +673,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     createFile,
     renameFile,
     deleteFile,
+    refreshWorkspaceDiff,
     checkoutBlockers,
     checkoutBranch,
     setAutosaveEnabled,

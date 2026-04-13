@@ -1,9 +1,21 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import { syncProjectConversationWorkspace } from '$lib/api/chat'
+  import {
+    commitProjectConversationWorkspace,
+    createProjectConversationWorkspaceBranch,
+    discardProjectConversationWorkspaceFile,
+    runProjectConversationWorkspaceGitRemoteOp,
+    stageAllProjectConversationWorkspaceFiles,
+    stageProjectConversationWorkspaceFile,
+    syncProjectConversationWorkspace,
+    unstageProjectConversationWorkspace,
+  } from '$lib/api/chat'
+  import type {
+    ProjectConversationWorkspaceDiff,
+    ProjectConversationWorkspaceGitRemoteOp,
+  } from '$lib/api/chat'
   import { appStore } from '$lib/stores/app.svelte'
   import { AlertCircle } from '@lucide/svelte'
-  import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
   import { PROJECT_AI_FOCUS_PRIORITY } from './project-ai-focus'
   import ProjectConversationWorkspaceBrowserPane from './project-conversation-workspace-browser-pane.svelte'
   import ProjectConversationWorkspaceBrowserToolbar from './project-conversation-workspace-browser-toolbar.svelte'
@@ -98,6 +110,103 @@
     } finally {
       syncInFlight = false
     }
+  }
+
+  async function handleGitRemoteOp(op: ProjectConversationWorkspaceGitRemoteOp) {
+    if (!conversationId || !browser.selectedRepoPath) return
+    await runProjectConversationWorkspaceGitRemoteOp(conversationId, {
+      repoPath: browser.selectedRepoPath,
+      op,
+    })
+    await browser.refreshRepoGitContext()
+    await browser.refreshWorkspace(true)
+  }
+
+  async function refreshWorkspaceAfterGitMutation(
+    repoPath: string,
+    filePath = browser.selectedFilePath,
+  ) {
+    await browser.refreshRepoGitContext(repoPath)
+    await browser.refreshWorkspace(true)
+    await browser.refreshWorkspaceDiff()
+    if (repoPath === browser.selectedRepoPath && filePath) {
+      await browser.reloadFile(repoPath, filePath)
+    }
+  }
+
+  async function handleStageFile(path: string) {
+    if (!conversationId || !browser.selectedRepoPath || !path) return
+    await stageProjectConversationWorkspaceFile(conversationId, {
+      repoPath: browser.selectedRepoPath,
+      path,
+    })
+    await refreshWorkspaceAfterGitMutation(browser.selectedRepoPath, path)
+  }
+
+  async function handleStageAll() {
+    if (!conversationId || !browser.selectedRepoPath) return
+    await stageAllProjectConversationWorkspaceFiles(conversationId, {
+      repoPath: browser.selectedRepoPath,
+    })
+    await refreshWorkspaceAfterGitMutation(browser.selectedRepoPath)
+  }
+
+  async function handleUnstage(path = '') {
+    if (!conversationId || !browser.selectedRepoPath) return
+    await unstageProjectConversationWorkspace(conversationId, {
+      repoPath: browser.selectedRepoPath,
+      path,
+    })
+    await refreshWorkspaceAfterGitMutation(browser.selectedRepoPath, path)
+  }
+
+  async function handleCommitRepo(message: string) {
+    if (!conversationId || !browser.selectedRepoPath) return
+    await commitProjectConversationWorkspace(conversationId, {
+      repoPath: browser.selectedRepoPath,
+      message,
+    })
+    await refreshWorkspaceAfterGitMutation(browser.selectedRepoPath)
+  }
+
+  async function handleDiscardFile(path: string) {
+    if (!conversationId || !browser.selectedRepoPath || !path) return
+    const editorState = browser.getEditorState(browser.selectedRepoPath, path)
+    const confirmMessage =
+      editorState?.dirty === true
+        ? `Discard all workspace changes for ${path}? Your unsaved editor draft will also be discarded.`
+        : `Discard all workspace changes for ${path}?`
+    if (!window.confirm(confirmMessage)) return
+    if (editorState?.dirty === true) {
+      browser.discardDraft(browser.selectedRepoPath, path)
+    }
+    await discardProjectConversationWorkspaceFile(conversationId, {
+      repoPath: browser.selectedRepoPath,
+      path,
+    })
+    await refreshWorkspaceAfterGitMutation(browser.selectedRepoPath, path)
+  }
+
+  function handleCreateBranch(commitId: string) {
+    const name = window.prompt('New branch name:', '')
+    if (!name?.trim() || !conversationId || !browser.selectedRepoPath) return
+    void (async () => {
+      await createProjectConversationWorkspaceBranch(conversationId, {
+        repoPath: browser.selectedRepoPath,
+        branchName: name.trim(),
+        startPoint: commitId,
+      })
+      await browser.refreshRepoGitContext()
+    })()
+  }
+
+  async function handleCreateBranchName(branchName: string) {
+    if (!conversationId || !browser.selectedRepoPath || !branchName.trim()) return
+    await createProjectConversationWorkspaceBranch(conversationId, {
+      repoPath: browser.selectedRepoPath,
+      branchName: branchName.trim(),
+    })
+    await browser.refreshRepoGitContext()
   }
 
   $effect(() => {
@@ -339,6 +448,14 @@
             repoPath: browser.selectedRepoPath,
             ...request,
           })}
+        onCreateBranchName={handleCreateBranchName}
+        onGitRemoteOp={handleGitRemoteOp}
+        onStageFile={handleStageFile}
+        onStageAll={handleStageAll}
+        onUnstage={handleUnstage}
+        onCommitRepo={handleCommitRepo}
+        onDiscardFile={handleDiscardFile}
+        onCreateBranch={handleCreateBranch}
       />
     </div>
   {/if}

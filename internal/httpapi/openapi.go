@@ -520,10 +520,13 @@ type OpenAPIProjectConversationEntriesResponse struct {
 }
 
 type OpenAPIProjectConversationWorkspaceDiffFile struct {
-	Path    string `json:"path"`
-	Status  string `json:"status"`
-	Added   int    `json:"added"`
-	Removed int    `json:"removed"`
+	Path     string `json:"path"`
+	OldPath  string `json:"old_path,omitempty"`
+	Status   string `json:"status"`
+	Staged   bool   `json:"staged"`
+	Unstaged bool   `json:"unstaged"`
+	Added    int    `json:"added"`
+	Removed  int    `json:"removed"`
 }
 
 type OpenAPIProjectConversationWorkspaceDiffRepo struct {

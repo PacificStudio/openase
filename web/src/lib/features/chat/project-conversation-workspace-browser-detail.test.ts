@@ -277,4 +277,147 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     await fireEvent.click(within(revertMenu).getByRole('menuitem', { name: 'Revert File' }))
     expect(revertSelectedDraft).toHaveBeenCalledTimes(1)
   })
+
+  it('shows diff status markers and totals in the detail status bar for the selected changed file', async () => {
+    const view = render(ProjectConversationWorkspaceBrowserDetail, {
+      props: {
+        browser: buildBrowserStub({
+          selectedEditorState: {
+            baseSavedContent: 'line one\nline two changed\nline three\n',
+            baseSavedRevision: 'rev-2',
+            latestSavedContent: 'line one\nline two changed\nline three\n',
+            latestSavedRevision: 'rev-2',
+            draftContent: 'line one\nline two changed\nline three\n',
+            dirty: false,
+            savePhase: 'idle',
+            externalChange: false,
+            errorMessage: '',
+            encoding: 'utf-8',
+            lineEnding: 'lf',
+            lastSavedAt: '',
+            selection: null,
+            pendingPatch: null,
+          },
+          patch: {
+            conversationId: 'conversation-1',
+            repoPath: 'services/openase',
+            path: 'README.md',
+            status: 'renamed',
+            diffKind: 'text',
+            truncated: false,
+            diff: '@@ -1 +1 @@\n-alpha\n+beta\n',
+          },
+          selectedChangedFiles: [
+            {
+              path: 'README.md',
+              status: 'renamed',
+              added: 3,
+              removed: 1,
+            },
+          ],
+        }),
+        selectedRepo: {
+          name: 'openase',
+          path: 'services/openase',
+          branch: 'feat/ase-168-wrap-toggle',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'feat/ase-168-wrap-toggle',
+            cacheKey: 'branch:feat/ase-168-wrap-toggle',
+            branchName: 'feat/ase-168-wrap-toggle',
+            branchFullName: 'refs/heads/feat/ase-168-wrap-toggle',
+            commitId: '123456789abc',
+            shortCommitId: '1234567',
+            subject: 'Support editor wrap toggle',
+          },
+          headCommit: '123456789abc',
+          headSummary: 'Support editor wrap toggle',
+          dirty: true,
+          filesChanged: 1,
+          added: 1,
+          removed: 0,
+        },
+      },
+    })
+
+    expect(view.getByTestId('workspace-browser-status-badge').textContent).toBe('R')
+    expect(view.getByTestId('workspace-browser-status-label').textContent).toBe('renamed')
+    expect(view.getByTestId('workspace-browser-status-totals').textContent).toContain('+3 -1')
+  })
+
+  it('renders gutter diff markers from the saved workspace patch when the editor draft is clean', async () => {
+    const savedContent = 'line one\nline two changed\nline three\n'
+
+    const view = render(ProjectConversationWorkspaceBrowserDetail, {
+      props: {
+        browser: buildBrowserStub({
+          selectedEditorState: {
+            baseSavedContent: savedContent,
+            baseSavedRevision: 'rev-2',
+            latestSavedContent: savedContent,
+            latestSavedRevision: 'rev-2',
+            draftContent: savedContent,
+            dirty: false,
+            savePhase: 'idle',
+            externalChange: false,
+            errorMessage: '',
+            encoding: 'utf-8',
+            lineEnding: 'lf',
+            lastSavedAt: '',
+            selection: null,
+            pendingPatch: null,
+          },
+          patch: {
+            conversationId: 'conversation-1',
+            repoPath: 'services/openase',
+            path: 'README.md',
+            status: 'modified',
+            diffKind: 'text',
+            truncated: false,
+            diff: '@@ -1,3 +1,3 @@\n line one\n-line two\n+line two changed\n line three\n',
+          },
+          preview: {
+            conversationId: 'conversation-1',
+            repoPath: 'services/openase',
+            path: 'README.md',
+            sizeBytes: 32,
+            mediaType: 'text/plain',
+            previewKind: 'text',
+            truncated: false,
+            content: savedContent,
+            revision: 'rev-2',
+            writable: true,
+            readOnlyReason: '',
+            encoding: 'utf-8',
+            lineEnding: 'lf',
+          },
+        }),
+        selectedRepo: {
+          name: 'openase',
+          path: 'services/openase',
+          branch: 'main',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'main',
+            cacheKey: 'branch:main',
+            branchName: 'main',
+            branchFullName: 'refs/heads/main',
+            commitId: '123456789abc',
+            shortCommitId: '1234567',
+            subject: 'Main branch',
+          },
+          headCommit: '123456789abc',
+          headSummary: 'Main branch',
+          dirty: true,
+          filesChanged: 1,
+          added: 1,
+          removed: 0,
+        },
+      },
+    })
+
+    await waitFor(() =>
+      expect(view.container.querySelector(".cm-diff-marker[data-kind='modified']")).not.toBeNull(),
+    )
+  })
 })

@@ -4,7 +4,9 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
   checkoutProjectConversationWorkspaceBranch,
+  commitProjectConversationWorkspace,
   createProjectConversationWorkspaceFile,
+  discardProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
@@ -16,9 +18,14 @@ const {
   renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
+  stageAllProjectConversationWorkspaceFiles,
+  stageProjectConversationWorkspaceFile,
+  unstageProjectConversationWorkspace,
 } = vi.hoisted(() => ({
   checkoutProjectConversationWorkspaceBranch: vi.fn(),
+  commitProjectConversationWorkspace: vi.fn(),
   createProjectConversationWorkspaceFile: vi.fn(),
+  discardProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
   getProjectConversationWorkspaceGitGraph: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
@@ -30,11 +37,16 @@ const {
   renameProjectConversationWorkspaceFile: vi.fn(),
   saveProjectConversationWorkspaceFile: vi.fn(),
   searchProjectConversationWorkspacePaths: vi.fn(),
+  stageAllProjectConversationWorkspaceFiles: vi.fn(),
+  stageProjectConversationWorkspaceFile: vi.fn(),
+  unstageProjectConversationWorkspace: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
   checkoutProjectConversationWorkspaceBranch,
+  commitProjectConversationWorkspace,
   createProjectConversationWorkspaceFile,
+  discardProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
@@ -46,6 +58,9 @@ vi.mock('$lib/api/chat', () => ({
   renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
+  stageAllProjectConversationWorkspaceFiles,
+  stageProjectConversationWorkspaceFile,
+  unstageProjectConversationWorkspace,
 }))
 
 import ProjectConversationWorkspaceBrowser from './project-conversation-workspace-browser.svelte'
@@ -122,6 +137,30 @@ describe('ProjectConversationWorkspaceBrowser', () => {
         },
         createdLocalBranch: '',
       },
+    })
+    stageProjectConversationWorkspaceFile.mockResolvedValue({
+      conversationId: 'conversation-1',
+      repoPath: 'services/openase',
+      path: 'README.md',
+    })
+    stageAllProjectConversationWorkspaceFiles.mockResolvedValue({
+      conversationId: 'conversation-1',
+      repoPath: 'services/openase',
+    })
+    commitProjectConversationWorkspace.mockResolvedValue({
+      conversationId: 'conversation-1',
+      repoPath: 'services/openase',
+      output: '[agent/conv-123 1234567] feat: test',
+    })
+    unstageProjectConversationWorkspace.mockResolvedValue({
+      conversationId: 'conversation-1',
+      repoPath: 'services/openase',
+      path: '',
+    })
+    discardProjectConversationWorkspaceFile.mockResolvedValue({
+      conversationId: 'conversation-1',
+      repoPath: 'services/openase',
+      path: 'README.md',
     })
   })
 
@@ -357,7 +396,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       repos: [
         {
           ...workspaceDiff.repos[0],
-          files: [{ path: 'src/new.ts', status: 'added', added: 5, removed: 0 }],
+          files: [{ path: 'src/new.ts', status: 'added', staged: false, unstaged: true, added: 5, removed: 0 }],
         },
       ],
     } satisfies ProjectConversationWorkspaceDiff
@@ -370,10 +409,12 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       },
     })
 
-    const changeButton = await view.findByRole('button', { name: /new\.ts/i }, { timeout: 3000 })
-    expect(view.container.textContent).toContain('Changes')
-    expect(changeButton.textContent).toContain('+5 -0')
-    expect(changeButton.textContent).toContain('A')
+    await fireEvent.click(await view.findByRole('button', { name: /1 file/i }, { timeout: 3000 }))
+    const changeLabel = await view.findByText('new.ts', { exact: true }, { timeout: 3000 })
+    const changeButton = changeLabel.closest('button') as HTMLButtonElement
+    const changeRow = changeButton.parentElement as HTMLElement
+    expect(changeRow.textContent).toContain('+5 -0')
+    expect(changeRow.textContent).toContain('A')
 
     await fireEvent.click(changeButton)
 
@@ -402,6 +443,181 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       'overflow-hidden',
     )
     expect(view.container.querySelector('.code-editor')).not.toBeNull()
+  })
+
+  it('stages all, unstages, and commits from the branch changes panel, then refreshes workspace diff state', async () => {
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [],
+      },
+    })
+
+    const initialDiff = {
+      ...workspaceDiff,
+      filesChanged: 2,
+      added: 7,
+      removed: 0,
+      repos: [
+        {
+          ...workspaceDiff.repos[0],
+          filesChanged: 2,
+          added: 7,
+          removed: 0,
+          files: [
+            {
+              path: 'README.md',
+              status: 'modified',
+              staged: false,
+              unstaged: true,
+              added: 2,
+              removed: 0,
+            },
+            {
+              path: 'src/new.ts',
+              status: 'added',
+              staged: false,
+              unstaged: true,
+              added: 5,
+              removed: 0,
+            },
+          ],
+        },
+      ],
+    } satisfies ProjectConversationWorkspaceDiff
+    const stagedDiff = {
+      ...workspaceDiff,
+      filesChanged: 2,
+      added: 7,
+      removed: 0,
+      repos: [
+        {
+          ...workspaceDiff.repos[0],
+          filesChanged: 2,
+          added: 7,
+          removed: 0,
+          files: [
+            {
+              path: 'README.md',
+              status: 'modified',
+              staged: true,
+              unstaged: false,
+              added: 2,
+              removed: 0,
+            },
+            {
+              path: 'src/new.ts',
+              status: 'added',
+              staged: true,
+              unstaged: false,
+              added: 5,
+              removed: 0,
+            },
+          ],
+        },
+      ],
+    } satisfies ProjectConversationWorkspaceDiff
+    const mixedDiff = {
+      ...workspaceDiff,
+      filesChanged: 2,
+      added: 7,
+      removed: 0,
+      repos: [
+        {
+          ...workspaceDiff.repos[0],
+          filesChanged: 2,
+          added: 7,
+          removed: 0,
+          files: [
+            {
+              path: 'README.md',
+              status: 'modified',
+              staged: false,
+              unstaged: true,
+              added: 2,
+              removed: 0,
+            },
+            {
+              path: 'src/new.ts',
+              status: 'added',
+              staged: true,
+              unstaged: false,
+              added: 5,
+              removed: 0,
+            },
+          ],
+        },
+      ],
+    } satisfies ProjectConversationWorkspaceDiff
+    const cleanDiff = {
+      ...workspaceDiff,
+      dirty: false,
+      reposChanged: 0,
+      filesChanged: 0,
+      added: 0,
+      removed: 0,
+      repos: [],
+    } satisfies ProjectConversationWorkspaceDiff
+
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce({ workspaceDiff: stagedDiff })
+      .mockResolvedValueOnce({ workspaceDiff: mixedDiff })
+      .mockResolvedValueOnce({ workspaceDiff: stagedDiff })
+      .mockResolvedValueOnce({ workspaceDiff: cleanDiff })
+
+    const view = render(ProjectConversationWorkspaceBrowser, {
+      props: {
+        conversationId: 'conversation-1',
+        workspaceDiff: initialDiff,
+        workspaceDiffLoading: false,
+      },
+    })
+
+    await fireEvent.click(await view.findByRole('button', { name: /2 files/i }, { timeout: 3000 }))
+    await fireEvent.click(view.getByTestId('workspace-branch-stage-all'))
+
+    await waitFor(() => {
+      expect(stageAllProjectConversationWorkspaceFiles).toHaveBeenCalledWith('conversation-1', {
+        repoPath: 'services/openase',
+      })
+      expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(1)
+      expect(view.container.textContent).toContain('Staged 2')
+    })
+
+    await fireEvent.click(view.getByTestId('workspace-branch-unstage-README.md'))
+
+    await waitFor(() => {
+      expect(unstageProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1', {
+        repoPath: 'services/openase',
+        path: 'README.md',
+      })
+      expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
+    })
+
+    await fireEvent.click(view.getByTestId('workspace-branch-stage-all'))
+
+    await waitFor(() => {
+      expect(stageAllProjectConversationWorkspaceFiles).toHaveBeenCalledTimes(2)
+      expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(3)
+      expect(view.container.textContent).toContain('Staged 2')
+    })
+
+    await fireEvent.input(view.getByTestId('workspace-branch-commit-message'), {
+      target: { value: 'feat: stage browser test' },
+    })
+    await fireEvent.click(view.getByTestId('workspace-branch-commit-button'))
+
+    await waitFor(() => {
+      expect(commitProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1', {
+        repoPath: 'services/openase',
+        message: 'feat: stage browser test',
+      })
+      expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(4)
+      expect(view.container.textContent).toContain('clean')
+    })
   })
 
   it('expands the explorer tree to the selected changed file from the changes list', async () => {
@@ -449,7 +665,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       repos: [
         {
           ...workspaceDiff.repos[0],
-          files: [{ path: 'src/new.ts', status: 'added', added: 5, removed: 0 }],
+          files: [{ path: 'src/new.ts', status: 'added', staged: false, unstaged: true, added: 5, removed: 0 }],
         },
       ],
     } satisfies ProjectConversationWorkspaceDiff
@@ -462,7 +678,9 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       },
     })
 
-    const changeButton = await view.findByRole('button', { name: /new\.ts/i })
+    await fireEvent.click(await view.findByRole('button', { name: /1 file/i }, { timeout: 3000 }))
+    const changeLabel = await view.findByText('new.ts', { exact: true }, { timeout: 3000 })
+    const changeButton = changeLabel.closest('button') as HTMLButtonElement
     const explorerList = view.getByTestId('workspace-browser-explorer-list')
     expect(within(explorerList).queryAllByRole('button', { name: /new\.ts/i })).toHaveLength(0)
 

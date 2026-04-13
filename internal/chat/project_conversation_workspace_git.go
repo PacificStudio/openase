@@ -26,6 +26,7 @@ type WorkspaceCheckoutTargetKind string
 const (
 	WorkspaceCheckoutTargetKindLocalBranch          WorkspaceCheckoutTargetKind = "local_branch"
 	WorkspaceCheckoutTargetKindRemoteTrackingBranch WorkspaceCheckoutTargetKind = "remote_tracking_branch"
+	WorkspaceCheckoutTargetKindNewLocalBranch       WorkspaceCheckoutTargetKind = "new_local_branch"
 )
 
 type WorkspaceCheckoutTarget struct {
@@ -286,11 +287,23 @@ func ParseWorkspaceCheckoutTarget(
 			CreateTrackingBranch: true,
 			LocalBranchName:      parsedLocalBranch,
 		}, nil
+	case string(WorkspaceCheckoutTargetKindNewLocalBranch):
+		if createTrackingBranch {
+			return WorkspaceCheckoutTarget{}, fmt.Errorf("create_tracking_branch is only supported for remote branches")
+		}
+		if parsedLocalBranch != nil {
+			return WorkspaceCheckoutTarget{}, fmt.Errorf("local_branch_name is only supported for remote branches")
+		}
+		return WorkspaceCheckoutTarget{
+			Kind:       WorkspaceCheckoutTargetKindNewLocalBranch,
+			BranchName: branchName,
+		}, nil
 	default:
 		return WorkspaceCheckoutTarget{}, fmt.Errorf(
-			"target_kind must be %s or %s",
+			"target_kind must be %s, %s, or %s",
 			WorkspaceCheckoutTargetKindLocalBranch,
 			WorkspaceCheckoutTargetKindRemoteTrackingBranch,
+			WorkspaceCheckoutTargetKindNewLocalBranch,
 		)
 	}
 }
@@ -509,6 +522,27 @@ func (s *ProjectConversationService) CheckoutWorkspaceBranch(
 			return ProjectConversationWorkspaceCheckoutResult{}, err
 		}
 		createdLocalBranch = localBranchName.String()
+	case WorkspaceCheckoutTargetKindNewLocalBranch:
+		if projectConversationWorkspaceGitBranchRefExists(
+			branchRefs,
+			ProjectConversationWorkspaceBranchScopeLocal,
+			input.Target.BranchName,
+		) {
+			return ProjectConversationWorkspaceCheckoutResult{}, &ProjectConversationWorkspaceCheckoutPreconditionError{
+				Reason:          ProjectConversationWorkspaceCheckoutPreconditionLocalBranchExists,
+				RequestedBranch: input.Target.BranchName.String(),
+				SuggestedBranch: input.Target.BranchName.String(),
+			}
+		}
+		if err := s.createConversationWorkspaceLocalBranch(
+			ctx,
+			resolved.machine,
+			resolved.repo.repoPath,
+			input.Target.BranchName,
+		); err != nil {
+			return ProjectConversationWorkspaceCheckoutResult{}, err
+		}
+		createdLocalBranch = input.Target.BranchName.String()
 	default:
 		return ProjectConversationWorkspaceCheckoutResult{}, fmt.Errorf("unsupported checkout target %s", input.Target.Kind)
 	}
@@ -827,6 +861,515 @@ func (s *ProjectConversationService) createConversationWorkspaceTrackingBranch(
 			localBranch.String(),
 			remoteBranch.String(),
 		},
+		false,
+	)
+	return err
+}
+
+func (s *ProjectConversationService) createConversationWorkspaceLocalBranch(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoPath string,
+	branchName WorkspaceBranchName,
+) error {
+	_, err := s.runProjectConversationGitCommand(
+		ctx,
+		machine,
+		[]string{"git", "-C", repoPath, "switch", "--quiet", "-c", branchName.String()},
+		false,
+	)
+	return err
+}
+
+type ProjectConversationWorkspaceGitRemoteOpKind string
+
+const (
+	ProjectConversationWorkspaceGitRemoteOpFetch ProjectConversationWorkspaceGitRemoteOpKind = "fetch"
+	ProjectConversationWorkspaceGitRemoteOpPull  ProjectConversationWorkspaceGitRemoteOpKind = "pull"
+	ProjectConversationWorkspaceGitRemoteOpPush  ProjectConversationWorkspaceGitRemoteOpKind = "push"
+)
+
+type ProjectConversationWorkspaceGitRemoteOpInput struct {
+	RepoPath WorkspaceRepoPath
+	Op       ProjectConversationWorkspaceGitRemoteOpKind
+}
+
+type ProjectConversationWorkspaceGitRemoteOpResult struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Op             ProjectConversationWorkspaceGitRemoteOpKind
+	Output         string
+}
+
+type ProjectConversationWorkspaceStageFileInput struct {
+	RepoPath WorkspaceRepoPath
+	Path     string
+}
+
+type ProjectConversationWorkspaceStageFileResult struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Path           string
+}
+
+type ProjectConversationWorkspaceStageAllInput struct {
+	RepoPath WorkspaceRepoPath
+}
+
+type ProjectConversationWorkspaceStageAllResult struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+}
+
+type ProjectConversationWorkspaceCommitInput struct {
+	RepoPath WorkspaceRepoPath
+	Message  string
+}
+
+type ProjectConversationWorkspaceCommitResult struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Output         string
+}
+
+type ProjectConversationWorkspaceDiscardFileInput struct {
+	RepoPath WorkspaceRepoPath
+	Path     string
+}
+
+type ProjectConversationWorkspaceDiscardFileResult struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Path           string
+}
+
+type ProjectConversationWorkspaceUnstageInput struct {
+	RepoPath WorkspaceRepoPath
+	Path     string
+}
+
+type ProjectConversationWorkspaceUnstageResult struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Path           string
+}
+
+func (s *ProjectConversationService) RunWorkspaceGitRemoteOp(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceGitRemoteOpInput,
+) (ProjectConversationWorkspaceGitRemoteOpResult, error) {
+	resolved, _, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		"",
+		true,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceGitRemoteOpResult{}, err
+	}
+
+	var args []string
+	switch input.Op {
+	case ProjectConversationWorkspaceGitRemoteOpFetch:
+		args = []string{"git", "-C", resolved.repo.repoPath, "fetch", "--all", "--prune"}
+	case ProjectConversationWorkspaceGitRemoteOpPull:
+		args = []string{"git", "-C", resolved.repo.repoPath, "pull", "--ff-only"}
+	case ProjectConversationWorkspaceGitRemoteOpPush:
+		args = []string{"git", "-C", resolved.repo.repoPath, "push"}
+	default:
+		return ProjectConversationWorkspaceGitRemoteOpResult{}, fmt.Errorf("unknown git remote operation: %s", input.Op)
+	}
+
+	output, err := s.runProjectConversationGitCommand(ctx, resolved.machine, args, true)
+	if err != nil {
+		return ProjectConversationWorkspaceGitRemoteOpResult{}, err
+	}
+
+	return ProjectConversationWorkspaceGitRemoteOpResult{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Op:             input.Op,
+		Output:         strings.TrimSpace(string(output)),
+	}, nil
+}
+
+func (s *ProjectConversationService) StageWorkspaceFile(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceStageFileInput,
+) (ProjectConversationWorkspaceStageFileResult, error) {
+	resolved, relativePath, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		input.Path,
+		false,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceStageFileResult{}, err
+	}
+	if _, err := s.runProjectConversationGitCommand(
+		ctx,
+		resolved.machine,
+		[]string{"git", "-C", resolved.repo.repoPath, "add", "--", relativePath},
+		false,
+	); err != nil {
+		return ProjectConversationWorkspaceStageFileResult{}, err
+	}
+	return ProjectConversationWorkspaceStageFileResult{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Path:           relativePath,
+	}, nil
+}
+
+func (s *ProjectConversationService) StageWorkspaceAll(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceStageAllInput,
+) (ProjectConversationWorkspaceStageAllResult, error) {
+	resolved, _, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		"",
+		true,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceStageAllResult{}, err
+	}
+	if _, err := s.runProjectConversationGitCommand(
+		ctx,
+		resolved.machine,
+		[]string{"git", "-C", resolved.repo.repoPath, "add", "--all", "--", "."},
+		false,
+	); err != nil {
+		return ProjectConversationWorkspaceStageAllResult{}, err
+	}
+	return ProjectConversationWorkspaceStageAllResult{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+	}, nil
+}
+
+func (s *ProjectConversationService) CommitWorkspace(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceCommitInput,
+) (ProjectConversationWorkspaceCommitResult, error) {
+	resolved, _, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		"",
+		true,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceCommitResult{}, err
+	}
+	message := strings.TrimSpace(input.Message)
+	if message == "" {
+		return ProjectConversationWorkspaceCommitResult{}, fmt.Errorf("commit message must not be empty")
+	}
+
+	statusOutput, err := s.runProjectConversationGitCommand(
+		ctx,
+		resolved.machine,
+		[]string{"git", "-C", resolved.repo.repoPath, "status", "--porcelain=v1", "-z"},
+		false,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceCommitResult{}, err
+	}
+	statuses, err := parseProjectConversationGitStatusEntries(statusOutput)
+	if err != nil {
+		return ProjectConversationWorkspaceCommitResult{}, err
+	}
+	hasStaged := false
+	for _, status := range statuses {
+		if projectConversationGitStatusHasStaged(status.code) {
+			hasStaged = true
+			break
+		}
+	}
+	if !hasStaged {
+		return ProjectConversationWorkspaceCommitResult{}, fmt.Errorf("there are no staged changes to commit")
+	}
+
+	output, err := s.runProjectConversationGitCommand(
+		ctx,
+		resolved.machine,
+		[]string{
+			"git",
+			"-C",
+			resolved.repo.repoPath,
+			"-c",
+			"user.name=OpenASE Workspace",
+			"-c",
+			"user.email=openase-workspace@local",
+			"commit",
+			"-m",
+			message,
+		},
+		false,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceCommitResult{}, err
+	}
+	return ProjectConversationWorkspaceCommitResult{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Output:         strings.TrimSpace(string(output)),
+	}, nil
+}
+
+func (s *ProjectConversationService) DiscardWorkspaceFile(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceDiscardFileInput,
+) (ProjectConversationWorkspaceDiscardFileResult, error) {
+	resolved, relativePath, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		input.Path,
+		false,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceDiscardFileResult{}, err
+	}
+	status, ok, err := s.readConversationWorkspaceGitStatusEntry(
+		ctx,
+		resolved.machine,
+		resolved.repo.repoPath,
+		relativePath,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceDiscardFileResult{}, err
+	}
+	if ok {
+		if err := s.discardConversationWorkspaceGitStatusEntry(
+			ctx,
+			resolved.machine,
+			resolved.repo.repoPath,
+			status,
+		); err != nil {
+			return ProjectConversationWorkspaceDiscardFileResult{}, err
+		}
+	}
+	return ProjectConversationWorkspaceDiscardFileResult{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Path:           relativePath,
+	}, nil
+}
+
+func (s *ProjectConversationService) UnstageWorkspace(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceUnstageInput,
+) (ProjectConversationWorkspaceUnstageResult, error) {
+	resolved, relativePath, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		input.Path,
+		strings.TrimSpace(input.Path) == "",
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceUnstageResult{}, err
+	}
+
+	statuses, err := s.readConversationWorkspaceGitStatusEntries(
+		ctx,
+		resolved.machine,
+		resolved.repo.repoPath,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceUnstageResult{}, err
+	}
+
+	targetPaths := make([]string, 0, len(statuses))
+	headPaths := make([]string, 0, len(statuses)*2)
+	for _, status := range statuses {
+		if !projectConversationGitStatusHasStaged(status.code) {
+			continue
+		}
+		if relativePath != "" && status.path != relativePath && status.oldPath != relativePath {
+			continue
+		}
+		targetPaths = append(targetPaths, status.path)
+		headPaths = append(headPaths, status.path)
+		if status.oldPath != "" {
+			headPaths = append(headPaths, status.oldPath)
+		}
+	}
+	if len(targetPaths) == 0 {
+		return ProjectConversationWorkspaceUnstageResult{
+			ConversationID: resolved.conversationID,
+			RepoPath:       resolved.repo.relativePath,
+			Path:           relativePath,
+		}, nil
+	}
+
+	headExists := true
+	if _, err := s.runProjectConversationGitCommand(
+		ctx,
+		resolved.machine,
+		[]string{"git", "-C", resolved.repo.repoPath, "rev-parse", "--verify", "HEAD"},
+		false,
+	); err != nil {
+		if !projectConversationCommandExitedWithCode(err, 128) {
+			return ProjectConversationWorkspaceUnstageResult{}, err
+		}
+		headExists = false
+	}
+
+	if headExists {
+		args := []string{"git", "-C", resolved.repo.repoPath, "reset", "--quiet", "HEAD", "--"}
+		args = append(args, headPaths...)
+		if _, err := s.runProjectConversationGitCommand(ctx, resolved.machine, args, false); err != nil {
+			return ProjectConversationWorkspaceUnstageResult{}, err
+		}
+	} else {
+		for _, path := range targetPaths {
+			if _, err := s.runProjectConversationGitCommand(
+				ctx,
+				resolved.machine,
+				[]string{"git", "-C", resolved.repo.repoPath, "rm", "--quiet", "--cached", "--force", "--", path},
+				true,
+			); err != nil && !projectConversationCommandExitedWithCode(err, 128) {
+				return ProjectConversationWorkspaceUnstageResult{}, err
+			}
+		}
+	}
+
+	return ProjectConversationWorkspaceUnstageResult{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Path:           relativePath,
+	}, nil
+}
+
+type ProjectConversationWorkspaceCreateBranchInput struct {
+	RepoPath   WorkspaceRepoPath
+	BranchName WorkspaceBranchName
+	StartPoint string
+}
+
+type ProjectConversationWorkspaceCreateBranchResult struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	BranchName     string
+}
+
+func (s *ProjectConversationService) CreateWorkspaceBranch(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	input ProjectConversationWorkspaceCreateBranchInput,
+) (ProjectConversationWorkspaceCreateBranchResult, error) {
+	resolved, _, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		input.RepoPath.String(),
+		"",
+		true,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceCreateBranchResult{}, err
+	}
+
+	args := []string{"git", "-C", resolved.repo.repoPath, "branch", input.BranchName.String()}
+	if input.StartPoint != "" {
+		args = append(args, input.StartPoint)
+	}
+
+	_, err = s.runProjectConversationGitCommand(ctx, resolved.machine, args, false)
+	if err != nil {
+		return ProjectConversationWorkspaceCreateBranchResult{}, err
+	}
+
+	return ProjectConversationWorkspaceCreateBranchResult{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		BranchName:     input.BranchName.String(),
+	}, nil
+}
+
+func (s *ProjectConversationService) discardConversationWorkspaceGitStatusEntry(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoPath string,
+	status projectConversationGitStatusEntry,
+) error {
+	if status.oldPath != "" {
+		if _, err := s.runProjectConversationGitCommand(
+			ctx,
+			machine,
+			[]string{"git", "-C", repoPath, "restore", "--source=HEAD", "--staged", "--worktree", "--", status.oldPath},
+			false,
+		); err != nil {
+			return err
+		}
+		if _, err := s.runProjectConversationGitCommand(
+			ctx,
+			machine,
+			[]string{"git", "-C", repoPath, "rm", "--quiet", "--force", "--cached", "--", status.path},
+			true,
+		); err != nil && !projectConversationCommandExitedWithCode(err, 128) {
+			return err
+		}
+		if _, err := s.runProjectConversationGitCommand(
+			ctx,
+			machine,
+			[]string{"git", "-C", repoPath, "clean", "-f", "--", status.path},
+			true,
+		); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if status.code == "??" || mapProjectConversationWorkspaceFileStatus(status.code) == ProjectConversationWorkspaceFileStatusAdded {
+		if _, err := s.runProjectConversationGitCommand(
+			ctx,
+			machine,
+			[]string{"git", "-C", repoPath, "rm", "--quiet", "--force", "--cached", "--", status.path},
+			true,
+		); err != nil && !projectConversationCommandExitedWithCode(err, 128) {
+			return err
+		}
+		if _, err := s.runProjectConversationGitCommand(
+			ctx,
+			machine,
+			[]string{"git", "-C", repoPath, "clean", "-f", "--", status.path},
+			true,
+		); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	_, err := s.runProjectConversationGitCommand(
+		ctx,
+		machine,
+		[]string{"git", "-C", repoPath, "restore", "--source=HEAD", "--staged", "--worktree", "--", status.path},
 		false,
 	)
 	return err

@@ -42,10 +42,13 @@ type ProjectConversationWorkspaceRepoDiff struct {
 }
 
 type ProjectConversationWorkspaceFileDiff struct {
-	Path    string
-	Status  ProjectConversationWorkspaceFileStatus
-	Added   int
-	Removed int
+	Path     string
+	OldPath  string
+	Status   ProjectConversationWorkspaceFileStatus
+	Staged   bool
+	Unstaged bool
+	Added    int
+	Removed  int
 }
 
 type ProjectConversationWorkspaceFileStatus string
@@ -276,10 +279,13 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 		}
 
 		file := ProjectConversationWorkspaceFileDiff{
-			Path:    status.path,
-			Status:  mapProjectConversationWorkspaceFileStatus(status.code),
-			Added:   stat.added,
-			Removed: stat.removed,
+			Path:     status.path,
+			OldPath:  status.oldPath,
+			Status:   mapProjectConversationWorkspaceFileStatus(status.code),
+			Staged:   projectConversationGitStatusHasStaged(status.code),
+			Unstaged: projectConversationGitStatusHasUnstaged(status.code),
+			Added:    stat.added,
+			Removed:  stat.removed,
 		}
 		files = append(files, file)
 		repoSummary.Added += file.Added
@@ -458,6 +464,27 @@ func mapProjectConversationWorkspaceFileStatus(code string) ProjectConversationW
 	default:
 		return ProjectConversationWorkspaceFileStatusModified
 	}
+}
+
+func projectConversationGitStatusHasStaged(code string) bool {
+	trimmed := strings.TrimSpace(code)
+	if trimmed == "" || code == "??" {
+		return false
+	}
+	if len(code) == 0 {
+		return false
+	}
+	return code[0] != ' '
+}
+
+func projectConversationGitStatusHasUnstaged(code string) bool {
+	if code == "??" {
+		return true
+	}
+	if len(code) < 2 {
+		return false
+	}
+	return code[1] != ' '
 }
 
 func projectConversationCommandExitedWithCode(err error, code int) bool {

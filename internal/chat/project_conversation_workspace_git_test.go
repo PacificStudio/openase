@@ -264,6 +264,61 @@ func TestProjectConversationWorkspaceCheckoutCreatesTrackingBranchAndRefreshesMe
 	}
 }
 
+func TestProjectConversationWorkspaceCheckoutCreatesNewLocalBranch(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "base\n",
+			},
+		},
+	})
+	repoPath := fixture.repoPaths["backend"]
+
+	result, err := fixture.service.CheckoutWorkspaceBranch(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceCheckoutInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Target: WorkspaceCheckoutTarget{
+				Kind:       WorkspaceCheckoutTargetKindNewLocalBranch,
+				BranchName: WorkspaceBranchName("feature/new-local-branch"),
+			},
+			ExpectedCleanWorkspace: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("CheckoutWorkspaceBranch() error = %v", err)
+	}
+	if result.CreatedLocalBranch != "feature/new-local-branch" {
+		t.Fatalf("created local branch = %q", result.CreatedLocalBranch)
+	}
+	if result.CurrentRef.BranchName != "feature/new-local-branch" {
+		t.Fatalf("current branch = %q", result.CurrentRef.BranchName)
+	}
+
+	currentBranch := strings.TrimSpace(runConversationGitCommand(t, "", "git", "-C", repoPath, "branch", "--show-current"))
+	if currentBranch != "feature/new-local-branch" {
+		t.Fatalf("current branch = %q, want feature/new-local-branch", currentBranch)
+	}
+
+	refs, err := fixture.service.GetWorkspaceRepoRefs(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		WorkspaceRepoPath("backend"),
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceRepoRefs() error = %v", err)
+	}
+	if !projectConversationWorkspaceBranchRefExistsByName(refs.LocalBranches, "feature/new-local-branch") {
+		t.Fatalf("expected created local branch in refs %+v", refs.LocalBranches)
+	}
+}
+
 func TestProjectConversationWorkspaceCheckoutRemoteBranchReportsExistingLocalTrackingBranch(t *testing.T) {
 	t.Parallel()
 
@@ -313,6 +368,308 @@ func TestProjectConversationWorkspaceCheckoutRemoteBranchReportsExistingLocalTra
 	currentBranch := strings.TrimSpace(runConversationGitCommand(t, "", "git", "-C", repoPath, "branch", "--show-current"))
 	if currentBranch != "feature/existing-local-main" {
 		t.Fatalf("current branch = %q, want feature/existing-local-main", currentBranch)
+	}
+}
+
+func TestProjectConversationWorkspaceCheckoutRejectsExistingNewLocalBranch(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "base\n",
+			},
+		},
+	})
+
+	_, err := fixture.service.CheckoutWorkspaceBranch(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceCheckoutInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Target: WorkspaceCheckoutTarget{
+				Kind:       WorkspaceCheckoutTargetKindNewLocalBranch,
+				BranchName: WorkspaceBranchName("main"),
+			},
+			ExpectedCleanWorkspace: true,
+		},
+	)
+	var preconditionErr *ProjectConversationWorkspaceCheckoutPreconditionError
+	if !errors.As(err, &preconditionErr) {
+		t.Fatalf("CheckoutWorkspaceBranch() error = %v, want precondition error", err)
+	}
+	if preconditionErr.Reason != ProjectConversationWorkspaceCheckoutPreconditionLocalBranchExists {
+		t.Fatalf("precondition reason = %q", preconditionErr.Reason)
+	}
+	if preconditionErr.RequestedBranch != "main" {
+		t.Fatalf("requested branch = %q, want main", preconditionErr.RequestedBranch)
+	}
+	if preconditionErr.SuggestedBranch != "main" {
+		t.Fatalf("suggested branch = %q, want main", preconditionErr.SuggestedBranch)
+	}
+}
+
+func TestProjectConversationWorkspaceStageAndCommitFile(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "base\n",
+			},
+		},
+	})
+	repoPath := fixture.repoPaths["backend"]
+	writeConversationWorkspaceFile(t, filepath.Join(repoPath, "README.md"), "updated\n")
+
+	diff, err := fixture.service.GetWorkspaceDiff(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() before stage error = %v", err)
+	}
+	if got := diff.Repos[0].Files[0]; got.Staged || !got.Unstaged {
+		t.Fatalf("expected unstaged diff before add, got %+v", got)
+	}
+
+	if _, err := fixture.service.StageWorkspaceFile(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceStageFileInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Path:     "README.md",
+		},
+	); err != nil {
+		t.Fatalf("StageWorkspaceFile() error = %v", err)
+	}
+
+	diff, err = fixture.service.GetWorkspaceDiff(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() after stage error = %v", err)
+	}
+	if got := diff.Repos[0].Files[0]; !got.Staged || got.Unstaged {
+		t.Fatalf("expected staged-only diff after add, got %+v", got)
+	}
+
+	result, err := fixture.service.CommitWorkspace(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceCommitInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Message:  "feat: commit staged workspace file",
+		},
+	)
+	if err != nil {
+		t.Fatalf("CommitWorkspace() error = %v", err)
+	}
+	if !strings.Contains(result.Output, "feat: commit staged workspace file") {
+		t.Fatalf("commit output = %q", result.Output)
+	}
+
+	diff, err = fixture.service.GetWorkspaceDiff(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() after commit error = %v", err)
+	}
+	if diff.Dirty {
+		t.Fatalf("expected clean diff after commit, got %+v", diff)
+	}
+}
+
+func TestProjectConversationWorkspaceDiscardFileRestoresWorkspaceState(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "base\n",
+			},
+		},
+	})
+	repoPath := fixture.repoPaths["backend"]
+	writeConversationWorkspaceFile(t, filepath.Join(repoPath, "README.md"), "updated\n")
+	if _, err := fixture.service.StageWorkspaceFile(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceStageFileInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Path:     "README.md",
+		},
+	); err != nil {
+		t.Fatalf("StageWorkspaceFile() error = %v", err)
+	}
+
+	if _, err := fixture.service.DiscardWorkspaceFile(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceDiscardFileInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Path:     "README.md",
+		},
+	); err != nil {
+		t.Fatalf("DiscardWorkspaceFile() error = %v", err)
+	}
+
+	diff, err := fixture.service.GetWorkspaceDiff(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() after discard error = %v", err)
+	}
+	if diff.Dirty {
+		t.Fatalf("expected clean diff after discard, got %+v", diff)
+	}
+	content, err := os.ReadFile(filepath.Join(repoPath, "README.md"))
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if string(content) != "base\n" {
+		t.Fatalf("README.md content = %q", string(content))
+	}
+}
+
+func TestProjectConversationWorkspaceStageAllAndUnstageFile(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "base\n",
+			},
+		},
+	})
+	repoPath := fixture.repoPaths["backend"]
+	writeConversationWorkspaceFile(t, filepath.Join(repoPath, "README.md"), "updated\n")
+	writeConversationWorkspaceFile(t, filepath.Join(repoPath, "notes.txt"), "hello\n")
+
+	if _, err := fixture.service.StageWorkspaceAll(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceStageAllInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+		},
+	); err != nil {
+		t.Fatalf("StageWorkspaceAll() error = %v", err)
+	}
+
+	diff, err := fixture.service.GetWorkspaceDiff(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() after stage all error = %v", err)
+	}
+	filesByPath := map[string]ProjectConversationWorkspaceFileDiff{}
+	for _, file := range diff.Repos[0].Files {
+		filesByPath[file.Path] = file
+	}
+	if got := filesByPath["README.md"]; !got.Staged || got.Unstaged {
+		t.Fatalf("expected README.md staged-only after stage all, got %+v", got)
+	}
+	if got := filesByPath["notes.txt"]; !got.Staged || got.Unstaged {
+		t.Fatalf("expected notes.txt staged-only after stage all, got %+v", got)
+	}
+
+	if _, err := fixture.service.UnstageWorkspace(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceUnstageInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Path:     "README.md",
+		},
+	); err != nil {
+		t.Fatalf("UnstageWorkspace() error = %v", err)
+	}
+
+	diff, err = fixture.service.GetWorkspaceDiff(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() after unstage file error = %v", err)
+	}
+	filesByPath = map[string]ProjectConversationWorkspaceFileDiff{}
+	for _, file := range diff.Repos[0].Files {
+		filesByPath[file.Path] = file
+	}
+	if got := filesByPath["README.md"]; got.Staged || !got.Unstaged {
+		t.Fatalf("expected README.md unstaged after unstage file, got %+v", got)
+	}
+	if got := filesByPath["notes.txt"]; !got.Staged || got.Unstaged {
+		t.Fatalf("expected notes.txt to stay staged, got %+v", got)
+	}
+}
+
+func TestProjectConversationWorkspaceUnstageAllRestoresUnstagedState(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "base\n",
+			},
+		},
+	})
+	repoPath := fixture.repoPaths["backend"]
+	writeConversationWorkspaceFile(t, filepath.Join(repoPath, "README.md"), "updated\n")
+
+	if _, err := fixture.service.StageWorkspaceAll(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceStageAllInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+		},
+	); err != nil {
+		t.Fatalf("StageWorkspaceAll() error = %v", err)
+	}
+
+	if _, err := fixture.service.UnstageWorkspace(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceUnstageInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+		},
+	); err != nil {
+		t.Fatalf("UnstageWorkspace() error = %v", err)
+	}
+
+	diff, err := fixture.service.GetWorkspaceDiff(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() after unstage all error = %v", err)
+	}
+	if got := diff.Repos[0].Files[0]; got.Staged || !got.Unstaged {
+		t.Fatalf("expected unstaged diff after unstage all, got %+v", got)
 	}
 }
 

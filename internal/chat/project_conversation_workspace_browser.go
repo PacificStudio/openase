@@ -1056,26 +1056,54 @@ func (s *ProjectConversationService) readConversationWorkspaceFileStatus(
 	repoRoot string,
 	relativePath string,
 ) (ProjectConversationWorkspaceFileStatus, bool, error) {
-	output, err := s.runProjectConversationGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repoRoot, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", relativePath},
-		false,
-	)
+	entry, ok, err := s.readConversationWorkspaceGitStatusEntry(ctx, machine, repoRoot, relativePath)
 	if err != nil {
-		return "", false, fmt.Errorf("read workspace status for %s: %w", relativePath, err)
+		return "", false, err
 	}
-	entries, err := parseProjectConversationGitStatusEntries(output)
+	if !ok {
+		return "", false, nil
+	}
+	return mapProjectConversationWorkspaceFileStatus(entry.code), true, nil
+}
+
+func (s *ProjectConversationService) readConversationWorkspaceGitStatusEntry(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	relativePath string,
+) (projectConversationGitStatusEntry, bool, error) {
+	entries, err := s.readConversationWorkspaceGitStatusEntries(ctx, machine, repoRoot)
 	if err != nil {
-		return "", false, fmt.Errorf("parse workspace status for %s: %w", relativePath, err)
+		return projectConversationGitStatusEntry{}, false, err
 	}
 	if len(entries) == 0 {
-		return "", false, nil
+		return projectConversationGitStatusEntry{}, false, nil
 	}
 	for _, entry := range entries {
 		if entry.path == relativePath || entry.oldPath == relativePath {
-			return mapProjectConversationWorkspaceFileStatus(entry.code), true, nil
+			return entry, true, nil
 		}
 	}
-	return mapProjectConversationWorkspaceFileStatus(entries[0].code), true, nil
+	return projectConversationGitStatusEntry{}, false, nil
+}
+
+func (s *ProjectConversationService) readConversationWorkspaceGitStatusEntries(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+) ([]projectConversationGitStatusEntry, error) {
+	output, err := s.runProjectConversationGitCommand(
+		ctx,
+		machine,
+		[]string{"git", "-C", repoRoot, "status", "--porcelain=v1", "-z", "--untracked-files=all"},
+		false,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("read workspace status: %w", err)
+	}
+	entries, err := parseProjectConversationGitStatusEntries(output)
+	if err != nil {
+		return nil, fmt.Errorf("parse workspace status: %w", err)
+	}
+	return entries, nil
 }

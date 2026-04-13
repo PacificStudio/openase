@@ -1,22 +1,26 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { CodeEditor } from '$lib/components/code'
   import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
   import { appStore } from '$lib/stores/app.svelte'
-  import { cn } from '$lib/utils'
   import StructuredDiffPreview from './structured-diff-preview.svelte'
   import ProjectConversationWorkspaceBrowserTabStrip from './project-conversation-workspace-browser-tab-strip.svelte'
-  import ProjectConversationWorkspaceGitGraph from './project-conversation-workspace-git-graph.svelte'
-  import { ChevronRight, FileCode2, GitGraph } from '@lucide/svelte'
+  import { FileCode2 } from '@lucide/svelte'
   import ProjectConversationWorkspaceBrowserDetailStatusBar from './project-conversation-workspace-browser-detail-status-bar.svelte'
-  import type { ProjectConversationWorkspaceRepoMetadata } from '$lib/api/chat'
+  import type {
+    ProjectConversationWorkspaceDiffFile,
+    ProjectConversationWorkspaceRepoMetadata,
+  } from '$lib/api/chat'
   import {
     workspaceTabKey,
     type ProjectConversationWorkspaceBrowserState,
   } from './project-conversation-workspace-browser-state.svelte'
   import { workspaceFileReadOnlyMessage } from './project-conversation-workspace-file-drafts'
+  import {
+    computePatchLineDiff,
+    isWorkspaceFileLineDiffEmpty,
+  } from './project-conversation-workspace-line-diff'
 
   let {
     browser,
@@ -31,8 +35,6 @@
   let pendingClose = $state<{ repoPath: string; filePath: string } | null>(null)
   let saving = $state(false)
   let wrapMode = $state(readEditorWrapMode())
-  let graphActionError = $state('')
-  let gitGraphExpanded = $state(false)
   const dialogOpen = $derived(pendingClose !== null)
 
   function isTabDirty(repoPath: string, filePath: string): boolean {
@@ -84,43 +86,6 @@
     storeEditorWrapMode(wrapMode)
   }
 
-  async function handleGraphCheckout(request: {
-    targetKind: 'local_branch' | 'remote_tracking_branch'
-    targetName: string
-    createTrackingBranch: boolean
-    localBranchName?: string
-  }) {
-    if (!selectedRepo) {
-      return
-    }
-    graphActionError = ''
-    try {
-      const result = await browser.checkoutBranch({
-        repoPath: selectedRepo.path,
-        ...request,
-      })
-      if (!result.ok) {
-        graphActionError = result.blockers.join(' ')
-      }
-    } catch (error) {
-      graphActionError =
-        error instanceof ApiError
-          ? error.detail
-          : error instanceof Error
-            ? error.message
-            : 'Failed to switch branches.'
-    }
-  }
-
-  function toggleGitGraph() {
-    gitGraphExpanded = !gitGraphExpanded
-    if (gitGraphExpanded) {
-      browser.setDetailMode('git_graph')
-    } else {
-      browser.setDetailMode('file')
-    }
-  }
-
   const activeFilePath = $derived(
     browser.openTabs.find((tab) => workspaceTabKey(tab) === browser.activeTabKey)?.filePath ?? '',
   )
@@ -129,7 +94,21 @@
   const activeFileLoading = $derived(browser.fileLoading)
   const activeFileError = $derived(browser.fileError)
   const activeEditorState = $derived(browser.selectedEditorState)
-  const activeDiffMarkers = $derived(browser.selectedDraftLineDiff)
+  const activeDiffMarkers = $derived.by(() => {
+    const draftDiff = browser.selectedDraftLineDiff
+    if (!isWorkspaceFileLineDiffEmpty(draftDiff)) {
+      return draftDiff
+    }
+    if (!activePatch || !activePreview) {
+      return draftDiff
+    }
+    return computePatchLineDiff({
+      status: activePatch.status,
+      diffKind: activePatch.diffKind,
+      diff: activePatch.diff,
+      content: activePreview.content,
+    })
+  })
   const readOnlyMessage = $derived(
     activePreview?.writable === false
       ? workspaceFileReadOnlyMessage(activePreview.readOnlyReason)
@@ -137,6 +116,9 @@
   )
   const showWrapToggle = $derived(activePreview?.previewKind === 'text' && !!activeEditorState)
   const selectedChangedFiles = $derived(browser.selectedChangedFiles)
+  const activeChangedFile = $derived<ProjectConversationWorkspaceDiffFile | null>(
+    selectedChangedFiles.find((file) => file.path === activeFilePath) ?? null,
+  )
   const pendingPatch = $derived(activeEditorState?.pendingPatch ?? null)
 </script>
 
@@ -147,203 +129,157 @@
     >
       Select a repo to browse its files.
     </div>
-  {:else}
-    {#if browser.openTabs.length === 0 && !gitGraphExpanded}
-      <div
-        class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
-      >
-        <div class="space-y-2">
-          <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
-          <p>Select a file to view its contents</p>
-        </div>
+  {:else if browser.openTabs.length === 0}
+    <div
+      class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
+    >
+      <div class="space-y-2">
+        <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
+        <p>Select a file to view its contents</p>
       </div>
-    {:else}
-      <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {#if !gitGraphExpanded}
-          <ProjectConversationWorkspaceBrowserTabStrip
-            openTabs={browser.openTabs}
-            activeTabKey={browser.activeTabKey}
-            {isTabDirty}
-            onActivateTab={(repoPath, filePath) => browser.activateTab(repoPath, filePath)}
-            onRequestCloseTab={requestCloseTab}
-          />
+    </div>
+  {:else}
+    <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <ProjectConversationWorkspaceBrowserTabStrip
+        openTabs={browser.openTabs}
+        activeTabKey={browser.activeTabKey}
+        {isTabDirty}
+        onActivateTab={(repoPath, filePath) => browser.activateTab(repoPath, filePath)}
+        onRequestCloseTab={requestCloseTab}
+      />
 
-          {#if activeFileError}
-            <div class="border-destructive/20 bg-destructive/5 m-4 rounded-lg border p-3">
-              <p class="text-destructive text-sm">{activeFileError}</p>
-            </div>
-          {:else if browser.activeTabKey}
-            {#if runtimeActive}
-              <div
-                class="bg-muted/40 text-muted-foreground border-border border-b px-3 py-1.5 text-[11px]"
-              >
-                Project AI can keep updating this workspace during active turns. Your local draft
-                stays preserved.
-              </div>
-            {/if}
+      {#if activeFileError}
+        <div class="border-destructive/20 bg-destructive/5 m-4 rounded-lg border p-3">
+          <p class="text-destructive text-sm">{activeFileError}</p>
+        </div>
+      {:else if browser.activeTabKey}
+        {#if runtimeActive}
+          <div
+            class="bg-muted/40 text-muted-foreground border-border border-b px-3 py-1.5 text-[11px]"
+          >
+            Project AI can keep updating this workspace during active turns. Your local draft
+            stays preserved.
+          </div>
+        {/if}
 
-            {#if readOnlyMessage}
-              <div class="border-border bg-muted/40 px-3 py-2 text-sm">{readOnlyMessage}</div>
-            {/if}
+        {#if readOnlyMessage}
+          <div class="border-border bg-muted/40 px-3 py-2 text-sm">{readOnlyMessage}</div>
+        {/if}
 
-            {#if activeEditorState?.externalChange || activeEditorState?.savePhase === 'conflict'}
-              <div
-                class="flex flex-wrap items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm"
-              >
-                <span class="text-amber-900">
-                  {activeEditorState.errorMessage ||
-                    'This file changed in the workspace while your draft was open.'}
-                </span>
+        {#if activeEditorState?.externalChange || activeEditorState?.savePhase === 'conflict'}
+          <div
+            class="flex flex-wrap items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm"
+          >
+            <span class="text-amber-900">
+              {activeEditorState.errorMessage ||
+                'This file changed in the workspace while your draft was open.'}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onclick={() => browser.reloadSelectedSavedVersion()}
+            >
+              Reload saved version
+            </Button>
+            <Button size="sm" variant="ghost" onclick={() => browser.keepSelectedDraft()}>
+              Keep my draft
+            </Button>
+          </div>
+        {:else if activeEditorState?.errorMessage}
+          <div class="border-destructive/20 bg-destructive/5 border-b px-3 py-2 text-sm">
+            <span class="text-destructive">{activeEditorState.errorMessage}</span>
+          </div>
+        {/if}
+
+        {#if pendingPatch}
+          <div class="border-border bg-muted/20 space-y-3 border-b px-3 py-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-sm font-medium">Project AI patch proposal</span>
+              <div class="ml-auto flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  variant="ghost"
-                  onclick={() => browser.reloadSelectedSavedVersion()}
+                  variant="secondary"
+                  onclick={() => browser.discardSelectedPendingPatch()}
                 >
-                  Reload saved version
+                  Discard patch
                 </Button>
-                <Button size="sm" variant="ghost" onclick={() => browser.keepSelectedDraft()}>
-                  Keep my draft
+                <Button size="sm" onclick={() => browser.applySelectedPendingPatch()}>
+                  Apply patch to editor
                 </Button>
               </div>
-            {:else if activeEditorState?.errorMessage}
-              <div class="border-destructive/20 bg-destructive/5 border-b px-3 py-2 text-sm">
-                <span class="text-destructive">{activeEditorState.errorMessage}</span>
-              </div>
-            {/if}
-
-            {#if pendingPatch}
-              <div class="border-border bg-muted/20 space-y-3 border-b px-3 py-3">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-medium">Project AI patch proposal</span>
-                  <div class="ml-auto flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onclick={() => browser.discardSelectedPendingPatch()}
-                    >
-                      Discard patch
-                    </Button>
-                    <Button size="sm" onclick={() => browser.applySelectedPendingPatch()}>
-                      Apply patch to editor
-                    </Button>
-                  </div>
-                </div>
-                <StructuredDiffPreview preview={pendingPatch.preview} />
-              </div>
-            {/if}
-
-            <div
-              class="min-h-0 flex-1 overflow-hidden"
-              data-testid="workspace-browser-detail-content"
-            >
-              {#if activePreview?.previewKind === 'binary'}
-                <div
-                  class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm"
-                >
-                  <div class="mx-auto max-w-md">Binary file — not rendered inline.</div>
-                </div>
-              {:else if activeEditorState && activePreview}
-                <div
-                  class="h-full min-h-0 min-w-0 overflow-hidden"
-                  data-testid="workspace-browser-detail-scroll-frame"
-                >
-                  <CodeEditor
-                    value={activeEditorState.draftContent}
-                    filePath={activeFilePath}
-                    readonly={!activePreview.writable}
-                    {wrapMode}
-                    diffMarkers={activeDiffMarkers}
-                    class="h-full"
-                    onchange={(value) => browser.updateSelectedDraft(value)}
-                    onselectionchange={(selection) => browser.updateSelectedSelection(selection)}
-                    onFormatDocument={activePreview.writable
-                      ? () => browser.formatSelectedDocument()
-                      : undefined}
-                    onFormatSelection={activePreview.writable
-                      ? () => browser.formatSelectedSelection()
-                      : undefined}
-                    onSave={activePreview.writable
-                      ? () => void browser.saveSelectedFile()
-                      : undefined}
-                    onRevert={activeEditorState.dirty && activeEditorState.savePhase !== 'saving'
-                      ? () => browser.revertSelectedDraft()
-                      : undefined}
-                    onExplainSelection={() =>
-                      appStore.requestProjectAssistant('Explain the selected code.')}
-                    onRewriteSelection={() =>
-                      appStore.requestProjectAssistant('Rewrite the selected code.')}
-                  />
-                </div>
-              {:else if activeFileLoading}
-                <div
-                  class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm"
-                >
-                  Loading…
-                </div>
-              {:else}
-                <div
-                  class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm"
-                >
-                  Select a file to view its contents.
-                </div>
-              {/if}
             </div>
+            <StructuredDiffPreview preview={pendingPatch.preview} />
+          </div>
+        {/if}
 
-            <ProjectConversationWorkspaceBrowserDetailStatusBar
-              {activeEditorState}
-              {activePatch}
+        <div
+          class="min-h-0 flex-1 overflow-hidden"
+          data-testid="workspace-browser-detail-content"
+        >
+          {#if activePreview?.previewKind === 'binary'}
+            <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+              <div class="mx-auto max-w-md">Binary file — not rendered inline.</div>
+            </div>
+          {:else if activeEditorState && activePreview}
+            <div
+              class="h-full min-h-0 min-w-0 overflow-hidden"
+              data-testid="workspace-browser-detail-scroll-frame"
+            >
+              <CodeEditor
+                value={activeEditorState.draftContent}
+                filePath={activeFilePath}
+                readonly={!activePreview.writable}
+                {wrapMode}
+                diffMarkers={activeDiffMarkers}
+                class="h-full"
+                onchange={(value) => browser.updateSelectedDraft(value)}
+                onselectionchange={(selection) => browser.updateSelectedSelection(selection)}
+                onFormatDocument={activePreview.writable
+                  ? () => browser.formatSelectedDocument()
+                  : undefined}
+                onFormatSelection={activePreview.writable
+                  ? () => browser.formatSelectedSelection()
+                  : undefined}
+                onSave={activePreview.writable
+                  ? () => void browser.saveSelectedFile()
+                  : undefined}
+                onRevert={activeEditorState.dirty && activeEditorState.savePhase !== 'saving'
+                  ? () => browser.revertSelectedDraft()
+                  : undefined}
+                onExplainSelection={() =>
+                  appStore.requestProjectAssistant('Explain the selected code.')}
+                onRewriteSelection={() =>
+                  appStore.requestProjectAssistant('Rewrite the selected code.')}
+              />
+            </div>
+          {:else if activeFileLoading}
+            <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+              Loading…
+            </div>
+          {:else}
+            <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+              Select a file to view its contents.
+            </div>
+          {/if}
+        </div>
+
+        <ProjectConversationWorkspaceBrowserDetailStatusBar
+          {activeEditorState}
+          {activePatch}
               {activeFileLoading}
               {activePreview}
+              {activeChangedFile}
               selectedChangedFilesCount={selectedChangedFiles.length}
               {showWrapToggle}
               {wrapMode}
-              autosaveEnabled={browser.autosaveEnabled}
-              onToggleWrapMode={toggleWrapMode}
-              onSelectPreviousChangedFile={() => browser.selectPreviousChangedFile()}
-              onSelectNextChangedFile={() => browser.selectNextChangedFile()}
-              onToggleAutosave={() => browser.setAutosaveEnabled(!browser.autosaveEnabled)}
-            />
-          {/if}
-        {:else}
-          {#if graphActionError}
-            <div class="border-destructive/20 bg-destructive/5 border-b px-3 py-2 text-sm">
-              <span class="text-destructive">{graphActionError}</span>
-            </div>
-          {/if}
-          <ProjectConversationWorkspaceGitGraph
-            gitGraph={browser.gitGraph}
-            loading={browser.gitGraphLoading}
-            error={browser.gitGraphError}
-            selectedCommit={browser.selectedGitCommit}
-            onSelectCommit={(commitId) => browser.selectGitCommit(commitId)}
-            onCheckoutBranch={handleGraphCheckout}
-          />
-        {/if}
-      </div>
-    {/if}
-
-    <button
-      type="button"
-      class={cn(
-        'border-border hover:bg-muted/50 flex shrink-0 items-center gap-1.5 border-t px-3 py-1.5 text-left transition-colors',
-        gitGraphExpanded && 'bg-muted/30',
-      )}
-      onclick={toggleGitGraph}
-    >
-      <ChevronRight
-        class={cn(
-          'text-muted-foreground size-3 shrink-0 transition-transform duration-100',
-          gitGraphExpanded && 'rotate-90',
-        )}
-      />
-      <GitGraph class="text-muted-foreground size-3 shrink-0" />
-      <span class="text-[11px] font-medium">Git Graph</span>
-      {#if browser.gitGraph}
-        <span class="text-muted-foreground/60 text-[10px]">
-          {browser.gitGraph.commits.length} commits
-        </span>
+          autosaveEnabled={browser.autosaveEnabled}
+          onToggleWrapMode={toggleWrapMode}
+          onSelectPreviousChangedFile={() => browser.selectPreviousChangedFile()}
+          onSelectNextChangedFile={() => browser.selectNextChangedFile()}
+          onToggleAutosave={() => browser.setAutosaveEnabled(!browser.autosaveEnabled)}
+        />
       {/if}
-    </button>
+    </div>
   {/if}
 </div>
 

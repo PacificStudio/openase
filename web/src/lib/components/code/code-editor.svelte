@@ -365,6 +365,12 @@
       if (this.info.deletionBelow) {
         el.dataset.deletionBelow = 'true'
       }
+      if (this.info.kind) {
+        const indicator = document.createElement('span')
+        indicator.className = 'cm-diff-marker-indicator'
+        indicator.setAttribute('aria-hidden', 'true')
+        el.appendChild(indicator)
+      }
       return el
     }
   }
@@ -696,8 +702,8 @@
 
   /* ── diff gutter ─────────────────────────────────────────────── */
   .code-editor :global(.cm-gutter.cm-diff-gutter) {
-    width: 6px;
-    min-width: 6px;
+    width: 12px;
+    min-width: 12px;
     padding: 0;
     background: transparent;
     border-right: none;
@@ -709,26 +715,42 @@
   }
   .code-editor :global(.cm-diff-marker) {
     position: relative;
-    width: 6px;
+    width: 12px;
     height: 100%;
   }
-  .code-editor :global(.cm-diff-marker[data-kind='added']) {
+  .code-editor :global(.cm-diff-marker[data-kind='added'])::before,
+  .code-editor :global(.cm-diff-marker[data-kind='modified'])::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 1px;
+    width: 3px;
+    border-radius: 999px;
+  }
+  .code-editor :global(.cm-diff-marker[data-kind='added'])::before {
     background-color: #2da44e;
   }
   .code-editor :global(.cm-diff-marker[data-kind='modified']) {
+    background-color: transparent;
+  }
+  .code-editor :global(.cm-diff-marker[data-kind='modified'])::before {
     background-color: #d4a72c;
+  }
+  .code-editor :global(.cm-diff-marker-indicator) {
+    display: none;
   }
   /* Red right-pointing triangle straddling the top edge of the line. */
   .code-editor :global(.cm-diff-marker[data-deletion-above='true'])::before {
     content: '';
     position: absolute;
     top: -3px;
-    left: 0;
+    left: 1px;
     width: 0;
     height: 0;
     border-top: 4px solid transparent;
     border-bottom: 4px solid transparent;
-    border-left: 6px solid #cf222e;
+    border-left: 9px solid #cf222e;
     pointer-events: none;
   }
   /* Same triangle on the bottom edge for end-of-file deletions. */
@@ -736,12 +758,12 @@
     content: '';
     position: absolute;
     bottom: -3px;
-    left: 0;
+    left: 1px;
     width: 0;
     height: 0;
     border-top: 4px solid transparent;
     border-bottom: 4px solid transparent;
-    border-left: 6px solid #cf222e;
+    border-left: 9px solid #cf222e;
     pointer-events: none;
   }
 </style>
