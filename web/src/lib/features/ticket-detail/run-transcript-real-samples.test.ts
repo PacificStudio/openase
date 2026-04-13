@@ -11,7 +11,6 @@ import {
 } from './run-transcript'
 import { mapTicketRunDetail } from './run-transcript-data'
 import type { TicketRunDetailPayload } from '$lib/api/contracts'
-import type { TicketRunTranscriptBlock } from './types'
 
 type ReplayFixture = {
   provider_name: string
@@ -126,15 +125,16 @@ describe('ticket run transcript real sample replay', () => {
     const state = replayFrames(fixture.supplement_frames, fixture.detail, true)
 
     const errorBlock = state.blocks.find(
-      (
-        block,
-      ): block is Extract<TicketRunTranscriptBlock, { kind: 'task_status'; statusType: 'error' }> =>
+      (block) =>
         block.kind === 'task_status' &&
         block.statusType === 'error' &&
         block.raw?.subtype === 'error_during_execution',
     )
 
-    expect(errorBlock?.detail).toBe(humanFriendlyClaudeExecutionFailure)
-    expect(errorBlock?.detail).not.toContain('error_during_execution')
+    expect(errorBlock).toMatchObject({
+      detail: humanFriendlyClaudeExecutionFailure,
+      raw: { subtype: 'error_during_execution' },
+    })
+    expect(JSON.stringify(errorBlock)).not.toContain(legacyClaudeExecutionFailure)
   })
 })
