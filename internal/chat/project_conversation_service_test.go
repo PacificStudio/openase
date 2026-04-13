@@ -488,6 +488,82 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	}
 }
 
+func TestProjectConversationRuntimeEnvironmentFiltersLegacyInvalidScopes(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	repo := chatrepo.NewEntRepository(client)
+	projectID := uuid.New()
+	conversationID := uuid.New()
+	providerID := uuid.New()
+	platform := &validatingProjectConversationAgentPlatform{}
+
+	service := NewProjectConversationService(
+		nil,
+		repo,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             projectID,
+					OrganizationID: uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				agents: []catalogdomain.Agent{},
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		nil,
+	)
+	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", platform)
+
+	conversation := chatdomain.Conversation{
+		ID:         conversationID,
+		ProjectID:  projectID,
+		ProviderID: providerID,
+	}
+	project := catalogdomain.Project{
+		ID:             projectID,
+		OrganizationID: uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Description:    "Issue-driven automation",
+		ProjectAIPlatformAccessAllowed: []string{
+			"tickets.list",
+			"tickets.report_usage",
+			"tickets.list",
+			" ",
+		},
+	}
+	providerItem := catalogdomain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: project.OrganizationID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+		MachineHost:    catalogdomain.LocalMachineHost,
+	}
+
+	environment, err := service.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, nil)
+	if err != nil {
+		t.Fatalf("build conversation runtime environment: %v", err)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_API_URL=http://127.0.0.1:19836/api/v1/platform") {
+		t.Fatalf("expected OPENASE_API_URL in environment, got %+v", environment)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_TOKEN=project-conversation-placeholder") {
+		t.Fatalf("expected OPENASE_AGENT_TOKEN in environment, got %+v", environment)
+	}
+	if got, want := platform.lastInput.Scopes, []string{"tickets.list"}; !slices.Equal(got, want) {
+		t.Fatalf("project conversation token scopes = %v, want %v", got, want)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_SCOPES=tickets.list") {
+		t.Fatalf("expected filtered OPENASE_AGENT_SCOPES in environment, got %+v", environment)
+	}
+}
+
 func TestProjectConversationApplyGitHubWorkspaceAuthInjectsHTTPSCredentials(t *testing.T) {
 	t.Parallel()
 
@@ -5838,6 +5914,24 @@ func (p *capturingProjectConversationAgentPlatform) IssueToken(
 	input agentplatform.IssueInput,
 ) (agentplatform.IssuedToken, error) {
 	p.lastInput = input
+	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
+}
+
+type validatingProjectConversationAgentPlatform struct {
+	lastInput agentplatform.IssueInput
+}
+
+func (p *validatingProjectConversationAgentPlatform) IssueToken(
+	_ context.Context,
+	input agentplatform.IssueInput,
+) (agentplatform.IssuedToken, error) {
+	p.lastInput = input
+	supported := agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)
+	for _, scope := range input.Scopes {
+		if !slices.Contains(supported, scope) {
+			return agentplatform.IssuedToken{}, fmt.Errorf("unsupported scope %s", scope)
+		}
+	}
 	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
 }
 

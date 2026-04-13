@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -637,10 +638,24 @@ func (s *ProjectConversationService) projectConversationPlatformContractInput(
 }
 
 func projectConversationPlatformAccessAllowed(project catalogdomain.Project) []string {
+	supported := agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)
 	if len(project.ProjectAIPlatformAccessAllowed) > 0 {
-		return append([]string(nil), project.ProjectAIPlatformAccessAllowed...)
+		normalized := make([]string, 0, len(project.ProjectAIPlatformAccessAllowed))
+		for _, item := range project.ProjectAIPlatformAccessAllowed {
+			trimmed := strings.TrimSpace(item)
+			if trimmed == "" {
+				continue
+			}
+			if !slices.Contains(supported, trimmed) || slices.Contains(normalized, trimmed) {
+				continue
+			}
+			normalized = append(normalized, trimmed)
+		}
+		if len(normalized) > 0 {
+			return normalized
+		}
 	}
-	return agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)
+	return append([]string(nil), supported...)
 }
 
 func runtimeInterruptKind(kind domain.InterruptKind) string {
