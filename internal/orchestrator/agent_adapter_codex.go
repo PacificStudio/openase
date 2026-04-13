@@ -33,6 +33,7 @@ func (codexAgentAdapter) Start(ctx context.Context, spec agentSessionStartSpec) 
 		Thread: codex.ThreadStartParams{
 			WorkingDirectory:       spec.WorkingDirectory,
 			Model:                  spec.Model,
+			ReasoningEffort:        reasoningEffortValue(spec.ReasoningEffort),
 			ServiceName:            "openase",
 			DeveloperInstructions:  spec.DeveloperInstructions,
 			ApprovalPolicy:         codexApprovalPolicy(spec.PermissionProfile),

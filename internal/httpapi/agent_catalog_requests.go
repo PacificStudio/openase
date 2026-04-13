@@ -15,6 +15,7 @@ type agentProviderPatchRequest struct {
 	AuthConfig         *map[string]any                           `json:"auth_config"`
 	SecretBindings     *[]domain.AgentProviderSecretBindingInput `json:"secret_bindings"`
 	ModelName          *string                                   `json:"model_name"`
+	ReasoningEffort    *string                                   `json:"reasoning_effort"`
 	ModelTemperature   *float64                                  `json:"model_temperature"`
 	ModelMaxTokens     *int                                      `json:"model_max_tokens"`
 	MaxParallelRuns    *int                                      `json:"max_parallel_runs"`
@@ -42,6 +43,7 @@ func parseAgentProviderPatchRequest(
 		CliArgs:            append([]string(nil), current.CliArgs...),
 		AuthConfig:         cloneMap(current.AuthConfig),
 		ModelName:          current.ModelName,
+		ReasoningEffort:    reasoningEffortPointerValue(current.ReasoningEffort),
 		ModelTemperature:   floatPointer(current.ModelTemperature),
 		ModelMaxTokens:     intPointer(current.ModelMaxTokens),
 		MaxParallelRuns:    intPointer(current.MaxParallelRuns),
@@ -75,6 +77,9 @@ func parseAgentProviderPatchRequest(
 	}
 	if patch.ModelName != nil {
 		request.ModelName = *patch.ModelName
+	}
+	if patch.ReasoningEffort != nil {
+		request.ReasoningEffort = patch.ReasoningEffort
 	}
 	if patch.ModelTemperature != nil {
 		request.ModelTemperature = patch.ModelTemperature

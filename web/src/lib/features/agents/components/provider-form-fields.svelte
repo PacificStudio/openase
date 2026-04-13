@@ -20,7 +20,9 @@
   import ProviderAuthConfigField from './provider-auth-config-field.svelte'
   import ProviderPricingFields from './provider-pricing-fields.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
+  import ProviderReasoningFields from './provider-reasoning-fields.svelte'
   import ProviderSecretBindingsFields from './provider-secret-bindings-fields.svelte'
+  import { providerModelReasoningCapability } from '../provider-model-options'
 
   let {
     draft,
@@ -43,6 +45,12 @@
   const pricingStatus = $derived(providerPricingStatusText(pricingConfig))
   const pricingRows = $derived(providerPricingDetailRows(pricingConfig))
   const routedOfficialPricing = $derived(isRoutedOfficialPricingConfig(pricingConfig))
+  const reasoningCapability = $derived(
+    providerModelReasoningCapability(modelCatalog, draft.adapterType, draft.modelName),
+  )
+  const effectiveReasoningEffort = $derived(
+    draft.reasoningEffort.trim() || reasoningCapability?.defaultEffort || '',
+  )
 
   const fieldValue = (event: Event) =>
     (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
@@ -93,6 +101,21 @@
     )
     onFieldChange?.('pricingConfig', stringifyProviderPricingConfig(nextPricing))
   }
+
+  $effect(() => {
+    const capability = reasoningCapability
+    const selectedReasoning = draft.reasoningEffort.trim()
+    if (!selectedReasoning) {
+      return
+    }
+    if (capability?.state !== 'available') {
+      onFieldChange?.('reasoningEffort', '')
+      return
+    }
+    if (!(capability.supportedEfforts ?? []).some((effort) => effort === selectedReasoning)) {
+      onFieldChange?.('reasoningEffort', '')
+    }
+  })
 </script>
 
 <div class="space-y-4">
@@ -181,6 +204,13 @@
       onModelNameChange={(value) => onFieldChange?.('modelName', value)}
     />
   </div>
+
+  <ProviderReasoningFields
+    capability={reasoningCapability}
+    selectedEffort={draft.reasoningEffort}
+    effectiveEffort={effectiveReasoningEffort}
+    onValueChange={(value) => onFieldChange?.('reasoningEffort', value)}
+  />
 
   <div class="border-border border-t pt-2">
     <button

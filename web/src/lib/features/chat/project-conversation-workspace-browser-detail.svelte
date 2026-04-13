@@ -1,20 +1,19 @@
 <script lang="ts">
   import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
   import { cn } from '$lib/utils'
   import { CodeEditor } from '$lib/components/code'
   import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
-  import { FileCode2, WrapText, X } from '@lucide/svelte'
+  import { appStore } from '$lib/stores/app.svelte'
+  import StructuredDiffPreview from './structured-diff-preview.svelte'
+  import { FileCode2, X } from '@lucide/svelte'
+  import ProjectConversationWorkspaceBrowserDetailStatusBar from './project-conversation-workspace-browser-detail-status-bar.svelte'
   import type { ProjectConversationWorkspaceRepoMetadata } from '$lib/api/chat'
   import {
     workspaceTabKey,
     type ProjectConversationWorkspaceBrowserState,
   } from './project-conversation-workspace-browser-state.svelte'
-  import {
-    workspaceFileStateClass,
-    workspaceFileStateLabel,
-  } from './project-conversation-workspace-browser-detail-state'
   import { workspaceFileReadOnlyMessage } from './project-conversation-workspace-file-drafts'
-  import WorkspaceBrowserCloseDialog from './project-conversation-workspace-browser-close-dialog.svelte'
   import { chatT } from './i18n'
 
   let {
@@ -84,11 +83,6 @@
   const activeFilePath = $derived(
     browser.openTabs.find((tab) => workspaceTabKey(tab) === browser.activeTabKey)?.filePath ?? '',
   )
-  const activeFileName = $derived(activeFilePath.split('/').pop() ?? '')
-  const activeFileDirPath = $derived.by(() => {
-    const parts = activeFilePath.split('/')
-    return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
-  })
   const activePreview = $derived(browser.preview)
   const activePatch = $derived(browser.patch)
   const activeFileLoading = $derived(browser.fileLoading)
@@ -101,6 +95,8 @@
       : '',
   )
   const showWrapToggle = $derived(activePreview?.previewKind === 'text' && !!activeEditorState)
+  const selectedChangedFiles = $derived(browser.selectedChangedFiles)
+  const pendingPatch = $derived(activeEditorState?.pendingPatch ?? null)
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -143,7 +139,15 @@
           onclick={() => browser.activateTab(tab.repoPath, tab.filePath)}
           data-testid={`workspace-browser-detail-tab-${tabName}`}
         >
-          <FileCode2 class="size-3 shrink-0 opacity-60" />
+          {#if dirty}
+            <span
+              class="size-1.5 shrink-0 rounded-full bg-orange-500"
+              aria-label={chatT('chat.unsavedChanges')}
+              data-testid="workspace-browser-detail-tab-dirty-dot"
+            ></span>
+          {:else}
+            <FileCode2 class="size-3 shrink-0 opacity-60" />
+          {/if}
           <span class="min-w-0 truncate">{tabName}</span>
           <span
             role="button"
@@ -159,15 +163,7 @@
               }
             }}
           >
-            {#if dirty}
-              <span
-                class="size-1.5 rounded-full bg-orange-500"
-                aria-label={chatT('chat.unsavedChanges')}
-                data-testid="workspace-browser-detail-tab-dirty-dot"
-              ></span>
-            {:else}
-              <X class="size-3" />
-            {/if}
+            <X class="size-3" />
           </span>
         </button>
       {/each}
@@ -178,88 +174,6 @@
         <p class="text-destructive text-sm">{activeFileError}</p>
       </div>
     {:else if browser.activeTabKey}
-      <div class="border-border bg-muted/30 flex flex-wrap items-center gap-2 border-b px-3 py-1.5">
-        <FileCode2 class="text-muted-foreground size-3 shrink-0" />
-        <span class="min-w-0 truncate text-[12px] font-medium">{activeFileName}</span>
-        {#if activeFileDirPath}
-          <span class="text-muted-foreground/40 min-w-0 truncate text-[11px]">
-            {activeFileDirPath}
-          </span>
-        {/if}
-        {#if activePatch?.status && activePatch.status !== 'modified'}
-          <span
-            class={cn(
-              'rounded px-1 text-[10px] font-bold uppercase',
-              activePatch.status === 'added'
-                ? 'bg-emerald-500/15 text-emerald-600'
-                : activePatch.status === 'deleted'
-                  ? 'bg-rose-500/15 text-rose-600'
-                  : 'bg-sky-500/15 text-sky-600',
-            )}
-          >
-            {activePatch.status}
-          </span>
-        {/if}
-        {#if activeEditorState}
-          <span
-            class={cn(
-              'rounded px-2 py-0.5 text-[10px] font-medium',
-              workspaceFileStateClass(activeEditorState),
-            )}
-          >
-            {workspaceFileStateLabel(activeEditorState)}
-          </span>
-        {/if}
-        <div class="ml-auto flex items-center gap-2">
-          {#if showWrapToggle}
-            <Button
-              variant={wrapMode === 'wrap' ? 'secondary' : 'ghost'}
-              size="icon-xs"
-              aria-label={wrapMode === 'wrap'
-                ? chatT('chat.disableLineWrap')
-                : chatT('chat.enableLineWrap')}
-              aria-pressed={wrapMode === 'wrap'}
-              title={wrapMode === 'wrap'
-                ? chatT('chat.disableLineWrap')
-                : chatT('chat.enableLineWrap')}
-              data-testid="workspace-browser-wrap-toggle"
-              onclick={toggleWrapMode}
-            >
-              <WrapText />
-            </Button>
-          {/if}
-          {#if activeEditorState}
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={!activeEditorState.dirty || activeEditorState.savePhase === 'saving'}
-              onclick={() => browser.revertSelectedDraft()}
-            >
-              {chatT('chat.revert')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={!activeEditorState.dirty ||
-                activeEditorState.savePhase === 'saving' ||
-                activePreview?.writable !== true}
-              onclick={() => void browser.saveSelectedFile()}
-            >
-              {activeEditorState.savePhase === 'saving' ? chatT('chat.saving') : chatT('chat.save')}
-            </Button>
-          {/if}
-          {#if activePreview}
-            <span class="text-muted-foreground/50 text-[10px]">
-              {activePreview.mediaType} · {activePreview.sizeBytes} B
-            </span>
-          {/if}
-          {#if activeFileLoading}
-            <span class="text-muted-foreground/50 text-[10px]">
-              {chatT('chat.loadingEllipsis')}
-            </span>
-          {/if}
-        </div>
-      </div>
-
       {#if runtimeActive}
         <div
           class="bg-muted/40 text-muted-foreground border-border border-b px-3 py-1.5 text-[11px]"
@@ -292,6 +206,27 @@
         </div>
       {/if}
 
+      {#if pendingPatch}
+        <div class="border-border bg-muted/20 space-y-3 border-b px-3 py-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-medium">{chatT('chat.patchProposalTitle')}</span>
+            <div class="ml-auto flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onclick={() => browser.discardSelectedPendingPatch()}
+              >
+                {chatT('chat.discardPatch')}
+              </Button>
+              <Button size="sm" onclick={() => browser.applySelectedPendingPatch()}>
+                {chatT('chat.applyPatchToEditor')}
+              </Button>
+            </div>
+          </div>
+          <StructuredDiffPreview preview={pendingPatch.preview} />
+        </div>
+      {/if}
+
       <div class="min-h-0 flex-1 overflow-hidden" data-testid="workspace-browser-detail-content">
         {#if activePreview?.previewKind === 'binary'}
           <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
@@ -310,27 +245,73 @@
               diffMarkers={activeDiffMarkers}
               class="h-full"
               onchange={(value) => browser.updateSelectedDraft(value)}
+              onselectionchange={(selection) => browser.updateSelectedSelection(selection)}
+              onFormatDocument={activePreview.writable
+                ? () => browser.formatSelectedDocument()
+                : undefined}
+              onFormatSelection={activePreview.writable
+                ? () => browser.formatSelectedSelection()
+                : undefined}
+              onSave={activePreview.writable ? () => void browser.saveSelectedFile() : undefined}
+              onRevert={activeEditorState.dirty && activeEditorState.savePhase !== 'saving'
+                ? () => browser.revertSelectedDraft()
+                : undefined}
+              onExplainSelection={() =>
+                appStore.requestProjectAssistant('Explain the selected code.')}
+              onRewriteSelection={() =>
+                appStore.requestProjectAssistant('Rewrite the selected code.')}
             />
           </div>
         {:else if activeFileLoading}
           <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-            {chatT('chat.loadingEllipsis')}
+            Loading…
           </div>
         {:else}
           <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-            {chatT('chat.selectFileHelp')}
+            {chatT('chat.selectFileHelp')}.
           </div>
         {/if}
       </div>
+
+      <ProjectConversationWorkspaceBrowserDetailStatusBar
+        {activeEditorState}
+        {activePatch}
+        {activeFileLoading}
+        {activePreview}
+        selectedChangedFilesCount={selectedChangedFiles.length}
+        {showWrapToggle}
+        {wrapMode}
+        autosaveEnabled={browser.autosaveEnabled}
+        onToggleWrapMode={toggleWrapMode}
+        onSelectPreviousChangedFile={() => browser.selectPreviousChangedFile()}
+        onSelectNextChangedFile={() => browser.selectNextChangedFile()}
+        onToggleAutosave={() => browser.setAutosaveEnabled(!browser.autosaveEnabled)}
+      />
     {/if}
   {/if}
 </div>
 
-<WorkspaceBrowserCloseDialog
+<Dialog.Root
   open={dialogOpen}
-  fileName={pendingCloseFilename()}
-  {saving}
-  onDismiss={dismissDialog}
-  onDiscard={confirmDiscardAndClose}
-  onSave={confirmSaveAndClose}
-/>
+  onOpenChange={(next: boolean) => {
+    if (!next) dismissDialog()
+  }}
+>
+  <Dialog.Content class="sm:max-w-md">
+    <Dialog.Header>
+      <Dialog.Title>Save changes?</Dialog.Title>
+      <Dialog.Description>
+        {pendingCloseFilename()} has unsaved changes. Save them before closing the tab?
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer>
+      <Button variant="ghost" onclick={dismissDialog} disabled={saving}>Cancel</Button>
+      <Button variant="ghost" onclick={confirmDiscardAndClose} disabled={saving}>
+        Don&apos;t save
+      </Button>
+      <Button onclick={confirmSaveAndClose} disabled={saving}>
+        {saving ? 'Saving…' : 'Save'}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

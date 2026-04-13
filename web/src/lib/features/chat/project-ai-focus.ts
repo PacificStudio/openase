@@ -102,6 +102,24 @@ export type ProjectAIFocus =
       draftContent?: string
       encoding?: 'utf-8'
       lineEnding?: 'lf' | 'crlf'
+      selection?: {
+        from: number
+        to: number
+        startLine: number
+        startColumn: number
+        endLine: number
+        endColumn: number
+        text: string
+        contextBefore: string
+        contextAfter: string
+        truncated: boolean
+      } | null
+      workingSet?: Array<{
+        filePath: string
+        contentExcerpt: string
+        dirty: boolean
+        truncated: boolean
+      }>
     }
 
 export type ProjectAIFocusCard = {
@@ -176,13 +194,14 @@ export function describeProjectAIFocus(focus: ProjectAIFocus): ProjectAIFocusCar
       }
     }
     case 'skill': {
-      const boundDetail =
+      const detail = [
         focus.boundWorkflowNames.length > 0
           ? chatT('chat.focus.boundToWorkflow', {
               workflows: focus.boundWorkflowNames.join(', '),
             })
-          : chatT('chat.focus.notBoundToWorkflow')
-      const detail = [boundDetail, focus.hasDirtyDraft ? chatT('chat.focus.unsavedDraft') : '']
+          : chatT('chat.focus.notBoundToWorkflow'),
+        focus.hasDirtyDraft ? chatT('chat.focus.unsavedDraft') : '',
+      ]
         .filter(Boolean)
         .join(' · ')
       return {
@@ -210,16 +229,24 @@ export function describeProjectAIFocus(focus: ProjectAIFocus): ProjectAIFocusCar
           .filter(Boolean)
           .join(' · '),
       }
-    case 'workspace_file':
+    case 'workspace_file': {
+      const detail = [
+        focusAreaOrFallback(focus.selectedArea, 'chat.focus.area.edit'),
+        focus.hasDirtyDraft ? chatT('chat.focus.unsavedDraft') : chatT('chat.focus.saved'),
+        focus.selection
+          ? chatT('chat.focus.selectionLines', {
+              startLine: focus.selection.startLine,
+              endLine: focus.selection.endLine,
+            })
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
       return {
         label: chatT('chat.focus.label.workspaceFile'),
         title: `${focus.repoPath} / ${focus.filePath}`,
-        detail: [
-          focusAreaOrFallback(focus.selectedArea, 'chat.focus.area.edit'),
-          focus.hasDirtyDraft ? chatT('chat.focus.unsavedDraft') : chatT('chat.focus.saved'),
-        ]
-          .filter(Boolean)
-          .join(' · '),
+        detail,
       }
+    }
   }
 }

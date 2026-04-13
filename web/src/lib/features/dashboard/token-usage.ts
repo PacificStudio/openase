@@ -1,3 +1,4 @@
+import { formatCount } from '$lib/utils'
 import { getOrganizationTokenUsage, getProjectTokenUsage } from '$lib/api/openase'
 import type { TokenUsageDay, TokenUsageResponse } from '$lib/api/contracts'
 import type {
@@ -164,7 +165,7 @@ export function tokenUsageIntensityClassName(intensity: TokenUsageDayPoint['inte
 }
 
 export function formatTokenUsageTooltip(day: TokenUsageDayPoint) {
-  return `${day.dayLabel}: ${day.totalTokens.toLocaleString()} total tokens, ${day.inputTokens.toLocaleString()} input, ${day.outputTokens.toLocaleString()} output, ${day.finalizedRunCount.toLocaleString()} runs`
+  return `${day.dayLabel}: ${formatCount(day.totalTokens)} tokens, ${formatCount(day.inputTokens)} in, ${formatCount(day.outputTokens)} out, ${day.finalizedRunCount} runs`
 }
 
 async function loadTokenUsage(

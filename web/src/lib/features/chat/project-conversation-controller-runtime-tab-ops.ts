@@ -1,3 +1,4 @@
+import { tick } from 'svelte'
 import {
   createProjectConversation,
   startProjectConversationTurn,
@@ -198,6 +199,8 @@ export function createProjectConversationRuntimeTabOps(
       activeTab.unread = false
       activeTab.phase = 'submitting_turn'
       input.touch()
+      await tick()
+      if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) return false
       const turnResponse = await startProjectConversationTurn(activeTab.conversationId, {
         message: trimmed,
         focus: focus ?? undefined,

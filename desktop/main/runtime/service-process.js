@@ -60,6 +60,19 @@ function buildOpenASELaunchSpec(options) {
   }
 }
 
+function buildOpenASEServiceEnvironment(options) {
+  const env = options?.env ?? process.env
+  const port = options?.port
+
+  return {
+    ...env,
+    OPENASE_SERVER_HOST: '127.0.0.1',
+    OPENASE_SERVER_PORT: String(port),
+    // Desktop owns the local loopback runtime, so skip the browser bootstrap/login gate.
+    OPENASE_DESKTOP_DISABLE_AUTH: '1',
+  }
+}
+
 class OpenASEServiceProcess extends EventEmitter {
   constructor(options) {
     super()
@@ -126,11 +139,10 @@ class OpenASEServiceProcess extends EventEmitter {
     })
 
     const child = this.spawnImpl(launchSpec.executablePath, launchSpec.args, {
-      env: {
-        ...this.env,
-        OPENASE_SERVER_HOST: '127.0.0.1',
-        OPENASE_SERVER_PORT: String(port),
-      },
+      env: buildOpenASEServiceEnvironment({
+        env: this.env,
+        port,
+      }),
       stdio: ['ignore', 'pipe', 'pipe'],
     })
 
@@ -245,6 +257,7 @@ class OpenASEServiceProcess extends EventEmitter {
 
 module.exports = {
   OpenASEServiceProcess,
+  buildOpenASEServiceEnvironment,
   buildOpenASELaunchSpec,
   resolveOpenASEBinary,
 }

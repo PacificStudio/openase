@@ -236,6 +236,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/tree?repo_path=openase",
 		},
 		{
+			name:   "workspace search",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/search?repo_path=openase&q=readme",
+		},
+		{
 			name:   "workspace file",
 			method: http.MethodGet,
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/file?repo_path=openase&path=README.md",
@@ -763,6 +768,7 @@ func TestWriteProjectConversationErrorMappings(t *testing.T) {
 		{name: "runtime missing", err: chatservice.ErrConversationRuntimeAbsent, wantStatus: http.StatusConflict, wantCode: "CHAT_CONVERSATION_RUNTIME_UNAVAILABLE"},
 		{name: "workspace unavailable", err: chatservice.ErrProjectConversationWorkspaceUnavailable, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_UNAVAILABLE"},
 		{name: "workspace path invalid", err: chatservice.ErrProjectConversationWorkspacePathInvalid, wantStatus: http.StatusBadRequest, wantCode: "PROJECT_CONVERSATION_WORKSPACE_PATH_INVALID"},
+		{name: "workspace exists", err: chatservice.ErrProjectConversationWorkspaceEntryExists, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_FILE_EXISTS"},
 		{name: "workspace missing", err: chatservice.ErrProjectConversationWorkspaceEntryNotFound, wantStatus: http.StatusNotFound, wantCode: "PROJECT_CONVERSATION_WORKSPACE_NOT_FOUND"},
 		{name: "internal", err: errors.New("boom"), wantStatus: http.StatusInternalServerError, wantCode: "INTERNAL_ERROR"},
 	} {

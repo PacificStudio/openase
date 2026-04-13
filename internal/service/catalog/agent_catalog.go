@@ -258,8 +258,13 @@ func stripClaudePermissionArgs(args []string) []string {
 				index++
 			}
 			continue
+		case "--effort":
+			if index+1 < len(args) {
+				index++
+			}
+			continue
 		default:
-			if strings.HasPrefix(arg, "--permission-mode=") {
+			if strings.HasPrefix(arg, "--permission-mode=") || strings.HasPrefix(strings.ToLower(arg), "--effort=") {
 				continue
 			}
 			stripped = append(stripped, arg)

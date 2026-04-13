@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
@@ -44,6 +46,12 @@ type projectConversationWorkspaceTreeRequest struct {
 	Path     string
 }
 
+type projectConversationWorkspaceSearchRequest struct {
+	RepoPath string
+	Query    string
+	Limit    int
+}
+
 type projectConversationWorkspaceFileRequest struct {
 	RepoPath string
 	Path     string
@@ -58,8 +66,36 @@ type rawUpdateProjectConversationWorkspaceFileRequest struct {
 	LineEnding   string `json:"line_ending"`
 }
 
+type rawCreateProjectConversationWorkspaceFileRequest struct {
+	RepoPath string `json:"repo_path"`
+	Path     string `json:"path"`
+}
+
+type rawRenameProjectConversationWorkspaceFileRequest struct {
+	RepoPath string `json:"repo_path"`
+	FromPath string `json:"from_path"`
+	ToPath   string `json:"to_path"`
+}
+
+type rawDeleteProjectConversationWorkspaceFileRequest struct {
+	RepoPath string `json:"repo_path"`
+	Path     string `json:"path"`
+}
+
 type updateProjectConversationWorkspaceFileRequest struct {
 	File chatservice.ProjectConversationWorkspaceFileSaveInput
+}
+
+type createProjectConversationWorkspaceFileRequest struct {
+	File chatservice.ProjectConversationWorkspaceFileCreateInput
+}
+
+type renameProjectConversationWorkspaceFileRequest struct {
+	File chatservice.ProjectConversationWorkspaceFileRenameInput
+}
+
+type deleteProjectConversationWorkspaceFileRequest struct {
+	File chatservice.ProjectConversationWorkspaceFileDeleteInput
 }
 
 type rawProjectConversationWorkspaceFileDraftContext struct {
@@ -144,6 +180,41 @@ func parseProjectConversationWorkspaceTreeRequest(
 	}, nil
 }
 
+func parseProjectConversationWorkspaceSearchRequest(
+	repoPath string,
+	query string,
+	limit string,
+) (projectConversationWorkspaceSearchRequest, error) {
+	trimmedRepoPath := strings.TrimSpace(repoPath)
+	if trimmedRepoPath == "" {
+		return projectConversationWorkspaceSearchRequest{}, writeableError("repo_path must not be empty")
+	}
+	trimmedQuery := strings.TrimSpace(query)
+	if trimmedQuery == "" {
+		return projectConversationWorkspaceSearchRequest{}, writeableError("q must not be empty")
+	}
+
+	parsedLimit := 0
+	if strings.TrimSpace(limit) != "" {
+		value, err := strconv.Atoi(strings.TrimSpace(limit))
+		if err != nil {
+			return projectConversationWorkspaceSearchRequest{}, writeableError(
+				fmt.Sprintf("limit must be a positive integer: %v", err),
+			)
+		}
+		if value <= 0 {
+			return projectConversationWorkspaceSearchRequest{}, writeableError("limit must be positive")
+		}
+		parsedLimit = value
+	}
+
+	return projectConversationWorkspaceSearchRequest{
+		RepoPath: trimmedRepoPath,
+		Query:    trimmedQuery,
+		Limit:    parsedLimit,
+	}, nil
+}
+
 func parseProjectConversationWorkspaceFileRequest(
 	repoPath string,
 	path string,
@@ -197,6 +268,71 @@ func parseUpdateProjectConversationWorkspaceFileRequest(
 			Content:      content,
 			Encoding:     encoding,
 			LineEnding:   lineEnding,
+		},
+	}, nil
+}
+
+func parseCreateProjectConversationWorkspaceFileRequest(
+	raw rawCreateProjectConversationWorkspaceFileRequest,
+) (createProjectConversationWorkspaceFileRequest, error) {
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return createProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	filePath, err := chatservice.ParseWorkspaceCreatableFilePath(raw.Path)
+	if err != nil {
+		return createProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	return createProjectConversationWorkspaceFileRequest{
+		File: chatservice.ProjectConversationWorkspaceFileCreateInput{
+			RepoPath: repoPath,
+			Path:     filePath,
+		},
+	}, nil
+}
+
+func parseRenameProjectConversationWorkspaceFileRequest(
+	raw rawRenameProjectConversationWorkspaceFileRequest,
+) (renameProjectConversationWorkspaceFileRequest, error) {
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return renameProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	fromPath, err := chatservice.ParseWorkspaceRenamableFilePath(raw.FromPath)
+	if err != nil {
+		return renameProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	toPath, err := chatservice.ParseWorkspaceCreatableFilePath(raw.ToPath)
+	if err != nil {
+		return renameProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	if fromPath.String() == toPath.String() {
+		return renameProjectConversationWorkspaceFileRequest{}, writeableError("from_path and to_path must differ")
+	}
+	return renameProjectConversationWorkspaceFileRequest{
+		File: chatservice.ProjectConversationWorkspaceFileRenameInput{
+			RepoPath: repoPath,
+			FromPath: fromPath,
+			ToPath:   toPath,
+		},
+	}, nil
+}
+
+func parseDeleteProjectConversationWorkspaceFileRequest(
+	raw rawDeleteProjectConversationWorkspaceFileRequest,
+) (deleteProjectConversationWorkspaceFileRequest, error) {
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return deleteProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	filePath, err := chatservice.ParseWorkspaceDeleteableFilePath(raw.Path)
+	if err != nil {
+		return deleteProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	return deleteProjectConversationWorkspaceFileRequest{
+		File: chatservice.ProjectConversationWorkspaceFileDeleteInput{
+			RepoPath: repoPath,
+			Path:     filePath,
 		},
 	}, nil
 }

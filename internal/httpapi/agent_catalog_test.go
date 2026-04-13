@@ -53,7 +53,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"base_url":"http://localhost:4318"},"secret_bindings":[{"env_var_key":"OPENAI_API_KEY","binding_key":"PROJECT_OPENAI_KEY"}],"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"base_url":"http://localhost:4318"},"secret_bindings":[{"env_var_key":"OPENAI_API_KEY","binding_key":"PROJECT_OPENAI_KEY"}],"model_name":"gpt-5.3-codex","reasoning_effort":"high","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
 	)
 	if providerRec.Code != http.StatusCreated {
 		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -92,6 +92,10 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		!binding.Configured ||
 		binding.Source != "binding" {
 		t.Fatalf("unexpected provider secret binding: %+v", binding)
+	}
+	if providerPayload.Provider.Capabilities.Reasoning.SelectedEffort == nil ||
+		*providerPayload.Provider.Capabilities.Reasoning.SelectedEffort != "high" {
+		t.Fatalf("expected provider reasoning selected_effort high, got %+v", providerPayload.Provider.Capabilities.Reasoning)
 	}
 
 	secondaryProviderRec := performJSONRequest(
@@ -996,6 +1000,8 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 		Name:                 "Codex",
 		AdapterType:          domain.AgentProviderAdapterTypeCodexAppServer,
 		CliCommand:           "codex",
+		ModelName:            "gpt-5.4",
+		ModelMaxTokens:       domain.DefaultAgentProviderModelMaxTokens,
 		MaxParallelRuns:      domain.DefaultAgentProviderMaxParallelRuns,
 	}
 	service.agents[agentID] = domain.Agent{
@@ -1020,7 +1026,7 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 		{name: "get provider missing", method: http.MethodGet, target: "/api/v1/providers/" + uuid.NewString(), wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "patch provider invalid id", method: http.MethodPatch, target: "/api/v1/providers/not-a-uuid", body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "providerId must be a valid UUID"},
 		{name: "patch provider missing", method: http.MethodPatch, target: "/api/v1/providers/" + uuid.NewString(), body: `{}`, wantStatus: http.StatusNotFound, wantBody: "resource not found"},
-		{name: "patch provider invalid payload", method: http.MethodPatch, target: "/api/v1/providers/" + providerOneID.String(), body: `{"cli_command":" "}`, wantStatus: http.StatusBadRequest, wantBody: "model_name must not be empty"},
+		{name: "patch provider invalid payload", method: http.MethodPatch, target: "/api/v1/providers/" + providerOneID.String(), body: `{"cli_command":" "}`, wantStatus: http.StatusBadRequest, wantBody: "cli_command must not be empty"},
 		{name: "list agents invalid project", method: http.MethodGet, target: "/api/v1/projects/not-a-uuid/agents", wantStatus: http.StatusBadRequest, wantBody: "projectId must be a valid UUID"},
 		{name: "list agents missing project", method: http.MethodGet, target: "/api/v1/projects/" + uuid.NewString() + "/agents", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "create agent invalid payload", method: http.MethodPost, target: "/api/v1/projects/" + projectOneID.String() + "/agents", body: `{"provider_id":"bad","name":"worker"}`, wantStatus: http.StatusBadRequest, wantBody: "provider_id must be a valid UUID"},
@@ -1055,6 +1061,9 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 	if !strings.Contains(modelOptionsRec.Body.String(), `"id":"gpt-5.4"`) {
 		t.Fatalf("provider model options body missing codex model: %s", modelOptionsRec.Body.String())
 	}
+	if !strings.Contains(modelOptionsRec.Body.String(), `"supported_efforts":["low","medium","high","xhigh"]`) {
+		t.Fatalf("provider model options body missing reasoning efforts: %s", modelOptionsRec.Body.String())
+	}
 
 	mappedProvider := mapAgentProviderResponse(service.providers[providerOneID])
 	if mappedProvider.MachineSSHUser == nil || *mappedProvider.MachineSSHUser != sshUser || mappedProvider.MachineWorkspaceRoot == nil || *mappedProvider.MachineWorkspaceRoot != workspaceRoot {
@@ -1065,6 +1074,9 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 	}
 	if mappedProvider.Capabilities.EphemeralChat.Reason == nil || *mappedProvider.Capabilities.EphemeralChat.Reason != "not_ready" {
 		t.Fatalf("expected mapped provider ephemeral chat reason not_ready, got %+v", mappedProvider.Capabilities)
+	}
+	if mappedProvider.Capabilities.Reasoning.State != domain.AgentProviderCapabilityStateAvailable.String() {
+		t.Fatalf("expected mapped provider reasoning state available, got %+v", mappedProvider.Capabilities.Reasoning)
 	}
 	*mappedProvider.MachineSSHUser = "changed"
 	if *service.providers[providerOneID].MachineSSHUser != sshUser {
@@ -1127,6 +1139,7 @@ func (f *fakeCatalogService) CreateAgentProvider(_ context.Context, input domain
 		CliArgs:              append([]string(nil), input.CliArgs...),
 		AuthConfig:           cloneMap(input.AuthConfig),
 		ModelName:            input.ModelName,
+		ReasoningEffort:      cloneReasoningEffortPointer(input.ReasoningEffort),
 		ModelTemperature:     input.ModelTemperature,
 		ModelMaxTokens:       input.ModelMaxTokens,
 		MaxParallelRuns:      input.MaxParallelRuns,
@@ -1178,6 +1191,7 @@ func (f *fakeCatalogService) UpdateAgentProvider(_ context.Context, input domain
 		CliArgs:              append([]string(nil), input.CliArgs...),
 		AuthConfig:           cloneMap(input.AuthConfig),
 		ModelName:            input.ModelName,
+		ReasoningEffort:      cloneReasoningEffortPointer(input.ReasoningEffort),
 		ModelTemperature:     input.ModelTemperature,
 		ModelMaxTokens:       input.ModelMaxTokens,
 		MaxParallelRuns:      input.MaxParallelRuns,
@@ -1857,6 +1871,16 @@ func findLocalMachineID(t *testing.T, service *fakeCatalogService, organizationI
 	}
 	t.Fatalf("local machine not found for organization %s", organizationID)
 	return ""
+}
+
+func cloneReasoningEffortPointer(
+	value *domain.AgentProviderReasoningEffort,
+) *domain.AgentProviderReasoningEffort {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func loadEntLocalMachineID(t *testing.T, client *ent.Client, organizationID string) string {

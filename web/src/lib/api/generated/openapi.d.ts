@@ -597,11 +597,14 @@ export interface paths {
     get: operations['getProjectConversationWorkspaceFile']
     /** Save one project conversation workspace file */
     put: operations['saveProjectConversationWorkspaceFile']
-    post?: never
-    delete?: never
+    /** Create one project conversation workspace file */
+    post: operations['createProjectConversationWorkspaceFile']
+    /** Delete one project conversation workspace file */
+    delete: operations['deleteProjectConversationWorkspaceFile']
     options?: never
     head?: never
-    patch?: never
+    /** Rename one project conversation workspace file */
+    patch: operations['renameProjectConversationWorkspaceFile']
     trace?: never
   }
   '/api/v1/chat/conversations/{conversationId}/workspace/file-patch': {
@@ -613,6 +616,23 @@ export interface paths {
     }
     /** Read one project conversation workspace file diff */
     get: operations['getProjectConversationWorkspaceFilePatch']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/search': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Search project conversation workspace file paths within one repo */
+    get: operations['searchProjectConversationWorkspacePaths']
     put?: never
     post?: never
     delete?: never
@@ -6652,6 +6672,311 @@ export interface operations {
       }
     }
   }
+  createProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Create one project conversation workspace file request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Repo-relative file path to create inside the conversation workspace. Missing parent directories are created safely within the repo root. */
+          path?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create one project conversation workspace file response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file?: {
+              conversation_id?: string
+              encoding?: string
+              line_ending?: string
+              path?: string
+              repo_path?: string
+              revision?: string
+              /** Format: int64 */
+              size_bytes?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Delete one project conversation workspace file request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Repo-relative existing file path to delete from the conversation workspace. */
+          path?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Delete one project conversation workspace file response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file?: {
+              conversation_id?: string
+              path?: string
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  renameProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Rename one project conversation workspace file request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Repo-relative existing file path to rename. */
+          from_path?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+          /** @description Repo-relative destination file path. Missing parent directories are created safely within the repo root. */
+          to_path?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rename one project conversation workspace file response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file?: {
+              conversation_id?: string
+              from_path?: string
+              repo_path?: string
+              to_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getProjectConversationWorkspaceFilePatch: {
     parameters: {
       query?: {
@@ -6683,6 +7008,107 @@ export interface operations {
               path?: string
               repo_path?: string
               status?: string
+              truncated?: boolean
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  searchProjectConversationWorkspacePaths: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Case-insensitive substring to match against repo-relative file paths. */
+        q?: string
+        /** @description Optional maximum number of matches to return. Defaults to 20 and is capped at 100. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Search project conversation workspace file paths within one repo response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workspace_search?: {
+              conversation_id?: string
+              query?: string
+              repo_path?: string
+              results?: {
+                name?: string
+                path?: string
+              }[]
               truncated?: boolean
             }
           }
@@ -10908,6 +11334,16 @@ export interface operations {
                   reason?: string | null
                   state?: string
                 }
+                reasoning?: {
+                  default_effort?: string | null
+                  effective_effort?: string | null
+                  reason?: string | null
+                  selected_effort?: string | null
+                  state?: string
+                  supported_efforts?: string[]
+                  supports_model_override?: boolean
+                  supports_provider_preset?: boolean
+                }
               }
               cli_args?: string[]
               cli_command?: string
@@ -11131,6 +11567,8 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           }
+          /** @description Optional provider-level reasoning or thinking preset. Leave empty to use the selected model default. */
+          reasoning_effort?: string | null
           /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
           secret_bindings?: {
             /** @description Secret binding alias to resolve for the matching runtime environment variable. */
@@ -11162,6 +11600,16 @@ export interface operations {
                 ephemeral_chat?: {
                   reason?: string | null
                   state?: string
+                }
+                reasoning?: {
+                  default_effort?: string | null
+                  effective_effort?: string | null
+                  reason?: string | null
+                  selected_effort?: string | null
+                  state?: string
+                  supported_efforts?: string[]
+                  supports_model_override?: boolean
+                  supports_provider_preset?: boolean
                 }
               }
               cli_args?: string[]
@@ -14486,6 +14934,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -14554,7 +15006,30 @@ export interface operations {
           name?: string
           /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
-            [key: string]: unknown
+            /**
+             * Format: double
+             * @description Optional budget cap in USD applied to tickets created by this scheduled job.
+             */
+            budget_usd?: number | null
+            /** @description Optional audit actor recorded on tickets created by this scheduled job. */
+            created_by?: string
+            /** @description Optional rendered ticket description template for each scheduled run. */
+            description?: string
+            /** @description Ticket priority applied to tickets created by this scheduled job. */
+            priority?: string
+            /** @description Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope. */
+            repo_scopes?: {
+              /** @description Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation. */
+              branch_name?: string | null
+              /** @description Repository ID attached to tickets created by this scheduled job. */
+              repo_id?: string
+            }[]
+            /** @description Ticket status name applied to tickets created by this scheduled job. */
+            status?: string
+            /** @description Rendered ticket title template for each scheduled run. */
+            title?: string
+            /** @description Ticket type applied to tickets created by this scheduled job. */
+            type?: string
           }
         }
       }
@@ -14581,6 +15056,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -20831,6 +21310,14 @@ export interface operations {
                   }[]
                   version?: string
                 } | null
+                reasoning?: {
+                  default_effort?: string | null
+                  reason?: string | null
+                  state?: string
+                  supported_efforts?: string[]
+                  supports_model_override?: boolean
+                  supports_provider_preset?: boolean
+                } | null
                 recommended?: boolean
               }[]
             }[]
@@ -20883,6 +21370,16 @@ export interface operations {
                 ephemeral_chat?: {
                   reason?: string | null
                   state?: string
+                }
+                reasoning?: {
+                  default_effort?: string | null
+                  effective_effort?: string | null
+                  reason?: string | null
+                  selected_effort?: string | null
+                  state?: string
+                  supported_efforts?: string[]
+                  supports_model_override?: boolean
+                  supports_provider_preset?: boolean
                 }
               }
               cli_args?: string[]
@@ -21107,6 +21604,8 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           } | null
+          /** @description Optional provider-level reasoning or thinking preset. Leave empty to use the selected model default. */
+          reasoning_effort?: string | null
           /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
           secret_bindings?:
             | {
@@ -21140,6 +21639,16 @@ export interface operations {
                 ephemeral_chat?: {
                   reason?: string | null
                   state?: string
+                }
+                reasoning?: {
+                  default_effort?: string | null
+                  effective_effort?: string | null
+                  reason?: string | null
+                  selected_effort?: string | null
+                  state?: string
+                  supported_efforts?: string[]
+                  supports_model_override?: boolean
+                  supports_provider_preset?: boolean
                 }
               }
               cli_args?: string[]
@@ -21517,7 +22026,30 @@ export interface operations {
           name?: string | null
           /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
-            [key: string]: unknown
+            /**
+             * Format: double
+             * @description Optional budget cap in USD applied to tickets created by this scheduled job.
+             */
+            budget_usd?: number | null
+            /** @description Optional audit actor recorded on tickets created by this scheduled job. */
+            created_by?: string
+            /** @description Optional rendered ticket description template for each scheduled run. */
+            description?: string
+            /** @description Ticket priority applied to tickets created by this scheduled job. */
+            priority?: string
+            /** @description Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope. */
+            repo_scopes?: {
+              /** @description Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation. */
+              branch_name?: string | null
+              /** @description Repository ID attached to tickets created by this scheduled job. */
+              repo_id?: string
+            }[]
+            /** @description Ticket status name applied to tickets created by this scheduled job. */
+            status?: string
+            /** @description Rendered ticket title template for each scheduled run. */
+            title?: string
+            /** @description Ticket type applied to tickets created by this scheduled job. */
+            type?: string
           } | null
         }
       }
@@ -21544,6 +22076,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -21635,6 +22171,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string

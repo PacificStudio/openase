@@ -1282,6 +1282,19 @@ func TestBuildBaseArgsAddsModelFlagWhenMissing(t *testing.T) {
 	}
 }
 
+func TestBuildClaudeArgsAddsReasoningEffortWhenMissing(t *testing.T) {
+	reasoning := catalogdomain.AgentProviderReasoningEffortMax
+	args := buildClaudeArgs(
+		[]string{"chat"},
+		"claude-sonnet-4-6",
+		&reasoning,
+		catalogdomain.AgentProviderPermissionProfileStandard,
+	)
+	if strings.Join(args, " ") != "chat --model claude-sonnet-4-6 --effort max" {
+		t.Fatalf("buildClaudeArgs() = %v", args)
+	}
+}
+
 func TestBuildCodexArgsDoesNotAppendModelFlag(t *testing.T) {
 	args := buildCodexArgs([]string{"app-server", "--listen", "stdio://"})
 	if len(args) != 3 {

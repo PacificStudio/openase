@@ -147,6 +147,7 @@ func TestClaudeCodeAgentAdapterSatisfiesRuntimeContract(t *testing.T) {
 		Process:               processSpec,
 		ProcessManager:        manager,
 		DeveloperInstructions: "Follow the harness.",
+		ReasoningEffort:       reasoningEffortPointer(catalogdomain.AgentProviderReasoningEffortHigh),
 	})
 	if err != nil {
 		t.Fatalf("Start returned error: %v", err)
@@ -730,6 +731,12 @@ func TestAgentPermissionProfileHelpers(t *testing.T) {
 	if hasClaudePermissionBypassArg([]string{"--permission-mode", "default"}) {
 		t.Fatal("hasClaudePermissionBypassArg() expected false")
 	}
+	if !hasClaudeEffortArg([]string{"--effort=high"}) {
+		t.Fatal("hasClaudeEffortArg() expected true")
+	}
+	if hasClaudeEffortArg([]string{"--verbose"}) {
+		t.Fatal("hasClaudeEffortArg() expected false")
+	}
 	if got := buildGeminiPermissionArgs(catalogdomain.AgentProviderPermissionProfileStandard); got != nil {
 		t.Fatalf("buildGeminiPermissionArgs(standard) = %v", got)
 	}
@@ -754,6 +761,12 @@ func requireAgentEvent(t *testing.T, events <-chan agentEvent) agentEvent {
 }
 
 func intPointer(value int) *int {
+	return &value
+}
+
+func reasoningEffortPointer(
+	value catalogdomain.AgentProviderReasoningEffort,
+) *catalogdomain.AgentProviderReasoningEffort {
 	return &value
 }
 

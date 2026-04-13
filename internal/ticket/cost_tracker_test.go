@@ -172,7 +172,7 @@ func TestServiceRecordUsageAccumulatesTokensCostAndBudgetPause(t *testing.T) {
 func TestServiceRecordUsageEdgeCases(t *testing.T) {
 	ctx := context.Background()
 
-	nilService := NewService(nil)
+	nilService := NewService(Dependencies{})
 	if _, err := nilService.RecordUsage(ctx, RecordUsageInput{}, nil); err != ErrUnavailable {
 		t.Fatalf("RecordUsage(nil service) error = %v, want %v", err, ErrUnavailable)
 	}

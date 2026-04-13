@@ -135,9 +135,9 @@ func TestCreateAgentProviderNormalizesManagedPermissionFlags(t *testing.T) {
 			wantArgs:    []string{"app-server", "--listen", "stdio://", "--trace"},
 		},
 		{
-			name:        "claude strips permission flags",
+			name:        "claude strips permission and effort flags",
 			adapterType: domain.AgentProviderAdapterTypeClaudeCodeCLI,
-			inputArgs:   []string{"--dangerously-skip-permissions", "--permission-mode", "bypassPermissions", "--verbose"},
+			inputArgs:   []string{"--dangerously-skip-permissions", "--permission-mode", "bypassPermissions", "--effort", "high", "--verbose"},
 			wantArgs:    []string{"--verbose"},
 		},
 		{

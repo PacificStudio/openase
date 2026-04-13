@@ -73,6 +73,13 @@ type RuntimeInterruptResponseInput struct {
 	PersistentConversation bool
 }
 
+func reasoningEffortValue(value *catalogdomain.AgentProviderReasoningEffort) string {
+	if value == nil {
+		return ""
+	}
+	return value.String()
+}
+
 type runtimeSessionStatePayload struct {
 	Status      string         `json:"status"`
 	ActiveFlags []string       `json:"active_flags,omitempty"`

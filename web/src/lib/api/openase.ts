@@ -308,6 +308,7 @@ export function createProvider(
     auth_config?: Record<string, unknown>
     secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name: string
+    reasoning_effort?: string | null
     model_temperature?: number
     model_max_tokens?: number
     max_parallel_runs?: number
@@ -1350,6 +1351,10 @@ export function createScheduledJob(
       created_by?: string
       description?: string
       priority?: string
+      repo_scopes?: Array<{
+        branch_name?: string | null
+        repo_id: string
+      }>
       status?: string
       title?: string
       type?: string
@@ -1370,6 +1375,10 @@ export function updateScheduledJob(
       created_by?: string
       description?: string
       priority?: string
+      repo_scopes?: Array<{
+        branch_name?: string | null
+        repo_id: string
+      }>
       status?: string
       title?: string
       type?: string
@@ -1523,6 +1532,7 @@ export function updateProvider(
     auth_config?: Record<string, unknown>
     secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name?: string
+    reasoning_effort?: string | null
     model_temperature?: number
     model_max_tokens?: number
     max_parallel_runs?: number

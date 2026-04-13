@@ -10,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,9 +20,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
-	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
-	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	secretsdomain "github.com/BetterAndBetterII/openase/internal/domain/secrets"
@@ -130,7 +127,15 @@ func NewRuntimeLauncher(
 		executions:               newRuntimeRunTracker(),
 		adapters:                 newDefaultAgentAdapterRegistry(),
 		runtime:                  NewRuntimeStateStore(),
-		tickets:                  ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		tickets: ticketservice.NewService(ticketservice.Dependencies{
+			Activity: ticketrepo.NewActivityRepository(client),
+			Query:    ticketrepo.NewQueryRepository(client),
+			Command:  ticketrepo.NewCommandRepository(client),
+			Link:     ticketrepo.NewLinkRepository(client),
+			Comment:  ticketrepo.NewCommentRepository(client),
+			Usage:    ticketrepo.NewUsageRepository(client),
+			Runtime:  ticketrepo.NewRuntimeRepository(client),
+		}),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
 	launcher.tickets.ConfigureTransportResolver(launcher.transports)
@@ -230,32 +235,32 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return fmt.Errorf("runtime launcher process manager unavailable")
 	}
 
-	if err := l.reconcileInterruptRequests(ctx); err != nil {
+	if err := l.recoverySlice().reconcileInterruptRequests(ctx); err != nil {
 		return err
 	}
-	if err := l.reconcilePauseRequests(ctx); err != nil {
+	if err := l.recoverySlice().reconcilePauseRequests(ctx); err != nil {
 		return err
 	}
-	if err := l.reconcileRuntimeFacts(ctx); err != nil {
+	if err := l.recoverySlice().reconcileRuntimeFacts(ctx); err != nil {
 		return err
 	}
-	if err := l.reconcileTrackerState(ctx); err != nil {
+	if err := l.recoverySlice().reconcileTrackerState(ctx); err != nil {
 		return err
 	}
-	if err := l.reconcileStalledRuntime(ctx); err != nil {
+	if err := l.recoverySlice().reconcileStalledRuntime(ctx); err != nil {
 		return err
 	}
-	if err := l.refreshHeartbeats(ctx); err != nil {
+	if err := l.recoverySlice().refreshHeartbeats(ctx); err != nil {
 		return err
 	}
 	if err := l.reconcileRunCompletionSummaries(ctx); err != nil {
 		return err
 	}
-	if err := l.startReadyExecutions(ctx); err != nil {
+	if err := l.executionSlice().startReadyExecutions(ctx); err != nil {
 		return err
 	}
 
-	assignments, err := l.listAssignments(ctx,
+	assignments, err := l.selectionSlice().listAssignments(ctx,
 		entticket.CurrentRunIDNotNil(),
 		entticket.HasCurrentRunWith(
 			entagentrun.HasAgentWith(
@@ -276,7 +281,7 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		launchWG.Add(1)
 		go func(assignment runtimeAssignment) {
 			defer launchWG.Done()
-			l.runLaunch(ctx, assignment)
+			l.processSlice().runLaunch(ctx, assignment)
 		}(assignment)
 	}
 	launchWG.Wait()
@@ -386,157 +391,15 @@ func (l *RuntimeLauncher) Close(ctx context.Context) error {
 }
 
 func (l *RuntimeLauncher) runLaunch(ctx context.Context, assignment runtimeAssignment) {
-	defer l.finishLaunch(assignment.run.ID)
-
-	err := l.launchAgent(ctx, assignment)
-	if err == nil {
-		return
-	}
-
-	logAttrs := []any{
-		"agent_id", assignment.agent.ID,
-		"run_id", assignment.run.ID,
-		"ticket_id", assignment.ticket.ID,
-		"error", err,
-	}
-	if details := runtimeLaunchFailureDetails(err); details != nil {
-		if details.stage != "" {
-			logAttrs = append(logAttrs, "failure_stage", string(details.stage))
-		}
-		if details.machineID != uuid.Nil {
-			logAttrs = append(logAttrs, "machine_id", details.machineID.String())
-		}
-		if strings.TrimSpace(details.transportMode) != "" {
-			logAttrs = append(logAttrs, "transport_mode", details.transportMode)
-		}
-		if strings.TrimSpace(details.workspaceRoot) != "" {
-			logAttrs = append(logAttrs, "workspace_root", details.workspaceRoot)
-		}
-	}
-	l.logger.Error("launch current run", logAttrs...)
-	if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil {
-		return
-	}
-
-	failureCtx, failureCancel := l.launchContext(ctx, defaultLaunchCleanupTimeout)
-	defer failureCancel()
-	if markErr := l.markLaunchFailed(failureCtx, assignment.agent.ID, assignment.ticket.ID, assignment.run.ID, err); markErr != nil {
-		l.logger.Error("mark launch failed", "agent_id", assignment.agent.ID, "ticket_id", assignment.ticket.ID, "run_id", assignment.run.ID, "error", markErr)
-	}
+	l.processSlice().runLaunch(ctx, assignment)
 }
 
 func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAssignment) error {
-	if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil {
-		return nil
-	}
-
-	now := l.now().UTC()
-	launchingCount, err := l.client.AgentRun.Update().
-		Where(
-			entagentrun.IDEQ(assignment.run.ID),
-			entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusTerminated),
-		).
-		SetStatus(entagentrun.StatusLaunching).
-		SetLastError("").
-		ClearSessionID().
-		ClearRuntimeStartedAt().
-		ClearLastHeartbeatAt().
-		Save(ctx)
-	if err != nil {
-		return fmt.Errorf("mark run %s launching: %w", assignment.run.ID, err)
-	}
-	if launchingCount == 0 {
-		return nil
-	}
-
-	launchingAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
-	if err != nil {
-		return err
-	}
-	l.publishLifecycleEvent(
-		ctx,
-		agentLaunchingType,
-		launchingAgent,
-		lifecycleMessage(agentLaunchingType, launchingAgent.agent.Name),
-		runtimeEventMetadataForState(launchingAgent),
-		now,
-	)
-
-	session, launchErr := l.startRuntimeSessionWithTimeout(ctx, assignment)
-	if launchErr != nil {
-		return launchErr
-	}
-
-	l.storeSession(assignment.run.ID, session)
-
-	readyAt := l.now().UTC()
-	readyCount, err := l.client.AgentRun.Update().
-		Where(
-			entagentrun.IDEQ(assignment.run.ID),
-			entagentrun.StatusEQ(entagentrun.StatusLaunching),
-		).
-		SetStatus(entagentrun.StatusReady).
-		SetRuntimeStartedAt(readyAt).
-		SetLastHeartbeatAt(readyAt).
-		SetLastError("").
-		Save(ctx)
-	if err == nil {
-		if sessionID, ok := session.SessionID(); ok {
-			readyCount, err = l.client.AgentRun.Update().
-				Where(
-					entagentrun.IDEQ(assignment.run.ID),
-					entagentrun.StatusEQ(entagentrun.StatusReady),
-				).
-				SetSessionID(sessionID).
-				Save(ctx)
-		}
-	}
-	if err != nil {
-		l.deleteSession(assignment.run.ID)
-		stopSession(context.Background(), session)
-		return fmt.Errorf("mark run %s ready: %w", assignment.run.ID, err)
-	}
-	if readyCount == 0 {
-		l.deleteSession(assignment.run.ID)
-		stopSession(context.Background(), session)
-		return nil
-	}
-	sessionID, _ := session.SessionID()
-	l.runtime.markReady(
-		assignment.run.ID,
-		assignment.agent.ID,
-		assignment.ticket.ID,
-		assignment.run.WorkflowID,
-		sessionID,
-		readyAt,
-	)
-
-	readyAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
-	if err != nil {
-		return err
-	}
-	l.publishLifecycleEvent(
-		ctx,
-		agentReadyType,
-		readyAgent,
-		lifecycleMessage(agentReadyType, readyAgent.agent.Name),
-		runtimeEventMetadataForState(readyAgent),
-		readyAt,
-	)
-	l.publishLifecycleEvent(
-		ctx,
-		agentHeartbeatType,
-		readyAgent,
-		lifecycleMessage(agentHeartbeatType, readyAgent.agent.Name),
-		runtimeEventMetadataForState(readyAgent),
-		readyAt,
-	)
-
-	return nil
+	return l.processSlice().launchAgent(ctx, assignment)
 }
 
 func (l *RuntimeLauncher) startRuntimeSessionWithTimeout(ctx context.Context, assignment runtimeAssignment) (agentSession, error) {
-	return l.startRuntimeSession(ctx, assignment)
+	return l.processSlice().startRuntimeSessionWithTimeout(ctx, assignment)
 }
 
 func (l *RuntimeLauncher) startAgentSessionWithTimeout(
@@ -585,56 +448,7 @@ func (l *RuntimeLauncher) startAgentSessionWithTimeout(
 }
 
 func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID, runID uuid.UUID, launchErr error) error {
-	now := l.now().UTC()
-	count, err := l.client.AgentRun.Update().
-		Where(
-			entagentrun.IDEQ(runID),
-			entagentrun.StatusEQ(entagentrun.StatusLaunching),
-		).
-		SetStatus(entagentrun.StatusErrored).
-		SetTerminalAt(now).
-		SetLastError(strings.TrimSpace(launchErr.Error())).
-		ClearSessionID().
-		ClearRuntimeStartedAt().
-		ClearLastHeartbeatAt().
-		Save(ctx)
-	if err != nil {
-		return fmt.Errorf("mark run %s failed: %w", runID, err)
-	}
-	if count == 0 {
-		return nil
-	}
-	l.recordLaunchFailureMetric(launchErr)
-	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, now); err != nil {
-		return err
-	}
-	l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
-		TicketID: ticketID,
-		RunID:    runID,
-		HookName: infrahook.TicketHookOnError,
-	})
-
-	retrySvc := NewRetryService(l.client, l.logger, l.events)
-	retrySvc.now = l.now
-	if _, err := retrySvc.MarkAttemptFailed(ctx, ticketID); err != nil {
-		return fmt.Errorf("release failed launch claim for ticket %s: %w", ticketID, err)
-	}
-
-	failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID)
-	if err != nil {
-		return err
-	}
-	l.publishLifecycleEvent(
-		ctx,
-		agentFailedType,
-		failedAgent,
-		lifecycleMessage(agentFailedType, failedAgent.agent.Name),
-		mergeRuntimeFailureMetadata(runtimeEventMetadataForState(failedAgent), launchErr),
-		now,
-	)
-	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
-	l.scheduleRunCompletionSummary(runID)
-	return nil
+	return l.processSlice().markLaunchFailed(ctx, agentID, ticketID, runID, launchErr)
 }
 
 func (l *RuntimeLauncher) recordLaunchFailureMetric(launchErr error) {
@@ -656,365 +470,39 @@ func (l *RuntimeLauncher) recordLaunchFailureMetric(launchErr error) {
 }
 
 func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
-	pausedAssignments, err := l.listAssignments(ctx,
-		entticket.CurrentRunIDNotNil(),
-		entticket.HasCurrentRunWith(
-			entagentrun.HasAgentWith(
-				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStatePauseRequested),
-			),
-		),
-	)
-	if err != nil {
-		return fmt.Errorf("list agents pending pause: %w", err)
-	}
-
-	for _, assignment := range pausedAssignments {
-		if err := l.pauseAgent(ctx, assignment); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return l.recoverySlice().reconcilePauseRequests(ctx)
 }
 
 func (l *RuntimeLauncher) reconcileInterruptRequests(ctx context.Context) error {
-	assignments, err := l.listAssignments(ctx,
-		entticket.CurrentRunIDNotNil(),
-		entticket.HasCurrentRunWith(
-			entagentrun.HasAgentWith(
-				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateInterruptRequested),
-			),
-			entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
-		),
-	)
-	if err != nil {
-		return fmt.Errorf("list interrupt requests: %w", err)
-	}
-
-	for _, assignment := range assignments {
-		if err := l.interruptAgent(ctx, assignment); err != nil {
-			return err
-		}
-	}
-	return nil
+	return l.recoverySlice().reconcileInterruptRequests(ctx)
 }
 
 func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
-	runIDs := l.sessionRunIDs()
-
-	if len(runIDs) == 0 {
-		return nil
-	}
-
-	now := l.now().UTC()
-	for _, runID := range runIDs {
-		assignment, err := l.loadAssignmentByRun(ctx, runID)
-		if err != nil {
-			stopSession(context.Background(), l.loadSession(runID))
-			l.deleteSession(runID)
-			l.runtime.delete(runID)
-			continue
-		}
-		if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil ||
-			assignment.agent.RuntimeControlState != entagent.RuntimeControlStateActive ||
-			(assignment.run.Status != entagentrun.StatusReady && assignment.run.Status != entagentrun.StatusExecuting) {
-			stopSession(context.Background(), l.loadSession(runID))
-			l.deleteSession(runID)
-			l.runtime.delete(runID)
-			continue
-		}
-	}
-
-	_ = now
-	return nil
+	return l.recoverySlice().refreshHeartbeats(ctx)
 }
 
 func (l *RuntimeLauncher) reconcileTrackerState(ctx context.Context) error {
-	for _, snapshot := range l.runtime.snapshots() {
-		if snapshot.PendingRuntimeFact != nil {
-			continue
-		}
-
-		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
-		if err != nil {
-			return fmt.Errorf("reload ticket %s during tracker reconciliation: %w", snapshot.TicketID, err)
-		}
-
-		switch classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID) {
-		case runtimeTicketActive:
-			continue
-		default:
-			if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
-				return fmt.Errorf("release run %s during tracker reconciliation: %w", snapshot.RunID, err)
-			}
-		}
-	}
-
-	return nil
+	return l.recoverySlice().reconcileTrackerState(ctx)
 }
 
 func (l *RuntimeLauncher) reconcileRuntimeFacts(ctx context.Context) error {
-	for _, snapshot := range l.runtime.snapshots() {
-		if snapshot.PendingRuntimeFact == nil || l.executionActive(snapshot.RunID) {
-			continue
-		}
-
-		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
-		if err != nil {
-			return fmt.Errorf("reload ticket %s during runtime fact reconciliation: %w", snapshot.TicketID, err)
-		}
-
-		if snapshot.PendingRuntimeFact.Kind != runtimeFactSessionExited {
-			continue
-		}
-
-		suppressFailure, err := l.shouldSuppressExecutionFailure(ctx, snapshot.RunID, snapshot.TicketID)
-		if err != nil {
-			return fmt.Errorf("check runtime fact failure suppression for run %s: %w", snapshot.RunID, err)
-		}
-		if suppressFailure {
-			stopSession(context.Background(), l.loadSession(snapshot.RunID))
-			l.deleteSession(snapshot.RunID)
-			l.runtime.delete(snapshot.RunID)
-			continue
-		}
-
-		disposition := classifyRuntimeTicket(ticket, snapshot.RunID, snapshot.WorkflowID)
-		if disposition == runtimeTicketActive {
-			if trimmed := strings.TrimSpace(snapshot.PendingRuntimeFact.Message); trimmed != "" {
-				l.handleExecutionFailure(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID, fmt.Errorf("%s", trimmed))
-				continue
-			}
-			if err := l.scheduleContinuation(ctx, snapshot.RunID, snapshot.AgentID, snapshot.TicketID); err != nil {
-				return fmt.Errorf("schedule continuation for run %s after subprocess exit: %w", snapshot.RunID, err)
-			}
-			continue
-		}
-		if err := l.releaseExecutionOwnership(ctx, snapshot.RunID, snapshot.AgentID, ticket); err != nil {
-			return fmt.Errorf("release run %s after runtime fact reconciliation: %w", snapshot.RunID, err)
-		}
-	}
-
-	return nil
+	return l.recoverySlice().reconcileRuntimeFacts(ctx)
 }
 
 func (l *RuntimeLauncher) reconcileStalledRuntime(ctx context.Context) error {
-	now := l.now().UTC()
-	for _, snapshot := range l.runtime.snapshots() {
-		if snapshot.PendingRuntimeFact != nil {
-			continue
-		}
-		if l.loadSession(snapshot.RunID) == nil {
-			continue
-		}
-
-		ticket, err := l.reloadExecutionTicket(ctx, snapshot.TicketID)
-		if err != nil {
-			return fmt.Errorf("reload ticket %s during stall reconciliation: %w", snapshot.TicketID, err)
-		}
-		timeout := stallTimeoutForWorkflow(ticket.Edges.Workflow)
-		lastCodexAt := snapshot.StartedAt
-		if !snapshot.LastCodexTimestamp.IsZero() {
-			lastCodexAt = snapshot.LastCodexTimestamp
-		}
-		if age := now.Sub(lastCodexAt); age <= timeout {
-			continue
-		}
-
-		stopSession(context.Background(), l.loadSession(snapshot.RunID))
-		l.deleteSession(snapshot.RunID)
-		l.runtime.delete(snapshot.RunID)
-
-		_, _, err = releaseStalledClaim(
-			ctx,
-			l.client,
-			ticket.ProjectID,
-			snapshot.TicketID,
-			snapshot.RunID,
-			snapshot.AgentID,
-			ticket.AttemptCount,
-			ticket.ConsecutiveErrors,
-			ticket.StallCount,
-			now,
-			"runtime_launcher",
-			"runtime stalled based on last codex event timestamp",
-			l.events,
-		)
-		if err != nil {
-			return fmt.Errorf("release stalled runtime claim for run %s: %w", snapshot.RunID, err)
-		}
-	}
-
-	return nil
+	return l.recoverySlice().reconcileStalledRuntime(ctx)
 }
 
 func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssignment) error {
-	if assignment.agent == nil || assignment.run == nil {
-		return nil
-	}
-
-	session := l.loadSession(assignment.run.ID)
-	if session != nil {
-		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		stopErr := session.Stop(stopCtx)
-		cancel()
-		if stopErr != nil {
-			return fmt.Errorf("stop runtime session for run %s: %w", assignment.run.ID, stopErr)
-		}
-		l.deleteSession(assignment.run.ID)
-	}
-
-	pausedAt := l.now().UTC()
-	pausedCount, err := clearRuntimeState(
-		l.client.AgentRun.Update().
-			Where(
-				entagentrun.IDEQ(assignment.run.ID),
-				entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
-			).
-			SetStatus(entagentrun.StatusTerminated).
-			SetTerminalAt(pausedAt),
-	).Save(ctx)
-	if err != nil {
-		return fmt.Errorf("mark agent %s paused: %w", assignment.agent.ID, err)
-	}
-	if pausedCount == 0 {
-		return nil
-	}
-	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, assignment.run.ID, pausedAt); err != nil {
-		return err
-	}
-
-	if _, err := l.client.Agent.UpdateOneID(assignment.agent.ID).
-		SetRuntimeControlState(entagent.RuntimeControlStatePaused).
-		Save(ctx); err != nil {
-		return fmt.Errorf("mark agent %s control paused: %w", assignment.agent.ID, err)
-	}
-
-	pausedAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
-	if err != nil {
-		return err
-	}
-	l.publishLifecycleEvent(
-		ctx,
-		agentPausedType,
-		pausedAgent,
-		lifecycleMessage(agentPausedType, pausedAgent.agent.Name),
-		runtimeEventMetadataForState(pausedAgent),
-		pausedAt,
-	)
-	return nil
+	return l.processSlice().pauseAgent(ctx, assignment)
 }
 
 func (l *RuntimeLauncher) interruptAgent(ctx context.Context, assignment runtimeAssignment) error {
-	if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil {
-		return nil
-	}
-
-	session := l.loadSession(assignment.run.ID)
-	if session != nil {
-		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		stopErr := session.Stop(stopCtx)
-		cancel()
-		if stopErr != nil {
-			return fmt.Errorf("interrupt runtime session for run %s: %w", assignment.run.ID, stopErr)
-		}
-		l.deleteSession(assignment.run.ID)
-	}
-	l.runtime.delete(assignment.run.ID)
-
-	interruptedAt := l.now().UTC()
-	tx, err := l.client.Tx(ctx)
-	if err != nil {
-		return fmt.Errorf("start interrupt tx for run %s: %w", assignment.run.ID, err)
-	}
-	defer rollback(tx)
-
-	runCount, err := clearRuntimeState(
-		tx.AgentRun.Update().
-			Where(
-				entagentrun.IDEQ(assignment.run.ID),
-				entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
-			).
-			SetStatus(entagentrun.StatusInterrupted).
-			SetTerminalAt(interruptedAt),
-	).Save(ctx)
-	if err != nil {
-		return fmt.Errorf("mark agent %s interrupted: %w", assignment.agent.ID, err)
-	}
-
-	ticketUpdate := ticketrepo.ResetRetryBaseline(tx.Ticket.UpdateOneID(assignment.ticket.ID), assignment.ticket)
-	if assignment.ticket.CurrentRunID != nil && *assignment.ticket.CurrentRunID == assignment.run.ID {
-		ticketUpdate.ClearCurrentRunID()
-	}
-	ticketUpdate.
-		SetRetryPaused(true).
-		SetPauseReason(ticketingdomain.PauseReasonUserInterrupted.String())
-	ticketUpdate.ClearNextRetryAt()
-	if _, err := ticketUpdate.Save(ctx); err != nil {
-		return fmt.Errorf("pause ticket %s after interrupt: %w", assignment.ticket.ID, err)
-	}
-
-	if _, err := tx.Agent.UpdateOneID(assignment.agent.ID).
-		SetRuntimeControlState(entagent.RuntimeControlStateActive).
-		Save(ctx); err != nil {
-		return fmt.Errorf("reset agent %s control after interrupt: %w", assignment.agent.ID, err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit interrupt tx for run %s: %w", assignment.run.ID, err)
-	}
-	if runCount == 0 {
-		return nil
-	}
-	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, assignment.run.ID, interruptedAt); err != nil {
-		return err
-	}
-	if err := l.recordAgentStep(
-		ctx,
-		assignment.agent.ProjectID,
-		assignment.agent.ID,
-		assignment.ticket.ID,
-		assignment.run.ID,
-		"interrupted",
-		"Interrupted by operator request.",
-		nil,
-	); err != nil {
-		return fmt.Errorf("record interrupt step for run %s: %w", assignment.run.ID, err)
-	}
-
-	interruptedAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
-	if err != nil {
-		return err
-	}
-	l.publishLifecycleEvent(
-		ctx,
-		agentInterruptedType,
-		interruptedAgent,
-		lifecycleMessage(agentInterruptedType, interruptedAgent.agent.Name),
-		runtimeEventMetadataForState(interruptedAgent),
-		interruptedAt,
-	)
-	l.prepareRunCompletionSummaryBestEffort(ctx, assignment.run.ID)
-	l.scheduleRunCompletionSummary(assignment.run.ID)
-	return nil
+	return l.processSlice().interruptAgent(ctx, assignment)
 }
 
 func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment runtimeAssignment) (agentSession, error) {
-	launchContext, err := l.loadLaunchContext(ctx, assignment.agent.ID, assignment.ticket.ID)
-	if err != nil {
-		return nil, wrapRuntimeLaunchFailure(catalogdomain.Machine{}, "", runtimeLaunchStageContext, err)
-	}
-
-	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
-	if err != nil {
-		return nil, wrapRuntimeLaunchFailure(catalogdomain.Machine{}, "", runtimeLaunchStageResolveMachine, err)
-	}
-
-	session, err := l.startRuntimeSessionOnMachine(ctx, assignment, launchContext, machine, remote)
-	if err != nil {
-		return nil, err
-	}
-	return session, nil
+	return l.processSlice().startRuntimeSession(ctx, assignment)
 }
 
 func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
@@ -1172,6 +660,7 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 			ProcessManager:        processManager,
 			WorkingDirectory:      workingDirectory.String(),
 			Model:                 launchContext.agent.Edges.Provider.ModelName,
+			ReasoningEffort:       catalogdomain.ParseStoredAgentProviderReasoningEffort(launchContext.agent.Edges.Provider.ReasoningEffort),
 			PermissionProfile:     catalogdomain.AgentProviderPermissionProfile(launchContext.agent.Edges.Provider.PermissionProfile),
 			DeveloperInstructions: developerInstructions,
 			TurnTitle:             fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
@@ -1184,89 +673,18 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 }
 
 func (l *RuntimeLauncher) buildAgentPlatformAccess(ctx context.Context, launchContext runtimeLaunchContext) (runtimePlatformAccess, error) {
-	if l == nil || l.agentPlatform == nil {
-		return runtimePlatformAccess{}, nil
-	}
-	if launchContext.agent == nil || launchContext.project == nil || launchContext.ticket == nil {
-		return runtimePlatformAccess{}, fmt.Errorf("runtime launch context is incomplete for platform environment")
-	}
-
-	scopeWhitelist := agentplatform.ScopeWhitelist{}
-	if launchContext.ticket.WorkflowID != nil {
-		workflowItem, err := l.client.Workflow.Get(ctx, *launchContext.ticket.WorkflowID)
-		if err != nil {
-			return runtimePlatformAccess{}, fmt.Errorf("load workflow %s for agent platform token: %w", *launchContext.ticket.WorkflowID, err)
-		}
-		scopeWhitelist = agentplatform.ScopeWhitelist{
-			Configured: len(workflowItem.PlatformAccessAllowed) > 0,
-			Scopes:     append([]string(nil), workflowItem.PlatformAccessAllowed...),
-		}
-	}
-
-	issued, err := l.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
-		AgentID:        launchContext.agent.ID,
-		ProjectID:      launchContext.project.ID,
-		TicketID:       launchContext.ticket.ID,
-		ScopeWhitelist: scopeWhitelist,
-	})
-	if err != nil {
-		return runtimePlatformAccess{}, fmt.Errorf("issue agent platform token: %w", err)
-	}
-	contractScopes := issued.Scopes
-	if len(contractScopes) == 0 {
-		contractScopes = agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindTicketAgent)
-	}
-
-	contractInput := agentplatform.RuntimeContractInput{
-		PrincipalKind: agentplatform.PrincipalKindTicketAgent,
-		ProjectID:     launchContext.project.ID,
-		TicketID:      launchContext.ticket.ID,
-		APIURL:        l.platformAPIURL,
-		Token:         issued.Token,
-		Scopes:        contractScopes,
-	}
-	return runtimePlatformAccess{
-		environment: agentplatform.BuildRuntimeEnvironment(contractInput),
-		contract:    agentplatform.BuildCapabilityContract(contractInput),
-	}, nil
+	return l.workspaceSlice().buildAgentPlatformAccess(ctx, launchContext)
 }
 
 func (l *RuntimeLauncher) ticketRuntimePlatformContract(
 	launchContext runtimeLaunchContext,
 	scopes []string,
 ) string {
-	if launchContext.project == nil || launchContext.ticket == nil {
-		return ""
-	}
-	return agentplatform.BuildCapabilityContract(agentplatform.RuntimeContractInput{
-		PrincipalKind: agentplatform.PrincipalKindTicketAgent,
-		ProjectID:     launchContext.project.ID,
-		TicketID:      launchContext.ticket.ID,
-		APIURL:        l.platformAPIURL,
-		Token:         "<runtime-injected>",
-		Scopes:        scopes,
-	})
+	return l.workspaceSlice().ticketRuntimePlatformContract(launchContext, scopes)
 }
 
 func (l *RuntimeLauncher) buildRuntimeSecretEnvironment(ctx context.Context, launchContext runtimeLaunchContext) ([]string, error) {
-	if l == nil || l.secretManager == nil || launchContext.project == nil || launchContext.ticket == nil || launchContext.agent == nil {
-		return nil, nil
-	}
-
-	resolved, err := l.secretManager.ResolveBoundForRuntime(ctx, secretsservice.ResolveBoundRuntimeInput{
-		ProjectID:  launchContext.project.ID,
-		TicketID:   uuidPointer(launchContext.ticket.ID),
-		WorkflowID: launchContext.ticket.WorkflowID,
-		AgentID:    uuidPointer(launchContext.agent.ID),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("resolve runtime secret bindings: %w", err)
-	}
-	environment, err := secretsservice.BuildRuntimeEnvironment(resolved)
-	if err != nil {
-		return nil, fmt.Errorf("build runtime secret environment: %w", err)
-	}
-	return environment, nil
+	return l.workspaceSlice().buildRuntimeSecretEnvironment(ctx, launchContext)
 }
 
 func buildLocalOpenASEEnvironment() ([]string, error) {
@@ -1326,24 +744,7 @@ func (l *RuntimeLauncher) buildGitHubOutboundEnvironment(
 	projectID uuid.UUID,
 	baseEnvironment []string,
 ) ([]string, error) {
-	if l == nil || l.githubAuth == nil || projectID == uuid.Nil {
-		return nil, nil
-	}
-
-	resolved, err := l.githubAuth.ResolveProjectCredential(ctx, projectID)
-	if err != nil {
-		if errors.Is(err, githubauthservice.ErrCredentialNotConfigured) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("resolve project GitHub credential for agent environment: %w", err)
-	}
-
-	token := strings.TrimSpace(resolved.Token)
-	if token == "" {
-		return nil, nil
-	}
-
-	return buildGitHubTokenEnvironment(baseEnvironment, token), nil
+	return l.workspaceSlice().buildGitHubOutboundEnvironment(ctx, projectID, baseEnvironment)
 }
 
 func buildGitHubTokenEnvironment(baseEnvironment []string, token string) []string {
@@ -1374,106 +775,6 @@ func buildGitHubTokenEnvironment(baseEnvironment []string, token string) []strin
 	return environment
 }
 
-func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowID *uuid.UUID,
-	machine catalogdomain.Machine,
-	workspaceRoot string,
-	adapterType string,
-) error {
-	if l == nil || l.workflow == nil {
-		return nil
-	}
-	if l.transports == nil {
-		return fmt.Errorf("machine transport resolver unavailable for remote machine %s", machine.Name)
-	}
-
-	skillNames, err := l.resolveLaunchSkillNames(ctx, projectID, workflowID)
-	if err != nil {
-		return err
-	}
-	target, err := workflowservice.ResolveSkillTargetForRuntime(workspaceRoot, adapterType)
-	if err != nil {
-		return err
-	}
-
-	resolved, err := l.transports.ResolveRuntime(machine)
-	if err != nil {
-		return err
-	}
-	commandSessionExecutor := resolved.CommandSessionExecutor()
-	if commandSessionExecutor == nil {
-		return fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
-	}
-	session, err := commandSessionExecutor.OpenCommandSession(ctx, machine)
-	if err != nil {
-		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
-	}
-	defer func() {
-		_ = session.Close()
-	}()
-
-	command := buildRemoteRefreshSkillsCommand(workspaceRoot, target.SkillsDir, skillNames)
-	if output, err := session.CombinedOutput(command); err != nil {
-		return fmt.Errorf("refresh remote skills: %w: %s", err, strings.TrimSpace(string(output)))
-	}
-	return nil
-}
-
-func (l *RuntimeLauncher) resolveLaunchSkillNames(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowID *uuid.UUID,
-) ([]string, error) {
-	items, err := l.workflow.ListSkills(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	selected := make([]string, 0, len(items))
-	for _, item := range items {
-		if !item.IsEnabled {
-			continue
-		}
-		if workflowID == nil {
-			selected = append(selected, item.Name)
-			continue
-		}
-		if item.Name == "openase-platform" {
-			selected = append(selected, item.Name)
-			continue
-		}
-		for _, binding := range item.BoundWorkflows {
-			if binding.ID == *workflowID {
-				selected = append(selected, item.Name)
-				break
-			}
-		}
-	}
-	sort.Strings(selected)
-	return selected, nil
-}
-
-func buildRemoteRefreshSkillsCommand(workspaceRoot string, skillsDir string, skillNames []string) string {
-	lines := make([]string, 0, 3+len(skillNames))
-	lines = append(lines,
-		"set -eu",
-		"rm -rf "+sshinfra.ShellQuote(skillsDir),
-		"mkdir -p "+sshinfra.ShellQuote(skillsDir),
-	)
-
-	for _, skillName := range skillNames {
-		src := filepath.Join(workspaceRoot, ".openase", "skills", skillName)
-		dst := filepath.Join(skillsDir, skillName)
-		lines = append(lines,
-			"if [ -d "+sshinfra.ShellQuote(src)+" ]; then cp -R "+sshinfra.ShellQuote(src)+" "+sshinfra.ShellQuote(dst)+"; fi",
-		)
-	}
-
-	return strings.Join(lines, "\n")
-}
-
 func (l *RuntimeLauncher) buildDeveloperInstructions(
 	ctx context.Context,
 	launchContext runtimeLaunchContext,
@@ -1482,37 +783,7 @@ func (l *RuntimeLauncher) buildDeveloperInstructions(
 	runtimeSnapshot workflowservice.RuntimeSnapshot,
 	platformContract string,
 ) (string, error) {
-	if l == nil || l.workflow == nil || launchContext.ticket == nil || launchContext.ticket.WorkflowID == nil {
-		return "", nil
-	}
-	if launchContext.agent == nil || launchContext.project == nil {
-		return "", fmt.Errorf("runtime launch context is incomplete for harness injection")
-	}
-
-	currentMachine, accessibleMachines, err := l.loadMachineAccess(ctx, launchContext.project, machine, workspace)
-	if err != nil {
-		return "", fmt.Errorf("load project machine access for harness injection: %w", err)
-	}
-
-	data, err := l.workflow.BuildHarnessTemplateData(ctx, workflowservice.BuildHarnessTemplateDataInput{
-		WorkflowID:         *launchContext.ticket.WorkflowID,
-		TicketID:           launchContext.ticket.ID,
-		AgentID:            &launchContext.agent.ID,
-		Workspace:          strings.TrimSpace(workspace),
-		Timestamp:          l.now().UTC(),
-		Machine:            currentMachine,
-		AccessibleMachines: accessibleMachines,
-	})
-	if err != nil {
-		return "", fmt.Errorf("build workflow harness context for agent launch: %w", err)
-	}
-
-	rendered, err := workflowservice.RenderHarnessBody(runtimeSnapshot.Workflow.Content, data)
-	if err != nil {
-		return "", fmt.Errorf("render workflow harness for agent launch: %w", err)
-	}
-
-	return composeWorkflowDeveloperInstructions(rendered, platformContract), nil
+	return l.workspaceSlice().buildDeveloperInstructions(ctx, launchContext, machine, workspace, runtimeSnapshot, platformContract)
 }
 
 type runtimeLaunchContext struct {
@@ -1533,116 +804,19 @@ type repoWorkspacePlan struct {
 }
 
 func (l *RuntimeLauncher) loadLaunchContext(ctx context.Context, agentID uuid.UUID, ticketID uuid.UUID) (runtimeLaunchContext, error) {
-	if agentID == uuid.Nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent id must not be empty")
-	}
-	if ticketID == uuid.Nil {
-		return runtimeLaunchContext{}, fmt.Errorf("ticket id must not be empty")
-	}
-
-	loadedAgent, err := l.client.Agent.Query().
-		Where(entagent.IDEQ(agentID)).
-		WithProvider().
-		WithProject(func(query *ent.ProjectQuery) {
-			query.WithOrganization()
-			query.WithRepos(func(repoQuery *ent.ProjectRepoQuery) {
-				repoQuery.Order(entprojectrepo.ByName())
-			})
-		}).
-		Only(ctx)
-	if err != nil {
-		return runtimeLaunchContext{}, fmt.Errorf("load runtime launch context for agent %s: %w", agentID, err)
-	}
-	if loadedAgent.Edges.Provider == nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent provider must be loaded")
-	}
-	if loadedAgent.Edges.Project == nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent project must be loaded")
-	}
-	if loadedAgent.Edges.Project.Edges.Organization == nil {
-		return runtimeLaunchContext{}, fmt.Errorf("agent project organization must be loaded")
-	}
-
-	ticketItem, err := l.client.Ticket.Query().
-		Where(entticket.IDEQ(ticketID)).
-		WithRepoScopes(func(scopeQuery *ent.TicketRepoScopeQuery) {
-			scopeQuery.Order(entticketreposcope.ByRepoID())
-		}).
-		Only(ctx)
-	if err != nil {
-		return runtimeLaunchContext{}, fmt.Errorf("load runtime launch ticket %s: %w", ticketID, err)
-	}
-
-	return runtimeLaunchContext{
-		agent:        loadedAgent,
-		project:      loadedAgent.Edges.Project,
-		ticket:       ticketItem,
-		projectRepos: loadedAgent.Edges.Project.Edges.Repos,
-		ticketScopes: ticketItem.Edges.RepoScopes,
-	}, nil
+	return l.selectionSlice().loadLaunchContext(ctx, agentID, ticketID)
 }
 
 func (l *RuntimeLauncher) listAssignments(ctx context.Context, predicates ...predicate.Ticket) ([]runtimeAssignment, error) {
-	items, err := l.client.Ticket.Query().
-		Where(predicates...).
-		WithCurrentRun(func(query *ent.AgentRunQuery) {
-			query.WithAgent()
-		}).
-		Order(ent.Asc(entticket.FieldCreatedAt)).
-		All(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	assignments := make([]runtimeAssignment, 0, len(items))
-	for _, ticketItem := range items {
-		if ticketItem.Edges.CurrentRun == nil || ticketItem.Edges.CurrentRun.Edges.Agent == nil {
-			continue
-		}
-		assignments = append(assignments, runtimeAssignment{
-			ticket: ticketItem,
-			agent:  ticketItem.Edges.CurrentRun.Edges.Agent,
-			run:    ticketItem.Edges.CurrentRun,
-		})
-	}
-	return assignments, nil
+	return l.selectionSlice().listAssignments(ctx, predicates...)
 }
 
 func (l *RuntimeLauncher) loadAssignmentByRun(ctx context.Context, runID uuid.UUID) (runtimeAssignment, error) {
-	assignments, err := l.listAssignments(ctx,
-		entticket.CurrentRunIDEQ(runID),
-	)
-	if err != nil {
-		return runtimeAssignment{}, err
-	}
-	if len(assignments) == 0 {
-		return runtimeAssignment{}, nil
-	}
-	return assignments[0], nil
+	return l.selectionSlice().loadAssignmentByRun(ctx, runID)
 }
 
 func (l *RuntimeLauncher) resolveLaunchMachine(ctx context.Context, launchContext runtimeLaunchContext) (catalogdomain.Machine, bool, error) {
-	machines, err := l.client.Machine.Query().
-		Where(entmachine.OrganizationID(launchContext.project.OrganizationID)).
-		Order(entmachine.ByName()).
-		All(ctx)
-	if err != nil {
-		return catalogdomain.Machine{}, false, fmt.Errorf("list machines for runtime launch: %w", err)
-	}
-
-	providerItem := launchContext.agent.Edges.Provider
-	if providerItem == nil {
-		return catalogdomain.Machine{}, false, fmt.Errorf("agent provider must be loaded")
-	}
-
-	for _, machineItem := range machines {
-		if machineItem.ID == providerItem.MachineID {
-			mapped := mapRuntimeMachine(machineItem)
-			return mapped, mapped.Host != catalogdomain.LocalMachineHost, nil
-		}
-	}
-
-	return catalogdomain.Machine{}, false, fmt.Errorf("provider %s bound machine %s not found", providerItem.ID, providerItem.MachineID)
+	return l.selectionSlice().resolveLaunchMachine(ctx, launchContext)
 }
 
 func buildWorkspaceRequest(

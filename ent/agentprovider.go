@@ -44,6 +44,8 @@ type AgentProvider struct {
 	CliRateLimitUpdatedAt *time.Time `json:"cli_rate_limit_updated_at,omitempty"`
 	// ModelName holds the value of the "model_name" field.
 	ModelName string `json:"model_name,omitempty"`
+	// ReasoningEffort holds the value of the "reasoning_effort" field.
+	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
 	// ModelTemperature holds the value of the "model_temperature" field.
 	ModelTemperature float64 `json:"model_temperature,omitempty"`
 	// ModelMaxTokens holds the value of the "model_max_tokens" field.
@@ -130,7 +132,7 @@ func (*AgentProvider) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case agentprovider.FieldModelMaxTokens, agentprovider.FieldMaxParallelRuns:
 			values[i] = new(sql.NullInt64)
-		case agentprovider.FieldName, agentprovider.FieldAdapterType, agentprovider.FieldPermissionProfile, agentprovider.FieldCliCommand, agentprovider.FieldModelName:
+		case agentprovider.FieldName, agentprovider.FieldAdapterType, agentprovider.FieldPermissionProfile, agentprovider.FieldCliCommand, agentprovider.FieldModelName, agentprovider.FieldReasoningEffort:
 			values[i] = new(sql.NullString)
 		case agentprovider.FieldCliRateLimitUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -227,6 +229,13 @@ func (_m *AgentProvider) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field model_name", values[i])
 			} else if value.Valid {
 				_m.ModelName = value.String
+			}
+		case agentprovider.FieldReasoningEffort:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field reasoning_effort", values[i])
+			} else if value.Valid {
+				_m.ReasoningEffort = new(string)
+				*_m.ReasoningEffort = value.String
 			}
 		case agentprovider.FieldModelTemperature:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -356,6 +365,11 @@ func (_m *AgentProvider) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("model_name=")
 	builder.WriteString(_m.ModelName)
+	builder.WriteString(", ")
+	if v := _m.ReasoningEffort; v != nil {
+		builder.WriteString("reasoning_effort=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("model_temperature=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ModelTemperature))

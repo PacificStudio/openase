@@ -194,6 +194,7 @@ type wireInitializeResponse struct {
 type wireThreadStartParams struct {
 	Model                  *string `json:"model,omitempty"`
 	ModelProvider          *string `json:"modelProvider,omitempty"`
+	ReasoningEffort        *string `json:"reasoningEffort,omitempty"`
 	CWD                    *string `json:"cwd,omitempty"`
 	ServiceName            *string `json:"serviceName,omitempty"`
 	BaseInstructions       *string `json:"baseInstructions,omitempty"`

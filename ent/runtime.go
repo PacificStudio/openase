@@ -180,27 +180,27 @@ func init() {
 	// agentprovider.ModelNameValidator is a validator for the "model_name" field. It is called by the builders before save.
 	agentprovider.ModelNameValidator = agentproviderDescModelName.Validators[0].(func(string) error)
 	// agentproviderDescModelTemperature is the schema descriptor for model_temperature field.
-	agentproviderDescModelTemperature := agentproviderFields[12].Descriptor()
+	agentproviderDescModelTemperature := agentproviderFields[13].Descriptor()
 	// agentprovider.DefaultModelTemperature holds the default value on creation for the model_temperature field.
 	agentprovider.DefaultModelTemperature = agentproviderDescModelTemperature.Default.(float64)
 	// agentproviderDescModelMaxTokens is the schema descriptor for model_max_tokens field.
-	agentproviderDescModelMaxTokens := agentproviderFields[13].Descriptor()
+	agentproviderDescModelMaxTokens := agentproviderFields[14].Descriptor()
 	// agentprovider.DefaultModelMaxTokens holds the default value on creation for the model_max_tokens field.
 	agentprovider.DefaultModelMaxTokens = agentproviderDescModelMaxTokens.Default.(int)
 	// agentproviderDescMaxParallelRuns is the schema descriptor for max_parallel_runs field.
-	agentproviderDescMaxParallelRuns := agentproviderFields[14].Descriptor()
+	agentproviderDescMaxParallelRuns := agentproviderFields[15].Descriptor()
 	// agentprovider.DefaultMaxParallelRuns holds the default value on creation for the max_parallel_runs field.
 	agentprovider.DefaultMaxParallelRuns = agentproviderDescMaxParallelRuns.Default.(int)
 	// agentproviderDescCostPerInputToken is the schema descriptor for cost_per_input_token field.
-	agentproviderDescCostPerInputToken := agentproviderFields[15].Descriptor()
+	agentproviderDescCostPerInputToken := agentproviderFields[16].Descriptor()
 	// agentprovider.DefaultCostPerInputToken holds the default value on creation for the cost_per_input_token field.
 	agentprovider.DefaultCostPerInputToken = agentproviderDescCostPerInputToken.Default.(float64)
 	// agentproviderDescCostPerOutputToken is the schema descriptor for cost_per_output_token field.
-	agentproviderDescCostPerOutputToken := agentproviderFields[16].Descriptor()
+	agentproviderDescCostPerOutputToken := agentproviderFields[17].Descriptor()
 	// agentprovider.DefaultCostPerOutputToken holds the default value on creation for the cost_per_output_token field.
 	agentprovider.DefaultCostPerOutputToken = agentproviderDescCostPerOutputToken.Default.(float64)
 	// agentproviderDescPricingConfig is the schema descriptor for pricing_config field.
-	agentproviderDescPricingConfig := agentproviderFields[17].Descriptor()
+	agentproviderDescPricingConfig := agentproviderFields[18].Descriptor()
 	// agentprovider.DefaultPricingConfig holds the default value on creation for the pricing_config field.
 	agentprovider.DefaultPricingConfig = agentproviderDescPricingConfig.Default.(func() map[string]interface{})
 	// agentproviderDescID is the schema descriptor for id field.

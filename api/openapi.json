@@ -6502,6 +6502,164 @@
       }
     },
     "/api/v1/chat/conversations/{conversationId}/workspace/file": {
+      "delete": {
+        "operationId": "deleteProjectConversationWorkspaceFile",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "path": {
+                    "description": "Repo-relative existing file path to delete from the conversation workspace.",
+                    "type": "string"
+                  },
+                  "repo_path": {
+                    "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Delete one project conversation workspace file request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete one project conversation workspace file response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Delete one project conversation workspace file",
+        "tags": [
+          "chat"
+        ]
+      },
       "get": {
         "operationId": "getProjectConversationWorkspaceFile",
         "parameters": [
@@ -6682,6 +6840,342 @@
           }
         },
         "summary": "Read a project conversation workspace file preview",
+        "tags": [
+          "chat"
+        ]
+      },
+      "patch": {
+        "operationId": "renameProjectConversationWorkspaceFile",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "from_path": {
+                    "description": "Repo-relative existing file path to rename.",
+                    "type": "string"
+                  },
+                  "repo_path": {
+                    "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+                    "type": "string"
+                  },
+                  "to_path": {
+                    "description": "Repo-relative destination file path. Missing parent directories are created safely within the repo root.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Rename one project conversation workspace file request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "from_path": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        },
+                        "to_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Rename one project conversation workspace file response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Rename one project conversation workspace file",
+        "tags": [
+          "chat"
+        ]
+      },
+      "post": {
+        "operationId": "createProjectConversationWorkspaceFile",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "path": {
+                    "description": "Repo-relative file path to create inside the conversation workspace. Missing parent directories are created safely within the repo root.",
+                    "type": "string"
+                  },
+                  "repo_path": {
+                    "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create one project conversation workspace file request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "encoding": {
+                          "type": "string"
+                        },
+                        "line_ending": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "string"
+                        },
+                        "size_bytes": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create one project conversation workspace file response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Create one project conversation workspace file",
         "tags": [
           "chat"
         ]
@@ -7036,6 +7530,186 @@
           }
         },
         "summary": "Read one project conversation workspace file diff",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/search": {
+      "get": {
+        "operationId": "searchProjectConversationWorkspacePaths",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive substring to match against repo-relative file paths.",
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional maximum number of matches to return. Defaults to 20 and is capped at 100.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workspace_search": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "query": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        },
+                        "results": {
+                          "items": {
+                            "properties": {
+                              "name": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Search project conversation workspace file paths within one repo response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Search project conversation workspace file paths within one repo",
         "tags": [
           "chat"
         ]
@@ -14916,6 +15590,42 @@
                                   }
                                 },
                                 "type": "object"
+                              },
+                              "reasoning": {
+                                "properties": {
+                                  "default_effort": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "effective_effort": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "selected_effort": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  },
+                                  "supported_efforts": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "supports_model_override": {
+                                    "type": "boolean"
+                                  },
+                                  "supports_provider_preset": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "type": "object"
                               }
                             },
                             "type": "object"
@@ -15425,6 +16135,11 @@
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "type": "object"
                   },
+                  "reasoning_effort": {
+                    "description": "Optional provider-level reasoning or thinking preset. Leave empty to use the selected model default.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "secret_bindings": {
                     "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
                     "items": {
@@ -15489,6 +16204,42 @@
                                 },
                                 "state": {
                                   "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
                                 }
                               },
                               "type": "object"
@@ -21785,6 +22536,21 @@
                               "priority": {
                                 "type": "string"
                               },
+                              "repo_scopes": {
+                                "items": {
+                                  "properties": {
+                                    "branch_name": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "repo_id": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
                               "status": {
                                 "type": "string"
                               },
@@ -21902,8 +22668,57 @@
                     "type": "string"
                   },
                   "ticket_template": {
-                    "additionalProperties": {},
                     "description": "Ticket template used to create a ticket for each scheduled run.",
+                    "properties": {
+                      "budget_usd": {
+                        "description": "Optional budget cap in USD applied to tickets created by this scheduled job.",
+                        "format": "double",
+                        "nullable": true,
+                        "type": "number"
+                      },
+                      "created_by": {
+                        "description": "Optional audit actor recorded on tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "description": "Optional rendered ticket description template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "priority": {
+                        "description": "Ticket priority applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "repo_scopes": {
+                        "description": "Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID attached to tickets created by this scheduled job.",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "description": "Ticket status name applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "Rendered ticket title template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "Ticket type applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      }
+                    },
                     "type": "object"
                   }
                 },
@@ -21959,6 +22774,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"
@@ -35497,6 +36327,35 @@
                                   },
                                   "type": "object"
                                 },
+                                "reasoning": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "default_effort": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "reason": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "supported_efforts": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "supports_model_override": {
+                                      "type": "boolean"
+                                    },
+                                    "supports_provider_preset": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
                                 "recommended": {
                                   "type": "boolean"
                                 }
@@ -35596,6 +36455,42 @@
                                 },
                                 "state": {
                                   "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
                                 }
                               },
                               "type": "object"
@@ -36115,6 +37010,11 @@
                     "nullable": true,
                     "type": "object"
                   },
+                  "reasoning_effort": {
+                    "description": "Optional provider-level reasoning or thinking preset. Leave empty to use the selected model default.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "secret_bindings": {
                     "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
                     "items": {
@@ -36180,6 +37080,42 @@
                                 },
                                 "state": {
                                   "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
                                 }
                               },
                               "type": "object"
@@ -36935,9 +37871,58 @@
                     "type": "string"
                   },
                   "ticket_template": {
-                    "additionalProperties": {},
                     "description": "Ticket template used to create a ticket for each scheduled run.",
                     "nullable": true,
+                    "properties": {
+                      "budget_usd": {
+                        "description": "Optional budget cap in USD applied to tickets created by this scheduled job.",
+                        "format": "double",
+                        "nullable": true,
+                        "type": "number"
+                      },
+                      "created_by": {
+                        "description": "Optional audit actor recorded on tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "description": "Optional rendered ticket description template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "priority": {
+                        "description": "Ticket priority applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "repo_scopes": {
+                        "description": "Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID attached to tickets created by this scheduled job.",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "description": "Ticket status name applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "Rendered ticket title template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "Ticket type applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      }
+                    },
                     "type": "object"
                   }
                 },
@@ -36993,6 +37978,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"
@@ -37155,6 +38155,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"

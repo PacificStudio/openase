@@ -114,10 +114,6 @@ export function configuredSecurity() {
           category: 'projects',
           scopes: ['projects.update', 'projects.add_repo'],
         },
-        {
-          category: 'tickets',
-          scopes: ['tickets.update.self'],
-        },
       ],
     },
     github: {

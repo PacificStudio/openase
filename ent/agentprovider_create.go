@@ -108,6 +108,20 @@ func (_c *AgentProviderCreate) SetModelName(v string) *AgentProviderCreate {
 	return _c
 }
 
+// SetReasoningEffort sets the "reasoning_effort" field.
+func (_c *AgentProviderCreate) SetReasoningEffort(v string) *AgentProviderCreate {
+	_c.mutation.SetReasoningEffort(v)
+	return _c
+}
+
+// SetNillableReasoningEffort sets the "reasoning_effort" field if the given value is not nil.
+func (_c *AgentProviderCreate) SetNillableReasoningEffort(v *string) *AgentProviderCreate {
+	if v != nil {
+		_c.SetReasoningEffort(*v)
+	}
+	return _c
+}
+
 // SetModelTemperature sets the "model_temperature" field.
 func (_c *AgentProviderCreate) SetModelTemperature(v float64) *AgentProviderCreate {
 	_c.mutation.SetModelTemperature(v)
@@ -463,6 +477,10 @@ func (_c *AgentProviderCreate) createSpec() (*AgentProvider, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.ModelName(); ok {
 		_spec.SetField(agentprovider.FieldModelName, field.TypeString, value)
 		_node.ModelName = value
+	}
+	if value, ok := _c.mutation.ReasoningEffort(); ok {
+		_spec.SetField(agentprovider.FieldReasoningEffort, field.TypeString, value)
+		_node.ReasoningEffort = &value
 	}
 	if value, ok := _c.mutation.ModelTemperature(); ok {
 		_spec.SetField(agentprovider.FieldModelTemperature, field.TypeFloat64, value)

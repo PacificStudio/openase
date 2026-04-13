@@ -92,6 +92,11 @@ func ModelName(v string) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldModelName, v))
 }
 
+// ReasoningEffort applies equality check predicate on the "reasoning_effort" field. It's identical to ReasoningEffortEQ.
+func ReasoningEffort(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldReasoningEffort, v))
+}
+
 // ModelTemperature applies equality check predicate on the "model_temperature" field. It's identical to ModelTemperatureEQ.
 func ModelTemperature(v float64) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldEQ(FieldModelTemperature, v))
@@ -490,6 +495,81 @@ func ModelNameEqualFold(v string) predicate.AgentProvider {
 // ModelNameContainsFold applies the ContainsFold predicate on the "model_name" field.
 func ModelNameContainsFold(v string) predicate.AgentProvider {
 	return predicate.AgentProvider(sql.FieldContainsFold(FieldModelName, v))
+}
+
+// ReasoningEffortEQ applies the EQ predicate on the "reasoning_effort" field.
+func ReasoningEffortEQ(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEQ(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortNEQ applies the NEQ predicate on the "reasoning_effort" field.
+func ReasoningEffortNEQ(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNEQ(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortIn applies the In predicate on the "reasoning_effort" field.
+func ReasoningEffortIn(vs ...string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIn(FieldReasoningEffort, vs...))
+}
+
+// ReasoningEffortNotIn applies the NotIn predicate on the "reasoning_effort" field.
+func ReasoningEffortNotIn(vs ...string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotIn(FieldReasoningEffort, vs...))
+}
+
+// ReasoningEffortGT applies the GT predicate on the "reasoning_effort" field.
+func ReasoningEffortGT(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGT(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortGTE applies the GTE predicate on the "reasoning_effort" field.
+func ReasoningEffortGTE(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldGTE(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortLT applies the LT predicate on the "reasoning_effort" field.
+func ReasoningEffortLT(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLT(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortLTE applies the LTE predicate on the "reasoning_effort" field.
+func ReasoningEffortLTE(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldLTE(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortContains applies the Contains predicate on the "reasoning_effort" field.
+func ReasoningEffortContains(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldContains(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortHasPrefix applies the HasPrefix predicate on the "reasoning_effort" field.
+func ReasoningEffortHasPrefix(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldHasPrefix(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortHasSuffix applies the HasSuffix predicate on the "reasoning_effort" field.
+func ReasoningEffortHasSuffix(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldHasSuffix(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortIsNil applies the IsNil predicate on the "reasoning_effort" field.
+func ReasoningEffortIsNil() predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldIsNull(FieldReasoningEffort))
+}
+
+// ReasoningEffortNotNil applies the NotNil predicate on the "reasoning_effort" field.
+func ReasoningEffortNotNil() predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldNotNull(FieldReasoningEffort))
+}
+
+// ReasoningEffortEqualFold applies the EqualFold predicate on the "reasoning_effort" field.
+func ReasoningEffortEqualFold(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldEqualFold(FieldReasoningEffort, v))
+}
+
+// ReasoningEffortContainsFold applies the ContainsFold predicate on the "reasoning_effort" field.
+func ReasoningEffortContainsFold(v string) predicate.AgentProvider {
+	return predicate.AgentProvider(sql.FieldContainsFold(FieldReasoningEffort, v))
 }
 
 // ModelTemperatureEQ applies the EQ predicate on the "model_temperature" field.

@@ -31,6 +31,7 @@ type agentSessionStartSpec struct {
 	ProcessManager        provider.AgentCLIProcessManager
 	WorkingDirectory      string
 	Model                 string
+	ReasoningEffort       *catalogdomain.AgentProviderReasoningEffort
 	PermissionProfile     catalogdomain.AgentProviderPermissionProfile
 	DeveloperInstructions string
 	TurnTitle             string
@@ -43,6 +44,13 @@ type agentSessionResumeSpec struct {
 
 type agentTurnStartResult struct {
 	TurnID string
+}
+
+func reasoningEffortValue(value *catalogdomain.AgentProviderReasoningEffort) string {
+	if value == nil {
+		return ""
+	}
+	return value.String()
 }
 
 type agentSessionDiagnostic struct {

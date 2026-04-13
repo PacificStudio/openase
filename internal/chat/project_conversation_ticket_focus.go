@@ -15,11 +15,11 @@ func (s *ProjectConversationService) loadLatestConversationFocus(
 	ctx context.Context,
 	conversationID uuid.UUID,
 ) (*ProjectConversationFocus, error) {
-	if s == nil || s.entries == nil {
+	if s == nil || s.core.entries == nil {
 		return nil, nil
 	}
 
-	entries, err := s.entries.ListEntries(ctx, conversationID)
+	entries, err := s.core.entries.ListEntries(ctx, conversationID)
 	if err != nil {
 		return nil, err
 	}
@@ -53,11 +53,11 @@ func (s *ProjectConversationService) renderProjectConversationTicketCapsule(
 	project catalogdomain.Project,
 	focus *ProjectConversationTicketFocus,
 ) (string, error) {
-	if s == nil || s.promptBuilder == nil || focus == nil {
+	if s == nil || s.core.promptBuilder == nil || focus == nil {
 		return "", nil
 	}
 
-	contextItem, err := s.promptBuilder.loadTicketPromptContext(ctx, project.ID, focus.ID)
+	contextItem, err := s.core.promptBuilder.loadTicketPromptContext(ctx, project.ID, focus.ID)
 	if err != nil {
 		return "", err
 	}
@@ -65,12 +65,12 @@ func (s *ProjectConversationService) renderProjectConversationTicketCapsule(
 	var builder strings.Builder
 	builder.WriteString("## Ticket Capsule\n")
 	_, _ = fmt.Fprintf(&builder, "Project: %s\n", project.Name)
-	s.promptBuilder.writeTicketPromptContext(&builder, contextItem)
+	s.core.promptBuilder.writeTicketPromptContext(&builder, contextItem)
 	if focus.SelectedArea != "" {
 		_, _ = fmt.Fprintf(&builder, "\n### Current Ticket Subarea\n- selected_area: %s\n", focus.SelectedArea)
 	}
 	builder.WriteString("\n### Runtime Summary\n")
-	builder.WriteString(renderProjectConversationTicketRuntimeSummary(ctx, contextItem.Ticket, focus, s.catalog))
+	builder.WriteString(renderProjectConversationTicketRuntimeSummary(ctx, contextItem.Ticket, focus, s.core.catalog))
 	return builder.String(), nil
 }
 

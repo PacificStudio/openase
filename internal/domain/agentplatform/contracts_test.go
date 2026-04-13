@@ -123,6 +123,8 @@ func TestBuildCapabilityContractReflectsPrincipalSpecificConstraints(t *testing.
 		"`OPENASE_CONVERSATION_ID`",
 		"`OPENASE_TICKET_ID` only when this Project AI session is ticket-focused",
 		"`projects.update`",
+		"ticket comment operations",
+		"ticket usage-report endpoints",
 		"Ticket-runtime-only routes can reject this principal kind",
 	) {
 		t.Fatalf("project conversation contract = %q", projectConversationContract)
@@ -237,8 +239,18 @@ func TestDefaultAgentScopes(t *testing.T) {
 func TestSupportedAgentScopes(t *testing.T) {
 	got := SupportedAgentScopes()
 	want := []string{
+		string(ScopeAgentsCreate),
+		string(ScopeAgentsDelete),
+		string(ScopeAgentsPause),
+		string(ScopeAgentsRead),
 		string(ScopeAgentsInterrupt),
+		string(ScopeAgentsResume),
+		string(ScopeAgentsUpdate),
 		string(ScopeActivityRead),
+		string(ScopeNotificationRulesCreate),
+		string(ScopeNotificationRulesDelete),
+		string(ScopeNotificationRulesList),
+		string(ScopeNotificationRulesUpdate),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),
 		string(ScopeReposCreate),
@@ -300,6 +312,9 @@ func TestPrincipalKindScopeHelpers(t *testing.T) {
 		if slices.Contains(got, string(ScopeTicketsUpdateSelf)) {
 			t.Fatalf("project conversation defaults unexpectedly included %q", ScopeTicketsUpdateSelf)
 		}
+		if slices.Contains(got, string(ScopeTicketsReportUsage)) {
+			t.Fatalf("project conversation defaults unexpectedly included %q", ScopeTicketsReportUsage)
+		}
 	})
 
 	t.Run("non project conversation defaults to agent defaults", func(t *testing.T) {
@@ -310,10 +325,13 @@ func TestPrincipalKindScopeHelpers(t *testing.T) {
 		}
 	})
 
-	t.Run("project conversation supported scopes exclude ticket self update", func(t *testing.T) {
+	t.Run("project conversation supported scopes exclude ticket-runtime-only ticket scopes", func(t *testing.T) {
 		got := SupportedScopesForPrincipalKind(PrincipalKindProjectConversation)
 		if slices.Contains(got, string(ScopeTicketsUpdateSelf)) {
 			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) unexpectedly included %q", ScopeTicketsUpdateSelf)
+		}
+		if slices.Contains(got, string(ScopeTicketsReportUsage)) {
+			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) unexpectedly included %q", ScopeTicketsReportUsage)
 		}
 		if !slices.Contains(got, string(ScopeProjectsUpdate)) {
 			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) missing %q", ScopeProjectsUpdate)

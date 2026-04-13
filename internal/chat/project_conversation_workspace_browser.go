@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"mime"
 	"os"
 	"os/exec"
@@ -52,6 +53,19 @@ type ProjectConversationWorkspaceTree struct {
 	Entries        []ProjectConversationWorkspaceTreeEntry
 }
 
+type ProjectConversationWorkspaceSearch struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	Query          string
+	Truncated      bool
+	Results        []ProjectConversationWorkspaceSearchResult
+}
+
+type ProjectConversationWorkspaceSearchResult struct {
+	Path string
+	Name string
+}
+
 type ProjectConversationWorkspaceTreeEntry struct {
 	Path      string
 	Name      string
@@ -64,6 +78,11 @@ type ProjectConversationWorkspaceTreeEntryKind string
 const (
 	ProjectConversationWorkspaceTreeEntryKindDirectory ProjectConversationWorkspaceTreeEntryKind = "directory"
 	ProjectConversationWorkspaceTreeEntryKindFile      ProjectConversationWorkspaceTreeEntryKind = "file"
+)
+
+const (
+	projectConversationWorkspaceSearchDefaultLimit = 20
+	projectConversationWorkspaceSearchMaxLimit     = 100
 )
 
 type ProjectConversationWorkspaceFilePreview struct {
@@ -112,6 +131,7 @@ var (
 	ErrProjectConversationWorkspaceRepoNotFound  = errors.New("project conversation workspace repo not found")
 	ErrProjectConversationWorkspacePathInvalid   = errors.New("project conversation workspace path is invalid")
 	ErrProjectConversationWorkspaceEntryNotFound = errors.New("project conversation workspace entry not found")
+	ErrProjectConversationWorkspaceEntryExists   = errors.New("project conversation workspace entry already exists")
 )
 
 type projectConversationWorkspaceResolvedRepo struct {
@@ -182,6 +202,51 @@ func (s *ProjectConversationService) ListWorkspaceTree(
 	}, nil
 }
 
+func (s *ProjectConversationService) SearchWorkspacePaths(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	repoPath string,
+	query string,
+	limit int,
+) (ProjectConversationWorkspaceSearch, error) {
+	resolved, _, err := s.resolveConversationWorkspaceRepoPath(
+		ctx,
+		userID,
+		conversationID,
+		repoPath,
+		"",
+		true,
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceSearch{}, err
+	}
+
+	searchQuery := strings.TrimSpace(query)
+	if searchQuery == "" {
+		return ProjectConversationWorkspaceSearch{}, ErrProjectConversationWorkspacePathInvalid
+	}
+
+	results, truncated, err := s.searchConversationWorkspacePaths(
+		ctx,
+		resolved.machine,
+		resolved.repo.repoPath,
+		searchQuery,
+		normalizeProjectConversationWorkspaceSearchLimit(limit),
+	)
+	if err != nil {
+		return ProjectConversationWorkspaceSearch{}, err
+	}
+
+	return ProjectConversationWorkspaceSearch{
+		ConversationID: resolved.conversationID,
+		RepoPath:       resolved.repo.relativePath,
+		Query:          searchQuery,
+		Truncated:      truncated,
+		Results:        results,
+	}, nil
+}
+
 func (s *ProjectConversationService) ReadWorkspaceFilePreview(
 	ctx context.Context,
 	userID UserID,
@@ -235,11 +300,11 @@ func (s *ProjectConversationService) resolveConversationWorkspace(
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, err
 	}
-	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
+	project, err := s.core.catalog.GetProject(ctx, conversation.ProjectID)
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, fmt.Errorf("get project for workspace browser: %w", err)
 	}
-	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+	providerItem, err := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, fmt.Errorf("get provider for workspace browser: %w", err)
 	}
@@ -485,6 +550,86 @@ func joinProjectConversationWorkspacePath(parent string, name string) string {
 	return filepath.ToSlash(filepath.Join(parent, name))
 }
 
+func normalizeProjectConversationWorkspaceSearchLimit(limit int) int {
+	switch {
+	case limit <= 0:
+		return projectConversationWorkspaceSearchDefaultLimit
+	case limit > projectConversationWorkspaceSearchMaxLimit:
+		return projectConversationWorkspaceSearchMaxLimit
+	default:
+		return limit
+	}
+}
+
+func (s *ProjectConversationService) searchConversationWorkspacePaths(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	query string,
+	limit int,
+) ([]ProjectConversationWorkspaceSearchResult, bool, error) {
+	if machine.Host == catalogdomain.LocalMachineHost {
+		return searchLocalProjectConversationWorkspacePaths(repoRoot, query, limit)
+	}
+	return s.searchRemoteProjectConversationWorkspacePaths(ctx, machine, repoRoot, query, limit)
+}
+
+var errProjectConversationWorkspaceSearchLimitReached = errors.New(
+	"project conversation workspace search limit reached",
+)
+
+func searchLocalProjectConversationWorkspacePaths(
+	repoRoot string,
+	query string,
+	limit int,
+) ([]ProjectConversationWorkspaceSearchResult, bool, error) {
+	repoRealPath, err := filepath.EvalSymlinks(repoRoot)
+	if err != nil {
+		return nil, false, fmt.Errorf("resolve workspace repo root: %w", err)
+	}
+
+	needle := strings.ToLower(strings.TrimSpace(query))
+	results := make([]ProjectConversationWorkspaceSearchResult, 0, min(limit, 16))
+	truncated := false
+
+	walkErr := filepath.WalkDir(repoRealPath, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return fmt.Errorf("walk workspace path %s: %w", path, walkErr)
+		}
+		if path == repoRealPath {
+			return nil
+		}
+		if entry.IsDir() && entry.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		if entry.IsDir() {
+			return nil
+		}
+
+		relativePath, err := filepath.Rel(repoRealPath, path)
+		if err != nil {
+			return fmt.Errorf("rel workspace path %s: %w", path, err)
+		}
+		relativePath = filepath.ToSlash(relativePath)
+		if !strings.Contains(strings.ToLower(relativePath), needle) {
+			return nil
+		}
+		if len(results) >= limit {
+			truncated = true
+			return errProjectConversationWorkspaceSearchLimitReached
+		}
+		results = append(results, ProjectConversationWorkspaceSearchResult{
+			Path: relativePath,
+			Name: filepath.Base(relativePath),
+		})
+		return nil
+	})
+	if walkErr != nil && !errors.Is(walkErr, errProjectConversationWorkspaceSearchLimitReached) {
+		return nil, false, walkErr
+	}
+	return results, truncated, nil
+}
+
 func (s *ProjectConversationService) readRemoteProjectConversationWorkspaceTreeEntries(
 	ctx context.Context,
 	machine catalogdomain.Machine,
@@ -548,6 +693,47 @@ find -P "$target_real" -mindepth 1 -maxdepth 1 \( -name .git -prune \) -o -print
 	return items, nil
 }
 
+func (s *ProjectConversationService) searchRemoteProjectConversationWorkspacePaths(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	query string,
+	limit int,
+) ([]ProjectConversationWorkspaceSearchResult, bool, error) {
+	command := fmt.Sprintf(`set -eu
+repo=%s
+repo_real=$(cd "$repo" && pwd -P)
+find -P "$repo_real" \( -path "$repo_real/.git" -o -path "$repo_real/.git/*" \) -prune -o -type f -printf '%%P\0'
+`, projectConversationShellQuote(repoRoot))
+	output, err := s.runProjectConversationShellCommand(ctx, machine, command, false)
+	if err != nil {
+		return nil, false, fmt.Errorf("search remote workspace paths: %w", err)
+	}
+
+	needle := strings.ToLower(strings.TrimSpace(query))
+	parts := bytes.Split(output, []byte{0})
+	results := make([]ProjectConversationWorkspaceSearchResult, 0, min(limit, 16))
+	truncated := false
+	for _, part := range parts {
+		if len(part) == 0 {
+			continue
+		}
+		relativePath := filepath.ToSlash(string(part))
+		if !strings.Contains(strings.ToLower(relativePath), needle) {
+			continue
+		}
+		if len(results) >= limit {
+			truncated = true
+			break
+		}
+		results = append(results, ProjectConversationWorkspaceSearchResult{
+			Path: relativePath,
+			Name: filepath.Base(relativePath),
+		})
+	}
+	return results, truncated, nil
+}
+
 func projectConversationShellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
@@ -567,10 +753,10 @@ func (s *ProjectConversationService) runProjectConversationShellCommand(
 		}
 		return output, nil
 	}
-	if s == nil || s.sshPool == nil {
+	if s == nil || s.core.sshPool == nil {
 		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
 	}
-	client, err := s.sshPool.Get(ctx, machine)
+	client, err := s.core.sshPool.Get(ctx, machine)
 	if err != nil {
 		return nil, err
 	}

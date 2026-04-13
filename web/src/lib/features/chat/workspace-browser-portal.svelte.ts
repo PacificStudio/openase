@@ -1,4 +1,5 @@
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
+import type { ChatDiffPayload } from '$lib/api/chat'
 
 /**
  * Shared reactive state that lets the workspace browser render outside the
@@ -18,6 +19,7 @@ class WorkspaceBrowserPortal {
   onSyncWorkspace: null | (() => Promise<void> | void) = null
   /** File path to navigate to when the browser opens (consumed once). */
   pendingFilePath = $state('')
+  pendingPatch: { diff: ChatDiffPayload; autoApply: boolean } | null = $state(null)
 
   toggle() {
     this.open = !this.open
@@ -33,11 +35,22 @@ class WorkspaceBrowserPortal {
     this.open = true
   }
 
+  reviewPatch(diff: ChatDiffPayload, autoApply = false) {
+    this.pendingPatch = { diff, autoApply }
+    this.openToFile(diff.file)
+  }
+
   /** Consume and clear the pending file path. */
   consumePendingFile(): string {
     const path = this.pendingFilePath
     this.pendingFilePath = ''
     return path
+  }
+
+  consumePendingPatch() {
+    const patch = this.pendingPatch
+    this.pendingPatch = null
+    return patch
   }
 
   markWorkspaceSynced() {

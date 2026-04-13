@@ -75,6 +75,9 @@ func TestAdapterStartSendPromptAndRespondToolCall(t *testing.T) {
 			if threadParams.CWD == nil || *threadParams.CWD != "/tmp/openase" {
 				return errors.New("expected thread/start cwd")
 			}
+			if threadParams.ReasoningEffort == nil || *threadParams.ReasoningEffort != "high" {
+				return errors.New("expected thread/start reasoningEffort")
+			}
 			if !threadParams.PersistExtendedHistory {
 				return errors.New("expected persistExtendedHistory true")
 			}
@@ -181,6 +184,7 @@ func TestAdapterStartSendPromptAndRespondToolCall(t *testing.T) {
 		},
 		Thread: ThreadStartParams{
 			WorkingDirectory:       "/tmp/openase",
+			ReasoningEffort:        "high",
 			PersistExtendedHistory: true,
 		},
 	})

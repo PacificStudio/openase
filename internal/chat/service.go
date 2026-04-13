@@ -836,6 +836,39 @@ func renderProjectConversationFocus(focus *ProjectConversationFocus) string {
 			_, _ = fmt.Fprintf(&sb, "- selected_area: %s\n", focus.Workspace.SelectedArea)
 		}
 		_, _ = fmt.Fprintf(&sb, "- has_dirty_draft: %t\n", focus.Workspace.HasDirtyDraft)
+		if focus.Workspace.Selection != nil {
+			_, _ = fmt.Fprintf(
+				&sb,
+				"- selection: %d:%d to %d:%d\n",
+				focus.Workspace.Selection.StartLine,
+				focus.Workspace.Selection.StartColumn,
+				focus.Workspace.Selection.EndLine,
+				focus.Workspace.Selection.EndColumn,
+			)
+			if focus.Workspace.Selection.Text != "" {
+				_, _ = fmt.Fprintf(&sb, "- selection_text:\n%s\n", focus.Workspace.Selection.Text)
+			}
+			if focus.Workspace.Selection.ContextBefore != "" {
+				_, _ = fmt.Fprintf(&sb, "- selection_context_before:\n%s\n", focus.Workspace.Selection.ContextBefore)
+			}
+			if focus.Workspace.Selection.ContextAfter != "" {
+				_, _ = fmt.Fprintf(&sb, "- selection_context_after:\n%s\n", focus.Workspace.Selection.ContextAfter)
+			}
+			_, _ = fmt.Fprintf(&sb, "- selection_truncated: %t\n", focus.Workspace.Selection.Truncated)
+		}
+		if len(focus.Workspace.WorkingSet) > 0 {
+			sb.WriteString("- working_set:\n")
+			for _, item := range focus.Workspace.WorkingSet {
+				_, _ = fmt.Fprintf(
+					&sb,
+					"  - %s (dirty=%t, truncated=%t)\n%s\n",
+					item.FilePath,
+					item.Dirty,
+					item.Truncated,
+					item.ContentExcerpt,
+				)
+			}
+		}
 	}
 	return sb.String()
 }
