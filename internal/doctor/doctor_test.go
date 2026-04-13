@@ -2,6 +2,8 @@ package doctor
 
 import (
 	"context"
+	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,6 +45,9 @@ func TestDiagnoseHealthyEnvironment(t *testing.T) {
 		PingDatabase: func(_ context.Context, _ string) error {
 			return nil
 		},
+		ListenTCP: func(addr string) (net.Listener, error) {
+			return &nopListener{}, nil
+		},
 	})
 
 	if report.ErrorCount() != 0 {
@@ -55,6 +60,7 @@ func TestDiagnoseHealthyEnvironment(t *testing.T) {
 	assertStatus(t, report, "Git", StatusOK)
 	assertStatus(t, report, "PostgreSQL", StatusOK)
 	assertStatus(t, report, "Gemini CLI", StatusOK)
+	assertStatus(t, report, "HTTP Port", StatusOK)
 
 	rendered := report.Render()
 	if !strings.Contains(rendered, "git version 2.44.0") {
@@ -188,6 +194,46 @@ func writeFileMode(t *testing.T, path string, content []byte, mode os.FileMode) 
 		t.Fatalf("WriteFile(%q) returned error: %v", path, err)
 	}
 }
+
+func TestDiagnosePortConflict(t *testing.T) {
+	repoRoot := t.TempDir()
+	homeDir := t.TempDir()
+	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
+	writeFile(t, filepath.Join(repoRoot, "config.yaml"), []byte("server:\n  mode: all-in-one\n  port: 40023\ndatabase:\n  dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable\n"))
+	writeFileMode(t, filepath.Join(homeDir, ".openase", ".env"), []byte("OPENASE_TOKEN=x\n"), 0o600)
+	mkdirAll(t, filepath.Join(homeDir, ".openase", "logs"))
+	mkdirAll(t, filepath.Join(homeDir, ".openase", "workspaces"))
+
+	report := Diagnose(context.Background(), Options{
+		ConfigFile: filepath.Join(repoRoot, "config.yaml"),
+		RepoRoot:   repoRoot,
+		HomeDir:    homeDir,
+		LookPath: func(name string) (string, error) {
+			return "/usr/bin/" + name, nil
+		},
+		RunCommand: func(_ context.Context, name string, _ ...string) (string, error) {
+			return filepath.Base(name) + " 0.0.0\n", nil
+		},
+		PingDatabase: func(_ context.Context, _ string) error { return nil },
+		ListenTCP: func(addr string) (net.Listener, error) {
+			return nil, errors.New("listen tcp 0.0.0.0:40023: bind: address already in use")
+		},
+	})
+
+	assertStatus(t, report, "HTTP Port", StatusError)
+
+	rendered := report.Render()
+	if !strings.Contains(rendered, "already in use") {
+		t.Fatalf("expected 'already in use' in rendered report, got:\n%s", rendered)
+	}
+}
+
+// nopListener satisfies net.Listener for tests where we only need Close().
+type nopListener struct{}
+
+func (nopListener) Accept() (net.Conn, error) { return nil, errors.New("nop") }
+func (nopListener) Close() error              { return nil }
+func (nopListener) Addr() net.Addr            { return &net.TCPAddr{} }
 
 func startDoctorPostgres(t *testing.T) string {
 	t.Helper()
