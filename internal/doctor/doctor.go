@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,6 +48,7 @@ type Options struct {
 	LookPath     func(string) (string, error)
 	RunCommand   func(context.Context, string, ...string) (string, error)
 	PingDatabase func(context.Context, string) error
+	ListenTCP    func(string) (net.Listener, error)
 }
 
 type loadedConfig struct {
@@ -70,6 +73,13 @@ func Diagnose(ctx context.Context, opts Options) Report {
 		pingDatabase = pingPostgres
 	}
 
+	listenTCP := opts.ListenTCP
+	if listenTCP == nil {
+		listenTCP = func(addr string) (net.Listener, error) {
+			return net.Listen("tcp", addr)
+		}
+	}
+
 	homeDir, homeErr := resolveHomeDir(opts.HomeDir)
 	repoRoot, _ := resolveRepoRoot(opts.RepoRoot)
 
@@ -78,6 +88,7 @@ func Diagnose(ctx context.Context, opts Options) Report {
 	results = append(results, cfg.result)
 	results = append(results, diagnoseCommands(ctx, lookPath, runCommand)...)
 	results = append(results, diagnosePostgres(ctx, cfg, pingDatabase))
+	results = append(results, diagnosePort(cfg, listenTCP))
 
 	layoutResult := diagnoseOpenASELayout(homeDir, homeErr)
 	results = append(results, layoutResult)
@@ -390,6 +401,44 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 		Summary: "Directory layout is incomplete",
 		Detail:  strings.Join(detailLines, "\n"),
 		Fix:     strings.Join(fixes, " && "),
+	}
+}
+
+func diagnosePort(cfg loadedConfig, listenTCP func(string) (net.Listener, error)) Result {
+	if !cfg.ok {
+		return Result{
+			Name:    "HTTP Port",
+			Status:  StatusWarning,
+			Summary: "Skipped because config loading failed",
+		}
+	}
+
+	port := cfg.config.Server.Port
+	host := cfg.config.Server.Host
+	if port == 0 {
+		port = 40023
+	}
+	if host == "" {
+		host = "0.0.0.0"
+	}
+
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+	ln, err := listenTCP(addr)
+	if err != nil {
+		return Result{
+			Name:    "HTTP Port",
+			Status:  StatusError,
+			Summary: fmt.Sprintf("Port %d is already in use", port),
+			Detail:  err.Error(),
+			Fix:     fmt.Sprintf("lsof -i :%d  # find the process using this port", port),
+		}
+	}
+	_ = ln.Close()
+
+	return Result{
+		Name:    "HTTP Port",
+		Status:  StatusOK,
+		Summary: fmt.Sprintf("Port %d is available", port),
 	}
 }
 
