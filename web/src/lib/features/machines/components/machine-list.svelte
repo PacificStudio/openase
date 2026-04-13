@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
-  import { cn, formatRelativeTime } from '$lib/utils'
+  import { cn } from '$lib/utils'
+  import { formatMachineRelativeTime } from '../machine-i18n'
   import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineItem } from '../types'
   import { i18nStore } from '$lib/i18n/store.svelte'
@@ -84,7 +85,7 @@
           <span>{runtimeState(machine)}</span>
           <span>
             {#if machine.last_heartbeat_at}
-              {formatRelativeTime(machine.last_heartbeat_at)}
+              {formatMachineRelativeTime(machine.last_heartbeat_at)}
             {:else}
               {i18nStore.t('machines.machineList.neverChecked')}
             {/if}

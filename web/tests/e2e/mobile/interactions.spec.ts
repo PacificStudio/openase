@@ -35,8 +35,11 @@ for (const policy of projectPageMobilePolicies.filter(isResponsiveRoutePolicy)) 
         }
 
         await locatorFromDescriptor(page, interaction.opener).first().click({ noWaitAfter: true })
-        const drawer = page.getByRole('dialog', { name: 'ASE-101' })
+        const drawer = page.getByRole('dialog')
         await expect(drawer).toBeVisible()
+        await expect(drawer).toHaveAccessibleName('ASE-101', {
+          timeout: 10_000,
+        })
         await expect(drawer.getByText('Improve machine management UX')).toBeVisible()
         break
       }
