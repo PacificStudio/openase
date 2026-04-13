@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { formatRelativeTime } from '$lib/utils'
+  import { formatMachineRelativeTime } from '../machine-i18n'
   import { RefreshCw } from '@lucide/svelte'
   import {
     machineDetectedArchLabel,
@@ -39,11 +39,11 @@
     <p class="text-muted-foreground mt-1 text-xs">
       {#if snapshot?.checkedAt}
         {i18nStore.t('machines.machineHealthHeader.messages.snapshotCollected', {
-          time: formatRelativeTime(snapshot.checkedAt),
+          time: formatMachineRelativeTime(snapshot.checkedAt),
         })}
       {:else if machine?.last_heartbeat_at}
         {i18nStore.t('machines.machineHealthHeader.messages.lastHeartbeat', {
-          time: formatRelativeTime(machine.last_heartbeat_at),
+          time: formatMachineRelativeTime(machine.last_heartbeat_at),
         })}
       {:else}
         {i18nStore.t('machines.machineHealthHeader.messages.noHeartbeat')}

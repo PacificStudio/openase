@@ -50,7 +50,7 @@
         {:else}
           {t('orgAdmin.credentials.dialog.description.save.prefix')}
           <code>ghu_xxx</code>
-          {' or '}
+          {i18nStore.locale === 'zh' ? ' 或 ' : ' or '}
           <code>github_pat_xxx</code>
           {t('orgAdmin.credentials.dialog.description.save.suffix')}
         {/if}

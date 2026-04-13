@@ -1,5 +1,6 @@
 import { ApiError } from '$lib/api/client'
 import type { TranslationKey } from '$lib/i18n'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
 export type ScopeKind = 'instance' | 'organization' | 'project'
 export type SubjectKind = 'user' | 'group'
@@ -104,7 +105,7 @@ export function resolveRoleOption(roleKey: string) {
 
 export function formatTimestamp(value: string | undefined) {
   if (!value) {
-    return 'Never'
+    return i18nStore.t('settings.security.humanAuth.fallbacks.never')
   }
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
@@ -113,19 +114,20 @@ export function formatTimestamp(value: string | undefined) {
   return parsed.toLocaleString()
 }
 
-const authAuditEventLabels: Record<string, string> = {
-  'login.success': 'Login succeeded',
-  'login.failed': 'Login failed',
-  logout: 'Logged out',
-  'session.revoked': 'Session revoked',
-  'session.expired': 'Session expired',
-  'user.enabled': 'User enabled',
-  'user.disabled': 'User disabled',
-  'user.disabled_after_login': 'User disabled after login',
+const authAuditEventLabelKeys: Record<string, TranslationKey> = {
+  'login.success': 'settings.security.humanAuth.auditEvents.loginSucceeded',
+  'login.failed': 'settings.security.humanAuth.auditEvents.loginFailed',
+  logout: 'settings.security.humanAuth.auditEvents.logout',
+  'session.revoked': 'settings.security.humanAuth.auditEvents.sessionRevoked',
+  'session.expired': 'settings.security.humanAuth.auditEvents.sessionExpired',
+  'user.enabled': 'settings.security.humanAuth.auditEvents.userEnabled',
+  'user.disabled': 'settings.security.humanAuth.auditEvents.userDisabled',
+  'user.disabled_after_login': 'settings.security.humanAuth.auditEvents.userDisabledAfterLogin',
 }
 
 export function formatAuthAuditEventLabel(eventType: string) {
-  return authAuditEventLabels[eventType] ?? eventType
+  const key = authAuditEventLabelKeys[eventType]
+  return key ? i18nStore.t(key) : eventType
 }
 
 export type AuthAuditEventSeverity = 'success' | 'warning' | 'danger' | 'neutral'
