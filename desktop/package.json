@@ -34,6 +34,6 @@
     "electron-builder": "^26.0.12",
     "playwright": "^1.55.0",
     "vitest": "^4.1.0",
-    "wait-on": "^8.0.5"
+    "wait-on": "^9.0.5"
   }
 }
