@@ -5,6 +5,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { ChevronRight, Layers } from '@lucide/svelte'
+  import TicketRunErrorCard from './ticket-run-error-card.svelte'
   import TicketRunHistorySummaryCard from './ticket-run-history-summary-card.svelte'
   import TicketRunTranscriptDiffCard from './ticket-run-transcript-diff-card.svelte'
   import TicketRunTranscriptInterruptCard from './ticket-run-transcript-interrupt-card.svelte'
@@ -130,6 +131,8 @@
       <p class="text-muted-foreground text-xs">Loading transcript…</p>
     {:else}
       <div class="space-y-3">
+        <TicketRunErrorCard {run} />
+
         {#if run.completionSummary}
           <TicketRunHistorySummaryCard {run} />
         {/if}

@@ -31,6 +31,33 @@ const liveRun: TicketRun = {
   lastHeartbeatAt: '2026-04-01T10:07:00Z',
 }
 
+const failedRun: TicketRun = {
+  id: 'run-3',
+  attemptNumber: 3,
+  agentId: 'agent-1',
+  agentName: 'Ticket Runner',
+  provider: 'Codex',
+  adapterType: 'codex-app-server',
+  modelName: 'gpt-5.4',
+  usage: {
+    total: 220,
+    input: 150,
+    output: 70,
+    cachedInput: 0,
+    cacheCreation: 0,
+    reasoning: 0,
+    prompt: 110,
+    candidate: 50,
+    tool: 10,
+  },
+  status: 'failed',
+  currentStepStatus: 'launch_failed',
+  currentStepSummary: 'Workspace preparation failed.',
+  createdAt: '2026-04-01T10:08:00Z',
+  terminalAt: '2026-04-01T10:08:09Z',
+  lastError: 'prepare repo openase: resolve existing head: reference not found',
+}
+
 describe('TicketRunTranscriptPanel', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -139,5 +166,21 @@ describe('TicketRunTranscriptPanel', () => {
     expect(viewport.scrollTop).toBe(1000)
     expect(queryByText('Jump to live')).toBeNull()
     void component
+  })
+
+  it('renders a clear error details section for failed runs', () => {
+    const { getByText } = render(TicketRunTranscriptPanel, {
+      props: {
+        run: failedRun,
+        blocks: [],
+        latestRunId: liveRun.id,
+        streamState: 'idle',
+      },
+    })
+
+    expect(getByText('Error details')).toBeTruthy()
+    expect(
+      getByText('prepare repo openase: resolve existing head: reference not found'),
+    ).toBeTruthy()
   })
 })

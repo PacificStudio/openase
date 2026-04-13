@@ -179,6 +179,8 @@ describe('TicketRunHistoryPanel', () => {
     })
 
     expect(getAllByText('Failed').length).toBeGreaterThanOrEqual(1)
+    expect(getByText('Error details')).toBeTruthy()
+    expect(getByText('Unit tests failed.')).toBeTruthy()
     expect(getByText('Summary failed')).toBeTruthy()
     expect(getByText('provider unavailable after run completion')).toBeTruthy()
   })

@@ -3,6 +3,7 @@
   import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
   import { formatRelativeTime } from '$lib/utils'
+  import TicketRunErrorCard from './ticket-run-error-card.svelte'
   import {
     connectionLabel,
     connectionTone,
@@ -113,6 +114,10 @@
   {#if loading}
     <div class="text-muted-foreground mt-3 text-xs">Loading transcript…</div>
   {/if}
+
+  <div class="mt-3">
+    <TicketRunErrorCard {run} />
+  </div>
 
   {#if canResumeRetry && onResumeRetry}
     <div class="mt-3">
