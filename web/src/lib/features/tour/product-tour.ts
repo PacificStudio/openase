@@ -128,15 +128,9 @@ const SIDEBAR_STEPS: TourStepDef[] = [
   },
 ]
 
-const ALL_STEPS: TourStepDef[] = [
-  ...DASHBOARD_STEPS,
-  ...TOPBAR_STEPS,
-  ...SIDEBAR_STEPS,
-]
+const ALL_STEPS: TourStepDef[] = [...DASHBOARD_STEPS, ...TOPBAR_STEPS, ...SIDEBAR_STEPS]
 
-function buildSteps(
-  t: (key: TranslationKey) => string,
-): DriveStep[] {
+function buildSteps(t: (key: TranslationKey) => string): DriveStep[] {
   const steps: DriveStep[] = []
 
   for (const def of ALL_STEPS) {
@@ -157,10 +151,7 @@ function buildSteps(
   return steps
 }
 
-export function startProductTour(
-  projectId: string,
-  t: (key: TranslationKey) => string,
-) {
+export function startProductTour(projectId: string, t: (key: TranslationKey) => string) {
   const steps = buildSteps(t)
   if (steps.length === 0) return
 

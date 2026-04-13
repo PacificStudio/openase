@@ -160,7 +160,10 @@
     </Button>
   {/if}
 
-  <div class="border-border ml-auto flex shrink-0 items-center rounded-md border" data-tour="board-view-toggle">
+  <div
+    class="border-border ml-auto flex shrink-0 items-center rounded-md border"
+    data-tour="board-view-toggle"
+  >
     <Button
       variant={ticketViewStore.mode === 'board' ? 'secondary' : 'ghost'}
       size="sm"
