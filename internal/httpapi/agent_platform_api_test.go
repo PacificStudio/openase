@@ -421,6 +421,88 @@ func TestAgentPlatformTicketDependencyRoutesRespectScopes(t *testing.T) {
 	}
 }
 
+func TestAgentPlatformArchiveDoneRouteUsesSelfUpdateScope(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, doneTicketID := seedAgentPlatformHTTPFixture(ctx, t, client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	defaultToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(default) returned error: %v", err)
+	}
+	listOnlyToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		Scopes:    []string{string(agentplatform.ScopeTicketsList)},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(list only) returned error: %v", err)
+	}
+
+	forbiddenRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/archive-done", projectID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + listOnlyToken.Token},
+	)
+	if forbiddenRec.Code != http.StatusForbidden {
+		t.Fatalf("expected archive done without update scope to return 403, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
+	}
+
+	archiveResp := struct {
+		ArchivedCount     int      `json:"archived_count"`
+		ArchivedTicketIDs []string `json:"archived_ticket_ids"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/archive-done", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusOK,
+		&archiveResp,
+	)
+	if archiveResp.ArchivedCount != 1 || len(archiveResp.ArchivedTicketIDs) != 1 || archiveResp.ArchivedTicketIDs[0] != doneTicketID.String() {
+		t.Fatalf("unexpected archive done payload: %+v", archiveResp)
+	}
+
+	currentAfter, err := client.Ticket.Get(ctx, currentTicketID)
+	if err != nil {
+		t.Fatalf("load current ticket after cleanup: %v", err)
+	}
+	doneAfter, err := client.Ticket.Get(ctx, doneTicketID)
+	if err != nil {
+		t.Fatalf("load done ticket after cleanup: %v", err)
+	}
+	if currentAfter.Archived {
+		t.Fatalf("expected current ticket to remain unarchived, got %+v", currentAfter)
+	}
+	if !doneAfter.Archived {
+		t.Fatalf("expected done ticket to be archived, got %+v", doneAfter)
+	}
+}
+
 func TestAgentPlatformRootResourceRoutesSupportPlatformCLIParity(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()

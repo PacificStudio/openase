@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
+	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
@@ -31,6 +33,7 @@ func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/repos", s.handleAgentListProjectRepos)
 	api.PATCH("/projects/:projectId/repos/:repoId", s.handleAgentPatchProjectRepo)
 	api.DELETE("/projects/:projectId/repos/:repoId", s.handleAgentDeleteProjectRepo)
+	api.POST("/projects/:projectId/tickets/archive-done", s.handleAgentArchiveDoneTickets)
 	api.GET("/projects/:projectId/tickets/:ticketId/repo-scopes", s.handleAgentListTicketRepoScopes)
 	api.POST("/projects/:projectId/tickets/:ticketId/repo-scopes", s.handleAgentCreateTicketRepoScope)
 	api.PATCH("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.handleAgentPatchTicketRepoScope)
@@ -75,6 +78,32 @@ func requireAgentProjectAnyScope(c echo.Context, scopes ...agentplatform.Scope) 
 	return true
 }
 
+func requireAgentProjectTicketUpdate(c echo.Context) (agentplatform.Claims, bool) {
+	claims, ok := requireAgentAnyScope(c, agentplatform.ScopeTicketsUpdateSelf, agentplatform.ScopeTicketsUpdate)
+	if !ok {
+		return agentplatform.Claims{}, false
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+		return agentplatform.Claims{}, false
+	}
+	if claims.ProjectID != projectID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return agentplatform.Claims{}, false
+	}
+	if claims.HasScope(agentplatform.ScopeTicketsUpdate) {
+		return claims, true
+	}
+	if !claims.IsTicketAgent() {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PRINCIPAL_KIND_FORBIDDEN", "project conversation principals cannot access ticket-runtime-only endpoints")
+		return agentplatform.Claims{}, false
+	}
+
+	return claims, true
+}
+
 func (s *Server) requireAgentProjectAgentAnyScope(c echo.Context, scopes ...agentplatform.Scope) (domain.Agent, bool) {
 	if s.catalog.AgentService == nil {
 		_ = writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
@@ -108,6 +137,55 @@ func (s *Server) handleAgentInterruptProjectAgent(c echo.Context) error {
 		return nil
 	}
 	return s.interruptAgent(c)
+}
+
+func (s *Server) handleAgentArchiveDoneTickets(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentProjectTicketUpdate(c)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+
+	tickets, err := s.ticketService.List(c.Request().Context(), ticketservice.ListInput{
+		ProjectID:   projectID,
+		StatusNames: []string{"Done"},
+	})
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+
+	archivedTicketIDs := make([]string, 0, len(tickets))
+	for _, item := range tickets {
+		if !claims.HasScope(agentplatform.ScopeTicketsUpdate) && claims.TicketID == item.ID {
+			continue
+		}
+
+		updated, err := s.ticketService.Update(c.Request().Context(), ticketservice.UpdateInput{
+			TicketID:  item.ID,
+			Archived:  ticketservice.Some(true),
+			CreatedBy: ticketservice.Some(claims.CreatedBy()),
+		})
+		if err != nil {
+			return writeTicketError(c, err)
+		}
+		if err := s.publishTicketEvents(c.Request().Context(), []activityevent.Type{ticketArchivedType}, updated); err != nil {
+			return writeTicketError(c, err)
+		}
+		archivedTicketIDs = append(archivedTicketIDs, updated.ID.String())
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"archived_count":      len(archivedTicketIDs),
+		"archived_ticket_ids": archivedTicketIDs,
+	})
 }
 
 func (s *Server) requireAgentWorkflowAnyScope(c echo.Context, scopes ...agentplatform.Scope) bool {
