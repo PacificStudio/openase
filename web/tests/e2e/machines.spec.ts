@@ -26,7 +26,7 @@ test('machines drawer edit remains fast', async ({ page, projectPath }, testInfo
     },
   })
 
-  await page.getByLabel('Description').fill('Updated from Playwright perf regression run')
+  await page.locator('#machine-description').fill('Updated from Playwright perf regression run')
 
   await measureCompletion({
     scenario: 'machines_save_complete',

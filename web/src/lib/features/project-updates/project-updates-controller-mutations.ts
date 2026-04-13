@@ -9,6 +9,7 @@ import {
 } from '$lib/api/openase'
 import { toastStore } from '$lib/stores/toast.svelte'
 import type { ProjectUpdateStatus } from './types'
+import { projectUpdatesT } from './i18n'
 
 type ProjectUpdatesMutationDeps = {
   getProjectId: () => string
@@ -27,12 +28,14 @@ export function createProjectUpdateMutationHandlers(input: ProjectUpdatesMutatio
     input.setCreatingThread(true)
     try {
       await createProjectUpdateThread(projectId, draft)
-      toastStore.success('Update posted.')
+      toastStore.success(projectUpdatesT('projectUpdates.postSuccess'))
       await input.refreshLatestThreads(projectId)
       return true
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to post update.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.postFailed'),
       )
       return false
     } finally {
@@ -51,12 +54,14 @@ export function createProjectUpdateMutationHandlers(input: ProjectUpdatesMutatio
 
     try {
       await updateProjectUpdateThread(projectId, threadId, draft)
-      toastStore.success('Update edited.')
+      toastStore.success(projectUpdatesT('projectUpdates.editSuccess'))
       await input.refreshLatestThreads(projectId)
       return true
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit update.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.editFailed'),
       )
       return false
     }
@@ -70,12 +75,14 @@ export function createProjectUpdateMutationHandlers(input: ProjectUpdatesMutatio
 
     try {
       await deleteProjectUpdateThread(projectId, threadId)
-      toastStore.success('Update deleted.')
+      toastStore.success(projectUpdatesT('projectUpdates.deleteSuccess'))
       await input.refreshLatestThreads(projectId)
       return true
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete update.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.deleteFailed'),
       )
       await input.refreshLatestThreads(projectId)
       return false
@@ -90,12 +97,14 @@ export function createProjectUpdateMutationHandlers(input: ProjectUpdatesMutatio
 
     try {
       await createProjectUpdateComment(projectId, threadId, { body })
-      toastStore.success('Comment added.')
+      toastStore.success(projectUpdatesT('projectUpdates.commentAddSuccess'))
       await input.refreshLatestThreads(projectId)
       return true
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.commentAddFailed'),
       )
       return false
     }
@@ -109,12 +118,14 @@ export function createProjectUpdateMutationHandlers(input: ProjectUpdatesMutatio
 
     try {
       await updateProjectUpdateComment(projectId, threadId, commentId, { body })
-      toastStore.success('Comment edited.')
+      toastStore.success(projectUpdatesT('projectUpdates.commentEditSuccess'))
       await input.refreshLatestThreads(projectId)
       return true
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit comment.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.commentEditFailed'),
       )
       return false
     }
@@ -128,12 +139,14 @@ export function createProjectUpdateMutationHandlers(input: ProjectUpdatesMutatio
 
     try {
       await deleteProjectUpdateComment(projectId, threadId, commentId)
-      toastStore.success('Comment deleted.')
+      toastStore.success(projectUpdatesT('projectUpdates.commentDeleteSuccess'))
       await input.refreshLatestThreads(projectId)
       return true
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.commentDeleteFailed'),
       )
       await input.refreshLatestThreads(projectId)
       return false

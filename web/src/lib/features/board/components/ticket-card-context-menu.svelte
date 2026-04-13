@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { ContextMenu as ContextMenuPrimitive } from 'bits-ui'
   import ChevronRightIcon from '@lucide/svelte/icons/chevron-right'
   import { ExternalLink, Archive, Copy, CircleDot, Signal } from '@lucide/svelte'
@@ -82,7 +83,7 @@
         onclick={() => onOpenDetails?.(ticket)}
       >
         <ExternalLink class="size-3.5" />
-        Open details
+        {i18nStore.t('board.contextMenu.openDetails')}
       </ContextMenuPrimitive.Item>
 
       <ContextMenuPrimitive.Separator class="bg-border -mx-1 my-1 h-px" />
@@ -95,7 +96,7 @@
           )}
         >
           <CircleDot class="size-3.5" />
-          Change status
+          {i18nStore.t('board.contextMenu.changeStatus')}
           <ChevronRightIcon class="ml-auto size-4" />
         </ContextMenuPrimitive.SubTrigger>
         <ContextMenuPrimitive.SubContent
@@ -129,7 +130,7 @@
           )}
         >
           <Signal class="size-3.5" />
-          Change priority
+          {i18nStore.t('board.contextMenu.changePriority')}
           <ChevronRightIcon class="ml-auto size-4" />
         </ContextMenuPrimitive.SubTrigger>
         <ContextMenuPrimitive.SubContent
@@ -165,7 +166,7 @@
         onclick={handleCopyTicketId}
       >
         <Copy class="size-3.5" />
-        Copy ticket ID
+        {i18nStore.t('board.contextMenu.copyTicketId')}
       </ContextMenuPrimitive.Item>
 
       <ContextMenuPrimitive.Separator class="bg-border -mx-1 my-1 h-px" />
@@ -179,7 +180,7 @@
         onclick={handleArchive}
       >
         <Archive class="size-3.5" />
-        Archive
+        {i18nStore.t('board.contextMenu.archive')}
       </ContextMenuPrimitive.Item>
     </ContextMenuPrimitive.Content>
   </ContextMenuPrimitive.Portal>

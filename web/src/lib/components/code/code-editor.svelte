@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { cn } from '$lib/utils'
   import {
     EditorView,
@@ -634,8 +635,10 @@
         class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
         onclick={() => runMenuAction(onFormatSelection)}
       >
-        <span>Format Selection</span>
-        <span class="text-muted-foreground text-[10px]">⇧⌥F</span>
+        <span>{i18nStore.t('codeEditor.contextMenu.formatSelection')}</span>
+        <span class="text-muted-foreground text-[10px]"
+          >{i18nStore.t('codeEditor.contextMenu.formatShortcut')}</span
+        >
       </button>
     {:else if onFormatDocument}
       <button
@@ -644,8 +647,10 @@
         class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
         onclick={() => runMenuAction(onFormatDocument)}
       >
-        <span>Format Document</span>
-        <span class="text-muted-foreground text-[10px]">⇧⌥F</span>
+        <span>{i18nStore.t('codeEditor.contextMenu.formatDocument')}</span>
+        <span class="text-muted-foreground text-[10px]"
+          >{i18nStore.t('codeEditor.contextMenu.formatShortcut')}</span
+        >
       </button>
     {/if}
 
@@ -659,7 +664,7 @@
         class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
         onclick={() => runMenuAction(onRevert)}
       >
-        <span>Revert File</span>
+        <span>{i18nStore.t('codeEditor.contextMenu.revertFile')}</span>
       </button>
     {/if}
 
@@ -672,7 +677,7 @@
           class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
           onclick={() => runMenuAction(onExplainSelection)}
         >
-          <span>Explain Selection</span>
+          <span>{i18nStore.t('codeEditor.contextMenu.explainSelection')}</span>
         </button>
       {/if}
       {#if onRewriteSelection}
@@ -682,7 +687,7 @@
           class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
           onclick={() => runMenuAction(onRewriteSelection)}
         >
-          <span>Rewrite Selection</span>
+          <span>{i18nStore.t('codeEditor.contextMenu.rewriteSelection')}</span>
         </button>
       {/if}
     {/if}

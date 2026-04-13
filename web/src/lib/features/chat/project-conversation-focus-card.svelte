@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X } from '@lucide/svelte'
   import { Badge } from '$ui/badge'
+  import { chatT } from './i18n'
 
   let {
     label,
@@ -43,7 +44,7 @@
   <button
     type="button"
     class="text-muted-foreground hover:text-foreground -mr-0.5 ml-auto shrink-0 rounded p-0.5 transition-colors"
-    aria-label="Remove focus for this send"
+    aria-label={chatT('chat.removeFocus')}
     onclick={onDismiss}
   >
     <X class="size-3" />

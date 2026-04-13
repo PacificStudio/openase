@@ -7,6 +7,7 @@
     stateBadgeVariant,
     stateLabel,
   } from './machine-health-panel-view'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let { snapshot }: { snapshot: MachineSnapshot } = $props()
 
@@ -18,12 +19,18 @@
     class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
   >
     <div class="flex flex-wrap items-center gap-2">
-      <h4 class="text-foreground text-sm font-semibold">GPU inventory</h4>
+      <h4 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('machines.machineGpuTable.heading')}
+      </h4>
       <Badge variant={stateBadgeVariant(l3State)}>{stateLabel(l3State)}</Badge>
-      <Badge variant="secondary">{snapshot.gpus.length} GPU</Badge>
+      <Badge variant="secondary">
+        {i18nStore.t('machines.machineGpuTable.badge.count', { count: snapshot.gpus.length })}
+      </Badge>
     </div>
     <span class="text-muted-foreground text-xs">
-      {snapshot.gpuDispatchable ? 'Free memory available' : 'No GPU dispatchable'}
+      {snapshot.gpuDispatchable
+        ? i18nStore.t('machines.machineGpuTable.status.freeMemory')
+        : i18nStore.t('machines.machineGpuTable.status.noGpu')}
       · {checkedAtLabel(snapshot.monitor.l3?.checkedAt)}
     </span>
   </div>
@@ -31,10 +38,18 @@
     <table class="w-full text-sm">
       <thead>
         <tr class="border-border text-muted-foreground border-b text-left text-xs">
-          <th class="px-4 py-2 font-medium">GPU</th>
-          <th class="px-4 py-2 font-medium">Model</th>
-          <th class="px-4 py-2 font-medium">Memory</th>
-          <th class="px-4 py-2 text-right font-medium">Utilization</th>
+          <th class="px-4 py-2 font-medium">
+            {i18nStore.t('machines.machineGpuTable.tableColumns.gpu')}
+          </th>
+          <th class="px-4 py-2 font-medium">
+            {i18nStore.t('machines.machineGpuTable.tableColumns.model')}
+          </th>
+          <th class="px-4 py-2 font-medium">
+            {i18nStore.t('machines.machineGpuTable.tableColumns.memory')}
+          </th>
+          <th class="px-4 py-2 text-right font-medium">
+            {i18nStore.t('machines.machineGpuTable.tableColumns.utilization')}
+          </th>
         </tr>
       </thead>
       <tbody>

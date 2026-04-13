@@ -12,6 +12,7 @@
   import { Input } from '$ui/input'
   import { Plus, X } from '@lucide/svelte'
   import StatusSettingsRow from './status-settings-row.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     statuses,
@@ -178,7 +179,7 @@
         ondragleave={() => handleStageDragLeave(group.stage)}
         ondrop={(e) => handleStageDrop(group.stage, e)}
         role="group"
-        aria-label="{group.label} stage"
+        aria-label={i18nStore.t('settings.statuses.stageAriaLabel', { stage: group.label })}
       >
         <div class="flex items-center justify-between px-1 pb-2">
           <div class="flex items-center gap-2">
@@ -195,14 +196,16 @@
               onclick={() => openInlineAdd(group.stage)}
             >
               <Plus class="size-3" />
-              Add
+              {i18nStore.t('settings.status.list.actions.add')}
             </Button>
           {/if}
         </div>
 
         <div class="border-border border-t">
           {#if group.statuses.length === 0 && addingInStage !== group.stage}
-            <div class="text-muted-foreground px-4 py-3 text-center text-xs">No statuses</div>
+            <div class="text-muted-foreground px-4 py-3 text-center text-xs">
+              {i18nStore.t('settings.status.list.messages.noStatuses')}
+            </div>
           {:else}
             <div class="space-y-0.5 pt-1" role="list">
               {#each group.statuses as status, idx (status.id)}
@@ -229,7 +232,7 @@
               <Input
                 bind:value={addName}
                 class="h-8 flex-1 text-sm"
-                placeholder="Status name"
+                placeholder={i18nStore.t('settings.status.list.placeholders.name')}
                 autofocus
               />
               <Input
@@ -238,7 +241,7 @@
                 min="1"
                 step="1"
                 class="h-8 w-28 text-sm"
-                placeholder="Unlimited"
+                placeholder={i18nStore.t('settings.status.list.placeholders.unlimited')}
               />
               <Button
                 size="sm"
@@ -246,7 +249,9 @@
                 disabled={creating || !addName.trim()}
                 onclick={submitInlineAdd}
               >
-                {creating ? 'Adding…' : 'Add'}
+                {creating
+                  ? i18nStore.t('settings.status.list.actions.adding')
+                  : i18nStore.t('settings.status.list.actions.add')}
               </Button>
               <Button
                 variant="ghost"

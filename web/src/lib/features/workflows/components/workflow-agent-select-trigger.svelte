@@ -3,6 +3,7 @@
   import { cn } from '$lib/utils'
   import { Wrench } from '@lucide/svelte'
   import type { WorkflowAgentOption } from '../types'
+  import { t } from './i18n'
 
   let { selectedAgent }: { selectedAgent: WorkflowAgentOption | null } = $props()
 
@@ -32,5 +33,7 @@
     ></span>
   </div>
 {:else}
-  <span class="text-muted-foreground">Select bound agent</span>
+  <span class="text-muted-foreground">
+    {t('workflows.agentSelect.trigger.placeholder')}
+  </span>
 {/if}

@@ -8,6 +8,7 @@
   import * as Dialog from '$ui/dialog'
   import type { RuleDraft } from '../notification-rules'
   import NotificationRuleEditor from './notification-rule-editor.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     channels,
@@ -43,11 +44,19 @@
 <Dialog.Root open={dialogOpen} onOpenChange={onDialogOpenChange}>
   <Dialog.Content class="flex flex-col sm:max-w-2xl">
     <Dialog.Header>
-      <Dialog.Title>{editingRule ? 'Edit rule' : 'New rule'}</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t(
+          editingRule
+            ? 'settings.notificationRule.dialog.title.edit'
+            : 'settings.notificationRule.dialog.title.create',
+        )}
+      </Dialog.Title>
       {#if editingRule}
         <Dialog.Description>{editingRule.name}</Dialog.Description>
       {:else}
-        <Dialog.Description>Route a project event to a notification channel.</Dialog.Description>
+        <Dialog.Description>
+          {i18nStore.t('settings.notificationRule.dialog.description.create')}
+        </Dialog.Description>
       {/if}
     </Dialog.Header>
 
@@ -63,16 +72,22 @@
           disabled={saving || deleting}
           class="mr-auto"
         >
-          Delete
+          {i18nStore.t('settings.notificationRule.dialog.buttons.delete')}
         </Button>
       {/if}
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={saving || deleting}>Cancel</Button>
+          <Button variant="outline" {...props} disabled={saving || deleting}>
+            {i18nStore.t('settings.notificationRule.dialog.buttons.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button onclick={onSave} disabled={saving || deleting}>
-        {saving ? 'Saving…' : editingRule ? 'Save changes' : 'Create rule'}
+        {saving
+          ? i18nStore.t('settings.notificationRule.dialog.buttons.saving')
+          : editingRule
+            ? i18nStore.t('settings.notificationRule.dialog.buttons.saveChanges')
+            : i18nStore.t('settings.notificationRule.dialog.buttons.create')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
@@ -81,19 +96,27 @@
 <Dialog.Root open={confirmDeleteOpen} onOpenChange={onConfirmDeleteOpenChange}>
   <Dialog.Content class="sm:max-w-sm">
     <Dialog.Header>
-      <Dialog.Title>Delete "{editingRule?.name}"?</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t('settings.notificationRule.dialog.confirm.title', {
+          name: editingRule?.name ?? '',
+        })}
+      </Dialog.Title>
       <Dialog.Description>
-        This rule will stop delivering notifications. This cannot be undone.
+        {i18nStore.t('settings.notificationRule.dialog.confirm.description')}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={deleting}>Cancel</Button>
+          <Button variant="outline" {...props} disabled={deleting}>
+            {i18nStore.t('settings.notificationRule.dialog.buttons.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button variant="destructive" onclick={onDelete} disabled={deleting}>
-        {deleting ? 'Deleting…' : 'Delete rule'}
+        {deleting
+          ? i18nStore.t('settings.notificationRule.dialog.buttons.deleting')
+          : i18nStore.t('settings.notificationRule.dialog.buttons.deleteRule')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

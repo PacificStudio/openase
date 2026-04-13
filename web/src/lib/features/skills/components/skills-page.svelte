@@ -12,8 +12,32 @@
   import { Skeleton } from '$ui/skeleton'
   import { ChevronRight, Link2, Plus, Search, Wrench } from '@lucide/svelte'
   import SkillsPageCreateSheet from './skills-page-create-sheet.svelte'
+  import { skillsT } from './i18n'
+  import type { TranslationKey } from '$lib/i18n'
 
   type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
+
+  const filterValues: SkillFilter[] = ['all', 'builtin', 'custom', 'disabled']
+  const filterLabelKeys: Record<SkillFilter, TranslationKey> = {
+    all: 'skills.filter.all',
+    builtin: 'skills.filter.builtin',
+    custom: 'skills.filter.custom',
+    disabled: 'skills.filter.disabled',
+  }
+  const statsLabelKeys: Record<'total' | 'enabled' | 'bound', TranslationKey> = {
+    total: 'skills.stats.total',
+    enabled: 'skills.stats.enabled',
+    bound: 'skills.stats.bound',
+  }
+  const statusTitleKeys: Record<'enabled' | 'disabled', TranslationKey> = {
+    enabled: 'skills.status.enabled',
+    disabled: 'skills.status.disabled',
+  }
+  const badgeLabelKeys: Record<'builtin' | 'custom' | 'disabled', TranslationKey> = {
+    builtin: 'skills.badge.builtin',
+    custom: 'skills.badge.custom',
+    disabled: 'skills.badge.disabled',
+  }
 
   let loading = $state(false)
   let skills = $state<Skill[]>([])
@@ -66,7 +90,7 @@
       } catch (caughtError) {
         if (!cancelled) {
           toastStore.error(
-            caughtError instanceof ApiError ? caughtError.detail : 'Failed to load skills.',
+            caughtError instanceof ApiError ? caughtError.detail : skillsT('skills.loadFailed'),
           )
         }
       } finally {
@@ -102,11 +126,11 @@
     const projectId = currentProjectId
     if (!projectId) return
     if (!createName.trim()) {
-      toastStore.error('Skill name is required.')
+      toastStore.error(skillsT('skills.validation.nameRequired'))
       return
     }
     if (!createContent.trim()) {
-      toastStore.error('Skill content is required.')
+      toastStore.error(skillsT('skills.validation.contentRequired'))
       return
     }
 
@@ -121,10 +145,10 @@
       const payload = await listSkills(projectId)
       skills = payload.skills
       createOpen = false
-      toastStore.success('Created skill.')
+      toastStore.success(skillsT('skills.createSuccess'))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create skill.',
+        caughtError instanceof ApiError ? caughtError.detail : skillsT('skills.createFailed'),
       )
     } finally {
       creating = false
@@ -136,18 +160,20 @@
   <div class="mx-auto max-w-5xl space-y-5 p-6">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h1 class="text-foreground text-xl font-semibold">Skills</h1>
+        <h1 class="text-foreground text-xl font-semibold">
+          {skillsT('skills.page.title')}
+        </h1>
         <p class="text-muted-foreground mt-1 text-sm">
-          Manage reusable skill bundles, versions, and workflow bindings.
+          {skillsT('skills.page.description')}
         </p>
       </div>
       {#if !loading}
         <div class="text-muted-foreground flex items-center gap-2 text-xs">
-          <span>{counts.total} skills</span>
+          <span>{skillsT(statsLabelKeys.total, { count: counts.total })}</span>
           <span class="text-muted-foreground/40">/</span>
-          <span>{counts.enabled} enabled</span>
+          <span>{skillsT(statsLabelKeys.enabled, { count: counts.enabled })}</span>
           <span class="text-muted-foreground/40">/</span>
-          <span>{counts.bound} bound</span>
+          <span>{skillsT(statsLabelKeys.bound, { count: counts.bound })}</span>
         </div>
       {/if}
     </div>
@@ -155,10 +181,10 @@
     <div class="flex flex-wrap items-center gap-2">
       <div class="relative min-w-48 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-        <Input bind:value={query} placeholder="Search skills…" class="pl-9" />
+        <Input bind:value={query} placeholder={skillsT('skills.searchPlaceholder')} class="pl-9" />
       </div>
       <div class="flex items-center gap-1.5">
-        {#each ['all', 'builtin', 'custom', 'disabled'] as item}
+        {#each filterValues as item}
           <Button
             type="button"
             size="sm"
@@ -166,13 +192,13 @@
             class="h-8 text-xs capitalize"
             onclick={() => (filter = item as SkillFilter)}
           >
-            {item}
+            {skillsT(filterLabelKeys[item])}
           </Button>
         {/each}
       </div>
       <Button size="sm" class="h-8 gap-1.5" onclick={openCreate}>
         <Plus class="size-3.5" />
-        New Skill
+        {skillsT('skills.actions.newSkill')}
       </Button>
     </div>
 
@@ -201,13 +227,16 @@
           >
             <Wrench class="text-muted-foreground size-5" />
           </div>
-          <p class="text-foreground text-sm font-medium">No skills yet</p>
+          <p class="text-foreground text-sm font-medium">
+            {skillsT('skills.empty.title')}
+          </p>
           <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-            Skills are reusable tools and prompts agents can call during a ticket run. Create a
-            skill to extend what agents can do in this project.
+            {skillsT('skills.empty.description')}
           </p>
         {:else}
-          <p class="text-muted-foreground text-sm">No skills match your filters.</p>
+          <p class="text-muted-foreground text-sm">
+            {skillsT('skills.empty.filteredTitle')}
+          </p>
         {/if}
       </div>
     {:else}
@@ -225,14 +254,14 @@
               class="mt-1.5 size-2 shrink-0 rounded-full {skill.is_enabled
                 ? 'animate-pulse-dot bg-emerald-500'
                 : 'bg-muted-foreground/40'}"
-              title={skill.is_enabled ? 'Enabled' : 'Disabled'}
+              title={skillsT(skill.is_enabled ? statusTitleKeys.enabled : statusTitleKeys.disabled)}
             ></span>
 
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="text-foreground text-sm font-medium">{skill.name}</span>
                 <Badge variant="outline" class="px-1.5 py-0 text-[10px] leading-relaxed uppercase">
-                  {skill.is_builtin ? 'builtin' : 'custom'}
+                  {skillsT(skill.is_builtin ? badgeLabelKeys.builtin : badgeLabelKeys.custom)}
                 </Badge>
                 <Badge variant="outline" class="px-1.5 py-0 text-[10px] leading-relaxed">
                   v{skill.current_version}
@@ -242,7 +271,7 @@
                     variant="secondary"
                     class="text-muted-foreground px-1.5 py-0 text-[10px] leading-relaxed"
                   >
-                    disabled
+                    {skillsT(badgeLabelKeys.disabled)}
                   </Badge>
                 {/if}
               </div>

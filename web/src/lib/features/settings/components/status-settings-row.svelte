@@ -20,6 +20,7 @@
     Trash2,
     X,
   } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     status,
@@ -100,7 +101,7 @@
         bind:value={draft.name}
         disabled={busy}
         class="h-9 flex-1 text-sm"
-        placeholder="Status name"
+        placeholder={i18nStore.t('settings.statusRow.placeholders.statusName')}
       />
       <Input
         bind:value={draft.maxActiveRuns}
@@ -109,9 +110,11 @@
         step="1"
         disabled={busy}
         class="h-9 w-32 text-sm"
-        placeholder="Unlimited"
+        placeholder={i18nStore.t('settings.statusRow.placeholders.unlimited')}
       />
-      <Button size="sm" disabled={busy} onclick={handleSave}>Save</Button>
+      <Button size="sm" disabled={busy} onclick={handleSave}>
+        {i18nStore.t('settings.statusRow.actions.save')}
+      </Button>
       <Button variant="ghost" size="sm" disabled={busy} onclick={exitEdit}>
         <X class="size-3.5" />
       </Button>
@@ -137,7 +140,9 @@
     <span class="text-foreground flex-1 truncate text-sm font-medium">{status.name}</span>
 
     {#if status.isDefault}
-      <Badge variant="secondary" class="shrink-0 text-[10px]">Default</Badge>
+      <Badge variant="secondary" class="shrink-0 text-[10px]">
+        {i18nStore.t('settings.statusRow.badges.default')}
+      </Badge>
     {/if}
 
     {#if status.maxActiveRuns}
@@ -156,7 +161,7 @@
             {...props}
           >
             <Ellipsis class="size-3.5" />
-            <span class="sr-only">Actions</span>
+            <span class="sr-only">{i18nStore.t('common.actions')}</span>
           </Button>
         {/snippet}
       </DropdownMenu.Trigger>

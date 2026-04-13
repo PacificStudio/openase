@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { cn } from '$lib/utils'
   import { EyeOff, Plus } from '@lucide/svelte'
   import type { BoardGroup, BoardStatusOption, BoardTicket, HiddenColumn } from '../types'
@@ -100,7 +101,7 @@
     <div
       class="text-muted-foreground flex h-full items-center justify-center rounded-lg border border-dashed p-6 text-sm"
     >
-      No board statuses configured yet.
+      {i18nStore.t('board.noBoardStatuses')}
     </div>
   {:else}
     <div class="flex h-full min-h-0 gap-4 p-1">
@@ -118,7 +119,7 @@
             <div
               class="text-muted-foreground flex min-h-36 min-w-[280px] items-center justify-center rounded-lg border border-dashed px-4 text-sm"
             >
-              No statuses in this group.
+              {i18nStore.t('board.noStatusesInGroup')}
             </div>
           {:else}
             <div class="flex min-h-0 flex-1 gap-3">
@@ -149,7 +150,9 @@
         <div class="flex h-full min-h-0 w-48 shrink-0 flex-col rounded-xl border px-3 py-2">
           <div class="text-muted-foreground mb-2 flex items-center gap-1.5">
             <EyeOff class="size-3" />
-            <span class="text-xs font-medium">Hidden ({hiddenColumns.length})</span>
+            <span class="text-xs font-medium"
+              >{i18nStore.t('board.hiddenColumns', { count: hiddenColumns.length })}</span
+            >
           </div>
           <div class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
             {#each hiddenColumns as col (col.id)}
@@ -160,7 +163,7 @@
                 <button
                   type="button"
                   class="text-muted-foreground/50 hover:text-foreground hover:bg-muted shrink-0 rounded p-0.5 transition-colors"
-                  aria-label="Create ticket in {col.name}"
+                  aria-label={i18nStore.t('board.createTicketInStatus', { status: col.name })}
                   onclick={() => onCreateTicket?.(col.id)}
                 >
                   <Plus class="size-3" />

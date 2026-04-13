@@ -3,6 +3,7 @@ import type {
   TicketRunTranscriptBlock,
   TicketRunTranscriptInterruptOption,
 } from './types'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import { readPayloadString } from './run-transcript-blocks'
 
 export function buildInterruptBlock(
@@ -36,7 +37,10 @@ function parseInterruptOptions(value: unknown): TicketRunTranscriptInterruptOpti
     .filter((item): item is Record<string, unknown> => item != null)
     .map((item) => ({
       id: typeof item.id === 'string' ? item.id : '',
-      label: typeof item.label === 'string' ? item.label : 'Decision',
+      label:
+        typeof item.label === 'string'
+          ? item.label
+          : i18nStore.t('ticketDetail.interrupt.decision'),
       rawDecision: typeof item.raw_decision === 'string' ? item.raw_decision : undefined,
     }))
     .filter((item) => item.id !== '')
@@ -49,11 +53,11 @@ function normalizeApprovalInterruptKind(raw: string) {
 function interruptTitle(kind: string) {
   switch (kind) {
     case 'user_input':
-      return 'User input required'
+      return i18nStore.t('ticketDetail.interrupt.userInputRequired')
     case 'file_change_approval':
-      return 'File change approval required'
+      return i18nStore.t('ticketDetail.interrupt.fileChangeApprovalRequired')
     default:
-      return 'Command approval required'
+      return i18nStore.t('ticketDetail.interrupt.commandApprovalRequired')
   }
 }
 
@@ -71,10 +75,15 @@ function interruptSummary(kind: string, payload: Record<string, unknown>) {
   }
 
   if (kind === 'file_change_approval') {
-    return readInterruptString(payload, 'file', 'path', 'target') || 'Pending file approval.'
+    return (
+      readInterruptString(payload, 'file', 'path', 'target') ||
+      i18nStore.t('ticketDetail.interrupt.pendingFileApproval')
+    )
   }
 
-  return readInterruptString(payload, 'command') || 'Pending approval.'
+  return (
+    readInterruptString(payload, 'command') || i18nStore.t('ticketDetail.interrupt.pendingApproval')
+  )
 }
 
 function readInterruptString(payload: Record<string, unknown>, ...keys: string[]) {

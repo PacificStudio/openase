@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { listProviderModelOptions } from '$lib/api/openase'
   import { Badge } from '$ui/badge'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
@@ -62,7 +63,9 @@
       <div class="flex items-center gap-2">
         <SheetTitle>{provider?.name ?? 'Provider configuration'}</SheetTitle>
         {#if provider?.isDefault}
-          <Badge variant="outline" class="text-[10px]">Default</Badge>
+          <Badge variant="outline" class="text-[10px]">
+            {i18nStore.t('agents.providerConfig.defaultBadge')}
+          </Badge>
         {/if}
       </div>
       <SheetDescription>

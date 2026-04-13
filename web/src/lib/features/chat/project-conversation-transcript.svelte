@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { ChevronRight, LoaderCircle, Layers } from '@lucide/svelte'
   import ChatMarkdownContent from './chat-markdown-content.svelte'
+  import { chatT } from './i18n'
   import ProjectConversationCommandOutputCard from './project-conversation-command-output-card.svelte'
   import ProjectConversationDiffCard from './project-conversation-diff-card.svelte'
   import ProjectConversationInterruptCard from './project-conversation-interrupt-card.svelte'
@@ -141,7 +142,7 @@
   {#if pending}
     <div class="text-muted-foreground flex items-center gap-1.5 py-1 text-xs">
       <LoaderCircle class="size-3 animate-spin" />
-      <span>Thinking...</span>
+      <span>{chatT('chat.transcript.thinking')}</span>
     </div>
   {/if}
 </div>

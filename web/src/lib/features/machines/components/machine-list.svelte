@@ -3,11 +3,12 @@
   import { cn, formatRelativeTime } from '$lib/utils'
   import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineItem } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     machines,
     selectedId = '',
-    emptyMessage = 'No machines match the current filter.',
+    emptyMessage = i18nStore.t('machines.machineList.emptyState'),
     onSelect,
   }: {
     machines: MachineItem[]
@@ -57,7 +58,9 @@
               <span class={cn('size-2 rounded-full', statusColor(machine.status))}></span>
               <span class="text-foreground truncate font-medium">{machine.name}</span>
               {#if machine.host === 'local'}
-                <Badge variant="secondary" class="text-[10px]">local</Badge>
+                <Badge variant="secondary" class="text-[10px]">
+                  {i18nStore.t('machines.machineList.badge.local')}
+                </Badge>
               {/if}
             </div>
             <p class="text-muted-foreground mt-1 truncate font-mono text-xs">{machine.host}</p>
@@ -67,7 +70,9 @@
 
         <div class="mt-3 flex flex-wrap gap-1.5">
           {#if machine.labels.length === 0}
-            <span class="text-muted-foreground text-xs">No labels</span>
+            <span class="text-muted-foreground text-xs">
+              {i18nStore.t('machines.machineList.noLabels')}
+            </span>
           {:else}
             {#each machine.labels as label (label)}
               <Badge variant="secondary" class="text-[10px]">{label}</Badge>
@@ -81,7 +86,7 @@
             {#if machine.last_heartbeat_at}
               {formatRelativeTime(machine.last_heartbeat_at)}
             {:else}
-              never checked
+              {i18nStore.t('machines.machineList.neverChecked')}
             {/if}
           </span>
         </div>

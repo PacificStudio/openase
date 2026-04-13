@@ -31,7 +31,8 @@ function createProvisionalProject(orgId: string, id: string, previous: Project |
     name: previous?.name ?? 'Loading project…',
     slug: previous?.slug ?? id,
     description: previous?.description ?? '',
-    status: previous?.status ?? 'active',
+    // Keep provisional projects compatible with dashboard status badges/selects.
+    status: previous?.status ?? 'Planned',
     default_agent_provider_id: previous?.default_agent_provider_id ?? '',
     project_ai_platform_access_allowed: previous?.project_ai_platform_access_allowed ?? [],
     max_concurrent_agents: previous?.max_concurrent_agents ?? 0,

@@ -1,3 +1,5 @@
+import type { TranslationKey } from '$lib/i18n'
+
 export type ScheduleMode = 'seconds' | 'minutes' | 'hours' | 'daily' | 'monthly'
 
 export type ScheduleConfig = {
@@ -8,12 +10,12 @@ export type ScheduleConfig = {
   atDay: number
 }
 
-export const scheduleModeOptions: { value: ScheduleMode; label: string }[] = [
-  { value: 'seconds', label: 'second(s)' },
-  { value: 'minutes', label: 'minute(s)' },
-  { value: 'hours', label: 'hour(s)' },
-  { value: 'daily', label: 'day(s)' },
-  { value: 'monthly', label: 'month(s)' },
+export const scheduleModeOptions: { value: ScheduleMode; labelKey: TranslationKey }[] = [
+  { value: 'seconds', labelKey: 'settings.workflowScheduledJobCronPicker.scheduleUnits.seconds' },
+  { value: 'minutes', labelKey: 'settings.workflowScheduledJobCronPicker.scheduleUnits.minutes' },
+  { value: 'hours', labelKey: 'settings.workflowScheduledJobCronPicker.scheduleUnits.hours' },
+  { value: 'daily', labelKey: 'settings.workflowScheduledJobCronPicker.scheduleUnits.daily' },
+  { value: 'monthly', labelKey: 'settings.workflowScheduledJobCronPicker.scheduleUnits.monthly' },
 ]
 
 export function defaultScheduleConfig(): ScheduleConfig {

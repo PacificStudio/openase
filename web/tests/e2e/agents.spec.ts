@@ -11,15 +11,16 @@ test('agents providers and registration remain responsive', async ({
     page,
     scenario: 'agent_settings_page_ready',
     budgetMs: 800,
-    ready: page.getByRole('button', { name: 'Configure provider' }).first(),
+    ready: page.getByRole('heading', { name: /Agent Settings/i }),
     testInfo,
     action: async () => {
       await page.goto(`${projectPath('settings')}#agents`)
+      await page.getByRole('heading', { name: /Agent Settings/i }).waitFor({ timeout: 10_000 })
     },
   })
 
   await expect(page).toHaveURL(/\/settings#agents$/)
-  await expect(page.getByRole('button', { name: 'Configure provider' }).first()).toBeVisible({
+  await expect(page.getByRole('button', { name: /Configure provider/i }).first()).toBeVisible({
     timeout: 10_000,
   })
 
@@ -29,7 +30,10 @@ test('agents providers and registration remain responsive', async ({
     ready: page.getByTestId('provider-config-sheet'),
     testInfo,
     action: async () => {
-      await page.getByRole('button', { name: 'Configure provider' }).first().click()
+      await page
+        .getByRole('button', { name: /Configure provider/i })
+        .first()
+        .click()
     },
   })
 
@@ -53,10 +57,10 @@ test('agents providers and registration remain responsive', async ({
   await measureFeedback({
     scenario: 'agent_register_drawer_open',
     budgetMs: 150,
-    ready: page.getByRole('heading', { name: 'Register agent' }),
+    ready: page.getByTestId('agent-registration-sheet'),
     testInfo,
     action: async () => {
-      await page.getByRole('button', { name: 'Register Agent' }).click()
+      await page.getByRole('button', { name: /Register Agent/i }).click()
     },
   })
 
@@ -68,7 +72,10 @@ test('agents providers and registration remain responsive', async ({
     ready: page.getByText(`Registered ${agentName}.`),
     testInfo,
     action: async () => {
-      await page.getByRole('dialog').getByRole('button', { name: 'Register agent' }).click()
+      await page
+        .getByRole('dialog')
+        .getByRole('button', { name: /Register agent/i })
+        .click()
     },
   })
 

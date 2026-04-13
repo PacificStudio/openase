@@ -13,6 +13,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { ApiError } from '$lib/api/client'
   import { Separator } from '$ui/separator'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import StatusConcurrency from './status-concurrency.svelte'
   import { startStatusRuntimeSync } from './status-runtime-sync'
 
@@ -62,7 +63,10 @@
         }
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load workflows.'
+        error =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : i18nStore.t('settings.workflow.errors.load')
       } finally {
         if (!cancelled) {
           loading = false
@@ -103,10 +107,11 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Workflow Lifecycle</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.workflow.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Manage workflow agent binding, published harness versions, scheduling policy, activation, and
-      deletion.
+      {i18nStore.t('settings.workflow.description')}
     </p>
   </div>
 
@@ -148,7 +153,9 @@
   {:else if error && workflows.length === 0}
     <div class="text-destructive text-sm">{error}</div>
   {:else if workflows.length === 0}
-    <div class="text-muted-foreground text-sm">No workflows found in the current project.</div>
+    <div class="text-muted-foreground text-sm">
+      {i18nStore.t('settings.workflow.messages.noWorkflows')}
+    </div>
   {:else}
     <div class="space-y-6">
       <div class="border-border flex min-h-[34rem] overflow-hidden rounded-lg border">

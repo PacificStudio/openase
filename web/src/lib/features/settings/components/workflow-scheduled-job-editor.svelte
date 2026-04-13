@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ScheduledJob } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
@@ -123,18 +124,22 @@
       <div class="space-y-4">
         <!-- Job name -->
         <div class="space-y-1.5">
-          <Label for="scheduled-job-name" class="text-xs">Job name</Label>
+          <Label for="scheduled-job-name" class="text-xs">
+            {i18nStore.t('settings.workflowScheduledJobEditor.labels.jobName')}
+          </Label>
           <Input
             id="scheduled-job-name"
             value={draft.name}
-            placeholder="Nightly regression sweep"
+            placeholder={i18nStore.t('settings.workflowScheduledJobEditor.placeholders.jobName')}
             oninput={(event) =>
               onFieldChange?.('name', (event.currentTarget as HTMLInputElement).value)}
           />
         </div>
 
         <div class="space-y-1.5">
-          <Label class="text-xs">Target status</Label>
+          <Label class="text-xs">
+            {i18nStore.t('settings.workflowScheduledJobEditor.labels.targetStatus')}
+          </Label>
           <Select.Root
             type="single"
             value={draft.ticketStatusId}
@@ -172,7 +177,9 @@
 
         <!-- Enabled switch -->
         <div class="flex items-center justify-between">
-          <Label for="scheduled-job-enabled" class="text-xs">Enabled</Label>
+          <Label for="scheduled-job-enabled" class="text-xs">
+            {i18nStore.t('settings.workflowScheduledJobEditor.labels.enabled')}
+          </Label>
           <Switch
             id="scheduled-job-enabled"
             checked={draft.isEnabled}
@@ -197,7 +204,9 @@
             {/if}
             Ticket template
             {#if !templateExpanded && hasTemplateValues}
-              <span class="text-muted-foreground/60 ml-1 font-normal"> (configured) </span>
+              <span class="text-muted-foreground/60 ml-1 font-normal">
+                {i18nStore.t('settings.workflowScheduledJobEditor.templateConfigured')}
+              </span>
             {/if}
           </button>
 

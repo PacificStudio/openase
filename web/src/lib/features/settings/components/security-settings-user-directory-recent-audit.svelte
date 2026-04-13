@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { UserDirectoryDetail } from '$lib/api/auth'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import * as Collapsible from '$ui/collapsible'
   import { ChevronDown } from '@lucide/svelte'
   import {
@@ -23,7 +24,9 @@
           class="hover:bg-muted/40 flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors"
         >
           <div class="flex min-w-0 items-center gap-2">
-            <span class="text-sm font-semibold">Recent auth audit</span>
+            <span class="text-sm font-semibold">
+              {i18nStore.t('settings.security.userDirectory.recentAudit.title')}
+            </span>
             {#if events.length > 0}
               <span class="text-muted-foreground text-xs font-normal">{events.length}</span>
             {/if}
@@ -59,7 +62,7 @@
           </ul>
         {:else}
           <div class="text-muted-foreground px-4 py-3 text-xs">
-            No recent auth audit events for this user.
+            {i18nStore.t('settings.security.userDirectory.recentAudit.messages.empty')}
           </div>
         {/if}
       </div>

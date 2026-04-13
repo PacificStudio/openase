@@ -1,3 +1,6 @@
+import type { TranslationKey } from '$lib/i18n'
+import { i18nStore } from '$lib/i18n/store.svelte'
+
 export const workflowHookEvents = ['on_activate', 'on_reload'] as const
 export const ticketHookEvents = [
   'on_claim',
@@ -8,6 +11,10 @@ export const ticketHookEvents = [
   'on_cancel',
 ] as const
 export const workflowHookFailurePolicies = ['block', 'warn', 'ignore'] as const
+
+function translateRaw(key: TranslationKey) {
+  return i18nStore.t(key)
+}
 
 export type WorkflowHookEvent = (typeof workflowHookEvents)[number]
 export type TicketHookEvent = (typeof ticketHookEvents)[number]
@@ -59,51 +66,79 @@ export type WorkflowHookDraftValidation = {
   firstError: string
 }
 
-export const workflowHookEventOptions: WorkflowHookEventOption<WorkflowHookEvent>[] = [
+type WorkflowHookEventOptionTemplate<TEvent extends string> = {
+  event: TEvent
+  labelKey: TranslationKey
+  descriptionKey: TranslationKey
+}
+
+const workflowHookEventOptionTemplates: WorkflowHookEventOptionTemplate<WorkflowHookEvent>[] = [
   {
     event: 'on_activate',
-    label: 'On activate',
-    description: 'Run when the workflow is activated.',
+    labelKey: 'workflowHook.event.onActivate.label',
+    descriptionKey: 'workflowHook.event.onActivate.description',
   },
   {
     event: 'on_reload',
-    label: 'On reload',
-    description: 'Run when a new workflow version is published.',
+    labelKey: 'workflowHook.event.onReload.label',
+    descriptionKey: 'workflowHook.event.onReload.description',
   },
 ]
 
-export const ticketHookEventOptions: WorkflowHookEventOption<TicketHookEvent>[] = [
+const ticketHookEventOptionTemplates: WorkflowHookEventOptionTemplate<TicketHookEvent>[] = [
   {
     event: 'on_claim',
-    label: 'On claim',
-    description: 'Prepare the ticket workspace before the agent starts.',
+    labelKey: 'workflowHook.event.onClaim.label',
+    descriptionKey: 'workflowHook.event.onClaim.description',
   },
   {
     event: 'on_start',
-    label: 'On start',
-    description: 'Check runtime prerequisites just before agent launch.',
+    labelKey: 'workflowHook.event.onStart.label',
+    descriptionKey: 'workflowHook.event.onStart.description',
   },
   {
     event: 'on_complete',
-    label: 'On complete',
-    description: 'Gate successful completion before the finish state transition.',
+    labelKey: 'workflowHook.event.onComplete.label',
+    descriptionKey: 'workflowHook.event.onComplete.description',
   },
   {
     event: 'on_done',
-    label: 'On done',
-    description: 'Run non-blocking cleanup after the ticket reaches a finish state.',
+    labelKey: 'workflowHook.event.onDone.label',
+    descriptionKey: 'workflowHook.event.onDone.description',
   },
   {
     event: 'on_error',
-    label: 'On error',
-    description: 'Run after a failed attempt before the next retry decision.',
+    labelKey: 'workflowHook.event.onError.label',
+    descriptionKey: 'workflowHook.event.onError.description',
   },
   {
     event: 'on_cancel',
-    label: 'On cancel',
-    description: 'Run non-blocking cleanup when a ticket is manually canceled.',
+    labelKey: 'workflowHook.event.onCancel.label',
+    descriptionKey: 'workflowHook.event.onCancel.description',
   },
 ]
+
+export const workflowHookEventOptions: WorkflowHookEventOption<WorkflowHookEvent>[] =
+  workflowHookEventOptionTemplates.map((template) => ({
+    event: template.event,
+    get label() {
+      return translateRaw(template.labelKey)
+    },
+    get description() {
+      return translateRaw(template.descriptionKey)
+    },
+  }))
+
+export const ticketHookEventOptions: WorkflowHookEventOption<TicketHookEvent>[] =
+  ticketHookEventOptionTemplates.map((template) => ({
+    event: template.event,
+    get label() {
+      return translateRaw(template.labelKey)
+    },
+    get description() {
+      return translateRaw(template.descriptionKey)
+    },
+  }))
 
 export function listWorkflowHookEventOptions() {
   return workflowHookEventOptions

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ChevronDown, ChevronUp } from '@lucide/svelte'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
+  import { t } from './i18n'
 
   let {
     validationIssues,
@@ -9,6 +10,11 @@
   } = $props()
 
   let issuesExpanded = $state(false)
+  const issueLabel = $derived(
+    validationIssues.length === 1
+      ? t('workflows.validation.issues.summary.singular')
+      : t('workflows.validation.issues.summary.plural'),
+  )
 </script>
 
 <div class="border-border border-t">
@@ -22,9 +28,10 @@
     {:else}
       <ChevronUp class="size-3" />
     {/if}
-    <span class="font-medium"
-      >{validationIssues.length} validation issue{validationIssues.length > 1 ? 's' : ''}</span
-    >
+    <span class="font-medium">
+      {validationIssues.length}
+      {issueLabel}
+    </span>
     {#if !issuesExpanded}
       <span class="text-muted-foreground truncate">— {validationIssues[0].message}</span>
     {/if}
@@ -36,9 +43,10 @@
     >
       {#each validationIssues as issue, index (index)}
         <div>
-          {issue.level?.toUpperCase() ?? 'ISSUE'}: {issue.message}
+          {(issue.level?.toUpperCase() ?? t('workflows.validation.issues.level.fallback')) + ': '}
+          {issue.message}
           {#if issue.line}
-            at line {issue.line}
+            {t('workflows.validation.issues.atLine')} {issue.line}
           {/if}
         </div>
       {/each}

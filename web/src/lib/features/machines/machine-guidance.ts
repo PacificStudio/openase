@@ -10,60 +10,62 @@ import type {
   WorkspaceRootState,
 } from './types'
 import { normalizeDetectedOS } from './machine-detection'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
 export * from './machine-detection'
 
 const defaultRemoteWorkspaceRoot = '/srv/openase/workspace'
 
-const machineModeGuides: Record<MachineReachabilityMode, MachineModeGuide> = {
-  local: {
-    mode: 'local',
-    label: 'Local',
-    summary: 'Run OpenASE on the same host as the control plane.',
-    requiredFields: 'Reserved local identity and a local workspace root.',
-    installMethod: 'Use the local OpenASE CLI and local ticket workspaces under ~/.openase.',
-    testSemantics: 'Connection tests verify the local runtime user, hostname, and platform.',
-    commonErrors: 'A relative workspace root or a renamed local machine will be rejected.',
-  },
-  direct_connect: {
-    mode: 'direct_connect',
-    label: 'Direct Connect',
-    summary: 'The control plane can reach the machine directly.',
-    requiredFields:
-      'Machine identity, a remote workspace root, and websocket listener details. SSH is optional helper access.',
-    installMethod:
-      'Expose a websocket listener endpoint for runtime execution. Keep SSH only when you need bootstrap, diagnostics, or emergency repair access.',
-    testSemantics:
-      'Connection tests dial the advertised websocket listener. Separate SSH helper diagnostics cover helper-only access.',
-    commonErrors:
-      'Missing advertised endpoints, unreachable listener URLs, or stale SSH helper credentials.',
-  },
-  reverse_connect: {
-    mode: 'reverse_connect',
-    label: 'Machine Dials Out',
-    summary: 'The machine daemon dials out and carries native websocket runtime execution.',
-    requiredFields:
-      'Machine identity, daemon registration, and a workspace root the daemon can access.',
-    installMethod:
-      'Install and register the daemon on the remote host, keep the CLI path aligned with that host, and keep SSH only for helper bootstrap or diagnostics.',
-    testSemantics:
-      'Connection tests rely on daemon session state and reported platform metadata while runtime execution stays on the reverse websocket session.',
-    commonErrors:
-      'No registered daemon session, stale credentials, or a workspace root that the daemon cannot access.',
-  },
+export function machineModeGuide(mode: MachineReachabilityMode): MachineModeGuide {
+  switch (mode) {
+    case 'local':
+      return {
+        mode: 'local',
+        label: i18nStore.t('machines.guidance.local.label'),
+        summary: i18nStore.t('machines.guidance.local.summary'),
+        requiredFields: i18nStore.t('machines.guidance.local.requiredFields'),
+        installMethod: i18nStore.t('machines.guidance.local.installMethod'),
+        testSemantics: i18nStore.t('machines.guidance.local.testSemantics'),
+        commonErrors: i18nStore.t('machines.guidance.local.commonErrors'),
+      }
+    case 'direct_connect':
+      return {
+        mode: 'direct_connect',
+        label: i18nStore.t('machines.guidance.directConnect.label'),
+        summary: i18nStore.t('machines.guidance.directConnect.summary'),
+        requiredFields: i18nStore.t('machines.guidance.directConnect.requiredFields'),
+        installMethod: i18nStore.t('machines.guidance.directConnect.installMethod'),
+        testSemantics: i18nStore.t('machines.guidance.directConnect.testSemantics'),
+        commonErrors: i18nStore.t('machines.guidance.directConnect.commonErrors'),
+      }
+    case 'reverse_connect':
+      return {
+        mode: 'reverse_connect',
+        label: i18nStore.t('machines.guidance.reverseConnect.label'),
+        summary: i18nStore.t('machines.guidance.reverseConnect.summary'),
+        requiredFields: i18nStore.t('machines.guidance.reverseConnect.requiredFields'),
+        installMethod: i18nStore.t('machines.guidance.reverseConnect.installMethod'),
+        testSemantics: i18nStore.t('machines.guidance.reverseConnect.testSemantics'),
+        commonErrors: i18nStore.t('machines.guidance.reverseConnect.commonErrors'),
+      }
+  }
 }
 
-const machineExecutionGuides: Record<MachineExecutionMode, MachineExecutionGuide> = {
-  local_process: {
-    mode: 'local_process',
-    label: 'Local Process',
-    summary: 'Commands run directly on the control-plane host.',
-  },
-  websocket: {
-    mode: 'websocket',
-    label: 'WebSocket',
-    summary: 'Remote runtime execution uses websocket command and process channels.',
-  },
+export function machineExecutionGuide(mode: MachineExecutionMode): MachineExecutionGuide {
+  switch (mode) {
+    case 'local_process':
+      return {
+        mode: 'local_process',
+        label: i18nStore.t('machines.guidance.execution.localProcess.label'),
+        summary: i18nStore.t('machines.guidance.execution.localProcess.summary'),
+      }
+    case 'websocket':
+      return {
+        mode: 'websocket',
+        label: i18nStore.t('machines.guidance.execution.websocket.label'),
+        summary: i18nStore.t('machines.guidance.execution.websocket.summary'),
+      }
+  }
 }
 
 export type WorkspaceRootContext = {
@@ -121,14 +123,6 @@ export function machineExecutionModeLabel(mode: string | null | undefined): stri
   return machineExecutionGuide(normalizeExecutionMode(mode, null)).label
 }
 
-export function machineModeGuide(mode: MachineReachabilityMode): MachineModeGuide {
-  return machineModeGuides[mode]
-}
-
-export function machineExecutionGuide(mode: MachineExecutionMode): MachineExecutionGuide {
-  return machineExecutionGuides[mode]
-}
-
 export function machineDetectionMessage(machine: Machine | null, draft?: MachineDraft): string {
   if (machine?.detection_message?.trim()) {
     return machine.detection_message
@@ -139,9 +133,9 @@ export function machineDetectionMessage(machine: Machine | null, draft?: Machine
     draft?.host ?? machine?.host,
   )
   if (reachabilityMode === 'local') {
-    return 'Local machines default to the local OpenASE workspace convention. Run a connection test to confirm the platform details.'
+    return i18nStore.t('machines.guidance.detection.local')
   }
-  return 'Detection is optional. You can keep saving the machine, then confirm the platform and workspace details after websocket checks or daemon registration.'
+  return i18nStore.t('machines.guidance.detection.remote')
 }
 
 export function getWorkspaceRootRecommendation(
@@ -157,25 +151,25 @@ export function getWorkspaceRootRecommendation(
   if (reachabilityMode === 'local') {
     return {
       value: '~/.openase/workspace',
-      reason: 'Recommended local OpenASE workspace root.',
+      reason: i18nStore.t('machines.guidance.recommendation.local'),
     }
   }
   if (detectedOS === 'darwin') {
     return {
       value: `/Users/${sshUser}/.openase/workspace`,
-      reason: 'Recommended from detected macOS home directory layout.',
+      reason: i18nStore.t('machines.guidance.recommendation.darwin'),
     }
   }
   if (detectedOS === 'linux') {
     return {
       value: `/home/${sshUser}/.openase/workspace`,
-      reason: 'Recommended from detected Linux home directory layout.',
+      reason: i18nStore.t('machines.guidance.recommendation.linux'),
     }
   }
 
   return {
     value: defaultRemoteWorkspaceRoot,
-    reason: 'Fallback websocket workspace root until the remote platform is detected.',
+    reason: i18nStore.t('machines.guidance.recommendation.fallback'),
   }
 }
 
@@ -185,13 +179,16 @@ export function getWorkspaceRootState(input: WorkspaceRootContext): WorkspaceRoo
   const savedValue = input.machine?.workspace_root?.trim() ?? ''
 
   if (!currentValue) {
-    return { kind: 'empty', label: 'No workspace root saved yet.' }
+    return { kind: 'empty', label: i18nStore.t('machines.guidance.workspaceRoot.empty') }
   }
   if (currentValue === recommended) {
-    return { kind: 'recommended', label: 'Using the recommended workspace root.' }
+    return {
+      kind: 'recommended',
+      label: i18nStore.t('machines.guidance.workspaceRoot.recommended'),
+    }
   }
   if (savedValue && currentValue === savedValue) {
-    return { kind: 'saved', label: 'Keeping the saved workspace root override.' }
+    return { kind: 'saved', label: i18nStore.t('machines.guidance.workspaceRoot.saved') }
   }
-  return { kind: 'manual', label: 'Using a manual workspace root override.' }
+  return { kind: 'manual', label: i18nStore.t('machines.guidance.workspaceRoot.manual') }
 }

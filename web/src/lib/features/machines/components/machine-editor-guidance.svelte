@@ -14,30 +14,32 @@
   import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineDraft, MachineItem, MachineReachabilityMode } from '../types'
   import { Monitor, ArrowLeftRight, Radio, Check } from '@lucide/svelte'
+  import type { TranslationKey } from '$lib/i18n'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const reachabilityOptions: {
     mode: MachineReachabilityMode
     icon: typeof Monitor
-    shortDesc: string
-    keyTrait: string
+    shortDescKey: TranslationKey
+    keyTraitKey: TranslationKey
   }[] = [
     {
       mode: 'local',
       icon: Monitor,
-      shortDesc: 'Same host as the control plane',
-      keyTrait: 'No network boundary',
+      shortDescKey: 'machines.machineEditorGuidance.reachability.local.shortDesc',
+      keyTraitKey: 'machines.machineEditorGuidance.reachability.local.keyTrait',
     },
     {
       mode: 'direct_connect',
       icon: Radio,
-      shortDesc: 'Control plane can dial the machine',
-      keyTrait: 'Listener plus optional SSH helper',
+      shortDescKey: 'machines.machineEditorGuidance.reachability.directConnect.shortDesc',
+      keyTraitKey: 'machines.machineEditorGuidance.reachability.directConnect.keyTrait',
     },
     {
       mode: 'reverse_connect',
       icon: ArrowLeftRight,
-      shortDesc: 'Machine daemon dials back to OpenASE',
-      keyTrait: 'Outbound-only friendly',
+      shortDescKey: 'machines.machineEditorGuidance.reachability.reverseConnect.shortDesc',
+      keyTraitKey: 'machines.machineEditorGuidance.reachability.reverseConnect.keyTrait',
     },
   ]
 
@@ -63,10 +65,11 @@
 
 <section class="space-y-4">
   <div>
-    <h3 class="text-foreground text-sm font-semibold">Connection topology</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {i18nStore.t('machines.machineEditorGuidance.heading.connectionTopology')}
+    </h3>
     <p class="text-muted-foreground mt-0.5 text-xs">
-      Choose how OpenASE reaches the machine. Setup commands and helper flows follow from that
-      topology.
+      {i18nStore.t('machines.machineEditorGuidance.description.connectionTopology')}
     </p>
   </div>
 
@@ -101,11 +104,13 @@
                 <Check class="text-primary size-3.5" />
               {/if}
             </div>
-            <p class="text-muted-foreground mt-0.5 text-xs leading-relaxed">{option.shortDesc}</p>
+            <p class="text-muted-foreground mt-0.5 text-xs leading-relaxed">
+              {i18nStore.t(option.shortDescKey)}
+            </p>
             <span
               class="text-muted-foreground mt-1 inline-block text-[10px] font-medium tracking-wider uppercase"
             >
-              {option.keyTrait}
+              {i18nStore.t(option.keyTraitKey)}
             </span>
           </div>
         </div>
@@ -127,11 +132,15 @@
     <p class="text-muted-foreground mt-2 text-xs leading-relaxed">{detectionSummary}</p>
     <div class="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
       <div>
-        <span class="text-muted-foreground">Required:</span>
+        <span class="text-muted-foreground">
+          {i18nStore.t('machines.machineEditorGuidance.labels.required')}
+        </span>
         <span class="text-foreground ml-1">{reachabilityGuide.requiredFields}</span>
       </div>
       <div>
-        <span class="text-muted-foreground">State:</span>
+        <span class="text-muted-foreground">
+          {i18nStore.t('machines.machineEditorGuidance.labels.state')}
+        </span>
         <span class="text-foreground ml-1">{setupGuide.stateSummary}</span>
       </div>
     </div>
@@ -150,7 +159,9 @@
     </div>
 
     <div class="border-border bg-card rounded-lg border px-3.5 py-3">
-      <p class="text-foreground text-sm font-medium">Next step guidance</p>
+      <p class="text-foreground text-sm font-medium">
+        {i18nStore.t('machines.machineEditorGuidance.heading.nextStep')}
+      </p>
       <ul class="text-muted-foreground mt-2 space-y-1.5 text-xs leading-relaxed">
         {#each setupGuide.nextSteps as step, index (`${step}-${index}`)}
           <li>{step}</li>

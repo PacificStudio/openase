@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { cn } from '$lib/utils'
   import { formatBoardPriorityLabel, type BoardPriority } from '../priority'
 
@@ -19,7 +20,7 @@
   fill="none"
   xmlns="http://www.w3.org/2000/svg"
   class={cn('size-4 shrink-0', className)}
-  aria-label={`Priority: ${formatBoardPriorityLabel(priority).toLowerCase()}`}
+  aria-label={`${i18nStore.t('common.priority')}: ${formatBoardPriorityLabel(priority, i18nStore.locale).toLowerCase()}`}
 >
   {#if priority === ''}
     <rect x="2.5" y="7" width="11" height="2" rx="1" fill={active} />

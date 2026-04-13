@@ -19,6 +19,7 @@
   import TokenUsageAnalyticsPanel from './token-usage-analytics-panel.svelte'
   import OrganizationProjectsSection from './organization-projects-section.svelte'
   import OrganizationProvidersSection from './organization-providers-section.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const currentOrg = $derived(appStore.currentOrg),
     projects = $derived(appStore.projects),
@@ -119,7 +120,12 @@
 </script>
 
 <svelte:head>
-  <title>{currentOrg?.name ?? 'Organization'} - OpenASE</title>
+  <title>
+    {i18nStore.t('dashboard.organizationOverview.headings.title', {
+      org: currentOrg?.name ?? i18nStore.t('dashboard.organizationOverview.labels.organization'),
+    })}{' '}
+    - OpenASE
+  </title>
 </svelte:head>
 
 <div data-testid="route-scroll-container" class="min-h-0 flex-1 overflow-y-auto">
@@ -127,45 +133,62 @@
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div class="flex flex-col gap-2">
         <p class="text-muted-foreground text-sm">
-          <a href="/" class="hover:text-foreground transition-colors">Workspace</a>
+          <a href="/" class="hover:text-foreground transition-colors">
+            {i18nStore.t('dashboard.organizationOverview.labels.workspace')}
+          </a>
           <span class="mx-2">/</span>
           <a
             href={currentOrg ? organizationPath(currentOrg.id) : '/'}
             class="hover:text-foreground transition-colors"
           >
-            {currentOrg?.name ?? 'Organization'}
+            {currentOrg?.name ?? i18nStore.t('dashboard.organizationOverview.labels.organization')}
           </a>
         </p>
         <div>
           <h1 class="text-foreground text-2xl font-semibold">
-            {currentOrg?.name ?? 'Organization'}
+            {currentOrg?.name ?? i18nStore.t('dashboard.organizationOverview.labels.organization')}
           </h1>
           <p class="text-muted-foreground mt-1 text-sm">
-            {projects.length}
-            {projects.length === 1 ? 'project' : 'projects'} · {providers.length}
-            {providers.length === 1 ? 'provider' : 'providers'}
+            {i18nStore.t('dashboard.organizationOverview.labels.resourcesSummary', {
+              projects: projects.length,
+              providers: providers.length,
+            })}
           </p>
         </div>
       </div>
 
       <div class="flex gap-2">
-        <Button variant="outline" onclick={() => (showProviderDialog = true)}>Add provider</Button>
-        <Button onclick={() => (showProjectDialog = true)}>New project</Button>
+        <Button variant="outline" onclick={() => (showProviderDialog = true)}>
+          {i18nStore.t('dashboard.organizationOverview.actions.addProvider')}
+        </Button>
+        <Button onclick={() => (showProjectDialog = true)}>
+          {i18nStore.t('dashboard.organizationOverview.actions.newProject')}
+        </Button>
       </div>
     </div>
 
     {#if projects.length > 0}
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active Projects" value={activeProjectCount} icon={FolderOpen} {loading} />
-        <StatCard label="Running Agents" value={orgStats.runningAgents} icon={Bot} {loading} />
         <StatCard
-          label="Today's Spend"
+          label={i18nStore.t('dashboard.organizationOverview.stats.activeProjects')}
+          value={activeProjectCount}
+          icon={FolderOpen}
+          {loading}
+        />
+        <StatCard
+          label={i18nStore.t('dashboard.organizationOverview.stats.runningAgents')}
+          value={orgStats.runningAgents}
+          icon={Bot}
+          {loading}
+        />
+        <StatCard
+          label={i18nStore.t('dashboard.organizationOverview.stats.todaysSpend')}
           value={formatCurrency(orgStats.ticketSpendToday)}
           icon={Coins}
           {loading}
         />
         <StatCard
-          label="Active Tickets"
+          label={i18nStore.t('dashboard.organizationOverview.stats.activeTickets')}
           value={orgStats.activeTickets}
           icon={TicketIcon}
           {loading}
@@ -211,6 +234,8 @@
 
 {#if !currentOrg && appStore.appContextLoading}
   <div class="mx-auto w-full max-w-6xl px-6 pb-6">
-    <div class="text-muted-foreground text-sm">Loading organization…</div>
+    <div class="text-muted-foreground text-sm">
+      {i18nStore.t('dashboard.organizationOverview.messages.loading')}
+    </div>
   </div>
 {/if}

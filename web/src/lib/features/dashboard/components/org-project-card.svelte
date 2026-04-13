@@ -4,6 +4,7 @@
   import { formatCurrency, formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Bot, Coins, Ticket as TicketIcon } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     currentOrgId,
@@ -33,7 +34,7 @@
     <div class="min-w-0 flex-1">
       <h3 class="text-foreground truncate text-sm font-semibold">{project.name}</h3>
       <p class="text-muted-foreground mt-1 truncate text-xs">
-        {project.description || 'No description'}
+        {project.description || i18nStore.t('dashboard.orgProjectCard.messages.noDescription')}
       </p>
     </div>
     <Badge variant="secondary" class="shrink-0 text-[10px]">{project.status}</Badge>
@@ -43,21 +44,32 @@
     <div class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
       <span class="flex items-center gap-1">
         <Bot class="size-3" />
-        {metrics.runningAgents} agent{metrics.runningAgents !== 1 ? 's' : ''}
+        <span>
+          {metrics.runningAgents}
+          {i18nStore.t('dashboard.orgProjectCard.metrics.agentsLabel')}
+        </span>
       </span>
       <span class="flex items-center gap-1">
         <TicketIcon class="size-3" />
-        {metrics.activeTickets} ticket{metrics.activeTickets !== 1 ? 's' : ''}
+        <span>
+          {metrics.activeTickets}
+          {i18nStore.t('dashboard.orgProjectCard.metrics.ticketsLabel')}
+        </span>
       </span>
       <span class="flex items-center gap-1">
         <Coins class="size-3" />
-        {formatCurrency(metrics.todayCost)} today
+        <span>
+          {formatCurrency(metrics.todayCost)}
+          {i18nStore.t('dashboard.orgProjectCard.metrics.today')}
+        </span>
       </span>
       {#if metrics.lastActivity}
         <span class="ml-auto">{formatRelativeTime(metrics.lastActivity)}</span>
       {/if}
     </div>
   {:else if loading}
-    <div class="text-muted-foreground mt-3 text-xs">Loading metrics…</div>
+    <div class="text-muted-foreground mt-3 text-xs">
+      {i18nStore.t('dashboard.orgProjectCard.messages.loadingMetrics')}
+    </div>
   {/if}
 </a>

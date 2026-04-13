@@ -13,6 +13,7 @@
     primaryGuideProvider,
     providerStatus,
   } from '../provider-guides'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     guide,
@@ -39,6 +40,7 @@
   const primaryProvider = $derived(primaryGuideProvider(providers, selectedId))
   const status = $derived(providerStatus(primaryProvider))
   const iconPath = $derived(adapterIconPath(guide.adapterTypes[0] ?? ''))
+  const t = i18nStore.t
 </script>
 
 <div class="border-border bg-background flex items-center gap-3 rounded-lg border px-4 py-3">
@@ -63,7 +65,10 @@
       </span>
     </div>
     <p class="text-muted-foreground text-xs">
-      CLI: {cliDetectionLabel[cliDetectionState(providers)]} · Auth: {authDetectionLabel[
+      {t('onboarding.providerGuideCard.labels.cli')}: {cliDetectionLabel[
+        cliDetectionState(providers)
+      ]} ·{' '}
+      {t('onboarding.providerGuideCard.labels.auth')}: {authDetectionLabel[
         authDetectionState(providers)
       ]}
     </p>
@@ -79,14 +84,16 @@
       >
         {#if selecting && selectedId === availableProviders[0]?.id}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Setting…
+          {t('onboarding.providerGuideCard.actions.setting')}
         {:else if selectedId === availableProviders[0]?.id}
-          Default
+          {t('onboarding.providerGuideCard.actions.default')}
         {:else}
-          Use this
+          {t('onboarding.providerGuideCard.actions.useProvider')}
         {/if}
       </Button>
     {/if}
-    <Button size="sm" variant="ghost" onclick={() => onOpenGuide(guide.key)}>Guide</Button>
+    <Button size="sm" variant="ghost" onclick={() => onOpenGuide(guide.key)}>
+      {t('onboarding.providerGuideCard.actions.openGuide')}
+    </Button>
   </div>
 </div>

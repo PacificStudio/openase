@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
   import { Input } from '$ui/input'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
@@ -119,18 +120,18 @@
 
 <div class="space-y-4">
   <div class="space-y-2">
-    <Label for="provider-name">Provider name</Label>
+    <Label for="provider-name">{i18nStore.t('agents.providerForm.labels.providerName')}</Label>
     <Input
       id="provider-name"
       value={draft.name}
-      placeholder="Codex primary"
+      placeholder={i18nStore.t('agents.providerForm.placeholders.providerName')}
       oninput={(event) => onFieldChange?.('name', fieldValue(event))}
     />
   </div>
 
   <div class="grid gap-4 md:grid-cols-2">
     <div class="space-y-2">
-      <Label>Adapter</Label>
+      <Label>{i18nStore.t('agents.providerForm.labels.adapter')}</Label>
       <Select.Root
         type="single"
         value={draft.adapterType}
@@ -138,7 +139,7 @@
       >
         <Select.Trigger class="w-full">
           {providerAdapterOptions.find((option) => option.value === draft.adapterType)?.label ??
-            'Select adapter'}
+            i18nStore.t('agents.providerForm.placeholders.selectAdapter')}
         </Select.Trigger>
         <Select.Content>
           {#each providerAdapterOptions as option (option.value)}
@@ -149,7 +150,7 @@
     </div>
 
     <div class="space-y-2">
-      <Label>Permission mode</Label>
+      <Label>{i18nStore.t('agents.providerForm.labels.permissionMode')}</Label>
       <Select.Root
         type="single"
         value={draft.permissionProfile}
@@ -158,7 +159,7 @@
         <Select.Trigger class="w-full">
           {providerPermissionProfileOptions.find(
             (option) => option.value === draft.permissionProfile,
-          )?.label ?? 'Select permission mode'}
+          )?.label ?? i18nStore.t('agents.providerForm.placeholders.selectPermissionMode')}
         </Select.Trigger>
         <Select.Content>
           {#each providerPermissionProfileOptions as option (option.value)}
@@ -173,14 +174,15 @@
     </div>
 
     <div class="space-y-2">
-      <Label>Execution machine</Label>
+      <Label>{i18nStore.t('agents.providerForm.labels.executionMachine')}</Label>
       <Select.Root
         type="single"
         value={draft.machineId}
         onValueChange={(value) => onFieldChange?.('machineId', value || '')}
       >
         <Select.Trigger class="w-full">
-          {machines.find((machine) => machine.id === draft.machineId)?.name ?? 'Select machine'}
+          {machines.find((machine) => machine.id === draft.machineId)?.name ??
+            i18nStore.t('agents.providerForm.placeholders.selectMachine')}
         </Select.Trigger>
         <Select.Content>
           {#each machines as machine (machine.id)}
@@ -221,25 +223,31 @@
       {:else}
         <ChevronDown class="size-3.5" />
       {/if}
-      Advanced settings
+      {i18nStore.t('agents.providerForm.actions.advancedSettings')}
     </button>
 
     {#if advancedOpen}
       <div class="mt-3 space-y-4">
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
-            <Label for="provider-cli-command">CLI command</Label>
+            <Label for="provider-cli-command"
+              >{i18nStore.t('agents.providerForm.labels.cliCommand')}</Label
+            >
             <Input
               id="provider-cli-command"
               value={draft.cliCommand}
               placeholder="codex"
               oninput={(event) => onFieldChange?.('cliCommand', fieldValue(event))}
             />
-            <p class="text-muted-foreground text-xs">Leave empty to use the adapter default.</p>
+            <p class="text-muted-foreground text-xs">
+              {i18nStore.t('agents.providerForm.hints.cliDefault')}
+            </p>
           </div>
 
           <div class="space-y-2">
-            <Label for="provider-model-temperature">Temperature</Label>
+            <Label for="provider-model-temperature">
+              {i18nStore.t('agents.providerForm.labels.temperature')}
+            </Label>
             <Input
               id="provider-model-temperature"
               type="number"
@@ -252,7 +260,7 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="provider-cli-args">CLI args</Label>
+          <Label for="provider-cli-args">{i18nStore.t('agents.providerForm.labels.cliArgs')}</Label>
           <Textarea
             id="provider-cli-args"
             rows={3}
@@ -260,9 +268,11 @@
             placeholder={`app-server\n--listen\nstdio://`}
             oninput={(event) => onFieldChange?.('cliArgs', fieldValue(event))}
           />
-          <p class="text-muted-foreground text-xs">One argument per line.</p>
           <p class="text-muted-foreground text-xs">
-            OpenASE injects adapter-managed permission flags from Permission mode.
+            {i18nStore.t('agents.providerForm.hints.cliArgsPerLine')}
+          </p>
+          <p class="text-muted-foreground text-xs">
+            {i18nStore.t('agents.providerForm.hints.permissionFlagsInjected')}
           </p>
         </div>
 
@@ -279,7 +289,9 @@
 
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
-            <Label for="provider-model-max-tokens">Max tokens</Label>
+            <Label for="provider-model-max-tokens"
+              >{i18nStore.t('agents.providerForm.labels.maxTokens')}</Label
+            >
             <Input
               id="provider-model-max-tokens"
               type="number"
@@ -291,17 +303,21 @@
           </div>
 
           <div class="space-y-2">
-            <Label for="provider-max-parallel-runs">Max parallel runs</Label>
+            <Label for="provider-max-parallel-runs">
+              {i18nStore.t('agents.providerForm.labels.maxParallelRuns')}
+            </Label>
             <Input
               id="provider-max-parallel-runs"
               type="number"
               min="1"
               step="1"
               value={draft.maxParallelRuns}
-              placeholder="Unlimited"
+              placeholder={i18nStore.t('agents.providerForm.placeholders.unlimited')}
               oninput={(event) => onFieldChange?.('maxParallelRuns', fieldValue(event))}
             />
-            <p class="text-muted-foreground text-xs">Leave blank for unlimited.</p>
+            <p class="text-muted-foreground text-xs">
+              {i18nStore.t('agents.providerForm.hints.leaveBlankForUnlimited')}
+            </p>
           </div>
 
           {#if showCostFields}

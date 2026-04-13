@@ -17,6 +17,7 @@
   import { LaptopMinimal, LogOut, ShieldCheck, Smartphone, TabletSmartphone } from '@lucide/svelte'
   import { formatTimestamp } from './security-settings-human-auth.model'
   import SecuritySettingsHumanAuthAuditTimeline from './security-settings-human-auth-audit-timeline.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let governance = $state<SessionGovernanceResponse | null>(null)
   let loading = $state(false)
@@ -32,7 +33,9 @@
     } catch (caughtError) {
       governance = null
       error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load session governance.'
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.security.humanAuth.sessions.errors.load')
     } finally {
       loading = false
     }
@@ -82,7 +85,10 @@
       await logoutHumanSession()
     } catch (caughtError) {
       if (!(caughtError instanceof ApiError) || caughtError.status !== 401) {
-        const message = caughtError instanceof ApiError ? caughtError.detail : 'Failed to log out.'
+        const message =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : i18nStore.t('settings.security.humanAuth.sessions.errors.logout')
         error = message
         toastStore.error(message)
         actionKey = ''
@@ -110,10 +116,14 @@
     try {
       await revokeAuthSession(session.id)
       await loadGovernanceState()
-      toastStore.success('Session revoked.')
+      toastStore.success(
+        i18nStore.t('settings.security.humanAuth.sessions.messages.sessionRevoked'),
+      )
     } catch (caughtError) {
       const message =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to revoke session.'
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.security.humanAuth.sessions.errors.revoke')
       error = message
       toastStore.error(message)
     } finally {
@@ -128,14 +138,22 @@
     try {
       const payload = await revokeAllOtherAuthSessions()
       await loadGovernanceState()
-      toastStore.success(
-        payload.revoked_count > 0
-          ? `Revoked ${payload.revoked_count} other session(s).`
-          : 'No other active sessions to revoke.',
-      )
+      if (payload.revoked_count > 0) {
+        toastStore.success(
+          i18nStore.t('settings.security.humanAuth.sessions.messages.revokedOthers', {
+            count: payload.revoked_count,
+          }),
+        )
+      } else {
+        toastStore.success(
+          i18nStore.t('settings.security.humanAuth.sessions.messages.noOtherSessions'),
+        )
+      }
     } catch (caughtError) {
       const message =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to revoke other sessions.'
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.security.humanAuth.sessions.errors.revokeOthers')
       error = message
       toastStore.error(message)
     } finally {
@@ -147,12 +165,13 @@
 <div class="space-y-4">
   <div class="flex items-center gap-2">
     <ShieldCheck class="text-muted-foreground size-4" />
-    <h4 class="text-sm font-semibold">Session governance</h4>
+    <h4 class="text-sm font-semibold">
+      {i18nStore.t('settings.security.humanAuth.sessions.heading')}
+    </h4>
   </div>
 
   <p class="text-muted-foreground text-xs">
-    Review active devices, revoke stale sessions, and inspect the auth audit trail for browser
-    access.
+    {i18nStore.t('settings.security.humanAuth.sessions.description')}
   </p>
 
   {#if loading}
@@ -174,7 +193,9 @@
     <div class="border-border bg-card rounded-lg border p-4">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="space-y-1">
-          <div class="text-sm font-medium">Current protection boundary</div>
+          <div class="text-sm font-medium">
+            {i18nStore.t('settings.security.humanAuth.sessions.labels.currentProtectionBoundary')}
+          </div>
           <div class="text-muted-foreground text-xs">{governance.stepUp.summary}</div>
         </div>
         <button
@@ -183,7 +204,7 @@
           disabled={actionKey !== '' ||
             governance.sessions.filter((session) => !session.current).length === 0}
         >
-          Revoke other sessions
+          {i18nStore.t('settings.security.humanAuth.sessions.actions.revokeOthers')}
         </button>
       </div>
     </div>
@@ -208,14 +229,19 @@
                         <span
                           class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
                         >
-                          Current
+                          {i18nStore.t('settings.security.humanAuth.sessions.badges.current')}
                         </span>
                       {/if}
                     </div>
                     <div class="text-muted-foreground text-xs">
-                      {session.device.browser || 'Unknown browser'}
+                      {session.device.browser ||
+                        i18nStore.t(
+                          'settings.security.humanAuth.sessions.fallbacks.unknownBrowser',
+                        )}
                       {#if session.device.os}
-                        on {session.device.os}
+                        {i18nStore.t('settings.security.humanAuth.sessions.labels.onDevice', {
+                          os: session.device.os,
+                        })}
                       {/if}
                     </div>
                   </div>
@@ -229,21 +255,29 @@
                     actionKey !== 'session:current'}
                 >
                   <LogOut class="size-4" />
-                  {session.current ? 'Log out' : 'Revoke'}
+                  {session.current
+                    ? i18nStore.t('settings.security.humanAuth.sessions.actions.logout')
+                    : i18nStore.t('settings.security.humanAuth.sessions.actions.revoke')}
                 </button>
               </div>
 
               <div class="mt-4 grid gap-3 text-xs sm:grid-cols-3">
                 <div>
-                  <div class="text-muted-foreground">Created</div>
+                  <div class="text-muted-foreground">
+                    {i18nStore.t('settings.security.humanAuth.sessions.labels.created')}
+                  </div>
                   <div class="mt-1 font-medium">{formatTimestamp(session.createdAt)}</div>
                 </div>
                 <div>
-                  <div class="text-muted-foreground">Last active</div>
+                  <div class="text-muted-foreground">
+                    {i18nStore.t('settings.security.humanAuth.sessions.labels.lastActive')}
+                  </div>
                   <div class="mt-1 font-medium">{formatTimestamp(session.lastActiveAt)}</div>
                 </div>
                 <div>
-                  <div class="text-muted-foreground">Expires</div>
+                  <div class="text-muted-foreground">
+                    {i18nStore.t('settings.security.humanAuth.sessions.labels.expires')}
+                  </div>
                   <div class="mt-1 font-medium">{formatTimestamp(session.idleExpiresAt)}</div>
                 </div>
               </div>
@@ -251,7 +285,7 @@
           {/each}
         {:else}
           <div class="border-border bg-card text-muted-foreground rounded-lg border p-4 text-sm">
-            No active browser sessions found.
+            {i18nStore.t('settings.security.humanAuth.sessions.messages.noSessions')}
           </div>
         {/if}
       </div>

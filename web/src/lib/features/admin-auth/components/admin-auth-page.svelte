@@ -26,6 +26,7 @@
   import AdminAuthForm from './admin-auth-form.svelte'
   import AdminAuthOverview from './admin-auth-overview.svelte'
   import AdminAuthRuntimeDetails from './admin-auth-runtime-details.svelte'
+  import { adminAuthT } from './i18n'
 
   let loading = $state(false)
   let error = $state('')
@@ -54,8 +55,8 @@
       syncForm(payload.auth)
     } catch (caughtError) {
       auth = null
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load admin auth state.'
+      const loadError = adminAuthT('adminAuth.errors.loadState')
+      error = caughtError instanceof ApiError ? caughtError.detail : loadError
     } finally {
       loading = false
     }
@@ -111,9 +112,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = null
-        toastStore.success('Draft saved.')
+        toastStore.success(adminAuthT('adminAuth.success.draftSaved'))
       },
-      'Failed to save draft.',
+      adminAuthT('adminAuth.errors.saveDraft'),
     )
   }
 
@@ -124,11 +125,14 @@
         const payload = await testAdminOIDCDraft(oidcDraftPayloadFromForm(oidcForm))
         applyValidationResult(payload)
         transition = null
-        toastStore.success(
-          payload.issuer_url ? `Validation passed — ${payload.issuer_url}` : 'Validation passed.',
-        )
+        const message = payload.issuer_url
+          ? adminAuthT('adminAuth.success.validationPassedWithIssuer', {
+              issuerUrl: payload.issuer_url,
+            })
+          : adminAuthT('adminAuth.success.validationPassed')
+        toastStore.success(message)
       },
-      'Validation failed.',
+      adminAuthT('adminAuth.errors.validationFailed'),
     )
     if (error) {
       await refreshAuth()
@@ -143,9 +147,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success('OIDC activated.')
+        toastStore.success(adminAuthT('adminAuth.success.oidcActivated'))
       },
-      'Failed to activate OIDC.',
+      adminAuthT('adminAuth.errors.activateOidc'),
     )
     if (error) {
       await refreshAuth()
@@ -160,11 +164,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success(
-          'OIDC is now inactive. Use local bootstrap until you are ready to retry rollout.',
-        )
+        toastStore.success(adminAuthT('adminAuth.success.oidcDeactivated'))
       },
-      'Failed to switch the instance back to local bootstrap access.',
+      adminAuthT('adminAuth.errors.deactivate'),
     )
   }
 
@@ -174,8 +176,8 @@
 </script>
 
 <PageScaffold
-  title="Admin Auth"
-  description="Instance browser authentication and OIDC provider settings."
+  title={adminAuthT('adminAuth.pageTitle')}
+  description={adminAuthT('adminAuth.pageDescription')}
 >
   {#if loading}
     <div class="space-y-4">

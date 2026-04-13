@@ -11,6 +11,7 @@
     ProjectConversationWorkspaceTreeEntry,
   } from '$lib/api/chat'
   import { fileIcon, statusLabel } from './project-conversation-workspace-browser-helpers'
+  import { chatT } from './i18n'
 
   type TreeEntry = ProjectConversationWorkspaceTreeEntry
 
@@ -178,7 +179,7 @@
             class="text-muted-foreground/60 py-1 text-[11px]"
             style="padding-left: {(depth + 1) * 16 + 28}px"
           >
-            Loading…
+            {chatT('chat.explorer.loadingFiles')}
           </div>
         {/if}
       {/if}
@@ -228,7 +229,11 @@
 {#if rootEntries.length > 0}
   {@render treeLevel(rootEntries, 0)}
 {:else if loadingDirs.has('')}
-  <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">Loading files…</div>
+  <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">
+    {chatT('chat.explorer.loadingFiles')}
+  </div>
 {:else if !pendingCreate}
-  <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">Empty directory</div>
+  <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">
+    {chatT('chat.explorer.emptyDirectory')}
+  </div>
 {/if}

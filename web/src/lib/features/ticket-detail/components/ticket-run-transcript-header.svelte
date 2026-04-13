@@ -3,6 +3,7 @@
   import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
   import { formatRelativeTime } from '$lib/utils'
+  import { ticketsT } from '$lib/features/tickets'
   import TicketRunErrorCard from './ticket-run-error-card.svelte'
   import {
     connectionLabel,
@@ -87,7 +88,9 @@
       {/if}
       {#if run}
         {#if latestRunId === run.id}
-          <Badge variant="outline" class="h-6 px-2.5 text-[11px]">Live</Badge>
+          <Badge variant="outline" class="h-6 px-2.5 text-[11px]">
+            {ticketsT('tickets.transcript.live')}
+          </Badge>
         {/if}
         <Badge variant="outline" class={`h-6 px-2.5 text-[11px] ${statusTone(run)}`}>
           {statusLabel(run)}
@@ -112,7 +115,9 @@
   {/if}
 
   {#if loading}
-    <div class="text-muted-foreground mt-3 text-xs">Loading transcript…</div>
+    <div class="text-muted-foreground mt-3 text-xs">
+      {ticketsT('tickets.transcript.loading')}
+    </div>
   {/if}
 
   <div class="mt-3">

@@ -8,6 +8,7 @@
   import { ArrowLeft, BookTemplate, Loader2, Sparkles } from '@lucide/svelte'
   import type { WorkflowFamily } from '../types'
   import { normalizeWorkflowFamily, workflowFamilyColors, workflowFamilyIcons } from '../model'
+  import { t } from './i18n'
 
   let {
     open = $bindable(false),
@@ -116,18 +117,16 @@
       {:else}
         <div class="flex items-center gap-2">
           <BookTemplate class="text-muted-foreground size-5" />
-          <Sheet.Title>Workflow Templates</Sheet.Title>
+          <Sheet.Title>{t('workflows.templates.gallery.title')}</Sheet.Title>
         </div>
-        <Sheet.Description>
-          Browse preset workflow roles and use them as a starting point.
-        </Sheet.Description>
+        <Sheet.Description>{t('workflows.templates.gallery.description')}</Sheet.Description>
       {/if}
     </Sheet.Header>
 
     <div class="flex-1 overflow-y-auto">
       {#if loading}
         <div class="text-muted-foreground flex items-center justify-center py-20 text-sm">
-          Loading templates…
+          {t('workflows.templates.gallery.loadingTemplates')}
         </div>
       {:else if selectedRole}
         <!-- Detail view -->
@@ -135,7 +134,7 @@
           {#if loadingDetail}
             <div class="text-muted-foreground flex items-center gap-2 py-8 text-sm">
               <Loader2 class="size-4 animate-spin" />
-              Loading template details…
+              {t('workflows.templates.gallery.loadingDetail')}
             </div>
           {/if}
 
@@ -186,10 +185,12 @@
 
     {#if selectedRole}
       <div class="border-border flex items-center justify-end gap-2 border-t px-6 py-4">
-        <Button variant="outline" size="sm" onclick={() => (selectedRole = null)}>Back</Button>
+        <Button variant="outline" size="sm" onclick={() => (selectedRole = null)}>
+          {t('workflows.templates.gallery.actions.back')}
+        </Button>
         <Button size="sm" onclick={() => handleUseTemplate(selectedRole!)} disabled={loadingDetail}>
           <Sparkles class="size-3.5" />
-          Use this template
+          {t('workflows.templates.gallery.actions.use')}
         </Button>
       </div>
     {/if}

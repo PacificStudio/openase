@@ -147,7 +147,7 @@ describe('TicketRunHistoryPanel', () => {
     })
 
     // Chronological order: oldest first
-    const buttons = getAllByRole('button', { name: /View Attempt / })
+    const buttons = getAllByRole('button', { name: 'View attempt' })
     expect(buttons[0]?.textContent).toContain('#1')
     expect(buttons[1]?.textContent).toContain('#2')
     // Status badge on attempt row only (no separate header badge)
@@ -157,17 +157,21 @@ describe('TicketRunHistoryPanel', () => {
 
   it('requests a run switch and renders historical terminal summaries', async () => {
     const onSelectRun = vi.fn()
-    const { getByRole, getAllByText, getByText, rerender } = render(TicketRunHistoryPanel, {
-      props: {
-        ticket,
-        runs: [latestRun, failedRun],
-        currentRun: latestRun,
-        blocks: latestBlocks,
-        onSelectRun,
+    const { getByRole, getAllByRole, getAllByText, getByText, rerender } = render(
+      TicketRunHistoryPanel,
+      {
+        props: {
+          ticket,
+          runs: [latestRun, failedRun],
+          currentRun: latestRun,
+          blocks: latestBlocks,
+          onSelectRun,
+        },
       },
-    })
+    )
 
-    await fireEvent.click(getByRole('button', { name: 'View Attempt 1' }))
+    const runButtons = getAllByRole('button', { name: 'View attempt' })
+    await fireEvent.click(runButtons[0]!)
     expect(onSelectRun).toHaveBeenCalledWith(failedRun.id)
 
     await rerender({
@@ -254,7 +258,7 @@ describe('TicketRunHistoryPanel', () => {
       },
     })
 
-    await fireEvent.click(getByRole('button', { name: /934 earlier events hidden/i }))
+    await fireEvent.click(getByRole('button', { name: 'Hidden Events' }))
     expect(onLoadOlderRunTranscript).toHaveBeenCalledWith(latestRun.id)
   })
 })

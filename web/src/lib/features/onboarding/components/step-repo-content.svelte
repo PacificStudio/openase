@@ -8,6 +8,7 @@
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
   import { Plus, Link, Loader2, CheckCircle2, GitBranch, FolderGit2, Search } from '@lucide/svelte'
+  import { REPO_STEP_KEYS as KEYS, t as repoCopy } from './step-repo-copy'
 
   let {
     mode = $bindable<'choose' | 'create' | 'link'>(),
@@ -82,7 +83,7 @@
     {#if mode === 'choose'}
       <Button variant="outline" size="sm" onclick={onEnterCreateMode}>
         <Plus class="mr-1.5 size-3.5" />
-        Add another repository
+        {repoCopy(KEYS.actionsAddRepository)}
       </Button>
     {/if}
   {/if}
@@ -99,9 +100,9 @@
             <Plus class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">Create a new repository</p>
+            <p class="text-foreground text-sm font-medium">{repoCopy(KEYS.createCardTitle)}</p>
             <p class="text-muted-foreground mt-0.5 text-xs">
-              Create a new code repository on GitHub
+              {repoCopy(KEYS.createCardDescription)}
             </p>
           </div>
         </button>
@@ -115,8 +116,8 @@
             <Link class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">Link an existing repository</p>
-            <p class="text-muted-foreground mt-0.5 text-xs">Link an existing Git repository</p>
+            <p class="text-foreground text-sm font-medium">{repoCopy(KEYS.linkCardTitle)}</p>
+            <p class="text-muted-foreground mt-0.5 text-xs">{repoCopy(KEYS.linkCardDescription)}</p>
           </div>
         </button>
       </div>
@@ -124,7 +125,7 @@
       <div class="space-y-3">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Namespace</p>
+            <p class="text-foreground mb-1 text-xs font-medium">{repoCopy(KEYS.formNamespace)}</p>
             <Select.Root
               type="single"
               value={selectedNamespace}
@@ -133,7 +134,7 @@
               }}
             >
               <Select.Trigger class="h-9 w-full text-sm">
-                {selectedNamespace || 'Select a namespace'}
+                {selectedNamespace || repoCopy(KEYS.placeholderNamespace)}
               </Select.Trigger>
               <Select.Content>
                 {#each namespaces as ns (ns.login)}
@@ -143,13 +144,19 @@
             </Select.Root>
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Repository name</p>
-            <Input bind:value={newRepoName} placeholder="my-project" class="h-9 text-sm" />
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {repoCopy(KEYS.formRepositoryName)}
+            </p>
+            <Input
+              bind:value={newRepoName}
+              placeholder={repoCopy(KEYS.placeholderRepositoryName)}
+              class="h-9 text-sm"
+            />
           </div>
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Visibility</p>
+            <p class="text-foreground mb-1 text-xs font-medium">{repoCopy(KEYS.formVisibility)}</p>
             <Select.Root
               type="single"
               value={newRepoVisibility}
@@ -158,17 +165,29 @@
               }}
             >
               <Select.Trigger class="h-9 w-full text-sm">
-                {newRepoVisibility === 'private' ? 'Private' : 'Public'}
+                {newRepoVisibility === 'private'
+                  ? repoCopy(KEYS.visibilityPrivate)
+                  : repoCopy(KEYS.visibilityPublic)}
               </Select.Trigger>
               <Select.Content>
-                <Select.Item value="private">Private</Select.Item>
-                <Select.Item value="public">Public</Select.Item>
+                <Select.Item value="private">
+                  {repoCopy(KEYS.visibilityPrivate)}
+                </Select.Item>
+                <Select.Item value="public">
+                  {repoCopy(KEYS.visibilityPublic)}
+                </Select.Item>
               </Select.Content>
             </Select.Root>
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Default branch</p>
-            <Input bind:value={newRepoDefaultBranch} placeholder="main" class="h-9 text-sm" />
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {repoCopy(KEYS.formDefaultBranch)}
+            </p>
+            <Input
+              bind:value={newRepoDefaultBranch}
+              placeholder={repoCopy(KEYS.placeholderDefaultBranch)}
+              class="h-9 text-sm"
+            />
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -178,25 +197,27 @@
           >
             {#if creating}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              Creating...
+              {repoCopy(KEYS.actionsCreating)}
             {:else}
               <Plus class="mr-1.5 size-3.5" />
-              Create and link
+              {repoCopy(KEYS.actionsCreateAndLink)}
             {/if}
           </Button>
-          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>Back</Button>
+          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>
+            {repoCopy(KEYS.actionsBack)}
+          </Button>
         </div>
       </div>
     {:else}
       <div class="space-y-3">
         <div>
           <p class="text-foreground mb-1 text-xs font-medium">
-            Search or browse GitHub repositories
+            {repoCopy(KEYS.searchHeading)}
           </p>
           <div class="flex items-center gap-2">
             <Input
               bind:value={repoSearchQuery}
-              placeholder="Search repository names, or browse recently accessible repositories..."
+              placeholder={repoCopy(KEYS.searchPlaceholder)}
               class="h-9 flex-1 text-sm"
               onkeydown={(e) => {
                 if (e.key === 'Enter') void onSearchRepos?.()
@@ -229,19 +250,31 @@
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Repository name</p>
-            <Input bind:value={linkRepoName} placeholder="my-project" class="h-9 text-sm" />
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {repoCopy(KEYS.formRepositoryName)}
+            </p>
+            <Input
+              bind:value={linkRepoName}
+              placeholder={repoCopy(KEYS.placeholderRepositoryName)}
+              class="h-9 text-sm"
+            />
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">Default branch</p>
-            <Input bind:value={linkRepoBranch} placeholder="main" class="h-9 text-sm" />
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {repoCopy(KEYS.formDefaultBranch)}
+            </p>
+            <Input
+              bind:value={linkRepoBranch}
+              placeholder={repoCopy(KEYS.placeholderDefaultBranch)}
+              class="h-9 text-sm"
+            />
           </div>
         </div>
         <div>
-          <p class="text-foreground mb-1 text-xs font-medium">Git URL</p>
+          <p class="text-foreground mb-1 text-xs font-medium">{repoCopy(KEYS.formGitUrl)}</p>
           <Input
             bind:value={linkRepoUrl}
-            placeholder="https://github.com/owner/repo.git"
+            placeholder={repoCopy(KEYS.placeholderGitUrl)}
             class="h-9 text-sm"
           />
         </div>
@@ -253,13 +286,15 @@
           >
             {#if linking}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              Linking...
+              {repoCopy(KEYS.actionsLinking)}
             {:else}
               <Link class="mr-1.5 size-3.5" />
-              Link repository
+              {repoCopy(KEYS.actionsLinkRepository)}
             {/if}
           </Button>
-          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>Back</Button>
+          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>
+            {repoCopy(KEYS.actionsBack)}
+          </Button>
         </div>
       </div>
     {/if}

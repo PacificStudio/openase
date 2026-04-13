@@ -6,9 +6,10 @@
   import type { ProjectConversation } from '$lib/api/chat'
   import EphemeralChatProviderSelect from './ephemeral-chat-provider-select.svelte'
   import ProjectConversationHistoryPopover from './project-conversation-history-popover.svelte'
+  import { chatT } from './i18n'
 
   let {
-    title = 'Project AI',
+    title = chatT('layout.projectAI'),
     providers = [],
     providerId = '',
     providerSelectionDisabled = false,
@@ -54,7 +55,7 @@
     {providers}
     {providerId}
     disabled={providerSelectionDisabled}
-    switchHint={activeTabHasContent ? 'Switching model will open a new session' : ''}
+    switchHint={activeTabHasContent ? chatT('chat.switchingModelHint') : ''}
     {onProviderChange}
   />
   <div class="ml-auto flex items-center">
@@ -66,7 +67,7 @@
             variant="ghost"
             size="sm"
             class="text-muted-foreground size-6 p-0"
-            aria-label="Conversation history"
+            aria-label={chatT('chat.conversationHistory')}
             disabled={conversations.length === 0}
           >
             <History class="size-3" />
@@ -77,7 +78,7 @@
         <div
           class="text-muted-foreground px-2 pt-0.5 pb-0.5 text-[10px] font-medium tracking-wider uppercase"
         >
-          History
+          {chatT('chat.historyLabel')}
         </div>
         <ProjectConversationHistoryPopover
           {conversations}
@@ -91,7 +92,7 @@
       variant="ghost"
       size="sm"
       class="text-muted-foreground h-6 gap-1 px-1.5 text-[11px]"
-      aria-label="New Tab"
+      aria-label={chatT('chat.newTab')}
       onclick={onCreateTab}
       disabled={!providerId}
     >
@@ -102,7 +103,7 @@
         variant="ghost"
         size="sm"
         class="text-muted-foreground size-6 p-0"
-        aria-label="Close panel"
+        aria-label={chatT('chat.closePanel')}
         onclick={onClose}
       >
         <X class="size-3" />

@@ -12,9 +12,8 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
 
-  import SecuritySettingsSecretBindings, {
-    type SecretBindingDraft,
-  } from './security-settings-secret-bindings.svelte'
+  import SecuritySettingsSecretBindings from './security-settings-secret-bindings.svelte'
+  import type { SecretBindingDraft } from './security-settings-secret-bindings-model'
 
   const emptySecretBindingDraft = (): SecretBindingDraft => ({
     bindingKey: '',

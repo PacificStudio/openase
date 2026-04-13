@@ -20,6 +20,7 @@
     type NewTicketDraft,
   } from '../new-ticket'
   import NewTicketDialogMetadata from './new-ticket-dialog-metadata.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const priorityLabels: Record<string, string> = {
     '': formatBoardPriorityLabel(''),
@@ -89,7 +90,7 @@
       toastStore.error(
         caughtError instanceof ApiError
           ? caughtError.detail
-          : 'Failed to load ticket form options.',
+          : i18nStore.t('tickets.newTicketDialog.errors.loadOptions'),
       )
     } finally {
       if (requestId === loadRequestId) {
@@ -137,7 +138,7 @@
 
     const currentProject = appStore.currentProject
     if (!currentProject) {
-      toastStore.error('Select a project before creating a ticket.')
+      toastStore.error(i18nStore.t('tickets.newTicketDialog.errors.selectProject'))
       return
     }
     const projectId = currentProject.id
@@ -160,7 +161,9 @@
       appStore.openRightPanel({ type: 'ticket', id: createdTicketId })
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create ticket.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('tickets.newTicketDialog.errors.create'),
       )
     } finally {
       saving = false
@@ -171,12 +174,14 @@
 <Dialog.Root bind:open={appStore.newTicketDialogOpen}>
   <Dialog.Content class="sm:max-w-xl">
     <Dialog.Header>
-      <Dialog.Title>Create Ticket</Dialog.Title>
+      <Dialog.Title>{i18nStore.t('tickets.newTicketDialog.title')}</Dialog.Title>
       <Dialog.Description>
         {#if appStore.currentProject}
-          Create a ticket in {appStore.currentProject.name}.
+          {i18nStore.t('tickets.newTicketDialog.description.withProject', {
+            project: appStore.currentProject.name,
+          })}
         {:else}
-          Select a project before creating a ticket.
+          {i18nStore.t('tickets.newTicketDialog.description.noProject')}
         {/if}
       </Dialog.Description>
     </Dialog.Header>
@@ -184,11 +189,13 @@
     <form class="flex min-h-0 flex-1 flex-col gap-6" onsubmit={handleSubmit}>
       <Dialog.Body class="space-y-4">
         <div class="space-y-2">
-          <Label for="new-ticket-title">Title</Label>
+          <Label for="new-ticket-title">
+            {i18nStore.t('tickets.newTicketDialog.labels.title')}
+          </Label>
           <Input
             id="new-ticket-title"
             value={draft.title}
-            placeholder="Describe the outcome to deliver"
+            placeholder={i18nStore.t('tickets.newTicketDialog.placeholders.title')}
             disabled={loading || saving}
             oninput={(event) =>
               updateDraftField('title', (event.currentTarget as HTMLInputElement).value)}
@@ -196,12 +203,14 @@
         </div>
 
         <div class="space-y-2">
-          <Label for="new-ticket-description">Description</Label>
+          <Label for="new-ticket-description">
+            {i18nStore.t('tickets.newTicketDialog.labels.description')}
+          </Label>
           <Textarea
             id="new-ticket-description"
             value={draft.description}
             rows={4}
-            placeholder="Add implementation context, acceptance criteria, or constraints."
+            placeholder={i18nStore.t('tickets.newTicketDialog.placeholders.description')}
             disabled={loading || saving}
             oninput={(event) =>
               updateDraftField('description', (event.currentTarget as HTMLTextAreaElement).value)}
@@ -228,7 +237,9 @@
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || loading || !appStore.currentProject?.id}>
-          {saving ? 'Creating\u2026' : 'Create ticket'}
+          {saving
+            ? i18nStore.t('tickets.newTicketDialog.actions.creating')
+            : i18nStore.t('tickets.newTicketDialog.actions.create')}
         </Button>
       </Dialog.Footer>
     </form>

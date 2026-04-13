@@ -1,4 +1,5 @@
 import { formatRelativeTime } from '$lib/utils'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import { friendlyTransportLabel } from '../machine-setup'
 import type { MachineCLIStatus, MachineSnapshot } from '../types'
 
@@ -46,7 +47,7 @@ export type HealthAuditRow =
 export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
   return [
     {
-      label: 'Reachability',
+      label: i18nStore.t('machines.shared.reachability'),
       value:
         snapshot.monitor.l1?.reachable === undefined
           ? 'Unknown'
@@ -58,7 +59,7 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
         : friendlyTransportLabel(snapshot.transport),
     },
     {
-      label: 'CPU',
+      label: i18nStore.t('machines.machineHealthPanel.stats.cpu'),
       value:
         snapshot.cpuUsagePercent === undefined
           ? 'Pending'
@@ -67,7 +68,7 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
         snapshot.cpuCores === undefined ? 'No core count' : `${snapshot.cpuCores.toFixed(0)} cores`,
     },
     {
-      label: 'Memory',
+      label: i18nStore.t('machines.shared.memory'),
       value:
         snapshot.memoryUsedGB === undefined
           ? 'Pending'
@@ -78,7 +79,7 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
           : `${snapshot.memoryAvailableGB.toFixed(1)} GB free`,
     },
     {
-      label: 'Disk',
+      label: i18nStore.t('machines.shared.disk'),
       value:
         snapshot.diskAvailableGB === undefined
           ? 'Pending'
@@ -99,7 +100,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
   return [
     {
       id: 'l1',
-      label: 'L1 Reachability',
+      label: i18nStore.t('machines.machineHealthPanel.levels.l1Reachability'),
       state: snapshot.monitor.l1?.error
         ? 'error'
         : snapshot.monitor.l1?.reachable === true
@@ -115,7 +116,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
     },
     {
       id: 'l2',
-      label: 'L2 System',
+      label: i18nStore.t('machines.machineHealthPanel.levels.l2System'),
       state: snapshot.monitor.l2?.error
         ? 'error'
         : snapshot.monitor.l2?.checkedAt
@@ -129,7 +130,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
     },
     {
       id: 'l3',
-      label: 'L3 GPU',
+      label: i18nStore.t('machines.machineHealthPanel.levels.l3Gpu'),
       state: snapshot.monitor.l3?.error
         ? 'error'
         : snapshot.monitor.l3?.checkedAt
@@ -145,7 +146,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
     },
     {
       id: 'l4',
-      label: 'L4 Runtime Environment',
+      label: i18nStore.t('machines.machineHealthPanel.levels.l4RuntimeEnvironment'),
       state: snapshot.monitor.l4?.error
         ? 'error'
         : snapshot.monitor.l4?.checkedAt
@@ -159,7 +160,7 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
     },
     {
       id: 'l5',
-      label: 'L5 Tooling Audit',
+      label: i18nStore.t('machines.machineHealthPanel.levels.l5ToolingAudit'),
       state: snapshot.monitor.l5?.error
         ? 'error'
         : snapshot.monitor.l5?.checkedAt
@@ -188,19 +189,19 @@ export function buildAuditRows(snapshot: MachineSnapshot): HealthAuditRow[] {
   return [
     {
       kind: 'git',
-      label: 'Git',
+      label: i18nStore.t('machines.shared.git'),
       installed: toTruthyState(snapshot.fullAudit.git?.installed),
       identity: gitIdentity,
     },
     {
       kind: 'gh-cli',
-      label: 'GitHub CLI',
+      label: i18nStore.t('machines.shared.githubCli'),
       installed: toTruthyState(snapshot.fullAudit.ghCLI?.installed),
       authStatus: snapshot.fullAudit.ghCLI?.authStatus ?? null,
     },
     {
       kind: 'network',
-      label: 'Network',
+      label: i18nStore.t('machines.shared.network'),
       endpoints: [
         { name: 'GitHub', reachable: toTruthyState(network?.githubReachable) },
         { name: 'PyPI', reachable: toTruthyState(network?.pypiReachable) },

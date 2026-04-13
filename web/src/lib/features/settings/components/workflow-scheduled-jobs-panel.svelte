@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
   import type { ScheduledJob } from '$lib/api/contracts'
   import {
     createScheduledJob,
@@ -26,14 +25,19 @@
     scheduledJobDraftFromRecord,
     type ScheduledJobDraft,
   } from './workflow-scheduled-jobs'
+  import {
+    scheduledJobToggleMessageKeys,
+    showScheduledJobError,
+  } from './workflow-scheduled-jobs-panel-helpers'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     projectId,
     statuses,
     loading: parentLoading = false,
     showHeader = true,
-    title = 'Scheduled Jobs',
-    description = 'Manage recurring ticket creation for project statuses.',
+    title = '',
+    description = '',
   }: {
     projectId: string
     statuses: WorkflowStatusOption[]
@@ -113,7 +117,7 @@
       } catch (caughtError) {
         if (cancelled) return
         jobs = []
-        showApiError(caughtError, 'Failed to load scheduled jobs.')
+        showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.load')
       } finally {
         if (!cancelled) loadingJobs = false
       }
@@ -128,7 +132,10 @@
       } catch (caughtError) {
         if (cancelled) return
         repoOptions = []
-        showApiError(caughtError, 'Failed to load project repositories.')
+        showScheduledJobError(
+          caughtError,
+          'settings.workflowScheduledJobs.errors.loadProjectRepositories',
+        )
       } finally {
         if (!cancelled) loadingRepos = false
       }
@@ -140,33 +147,24 @@
     }
   })
 
-  function openNewJob() {
+  const openNewJob = () => {
     selectedJobId = ''
     draft = emptyScheduledJobDraft(statuses[0]?.id ?? '', repoOptions)
     editorOpen = true
   }
-
-  function openEditJob(job: ScheduledJob) {
+  const openEditJob = (job: ScheduledJob) => {
     selectedJobId = job.id
     draft = scheduledJobDraftFromRecord(job, statuses, repoOptions)
     editorOpen = true
   }
-
-  function handleEditorClose(open: boolean) {
+  const handleEditorClose = (open: boolean) => {
     if (!open) {
       selectedJobId = ''
       draft = emptyScheduledJobDraft(statuses[0]?.id ?? '', repoOptions)
     }
   }
 
-  async function refreshJobs() {
-    const payload = await listScheduledJobs(projectId)
-    jobs = payload.scheduled_jobs
-  }
-
-  function showApiError(caughtError: unknown, fallback: string) {
-    toastStore.error(caughtError instanceof ApiError ? caughtError.detail : fallback)
-  }
+  const refreshJobs = async () => (jobs = (await listScheduledJobs(projectId)).scheduled_jobs)
 
   async function handleSubmit() {
     const parsed = parseScheduledJobDraft(draft, statuses, repoOptions)
@@ -179,7 +177,7 @@
       if (selectedJob) {
         await updateScheduledJob(selectedJob.id, parsed.value)
         await refreshJobs()
-        toastStore.success('Scheduled job updated.')
+        toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.updated'))
       } else {
         const payload = await createScheduledJob(projectId, parsed.value)
         await refreshJobs()
@@ -189,10 +187,10 @@
           statuses,
           repoOptions,
         )
-        toastStore.success('Scheduled job created.')
+        toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.created'))
       }
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to save scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.save')
     } finally {
       saving = false
     }
@@ -206,9 +204,9 @@
       editorOpen = false
       selectedJobId = ''
       await refreshJobs()
-      toastStore.success('Scheduled job deleted.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.deleted'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to delete scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
       deleting = false
     }
@@ -219,9 +217,15 @@
     try {
       await updateScheduledJob(job.id, { is_enabled: !job.is_enabled })
       await refreshJobs()
-      toastStore.success(job.is_enabled ? 'Job disabled.' : 'Job enabled.')
+      toastStore.success(
+        i18nStore.t(
+          job.is_enabled
+            ? scheduledJobToggleMessageKeys.disabled
+            : scheduledJobToggleMessageKeys.enabled,
+        ),
+      )
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to update job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.toggle')
     } finally {
       actionJobId = null
     }
@@ -232,9 +236,9 @@
     try {
       await triggerScheduledJob(job.id)
       await refreshJobs()
-      toastStore.success('Scheduled job triggered.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.triggered'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to trigger scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
       actionJobId = null
     }
@@ -246,9 +250,9 @@
     try {
       await triggerScheduledJob(selectedJob.id)
       await refreshJobs()
-      toastStore.success('Scheduled job triggered.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.triggered'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to trigger scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
       triggering = false
     }
@@ -263,17 +267,16 @@
         selectedJobId = ''
       }
       await refreshJobs()
-      toastStore.success('Scheduled job deleted.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.deleted'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to delete scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
       actionJobId = null
     }
   }
 
-  function handleDraftFieldChange(field: keyof ScheduledJobDraft, value: string | boolean) {
-    draft = { ...draft, [field]: value }
-  }
+  const handleDraftFieldChange = (field: keyof ScheduledJobDraft, value: string | boolean) =>
+    (draft = { ...draft, [field]: value })
 
   function handleToggleDraftRepoScope(repoId: string) {
     draft = {
@@ -297,7 +300,11 @@
 
 <div class="flex h-full min-h-0 flex-col">
   {#if showHeader}
-    <WorkflowScheduledJobsHeader {title} {description} onCreate={openNewJob} />
+    <WorkflowScheduledJobsHeader
+      title={title || i18nStore.t('settings.workflowScheduledJobs.heading')}
+      description={description || i18nStore.t('settings.workflowScheduledJobs.description')}
+      onCreate={openNewJob}
+    />
   {/if}
 
   <div class="flex-1 overflow-y-auto p-4">

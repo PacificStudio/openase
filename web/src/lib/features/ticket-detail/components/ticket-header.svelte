@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { TranslationKey } from '$lib/i18n'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
@@ -13,6 +14,7 @@
   import { formatBoardPriorityLabel, PriorityIcon } from '$lib/features/board/public'
   import type { BoardPriority } from '$lib/features/board/public'
   import type { TicketDetail, TicketStatusOption } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     ticket,
@@ -62,11 +64,16 @@
     low: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
   }
 
-  const typeLabels: Record<string, string> = {
-    feature: 'Feature',
-    bugfix: 'Bug Fix',
-    refactor: 'Refactor',
-    chore: 'Chore',
+  const typeLabelKeys: Record<string, TranslationKey> = {
+    feature: 'ticketDetail.header.type.feature',
+    bugfix: 'ticketDetail.header.type.bugfix',
+    refactor: 'ticketDetail.header.type.refactor',
+    chore: 'ticketDetail.header.type.chore',
+  }
+
+  function renderTypeLabel(value: string) {
+    const key = typeLabelKeys[value]
+    return key ? i18nStore.t(key) : value
   }
 
   function copyIdentifier() {
@@ -154,7 +161,7 @@
       onclick={cancelTitleEdit}
       disabled={savingFields}
     >
-      Cancel
+      {i18nStore.t('ticketDetail.header.actions.cancel')}
     </Button>
     <Button
       size="sm"
@@ -163,7 +170,9 @@
       disabled={savingFields || !titleDirty}
     >
       <Save class="size-3" />
-      {savingFields ? 'Saving…' : 'Save'}
+      {savingFields
+        ? i18nStore.t('ticketDetail.header.actions.saving')
+        : i18nStore.t('ticketDetail.header.actions.save')}
     </Button>
   </div>
 {:else}
@@ -186,7 +195,7 @@
         style="background-color: {ticket.status.color}20; color: {ticket.status
           .color}; border-color: {ticket.status.color}30"
       >
-        {savingFields ? 'Saving…' : ticket.status.name}
+        {savingFields ? i18nStore.t('ticketDetail.header.actions.saving') : ticket.status.name}
       </Popover.Trigger>
       <Popover.Content align="start" class="w-40 gap-0 p-0.5">
         {#each statuses as status (status.id)}
@@ -233,7 +242,7 @@
       </Popover.Content>
     </Popover.Root>
     <Badge variant="outline" class="shrink-0 px-1.5 py-0 text-[10px]">
-      {typeLabels[ticket.type] ?? ticket.type}
+      {renderTypeLabel(ticket.type)}
     </Badge>
     <h2 class="min-w-0 flex-1 truncate text-xs leading-snug font-medium">{ticket.title}</h2>
     <div class="ml-auto flex shrink-0 items-center">
@@ -242,7 +251,7 @@
         size="icon-sm"
         class="size-6"
         onclick={toggleTitleEdit}
-        aria-label="Edit title"
+        aria-label={i18nStore.t('ticketDetail.header.action.editTitle')}
       >
         <Pencil class="size-3" />
       </Button>
@@ -252,12 +261,12 @@
         class="text-muted-foreground hover:text-destructive size-6"
         disabled={archiving || ticket.archived}
         onclick={() => {
-          if (confirm('Archive this ticket?')) {
+          if (confirm(i18nStore.t('ticketDetail.header.confirmArchive'))) {
             onArchive?.()
           }
         }}
-        aria-label="Archive ticket"
-        title="Archive ticket"
+        aria-label={i18nStore.t('ticketDetail.header.action.archive')}
+        title={i18nStore.t('ticketDetail.header.action.archive')}
       >
         <Archive class="size-3" />
       </Button>

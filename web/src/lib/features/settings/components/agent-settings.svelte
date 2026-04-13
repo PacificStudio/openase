@@ -3,6 +3,7 @@
   import type { Agent, AgentProvider, Machine } from '$lib/api/contracts'
   import { listAgents, listMachines, listProviders, updateProject } from '$lib/api/openase'
   import { ProviderCreationDialog } from '$lib/features/catalog-creation'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import {
     buildProviderCards,
     createProviderEditorState,
@@ -78,7 +79,9 @@
       } catch (caughtError) {
         if (cancelled) return
         loadError =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agent settings.'
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : i18nStore.t('settings.agentSettings.errors.load')
       } finally {
         if (!cancelled) {
           loading = false
@@ -96,7 +99,7 @@
   async function handleSaveDefaultProvider() {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      toastStore.error('Project context is unavailable.')
+      toastStore.error(i18nStore.t('settings.agentSettings.errors.projectContextMissing'))
       return
     }
 
@@ -116,12 +119,18 @@
       const selectedName = providers.find((p) => p.id === parsed.value)?.name
       toastStore.success(
         parsed.value
-          ? `Default agent provider set to ${selectedName ?? 'the selected provider'}.`
-          : 'Project now inherits the organization default provider.',
+          ? i18nStore.t('settings.agentSettings.messages.defaultProviderSet', {
+              provider:
+                selectedName ??
+                i18nStore.t('settings.agentSettings.messages.selectedProviderFallback'),
+            })
+          : i18nStore.t('settings.agentSettings.messages.inheritOrgDefault'),
       )
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save default provider.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.agentSettings.errors.saveDefault'),
       )
     } finally {
       saving = false
@@ -175,10 +184,11 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Agents</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.agentSettings.title')}
+    </h2>
     <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
-      Configure providers and default routing for this project. Manage agent runtime controls from
-      the Agents page in the sidebar.
+      {i18nStore.t('settings.agentSettings.description')}
     </p>
   </div>
 
@@ -243,8 +253,8 @@
   <ProviderCreationDialog
     orgId={appStore.currentOrg.id}
     bind:open={providerCreateOpen}
-    title="Add provider"
-    description="Register a provider for this organization without leaving the current project settings."
+    title={i18nStore.t('settings.agentSettings.addProviderTitle')}
+    description={i18nStore.t('settings.agentSettings.addProviderDescription')}
     onCreated={handleProviderCreated}
   />
 {/if}

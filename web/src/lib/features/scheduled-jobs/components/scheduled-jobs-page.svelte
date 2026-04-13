@@ -4,6 +4,7 @@
   import { listStatuses } from '$lib/api/openase'
   import { WorkflowScheduledJobsPanel } from '$lib/features/settings'
   import { mapStatusOptions, type WorkflowStatusOption } from '$lib/features/workflows'
+  import { scheduledJobsT } from './i18n'
 
   let loading = $state(false)
   let error = $state('')
@@ -32,7 +33,9 @@
       } catch (caughtError) {
         if (cancelled) return
         error =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load scheduled jobs.'
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : scheduledJobsT('scheduledJobs.failedToLoad')
       } finally {
         if (!cancelled) {
           loading = false
@@ -52,16 +55,20 @@
   {#if error}
     <div class="text-destructive p-6 text-sm">{error}</div>
   {:else if !loading && !appStore.currentProject?.id}
-    <div class="text-muted-foreground p-6 text-sm">Project context is unavailable.</div>
+    <div class="text-muted-foreground p-6 text-sm">
+      {scheduledJobsT('scheduledJobs.projectContextUnavailable')}
+    </div>
   {:else if !loading && statuses.length === 0}
-    <div class="text-muted-foreground p-6 text-sm">No ticket statuses available.</div>
+    <div class="text-muted-foreground p-6 text-sm">
+      {scheduledJobsT('scheduledJobs.noTicketStatuses')}
+    </div>
   {:else}
     <WorkflowScheduledJobsPanel
       projectId={appStore.currentProject?.id ?? ''}
       statuses={loading ? [] : statuses}
       {loading}
-      title="Scheduled Jobs"
-      description="Manage recurring ticket creation for project statuses."
+      title={scheduledJobsT('scheduledJobs.title')}
+      description={scheduledJobsT('scheduledJobs.description')}
     />
   {/if}
 </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { NotificationRule, NotificationRuleEventType } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Button } from '$ui/button'
   import { Switch } from '$ui/switch'
   import { findEventType } from '../notification-rules'
@@ -29,13 +30,17 @@
   <div
     class="border-border bg-muted/30 flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center"
   >
-    <p class="text-muted-foreground text-sm">Add a channel first to create notification rules.</p>
+    <p class="text-muted-foreground text-sm">
+      {i18nStore.t('settings.notificationRuleList.emptyStates.addChannelFirst')}
+    </p>
   </div>
 {:else if rules.length === 0}
   <div
     class="border-border bg-muted/30 flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center"
   >
-    <p class="text-muted-foreground text-sm">No notification rules yet.</p>
+    <p class="text-muted-foreground text-sm">
+      {i18nStore.t('settings.notificationRuleList.emptyStates.noRules')}
+    </p>
     <p class="text-muted-foreground text-xs">
       Browse available events below and click "+ Add rule" to subscribe.
     </p>
@@ -45,7 +50,9 @@
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b">
-          <th class="text-muted-foreground px-4 py-2.5 text-left text-xs font-medium">Rule</th>
+          <th class="text-muted-foreground px-4 py-2.5 text-left text-xs font-medium">
+            {i18nStore.t('settings.notificationRuleList.columns.rule')}
+          </th>
           <th
             class="text-muted-foreground hidden px-4 py-2.5 text-left text-xs font-medium sm:table-cell"
           >
@@ -73,14 +80,18 @@
               <div class="text-muted-foreground mt-0.5 block text-xs sm:hidden">
                 {et?.label ?? rule.event_type}
                 {#if !rule.channel.is_enabled}
-                  <span class="text-amber-500">· channel disabled</span>
+                  <span class="text-amber-500">
+                    · {i18nStore.t('settings.notificationRuleList.channelDisabled')}
+                  </span>
                 {/if}
               </div>
             </td>
             <td class="text-muted-foreground hidden px-4 py-3 text-xs sm:table-cell">
               {et?.label ?? rule.event_type}
               {#if !rule.channel.is_enabled}
-                <div class="mt-0.5 text-amber-500">channel disabled</div>
+                <div class="mt-0.5 text-amber-500">
+                  {i18nStore.t('settings.notificationRuleList.channelDisabled')}
+                </div>
               {/if}
             </td>
             <td class="text-muted-foreground hidden px-4 py-3 text-xs md:table-cell">
