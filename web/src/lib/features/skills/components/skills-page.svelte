@@ -178,7 +178,7 @@
       {/if}
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2" data-tour="skills-toolbar">
       <div class="relative min-w-48 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
         <Input bind:value={query} placeholder={skillsT('skills.searchPlaceholder')} class="pl-9" />
@@ -196,7 +196,7 @@
           </Button>
         {/each}
       </div>
-      <Button size="sm" class="h-8 gap-1.5" onclick={openCreate}>
+      <Button size="sm" class="h-8 gap-1.5" data-tour="skills-create" onclick={openCreate}>
         <Plus class="size-3.5" />
         {skillsT('skills.actions.newSkill')}
       </Button>

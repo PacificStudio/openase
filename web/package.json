@@ -81,6 +81,7 @@
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",
     "cmdk-sv": "^0.0.19",
+    "driver.js": "^1.4.0",
     "shiki": "^4.0.2",
     "streamdown-svelte": "^3.0.6",
     "tailwind-merge": "^3.5.0",

@@ -180,6 +180,7 @@
     <button
       onclick={copyIdentifier}
       class="text-muted-foreground hover:bg-muted flex shrink-0 items-center gap-1 rounded px-1 py-0.5 font-mono text-[11px] transition-colors"
+      data-tour="ticket-copy-id"
     >
       {ticket.identifier}
       {#if copied}
@@ -250,6 +251,7 @@
         variant="ghost"
         size="icon-sm"
         class="size-6"
+        data-tour="ticket-edit-title"
         onclick={toggleTitleEdit}
         aria-label={i18nStore.t('ticketDetail.header.action.editTitle')}
       >

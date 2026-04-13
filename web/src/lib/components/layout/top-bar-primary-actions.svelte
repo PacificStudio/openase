@@ -43,6 +43,7 @@
       variant="outline"
       size="sm"
       class="text-muted-foreground w-[200px] justify-start gap-2"
+      data-tour="topbar-search"
       onclick={onOpenSearch}
     >
       <Search class="size-3.5" />
@@ -69,6 +70,7 @@
   class="gap-1.5"
   disabled={!newTicketEnabled}
   data-testid="topbar-new-ticket-button"
+  data-tour="topbar-new-ticket"
   aria-label={newTicketEnabled
     ? i18nStore.t('layout.newTicketAriaLabel')
     : (newTicketTitle ?? i18nStore.t('layout.newTicketAriaLabel'))}
@@ -83,6 +85,7 @@
 
 <div
   class="text-muted-foreground flex items-center gap-1.5 text-xs"
+  data-tour="topbar-sse-status"
   title={i18nStore.t('layout.sseStatus', { status: sseStatus })}
 >
   {#if sseStatus === 'live'}

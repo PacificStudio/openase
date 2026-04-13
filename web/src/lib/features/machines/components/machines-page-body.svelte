@@ -81,13 +81,15 @@
 </script>
 
 {#snippet actions()}
-  <MachinePageActions
-    {refreshing}
-    refreshDisabled={loading}
-    createDisabled={!routeOrgId}
-    {onRefresh}
-    {onCreate}
-  />
+  <div data-tour="machines-actions">
+    <MachinePageActions
+      {refreshing}
+      refreshDisabled={loading}
+      createDisabled={!routeOrgId}
+      {onRefresh}
+      {onCreate}
+    />
+  </div>
 {/snippet}
 
 <PageScaffold

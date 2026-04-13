@@ -51,7 +51,7 @@
   })
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full flex-col" data-tour="scheduled-jobs-page">
   {#if error}
     <div class="text-destructive p-6 text-sm">{error}</div>
   {:else if !loading && !appStore.currentProject?.id}

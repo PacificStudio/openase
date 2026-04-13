@@ -36,7 +36,7 @@
   const parsePriorityFilter = parseBoardFilterPriority
 </script>
 
-<div class={cn('flex flex-wrap items-center gap-2', className)}>
+<div class={cn('flex flex-wrap items-center gap-2', className)} data-tour="board-toolbar">
   <div class="relative min-w-0 flex-1 basis-full sm:flex-none sm:basis-52">
     <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
     <Input
@@ -160,7 +160,7 @@
     </Button>
   {/if}
 
-  <div class="border-border ml-auto flex shrink-0 items-center rounded-md border">
+  <div class="border-border ml-auto flex shrink-0 items-center rounded-md border" data-tour="board-view-toggle">
     <Button
       variant={ticketViewStore.mode === 'board' ? 'secondary' : 'ghost'}
       size="sm"
