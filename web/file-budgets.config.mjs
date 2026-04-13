@@ -7,6 +7,9 @@ export const fileBudgetLimits = {
   featureModule: { soft: 200, hard: 325 },
   layoutComponent: { soft: 200, hard: 300 },
   uiPrimitive: { soft: 150, hard: 250 },
+  workspaceBrowserPane: { soft: 250, hard: 350 },
+  workspaceBrowserStateModule: { soft: 350, hard: 700 },
+  workspaceBrowserIntegrationTest: { soft: 350, hard: 700 },
 }
 
 function isRoutePage(filePath) {
@@ -41,42 +44,45 @@ function isUiPrimitive(filePath) {
   return /^src\/lib\/components\/ui\/.+\.svelte$/.test(filePath)
 }
 
+function isWorkspaceBrowserPane(filePath) {
+  return /^src\/lib\/features\/chat\/project-conversation-workspace-browser-(detail|pane|sidebar)\.svelte$/.test(
+    filePath,
+  )
+}
+
+function isWorkspaceBrowserStateModule(filePath) {
+  return /^src\/lib\/features\/chat\/project-conversation-workspace-(browser-state|file-editor-state)\.svelte\.(ts|js)$/.test(
+    filePath,
+  )
+}
+
+function isWorkspaceBrowserIntegrationTest(filePath) {
+  return /^src\/lib\/features\/chat\/project-conversation-workspace-browser-.*\.test\.(ts|js|mjs|cjs)$/.test(
+    filePath,
+  )
+}
+
 export const fileBudgetRules = [
+  // These workspace-browser files coordinate tree, editor, and diff state as one
+  // surface, so we give that recurring shape first-class budgets instead of
+  // piling up one-off waivers.
   {
-    name: 'Workspace editor V2 detail view',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-detail.svelte',
-    softLimit: 250,
-    hardLimit: 450,
+    name: 'Workspace browser panes',
+    match: isWorkspaceBrowserPane,
+    softLimit: fileBudgetLimits.workspaceBrowserPane.soft,
+    hardLimit: fileBudgetLimits.workspaceBrowserPane.hard,
   },
   {
-    name: 'Workspace editor V2 sidebar',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-sidebar.svelte',
-    softLimit: 250,
-    hardLimit: 400,
+    name: 'Workspace browser state modules',
+    match: isWorkspaceBrowserStateModule,
+    softLimit: fileBudgetLimits.workspaceBrowserStateModule.soft,
+    hardLimit: fileBudgetLimits.workspaceBrowserStateModule.hard,
   },
   {
-    name: 'Workspace editor V2 browser state',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-state.svelte.ts',
-    softLimit: 350,
-    hardLimit: 700,
-  },
-  {
-    name: 'Workspace editor V2 editor state',
-    match: (filePath) =>
-      filePath ===
-      'src/lib/features/chat/project-conversation-workspace-file-editor-state.svelte.ts',
-    softLimit: 350,
-    hardLimit: 650,
-  },
-  {
-    name: 'Workspace editor V2 refresh test',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-refresh.test.ts',
-    softLimit: 350,
-    hardLimit: 700,
+    name: 'Workspace browser integration tests',
+    match: isWorkspaceBrowserIntegrationTest,
+    softLimit: fileBudgetLimits.workspaceBrowserIntegrationTest.soft,
+    hardLimit: fileBudgetLimits.workspaceBrowserIntegrationTest.hard,
   },
   {
     name: 'Route pages',

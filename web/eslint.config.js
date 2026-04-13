@@ -108,11 +108,40 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/lib/features/chat/project-conversation-workspace-browser-*.test.{js,ts,mjs,cjs}'],
+    rules: {
+      'max-lines': [
+        'error',
+        {
+          max: fileBudgetLimits.workspaceBrowserIntegrationTest.hard,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
+    },
+  },
+  {
     files: ['src/lib/features/**/*.svelte.{ts,js}'],
     rules: {
       'max-lines': [
         'error',
         { max: fileBudgetLimits.featureStateModule.hard, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/lib/features/chat/project-conversation-workspace-browser-state.svelte.{ts,js}',
+      'src/lib/features/chat/project-conversation-workspace-file-editor-state.svelte.{ts,js}',
+    ],
+    rules: {
+      'max-lines': [
+        'error',
+        {
+          max: fileBudgetLimits.workspaceBrowserStateModule.hard,
+          skipBlankLines: true,
+          skipComments: true,
+        },
       ],
     },
   },

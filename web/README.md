@@ -97,9 +97,13 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | `lib/features/**/*.{ts,js}`         | 200        | 325                  |
 | `lib/components/layout/**/*.svelte` | 200        | 300                  |
 | `lib/components/ui/**/*.svelte`     | 150        | 250                  |
+| workspace browser panes             | 250        | 350                  |
+| workspace browser state modules     | 350        | 700                  |
+| workspace browser integration tests | 350        | 700                  |
 | single function                     | 40 target  | 60 warning threshold |
 
-There are no per-file budget waivers. If a recurring file shape needs a different limit, promote it into a named budget category instead of growing an allowlist.
+There are no per-file budget waivers. If a recurring file shape needs a different
+limit, promote it into a named budget category instead of growing an allowlist.
 
 ## Quality Gates
 
