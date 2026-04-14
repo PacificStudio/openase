@@ -25,6 +25,7 @@ export function buildProviderStateDetail(raw: Record<string, unknown> | null) {
 
 export function buildTaskDetail(raw: Record<string, unknown> | null) {
   return (
+    describeClaudeResultFailure(raw) ||
     readString(raw, 'message') ||
     readString(raw, 'text') ||
     describeStream(raw) ||
@@ -183,6 +184,87 @@ function describeStream(raw: Record<string, unknown> | null) {
 function describeStatus(raw: Record<string, unknown> | null) {
   const status = readString(raw, 'status')
   return status ? `Status: ${status}` : undefined
+}
+
+function describeClaudeResultFailure(raw: Record<string, unknown> | null) {
+  if (readString(raw, 'type') !== 'result' || !readBoolean(raw, 'is_error')) {
+    return undefined
+  }
+
+  const subtype = readString(raw, 'subtype')
+  const errors = readStringList(raw, 'errors')
+  const terminalReason = readString(raw, 'terminal_reason')
+
+  switch (subtype) {
+    case 'error_during_execution':
+      if (isClaudeInterruptedExecutionFailure(terminalReason, errors)) {
+        return "Claude couldn't finish this reply because the session was interrupted. Try sending your message again."
+      }
+      if (isClaudeResumeFailure(errors)) {
+        return "Claude couldn't resume the previous session. Try sending your message again, or start a new conversation if it keeps failing."
+      }
+      if (terminalReason === 'aborted_streaming' || containsClaudeErrorText(errors, 'request was aborted')) {
+        return "Claude couldn't finish this reply because the session stopped unexpectedly. Try sending your message again."
+      }
+      return "Claude couldn't finish this reply. Try sending your message again."
+    case 'error':
+      return 'Claude reported an error before this reply finished. Try sending your message again.'
+    default:
+      return subtype ? 'Claude returned an empty error response. Try sending your message again.' : undefined
+  }
+}
+
+function isClaudeInterruptedExecutionFailure(
+  terminalReason: string | undefined,
+  errors: string[],
+) {
+  const diagnostic = parseClaudeEDEDiagnostic(errors)
+  if (diagnostic.resultType !== 'user') {
+    return false
+  }
+  return (
+    terminalReason === 'aborted_streaming' ||
+    containsClaudeErrorText(errors, 'request was aborted')
+  )
+}
+
+function isClaudeResumeFailure(errors: string[]) {
+  return containsClaudeErrorText(
+    errors,
+    'thread not found',
+    'session not found',
+    'conversation not found',
+    'resume session',
+  )
+}
+
+function parseClaudeEDEDiagnostic(errors: string[]) {
+  const line = errors.find((item) => item.trim().startsWith('[ede_diagnostic]'))
+  if (!line) {
+    return { resultType: '', lastContentType: '', stopReason: '' }
+  }
+
+  const diagnostic = { resultType: '', lastContentType: '', stopReason: '' }
+  for (const field of line.replace('[ede_diagnostic]', '').trim().split(/\s+/)) {
+    const [key, value] = field.split('=', 2)
+    if (!key || !value) {
+      continue
+    }
+    if (key === 'result_type') diagnostic.resultType = value.trim()
+    if (key === 'last_content_type') diagnostic.lastContentType = value.trim()
+    if (key === 'stop_reason') diagnostic.stopReason = value.trim()
+  }
+  return diagnostic
+}
+
+function containsClaudeErrorText(errors: string[], ...snippets: string[]) {
+  if (errors.length === 0 || snippets.length === 0) {
+    return false
+  }
+  return errors.some((line) => {
+    const lowered = line.trim().toLowerCase()
+    return lowered !== '' && snippets.some((snippet) => lowered.includes(snippet.toLowerCase()))
+  })
 }
 
 function parseDiffFilePath(header: string) {

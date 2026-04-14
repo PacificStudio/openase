@@ -45,10 +45,53 @@ func TestClaudeCodeTurnFailureFallsBackToSubtypeSummary(t *testing.T) {
 		Subtype: "error_during_execution",
 		Raw:     json.RawMessage(`{"type":"result","subtype":"error_during_execution"}`),
 	})
-	if !strings.Contains(message, "error_during_execution") {
-		t.Fatalf("message = %q, want subtype summary", message)
+	if strings.Contains(message, "error_during_execution") {
+		t.Fatalf("message = %q, should hide internal subtype", message)
+	}
+	if message != "Claude couldn't finish this reply. Try sending your message again." {
+		t.Fatalf("message = %q, want user-facing fallback", message)
 	}
 	if !strings.Contains(details, `"subtype":"error_during_execution"`) {
+		t.Fatalf("details = %q, want encoded raw payload", details)
+	}
+}
+
+func TestClaudeCodeTurnFailureMapsInterruptedExecutionToUserFacingMessage(t *testing.T) {
+	message, details := ClaudeCodeTurnFailure(ClaudeCodeEvent{
+		Kind:    ClaudeCodeEventKindResult,
+		Subtype: "error_during_execution",
+		Raw: json.RawMessage(`{
+			"type":"result",
+			"subtype":"error_during_execution",
+			"terminal_reason":"aborted_streaming",
+			"errors":[
+				"[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use",
+				"Error: Request was aborted."
+			]
+		}`),
+	})
+	if message != "Claude couldn't finish this reply because the session was interrupted. Try sending your message again." {
+		t.Fatalf("message = %q, want interrupted-session guidance", message)
+	}
+	if !strings.Contains(details, `"terminal_reason":"aborted_streaming"`) {
+		t.Fatalf("details = %q, want raw payload preserved", details)
+	}
+}
+
+func TestClaudeCodeTurnFailureMapsMissingResumeSessionToUserFacingMessage(t *testing.T) {
+	message, details := ClaudeCodeTurnFailure(ClaudeCodeEvent{
+		Kind:    ClaudeCodeEventKindResult,
+		Subtype: "error_during_execution",
+		Raw: json.RawMessage(`{
+			"type":"result",
+			"subtype":"error_during_execution",
+			"errors":["thread not found: claude-session-stale"]
+		}`),
+	})
+	if message != "Claude couldn't resume the previous session. Try sending your message again, or start a new conversation if it keeps failing." {
+		t.Fatalf("message = %q, want resume failure guidance", message)
+	}
+	if !strings.Contains(details, `"thread not found: claude-session-stale"`) {
 		t.Fatalf("details = %q, want encoded raw payload", details)
 	}
 }

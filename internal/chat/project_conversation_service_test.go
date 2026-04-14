@@ -2497,6 +2497,218 @@ func TestProjectConversationStartTurnAllowsNextTurnAfterUserStop(t *testing.T) {
 	}
 }
 
+func TestProjectConversationStartTurnAfterUserStopMapsClaudeResumeErrorsToFriendlyMessage(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	firstTurn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Stop this Claude reply once it starts")
+	if err != nil {
+		t.Fatalf("create first turn: %v", err)
+	}
+
+	principal, err := repoStore.EnsurePrincipal(ctx, chatdomain.EnsurePrincipalInput{
+		ConversationID: conversation.ID,
+		ProjectID:      conversation.ProjectID,
+		ProviderID:     providerID,
+		Name:           projectConversationPrincipalName(conversation.ID),
+	})
+	if err != nil {
+		t.Fatalf("ensure principal: %v", err)
+	}
+
+	runNow := time.Now().UTC()
+	run, err := repoStore.CreateRun(ctx, chatdomain.CreateRunInput{
+		RunID:                uuid.New(),
+		PrincipalID:          principal.ID,
+		ConversationID:       conversation.ID,
+		ProjectID:            conversation.ProjectID,
+		ProviderID:           providerID,
+		TurnID:               &firstTurn.ID,
+		Status:               chatdomain.RunStatusExecuting,
+		SessionID:            optionalString(conversation.ID.String()),
+		WorkspacePath:        optionalString("/tmp/project-ai"),
+		RuntimeStartedAt:     &runNow,
+		LastHeartbeatAt:      &runNow,
+		CurrentStepStatus:    optionalString("turn_executing"),
+		CurrentStepSummary:   optionalString("Project conversation turn executing."),
+		CurrentStepChangedAt: &runNow,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	principal, err = repoStore.UpdatePrincipalRuntime(ctx, chatdomain.UpdatePrincipalRuntimeInput{
+		PrincipalID:          principal.ID,
+		RuntimeState:         chatdomain.RuntimeStateExecuting,
+		CurrentSessionID:     optionalString(conversation.ID.String()),
+		CurrentWorkspacePath: optionalString("/tmp/project-ai"),
+		CurrentRunID:         &run.ID,
+		LastHeartbeatAt:      &runNow,
+		CurrentStepStatus:    optionalString("turn_executing"),
+		CurrentStepSummary:   optionalString("Project conversation turn executing."),
+		CurrentStepChangedAt: &runNow,
+	})
+	if err != nil {
+		t.Fatalf("update principal runtime: %v", err)
+	}
+
+	stopRuntime := &fakeProjectConversationCodexRuntime{
+		startStream: TurnStream{Events: closedStreamEvents()},
+		anchor: RuntimeSessionAnchor{
+			ProviderThreadID:          "claude-session-stopped",
+			LastTurnID:                "provider-turn-stopped",
+			ProviderThreadStatus:      "idle",
+			ProviderThreadActiveFlags: []string{},
+		},
+	}
+	manager := &fakeAgentCLIProcessManager{
+		process: &fakeAgentCLIProcess{
+			stdin: &trackingWriteCloser{},
+			stdout: strings.Join([]string{
+				`{"type":"system","subtype":"init","data":{"session_id":"claude-session-stopped"}}`,
+				`{"type":"result","subtype":"error_during_execution","session_id":"claude-session-stopped","is_error":true,"terminal_reason":"aborted_streaming","errors":["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use","Error: Request was aborted."],"num_turns":1}`,
+			}, "\n"),
+		},
+	}
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+						CliCommand:     "claude",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		manager,
+		nil,
+	)
+	service.runtimeManager.live[conversation.ID] = &liveProjectConversation{
+		principal: principal,
+		provider: catalogdomain.AgentProvider{
+			ID:          providerID,
+			AdapterType: catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+		},
+		runtime:   &fakeRuntime{closeResult: true},
+		codex:     stopRuntime,
+		turnStop:  stopRuntime,
+		workspace: provider.AbsolutePath("/tmp/project-ai"),
+	}
+
+	streamEvents, streamCleanup, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation() error = %v", err)
+	}
+	defer streamCleanup()
+	if initial := requireProjectConversationStreamEvent(t, streamEvents); initial.Event != "session" {
+		t.Fatalf("initial stream event = %q, want session", initial.Event)
+	}
+
+	if err := service.InterruptTurn(ctx, UserID("user:conversation"), conversation.ID); err != nil {
+		t.Fatalf("InterruptTurn() error = %v", err)
+	}
+
+	service.runtimeManager.mu.Lock()
+	delete(service.runtimeManager.live, conversation.ID)
+	service.runtimeManager.mu.Unlock()
+
+	secondTurn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after stop", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() after stop error = %v", err)
+	}
+	if secondTurn.ID == uuid.Nil {
+		t.Fatal("expected second turn to persist")
+	}
+
+	joinedArgs := strings.Join(manager.startSpec.Args, "\n")
+	if !strings.Contains(joinedArgs, "--resume\nclaude-session-stopped") {
+		t.Fatalf("process args = %v, want --resume claude-session-stopped", manager.startSpec.Args)
+	}
+
+	var errorPayloadMap map[string]any
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case event, ok := <-streamEvents:
+			if !ok {
+				t.Fatal("expected stream events before timeout")
+			}
+			if event.Event != "error" {
+				continue
+			}
+			payload, ok := event.Payload.(map[string]any)
+			if !ok {
+				t.Fatalf("error stream payload = %#v, want map payload", event.Payload)
+			}
+			errorPayloadMap = payload
+			break
+		default:
+			time.Sleep(20 * time.Millisecond)
+		}
+		if errorPayloadMap != nil {
+			break
+		}
+	}
+	if errorPayloadMap == nil {
+		t.Fatal("expected Claude resume error stream event")
+	}
+	message := stringValue(errorPayloadMap["message"])
+	if message != "Claude couldn't finish this reply because the session was interrupted. Try sending your message again." {
+		t.Fatalf("error message = %q, want friendly interrupted-session guidance", message)
+	}
+	if strings.Contains(message, "error_during_execution") {
+		t.Fatalf("error message = %q, should hide internal subtype", message)
+	}
+
+	var failedTurn *ent.ChatTurn
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		item, getErr := client.ChatTurn.Get(ctx, secondTurn.ID)
+		if getErr == nil && item.Status == string(chatdomain.TurnStatusFailed) {
+			failedTurn = item
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if failedTurn == nil {
+		t.Fatal("expected follow-up Claude turn to fail with mapped message")
+	}
+}
+
 func TestProjectConversationInterruptTurnRetriesEntryConflict(t *testing.T) {
 	t.Parallel()
 
