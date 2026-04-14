@@ -5,8 +5,12 @@ import sonarjs from 'eslint-plugin-sonarjs'
 import svelte from 'eslint-plugin-svelte'
 import globals from 'globals'
 import ts from 'typescript-eslint'
-import { fileBudgetLimits } from './file-budgets.config.mjs'
+import { eslintFileBudgetOverrides, fileBudgetLimits } from './file-budgets.config.mjs'
 import svelteConfig from './svelte.config.js'
+
+function maxLinesRule(max) {
+  return ['error', { max, skipBlankLines: true, skipComments: true }]
+}
 
 export default defineConfig(
   {
@@ -74,95 +78,58 @@ export default defineConfig(
   {
     files: ['src/routes/**/+page.svelte'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.routePage.hard, skipBlankLines: true, skipComments: true },
-      ],
+      'max-lines': maxLinesRule(fileBudgetLimits.routePage.hard),
     },
   },
   {
     files: ['src/routes/**/+layout.svelte'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.routeLayout.hard, skipBlankLines: true, skipComments: true },
-      ],
+      'max-lines': maxLinesRule(fileBudgetLimits.routeLayout.hard),
     },
   },
   {
     files: ['src/lib/features/**/*.svelte'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureComponent.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: [
-      'src/lib/features/chat/project-conversation-workspace-browser-branch-picker.svelte',
-      'src/lib/features/chat/project-conversation-workspace-browser-sidebar.svelte',
-      'src/lib/features/chat/project-conversation-workspace-browser.svelte',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 700, skipBlankLines: true, skipComments: true }],
+      'max-lines': maxLinesRule(fileBudgetLimits.featureComponent.hard),
     },
   },
   {
     files: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureTest.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: [
-      'src/lib/features/chat/project-conversation-workspace-browser-git-checkout.test.ts',
-      'src/lib/features/chat/project-conversation-workspace-browser-navigation.test.ts',
-    ],
-    rules: {
-      'max-lines': ['error', { max: 900, skipBlankLines: true, skipComments: true }],
+      'max-lines': maxLinesRule(fileBudgetLimits.featureTest.hard),
     },
   },
   {
     files: ['src/lib/features/**/*.svelte.{ts,js}'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureStateModule.hard, skipBlankLines: true, skipComments: true },
-      ],
+      'max-lines': maxLinesRule(fileBudgetLimits.featureStateModule.hard),
     },
   },
   {
     files: ['src/lib/features/**/*.{js,ts,mjs,cjs}'],
     ignores: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}', 'src/lib/features/**/*.svelte.{ts,js}'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureModule.hard, skipBlankLines: true, skipComments: true },
-      ],
+      'max-lines': maxLinesRule(fileBudgetLimits.featureModule.hard),
     },
   },
   {
     files: ['src/lib/components/layout/**/*.svelte'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.layoutComponent.hard, skipBlankLines: true, skipComments: true },
-      ],
+      'max-lines': maxLinesRule(fileBudgetLimits.layoutComponent.hard),
     },
   },
   {
     files: ['src/lib/components/ui/**/*.svelte'],
     rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.uiPrimitive.hard, skipBlankLines: true, skipComments: true },
-      ],
+      'max-lines': maxLinesRule(fileBudgetLimits.uiPrimitive.hard),
     },
   },
+  ...eslintFileBudgetOverrides.map(({ files, hardLimit }) => ({
+    files,
+    rules: {
+      'max-lines': maxLinesRule(hardLimit),
+    },
+  })),
   {
     files: ['**/*.{js,cjs,mjs,ts}'],
     rules: {
