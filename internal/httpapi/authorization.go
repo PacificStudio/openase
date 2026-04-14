@@ -257,6 +257,14 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    projectPermissionForPath(path, method),
 			checkRequired: true,
 		}, true
+	case "/api/v1/projects/:projectId/tickets/:ticketId/workspace/reset":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "ticket",
+			paramName:     "ticketId",
+			permission:    ticketPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
 	case "/api/v1/projects/:projectId/repos/:repoId", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverProject,
