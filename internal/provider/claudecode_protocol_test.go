@@ -39,16 +39,50 @@ func TestExtractClaudeCodeToolResultTextJoinsStructuredTextContent(t *testing.T)
 	}
 }
 
-func TestClaudeCodeTurnFailureFallsBackToSubtypeSummary(t *testing.T) {
-	message, details := ClaudeCodeTurnFailure(ClaudeCodeEvent{
-		Kind:    ClaudeCodeEventKindResult,
-		Subtype: "error_during_execution",
-		Raw:     json.RawMessage(`{"type":"result","subtype":"error_during_execution"}`),
-	})
-	if !strings.Contains(message, "error_during_execution") {
-		t.Fatalf("message = %q, want subtype summary", message)
+func TestClaudeCodeTurnFailureUsesUserFacingSubtypeMessages(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		subtype  string
+		expected string
+	}{
+		{
+			name:     "execution failure",
+			subtype:  "error_during_execution",
+			expected: "Claude Code failed while executing the task. Try again or check the logs for more details.",
+		},
+		{
+			name:     "generic error",
+			subtype:  "error",
+			expected: "Claude Code failed before it returned a result. Try again or check the logs for more details.",
+		},
+		{
+			name:     "unknown subtype falls back to generic guidance",
+			subtype:  "backend_unreachable",
+			expected: "Claude Code failed before it returned a result. Try again or check the logs for more details.",
+		},
 	}
-	if !strings.Contains(details, `"subtype":"error_during_execution"`) {
-		t.Fatalf("details = %q, want encoded raw payload", details)
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			message, details := ClaudeCodeTurnFailure(ClaudeCodeEvent{
+				Kind:    ClaudeCodeEventKindResult,
+				Subtype: tc.subtype,
+				Raw:     json.RawMessage(`{"type":"result","subtype":"` + tc.subtype + `"}`),
+			})
+			if message != tc.expected {
+				t.Fatalf("message = %q, want %q", message, tc.expected)
+			}
+			if strings.Contains(message, tc.subtype) {
+				t.Fatalf("message = %q, should hide internal subtype %q", message, tc.subtype)
+			}
+			if !strings.Contains(details, `"subtype":"`+tc.subtype+`"`) {
+				t.Fatalf("details = %q, want encoded raw payload", details)
+			}
+		})
 	}
 }
