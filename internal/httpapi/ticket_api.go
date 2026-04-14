@@ -243,6 +243,7 @@ func (s *Server) registerTicketRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/tickets/:ticketId/runs/:runId/raw-events", s.handleListTicketRunRawEvents)
 	api.GET("/projects/:projectId/tickets/:ticketId/runs/:runId/activities", s.handleListTicketRunActivities)
 	api.GET("/projects/:projectId/tickets/:ticketId/runs/:runId/transcript", s.handleListTicketRunTranscriptEntries)
+	api.POST("/projects/:projectId/tickets/:ticketId/workspace/reset", s.handleResetTicketWorkspace)
 	api.GET("/tickets/:ticketId", s.handleGetTicket)
 	api.PATCH("/tickets/:ticketId", s.handleUpdateTicket)
 	api.POST("/tickets/:ticketId/retry/resume", s.handleResumeTicketRetry)

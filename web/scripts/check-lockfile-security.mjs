@@ -11,7 +11,7 @@ const bannedEntries = [
     packageName: 'picomatch',
     version: '4.0.3',
     reason:
-      'GHSA-3v7f-55p6-f55p / CVE-2026-33672 allows incorrect glob matching in POSIX character classes.',
+      'GHSA-c2c7-rcm5-vvqj / CVE-2026-33671 allows ReDoS via extglob quantifiers, and GHSA-3v7f-55p6-f55p / CVE-2026-33672 allows incorrect glob matching in POSIX character classes.',
   },
 ]
 

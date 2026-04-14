@@ -1,6 +1,6 @@
 <script lang="ts">
   import { CircleCheck, CircleX, CircleHelp, GitBranch, Terminal, Globe } from '@lucide/svelte'
-  import { formatRelativeTime } from '$lib/utils'
+  import { formatMachineRelativeTime } from '../machine-i18n'
   import { Badge } from '$ui/badge'
   import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
   import { buildMachineSetupGuide } from '../machine-setup'
@@ -291,7 +291,7 @@
                     {#if row.auditTimestamp}
                       <div class="mt-1 text-[11px]">
                         {i18nStore.t('machines.machineHealthPanel.hint.capturedAt', {
-                          time: formatRelativeTime(row.auditTimestamp),
+                          time: formatMachineRelativeTime(row.auditTimestamp),
                         })}
                       </div>
                     {/if}

@@ -1,3 +1,4 @@
+import { i18nStore } from '$lib/i18n/store.svelte'
 import type { MachineDetectedArch, MachineDetectedOS, MachineDetectionStatus } from './types'
 
 export function normalizeDetectedOS(value: string | null | undefined): MachineDetectedOS {
@@ -21,7 +22,7 @@ export function machineDetectedOSLabel(value: string | null | undefined): string
     case 'linux':
       return 'Linux'
     default:
-      return 'unknown'
+      return i18nStore.t('machines.detection.os.unknown')
   }
 }
 
@@ -32,20 +33,20 @@ export function machineDetectedArchLabel(value: string | null | undefined): stri
     case 'arm64':
       return 'arm64'
     default:
-      return 'unknown'
+      return i18nStore.t('machines.detection.arch.unknown')
   }
 }
 
 export function machineDetectionStatusLabel(value: string | null | undefined): string {
   switch (normalizeDetectionStatus(value)) {
     case 'ok':
-      return 'Detected'
+      return i18nStore.t('machines.detection.status.detected')
     case 'degraded':
-      return 'Degraded'
+      return i18nStore.t('machines.detection.status.degraded')
     case 'pending':
-      return 'Pending'
+      return i18nStore.t('machines.detection.status.pending')
     default:
-      return 'Unknown'
+      return i18nStore.t('machines.detection.status.unknown')
   }
 }
 

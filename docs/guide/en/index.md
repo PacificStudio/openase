@@ -6,12 +6,14 @@ OpenASE is a **ticket-driven automated software engineering platform**. Think of
 
 ### Getting Started
 
+- [Core Concepts](./concepts.md) — Understand how Tickets, Workflows, Agents, and Machines work together
 - [Quick Start (Startup)](./startup.md) — 5 steps to run the full workflow, from zero to your first AI-executed ticket
 
 ### Feature Modules
 
 | Module | Description | Docs |
 |--------|-------------|------|
+| Project AI | Persistent AI conversation workspace for planning, drafting tickets, and operating project state | [View](./project-ai.md) |
 | Tickets | Ticket management, the core unit of the platform | [View](./tickets.md) |
 | Agents | AI agent registration & monitoring | [View](./agents.md) |
 | Machines | Execution environment management | [View](./machines.md) |

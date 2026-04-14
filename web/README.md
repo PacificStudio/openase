@@ -99,7 +99,7 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | `lib/components/ui/**/*.svelte`     | 150        | 250                  |
 | single function                     | 40 target  | 60 warning threshold |
 
-There are no per-file budget waivers. If a recurring file shape needs a different limit, promote it into a named budget category instead of growing an allowlist.
+There are no per-file budget waivers. If a recurring file shape needs a different limit, promote it into a named budget category for that feature family or UI layer instead of growing an allowlist.
 
 ## Quality Gates
 

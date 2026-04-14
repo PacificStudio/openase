@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { UserDirectoryEntry } from '$lib/api/auth'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import { formatTimestamp } from './security-settings-human-auth.model'
 
@@ -20,11 +21,20 @@
   function statusVariant(status: string) {
     return status === 'disabled' ? 'destructive' : 'secondary'
   }
+
+  function statusLabel(status: string) {
+    if (status === 'active' || status === 'disabled' || status === 'all') {
+      return i18nStore.t(`settings.security.userDirectory.statusOptions.${status}`)
+    }
+    return status
+  }
 </script>
 
 {#if !canRead}
   <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-    Instance-level <code>security_setting.read</code> is required to browse the user directory.
+    {i18nStore.t('settings.security.userDirectory.list.permissionRequired.prefix')}
+    <code>security_setting.read</code>
+    {i18nStore.t('settings.security.userDirectory.list.permissionRequired.suffix')}
   </div>
 {:else if loading}
   <div class="border-border divide-border/60 divide-y overflow-hidden rounded-lg border">
@@ -37,7 +47,7 @@
   </div>
 {:else if users.length === 0}
   <div class="text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-sm">
-    No users match the current search and filter combination.
+    {i18nStore.t('settings.security.userDirectory.list.empty')}
   </div>
 {:else}
   <div class="border-border overflow-hidden rounded-lg border">
@@ -56,7 +66,7 @@
                 {entry.displayName || entry.primaryEmail || entry.id}
               </span>
               <Badge variant={statusVariant(entry.status)} class="shrink-0 px-1.5 py-0 text-[10px]">
-                {entry.status}
+                {statusLabel(entry.status)}
               </Badge>
             </div>
             <div class="text-muted-foreground truncate text-xs">
@@ -66,7 +76,8 @@
           <div class="text-muted-foreground hidden shrink-0 text-right text-[11px] md:block">
             <div class="tabular-nums">{formatTimestamp(entry.lastLoginAt)}</div>
             <div class="max-w-[18rem] truncate">
-              {entry.primaryIdentity?.issuer || 'No identity cached'}
+              {entry.primaryIdentity?.issuer ||
+                i18nStore.t('settings.security.userDirectory.list.noIdentityCached')}
             </div>
           </div>
         </button>

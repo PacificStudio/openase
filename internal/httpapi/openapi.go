@@ -5710,6 +5710,25 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketWorkspaceReset.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	b.doc.AddOperation("/api/v1/tickets/{ticketId}/workspace/reset", http.MethodPost, ticketWorkspaceReset)
 
+	projectTicketWorkspaceReset, err := b.jsonOperation(
+		"resetProjectTicketWorkspace",
+		"Reset a preserved ticket workspace within a project",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketWorkspaceResetResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectTicketWorkspaceReset.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectTicketWorkspaceReset.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/workspace/reset", http.MethodPost, projectTicketWorkspaceReset)
+
 	commentsGet, err := b.jsonOperation(
 		"listTicketComments",
 		"List ticket comments",
