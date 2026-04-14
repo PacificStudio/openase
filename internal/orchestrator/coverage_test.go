@@ -1211,7 +1211,7 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	if err := launcher.recordAgentTaskStatus(ctx, fixture.projectID, agentItem.ID, ticketItem.ID, currentRun.ID, entagentprovider.AdapterTypeClaudeCodeCli, &agentTaskStatusEvent{
 		ThreadID:   "claude-session-1",
 		StatusType: catalogdomain.AgentTraceKindError,
-		Text:       "Claude Code reported an empty error result.",
+		Text:       "Claude reported an error before this reply finished. Try sending your message again.",
 		Payload: map[string]any{
 			"type":     "result",
 			"subtype":  "error",
@@ -1314,7 +1314,7 @@ func TestRuntimeLifecycleEventAndStateCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("query error trace event: %v", err)
 	}
-	if errorTrace.Payload["subtype"] != "error" || errorTrace.Text != "Claude Code reported an empty error result." {
+	if errorTrace.Payload["subtype"] != "error" || errorTrace.Text != "Claude reported an error before this reply finished. Try sending your message again." {
 		t.Fatalf("error trace = %+v", errorTrace)
 	}
 

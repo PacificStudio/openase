@@ -87,7 +87,8 @@ describe('ticket run transcript reducer Claude traces', () => {
           provider: 'claude',
           kind: 'error',
           stream: 'task',
-          output: 'Claude Code reported an empty error result.',
+          output:
+            'Claude reported an error before this reply finished. Try sending your message again.',
           payload: {
             type: 'result',
             subtype: 'error',
@@ -120,7 +121,7 @@ describe('ticket run transcript reducer Claude traces', () => {
       kind: 'task_status',
       id: 'status:trace-session-state',
       statusType: 'session_state',
-      title: 'Claude session status',
+      title: 'Claude Session',
       detail: 'active · Running · running',
       raw: { status: 'active', detail: 'Running', active_flags: ['running'] },
       at: '2026-04-01T10:06:12Z',
@@ -130,7 +131,8 @@ describe('ticket run transcript reducer Claude traces', () => {
       id: 'status:trace-error',
       statusType: 'error',
       title: 'Turn failed',
-      detail: 'Claude Code reported an empty error result.',
+      detail:
+        'Claude reported an error before this reply finished. Try sending your message again.',
       raw: { type: 'result', subtype: 'error' },
       at: '2026-04-01T10:06:13Z',
     })

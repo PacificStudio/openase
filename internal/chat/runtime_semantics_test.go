@@ -624,8 +624,35 @@ func TestMapClaudeEventPromotesClaudeResultErrorsIntoErrorEvents(t *testing.T) {
 	if events[0].Event != "error" || !ok {
 		t.Fatalf("event = %+v, want error payload", events[0])
 	}
-	if !strings.Contains(payload.Message, "error_during_execution") {
-		t.Fatalf("error payload = %#v, want subtype summary", payload)
+	if payload.Message != "Claude couldn't finish this reply. Try sending your message again." {
+		t.Fatalf("error payload = %#v, want user-facing summary", payload)
+	}
+}
+
+func TestMapClaudeEventMapsInterruptedClaudeExecutionErrorsToUserFacingMessage(t *testing.T) {
+	events := mapClaudeEvent(SessionID("session-claude-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
+		Kind:    provider.ClaudeCodeEventKindResult,
+		Subtype: "error_during_execution",
+		IsError: true,
+		Raw: mustMarshalJSON(t, map[string]any{
+			"type":            "result",
+			"subtype":         "error_during_execution",
+			"terminal_reason": "aborted_streaming",
+			"errors": []string{
+				"[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use",
+				"Error: Request was aborted.",
+			},
+		}),
+	}, nil)
+	if len(events) != 1 {
+		t.Fatalf("event count = %d, want 1: %+v", len(events), events)
+	}
+	payload, ok := events[0].Payload.(errorPayload)
+	if events[0].Event != "error" || !ok {
+		t.Fatalf("event = %+v, want error payload", events[0])
+	}
+	if payload.Message != "Claude couldn't finish this reply because the session was interrupted. Try sending your message again." {
+		t.Fatalf("error payload = %#v, want interrupted-session guidance", payload)
 	}
 }
 
