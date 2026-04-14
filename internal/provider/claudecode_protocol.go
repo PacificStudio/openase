@@ -215,18 +215,18 @@ func isClaudeCodeInterruptedExecutionFailure(payload map[string]any) bool {
 		return false
 	}
 	terminalReason := readClaudeCodeString(payload, "terminal_reason")
-	diagnostic := parseClaudeCodeEDEDiagnostic(readClaudeCodeStringSlice(payload, "errors"))
+	diagnostic := parseClaudeCodeEDEDiagnostic(readClaudeCodeErrors(payload))
 	if diagnostic.ResultType != "user" {
 		return false
 	}
 	if terminalReason == "aborted_streaming" {
 		return true
 	}
-	return containsClaudeCodeErrorText(readClaudeCodeStringSlice(payload, "errors"), "request was aborted")
+	return containsClaudeCodeErrorText(readClaudeCodeErrors(payload), "request was aborted")
 }
 
 func isClaudeCodeResumeFailure(payload map[string]any) bool {
-	errors := readClaudeCodeStringSlice(payload, "errors")
+	errors := readClaudeCodeErrors(payload)
 	return containsClaudeCodeErrorText(
 		errors,
 		"thread not found",
@@ -240,7 +240,7 @@ func isClaudeCodeAbortedExecutionFailure(payload map[string]any) bool {
 	if readClaudeCodeString(payload, "terminal_reason") == "aborted_streaming" {
 		return true
 	}
-	return containsClaudeCodeErrorText(readClaudeCodeStringSlice(payload, "errors"), "request was aborted")
+	return containsClaudeCodeErrorText(readClaudeCodeErrors(payload), "request was aborted")
 }
 
 func parseClaudeCodeEDEDiagnostic(errors []string) claudeCodeEDEDiagnostic {
@@ -352,8 +352,8 @@ func readClaudeCodeBool(record map[string]any, key string) bool {
 	return ok && typed
 }
 
-func readClaudeCodeStringSlice(record map[string]any, key string) []string {
-	value, ok := record[key]
+func readClaudeCodeErrors(record map[string]any) []string {
+	value, ok := record["errors"]
 	if !ok {
 		return nil
 	}

@@ -2661,6 +2661,7 @@ func TestProjectConversationStartTurnAfterUserStopMapsClaudeResumeErrorsToFriend
 
 	var errorPayloadMap map[string]any
 	deadline := time.Now().Add(2 * time.Second)
+streamLoop:
 	for time.Now().Before(deadline) {
 		select {
 		case event, ok := <-streamEvents:
@@ -2675,12 +2676,9 @@ func TestProjectConversationStartTurnAfterUserStopMapsClaudeResumeErrorsToFriend
 				t.Fatalf("error stream payload = %#v, want map payload", event.Payload)
 			}
 			errorPayloadMap = payload
-			break
+			break streamLoop
 		default:
 			time.Sleep(20 * time.Millisecond)
-		}
-		if errorPayloadMap != nil {
-			break
 		}
 	}
 	if errorPayloadMap == nil {
