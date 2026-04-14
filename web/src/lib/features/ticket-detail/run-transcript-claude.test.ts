@@ -87,7 +87,8 @@ describe('ticket run transcript reducer Claude traces', () => {
           provider: 'claude',
           kind: 'error',
           stream: 'task',
-          output: 'Claude reported an error before this reply finished. Try sending your message again.',
+          output:
+            'Claude reported an error before this reply finished. Try sending your message again.',
           payload: {
             type: 'result',
             subtype: 'error',
@@ -130,7 +131,8 @@ describe('ticket run transcript reducer Claude traces', () => {
       id: 'status:trace-error',
       statusType: 'error',
       title: 'Turn failed',
-      detail: 'Claude reported an error before this reply finished. Try sending your message again.',
+      detail:
+        'Claude reported an error before this reply finished. Try sending your message again.',
       raw: { type: 'result', subtype: 'error' },
       at: '2026-04-01T10:06:13Z',
     })

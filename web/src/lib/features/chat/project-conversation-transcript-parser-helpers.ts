@@ -203,28 +203,29 @@ function describeClaudeResultFailure(raw: Record<string, unknown> | null) {
       if (isClaudeResumeFailure(errors)) {
         return "Claude couldn't resume the previous session. Try sending your message again, or start a new conversation if it keeps failing."
       }
-      if (terminalReason === 'aborted_streaming' || containsClaudeErrorText(errors, 'request was aborted')) {
+      if (
+        terminalReason === 'aborted_streaming' ||
+        containsClaudeErrorText(errors, 'request was aborted')
+      ) {
         return "Claude couldn't finish this reply because the session stopped unexpectedly. Try sending your message again."
       }
       return "Claude couldn't finish this reply. Try sending your message again."
     case 'error':
       return 'Claude reported an error before this reply finished. Try sending your message again.'
     default:
-      return subtype ? 'Claude returned an empty error response. Try sending your message again.' : undefined
+      return subtype
+        ? 'Claude returned an empty error response. Try sending your message again.'
+        : undefined
   }
 }
 
-function isClaudeInterruptedExecutionFailure(
-  terminalReason: string | undefined,
-  errors: string[],
-) {
+function isClaudeInterruptedExecutionFailure(terminalReason: string | undefined, errors: string[]) {
   const diagnostic = parseClaudeEDEDiagnostic(errors)
   if (diagnostic.resultType !== 'user') {
     return false
   }
   return (
-    terminalReason === 'aborted_streaming' ||
-    containsClaudeErrorText(errors, 'request was aborted')
+    terminalReason === 'aborted_streaming' || containsClaudeErrorText(errors, 'request was aborted')
   )
 }
 
