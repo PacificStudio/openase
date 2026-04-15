@@ -79,7 +79,7 @@ jobs:
                 installer_changed=true
                 openapi_check_changed=true
                 ;;
-              scripts/install.sh|scripts/ci/test_installer.py|scripts/ci/installer_smoke.sh|internal/cli/setup.go|internal/cli/setup_test.go|internal/setup/*)
+              scripts/install.sh|scripts/ci/test_installer.py|scripts/ci/installer_smoke.sh|scripts/ci/install_matrix_smoke.sh|internal/cli/setup.go|internal/cli/setup_test.go|internal/setup/*)
                 installer_changed=true
                 ;;
               scripts/ci/*)
@@ -327,6 +327,55 @@ jobs:
       - name: Run Installer Smoke Test
         shell: bash
         run: ./scripts/ci/installer_smoke.sh
+
+  install-matrix:
+    name: Install Matrix (${{ matrix.install_path }} / ${{ matrix.pg_mode }})
+    needs: changes
+    if: needs.changes.outputs.installer_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        install_path:
+          - installer_script
+          - source_build
+          - release_binary
+        pg_mode:
+          - docker
+          - system
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Run Install Matrix Smoke
+        shell: bash
+        run: |
+          ./scripts/ci/install_matrix_smoke.sh \
+            --install-path "${{ matrix.install_path }}" \
+            --pg-mode "${{ matrix.pg_mode }}"
 
   desktop:
     name: Desktop Checks
