@@ -12,16 +12,17 @@ import (
 )
 
 type rawAgentCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Archived       *bool    `json:"archived"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title          string                            `json:"title"`
+	Description    string                            `json:"description"`
+	StatusID       *string                           `json:"status_id"`
+	Archived       *bool                             `json:"archived"`
+	Priority       *string                           `json:"priority"`
+	Type           *string                           `json:"type"`
+	WorkflowID     *string                           `json:"workflow_id"`
+	RepoScopes     []rawCreateTicketRepoScopeRequest `json:"repo_scopes"`
+	ParentTicketID *string                           `json:"parent_ticket_id"`
+	ExternalRef    *string                           `json:"external_ref"`
+	BudgetUSD      *float64                          `json:"budget_usd"`
 }
 
 type rawAgentUpdateTicketRequest struct {
@@ -100,6 +101,7 @@ func parseAgentCreateTicketRequest(projectID uuid.UUID, raw rawAgentCreateTicket
 		Priority:       raw.Priority,
 		Type:           raw.Type,
 		WorkflowID:     raw.WorkflowID,
+		RepoScopes:     raw.RepoScopes,
 		ParentTicketID: raw.ParentTicketID,
 		ExternalRef:    raw.ExternalRef,
 		BudgetUSD:      raw.BudgetUSD,
