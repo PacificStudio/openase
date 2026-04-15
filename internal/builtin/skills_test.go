@@ -35,6 +35,53 @@ func TestEnvironmentProvisionerSkillsExist(t *testing.T) {
 	}
 }
 
+func TestAnalysisAndReviewBuiltinSkillsExist(t *testing.T) {
+	testCases := []struct {
+		name    string
+		title   string
+		snippet string
+	}{
+		{
+			name:    "deep-interview",
+			title:   "Deep Interview",
+			snippet: "Ask one question at a time.",
+		},
+		{
+			name:    "review-code",
+			title:   "Review Code",
+			snippet: "Lead with findings, not praise.",
+		},
+		{
+			name:    "security-scan",
+			title:   "Security Scan",
+			snippet: "Map the attack surface.",
+		},
+		{
+			name:    "task-breakdown",
+			title:   "Task Breakdown",
+			snippet: "Prefer vertical slices over layer buckets.",
+		},
+		{
+			name:    "workflow-authoring",
+			title:   "Workflow Authoring",
+			snippet: "Each ticket run gets its own workspace.",
+		},
+	}
+
+	for _, tt := range testCases {
+		skill, ok := SkillByName(tt.name)
+		if !ok {
+			t.Fatalf("expected skill %q to exist", tt.name)
+		}
+		if skill.Title != tt.title {
+			t.Fatalf("skill %q title=%q, want %q", tt.name, skill.Title, tt.title)
+		}
+		if !strings.Contains(skill.Content, tt.snippet) {
+			t.Fatalf("expected skill %q to contain %q, got:\n%s", tt.name, tt.snippet, skill.Content)
+		}
+	}
+}
+
 func TestAutoHarnessBuiltinSkillIncludesBundleFilesAndSourceMetadata(t *testing.T) {
 	skill, ok := SkillByName("auto-harness")
 	if !ok {
