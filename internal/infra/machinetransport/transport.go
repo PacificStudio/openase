@@ -428,6 +428,88 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 	}
 }
 
+func (c *MonitorCollector) CollectWebsocketHealth(ctx context.Context, machine domain.Machine) (domain.WebsocketMachineHealth, error) {
+	mode := effectiveConnectionMode(machine)
+	if mode != domain.MachineConnectionModeWSReverse && mode != domain.MachineConnectionModeWSListener {
+		return domain.WebsocketMachineHealth{}, fmt.Errorf("%w: websocket health collection is not implemented for %s", ErrTransportUnavailable, mode)
+	}
+
+	observedAt := c.currentTime()
+	health := domain.WebsocketMachineHealth{
+		TransportMode: mode,
+		CheckedAt:     observedAt,
+		L2:            domain.WebsocketHealthUnknownLayer(observedAt, "websocket machine has no link telemetry yet", map[string]any{}),
+		L3:            domain.WebsocketHealthUnknownLayer(observedAt, "websocket machine has no network telemetry yet", map[string]any{}),
+		L4:            domain.WebsocketHealthUnknownLayer(observedAt, "transport has not been observed yet", map[string]any{}),
+		L5:            domain.WebsocketHealthUnknownLayer(observedAt, "application probe has not completed yet", map[string]any{}),
+	}
+	if parsed, err := domain.ParseStoredWebsocketMachineHealth(machine.Resources); err == nil {
+		health.L2 = parsed.L2
+		health.L3 = parsed.L3
+		health.L5 = parsed.L5
+	}
+
+	client, closeClient, openErr := c.websocketRuntimeClient(ctx, machine)
+	if openErr != nil {
+		health.L4 = domain.WebsocketHealthLayer{
+			State:      domain.WebsocketHealthStateFailed,
+			Reason:     openErr.Error(),
+			ObservedAt: observedAt,
+			Details: map[string]any{
+				"transport_mode": mode.String(),
+			},
+		}
+		health.L5 = domain.WebsocketHealthUnknownLayer(
+			observedAt,
+			"application probe skipped because websocket transport is unavailable",
+			map[string]any{"transport_mode": mode.String()},
+		)
+		return health, openErr
+	}
+	defer closeClient(nil)
+
+	sessionState := domain.MachineTransportSessionStateConnected
+	heartbeat, heartbeatErr := c.resolveHeartbeat(ctx, machine)
+	if heartbeatErr == nil && heartbeat.SessionState != "" {
+		sessionState = heartbeat.SessionState
+	}
+	health.L4 = domain.WebsocketHealthLayer{
+		State:      domain.WebsocketHealthStateHealthy,
+		ObservedAt: observedAt,
+		Details: map[string]any{
+			"session_state": sessionState.String(),
+			"session_id":    strings.TrimSpace(pointerString(heartbeat.CurrentSessionID)),
+		},
+	}
+
+	envelope, err := client.request(ctx, runtimecontract.OperationProbe, nil)
+	if err != nil {
+		health.L5 = websocketProbeFailureLayer(observedAt, err)
+		return health, err
+	}
+	payload, err := runtimecontract.DecodePayload[runtimecontract.ProbeResponse](envelope)
+	if err != nil {
+		health.L5 = websocketProbeFailureLayer(observedAt, err)
+		return health, err
+	}
+
+	health.L5 = domain.WebsocketHealthLayer{
+		State:      domain.WebsocketHealthStateHealthy,
+		ObservedAt: observedAt,
+		Details: map[string]any{
+			"runtime_probe_checked_at": strings.TrimSpace(payload.CheckedAt),
+			"detected_os":              strings.TrimSpace(payload.DetectedOS),
+			"detected_arch":            strings.TrimSpace(payload.DetectedArch),
+		},
+	}
+	if mode == domain.MachineConnectionModeWSListener {
+		health.L2 = domain.WebsocketHealthUnknownLayer(observedAt, "listener mode does not expose remote link telemetry", map[string]any{})
+		health.L3 = domain.WebsocketHealthUnknownLayer(observedAt, "listener mode cannot confirm reverse control-plane reachability", map[string]any{})
+	}
+
+	return health, nil
+}
+
 func (c *MonitorCollector) CollectSystemResources(ctx context.Context, machine domain.Machine) (domain.MachineSystemResources, error) {
 	mode := effectiveConnectionMode(machine)
 	if mode == domain.MachineConnectionModeWSReverse || mode == domain.MachineConnectionModeWSListener {
@@ -437,6 +519,44 @@ func (c *MonitorCollector) CollectSystemResources(ctx context.Context, machine d
 		return domain.MachineSystemResources{}, fmt.Errorf("machine monitor collector unavailable")
 	}
 	return c.sshCollector.CollectSystemResources(ctx, machine)
+}
+
+func (c *MonitorCollector) websocketRuntimeClient(
+	ctx context.Context,
+	machine domain.Machine,
+) (*runtimeProtocolClient, func(error), error) {
+	transport := websocketTransport{mode: effectiveConnectionMode(machine)}
+	if transport.mode == domain.MachineConnectionModeWSReverse {
+		transport.reverseRelay = c.resolver.reverseRelay
+	}
+	return transport.openRuntimeClient(ctx, machine)
+}
+
+func (c *MonitorCollector) resolveHeartbeat(ctx context.Context, machine domain.Machine) (domain.MachineDaemonStatus, error) {
+	channel, err := c.resolve(machine)
+	if err != nil {
+		return domain.MachineDaemonStatus{}, err
+	}
+	return channel.Heartbeat(ctx, machine)
+}
+
+func websocketProbeFailureLayer(observedAt time.Time, err error) domain.WebsocketHealthLayer {
+	details := map[string]any{}
+	var runtimeErr runtimeProtocolError
+	if errors.As(err, &runtimeErr) {
+		payload := runtimeErr.Payload()
+		details["error_code"] = string(payload.Code)
+		details["error_class"] = string(payload.Class)
+		for key, value := range payload.Details {
+			details[key] = value
+		}
+	}
+	return domain.WebsocketHealthLayer{
+		State:      domain.WebsocketHealthStateFailed,
+		Reason:     err.Error(),
+		ObservedAt: observedAt.UTC(),
+		Details:    details,
+	}
 }
 
 func (c *MonitorCollector) CollectGPUResources(ctx context.Context, machine domain.Machine) (domain.MachineGPUResources, error) {

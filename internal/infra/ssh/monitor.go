@@ -320,6 +320,10 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 	}, nil
 }
 
+func (c *MonitorCollector) CollectWebsocketHealth(context.Context, domain.Machine) (domain.WebsocketMachineHealth, error) {
+	return domain.WebsocketMachineHealth{}, fmt.Errorf("websocket health collection is not implemented for ssh transport")
+}
+
 func (c *MonitorCollector) CollectSystemResources(ctx context.Context, machine domain.Machine) (domain.MachineSystemResources, error) {
 	collectedAt := c.now().UTC()
 	output, err := c.runScript(ctx, machine, systemResourceScript)

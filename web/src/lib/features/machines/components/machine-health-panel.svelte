@@ -7,6 +7,7 @@
   import type { TruthyState } from './machine-health-panel-view'
   import {
     buildAuditRows,
+    buildLevelCards,
     buildStatCards,
     checkedAtLabel,
     runtimeLabel,
@@ -55,6 +56,7 @@
   } = $props()
 
   const statCards = $derived(snapshot ? buildStatCards(snapshot) : [])
+  const levelCards = $derived(snapshot ? buildLevelCards(snapshot) : [])
   const runtimeRows = $derived(snapshot?.agentEnvironment ?? [])
   const auditRows = $derived(snapshot ? buildAuditRows(snapshot) : [])
   const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
@@ -127,6 +129,19 @@
       {#each statCards as card (card.label)}
         <div class="border-border bg-card rounded-xl border px-4 py-3">
           <p class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">{card.label}</p>
+          <p class="text-foreground mt-2 text-sm font-semibold">{card.value}</p>
+          <p class="text-muted-foreground mt-1 text-xs">{card.meta}</p>
+        </div>
+      {/each}
+    </div>
+
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {#each levelCards as card (card.id)}
+        <div class="border-border bg-card rounded-xl border px-4 py-3">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-foreground text-sm font-medium">{card.label}</p>
+            <Badge variant={stateBadgeVariant(card.state)}>{stateLabel(card.state)}</Badge>
+          </div>
           <p class="text-foreground mt-2 text-sm font-semibold">{card.value}</p>
           <p class="text-muted-foreground mt-1 text-xs">{card.meta}</p>
         </div>

@@ -527,6 +527,90 @@ func TestRefreshMachineHealthCollectsAndPersistsMultiLevelSnapshot(t *testing.T)
 	}
 }
 
+func TestRefreshMachineHealthWebsocketLayerFailureAndRecoveryConvergesStatus(t *testing.T) {
+	machineID := uuid.New()
+	orgID := uuid.New()
+	checkedAt := time.Date(2026, 4, 15, 10, 0, 0, 0, time.UTC)
+	repo := &stubRepository{
+		machine: domain.Machine{
+			ID:             machineID,
+			OrganizationID: orgID,
+			Name:           "reverse-01",
+			Host:           "reverse-01.internal",
+			Port:           443,
+			Status:         domain.MachineStatusOnline,
+			ConnectionMode: domain.MachineConnectionModeWSReverse,
+			Resources:      map[string]any{},
+		},
+	}
+	collector := stubMachineHealthCollector{
+		reachability: domain.MachineReachability{
+			CheckedAt: checkedAt,
+			Transport: "ws_reverse",
+			Reachable: true,
+		},
+		websocketHealth: domain.WebsocketMachineHealth{
+			TransportMode: domain.MachineConnectionModeWSReverse,
+			CheckedAt:     checkedAt,
+			L2:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: checkedAt},
+			L3: domain.WebsocketHealthLayer{
+				State:      domain.WebsocketHealthStateFailed,
+				Reason:     "control plane route missing",
+				ObservedAt: checkedAt,
+			},
+			L4: domain.WebsocketHealthLayer{
+				State:      domain.WebsocketHealthStateHealthy,
+				ObservedAt: checkedAt,
+			},
+			L5: domain.WebsocketHealthLayer{
+				State:      domain.WebsocketHealthStateHealthy,
+				ObservedAt: checkedAt,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil, WithMachineHealthCollector(collector))
+
+	updated, err := svc.RefreshMachineHealth(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("RefreshMachineHealth(degraded) returned error: %v", err)
+	}
+	if updated.Status != domain.MachineStatusDegraded {
+		t.Fatalf("expected degraded websocket machine after L3 failure, got %+v", updated)
+	}
+	health, err := domain.ParseStoredWebsocketMachineHealth(updated.Resources)
+	if err != nil {
+		t.Fatalf("ParseStoredWebsocketMachineHealth() error = %v", err)
+	}
+	if health.L3.State != domain.WebsocketHealthStateFailed || health.L3.Reason != "control plane route missing" {
+		t.Fatalf("expected failed L3 snapshot, got %+v", health)
+	}
+
+	collector.websocketHealth = domain.WebsocketMachineHealth{
+		TransportMode: domain.MachineConnectionModeWSReverse,
+		CheckedAt:     checkedAt.Add(time.Minute),
+		L2:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: checkedAt.Add(time.Minute)},
+		L3:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: checkedAt.Add(time.Minute)},
+		L4:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: checkedAt.Add(time.Minute)},
+		L5:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: checkedAt.Add(time.Minute)},
+	}
+	svc = New(repo, stubExecutableResolver{}, nil, WithMachineHealthCollector(collector))
+
+	recovered, err := svc.RefreshMachineHealth(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("RefreshMachineHealth(recovered) returned error: %v", err)
+	}
+	if recovered.Status != domain.MachineStatusOnline {
+		t.Fatalf("expected websocket machine to recover to online, got %+v", recovered)
+	}
+	recoveredHealth, err := domain.ParseStoredWebsocketMachineHealth(recovered.Resources)
+	if err != nil {
+		t.Fatalf("ParseStoredWebsocketMachineHealth(recovered) error = %v", err)
+	}
+	if recoveredHealth.L3.State != domain.WebsocketHealthStateHealthy || recoveredHealth.L5.State != domain.WebsocketHealthStateHealthy {
+		t.Fatalf("expected recovered websocket health, got %+v", recoveredHealth)
+	}
+}
+
 func TestTestMachineConnectionPreservesDetectedPlatformForWebsocketRuntimeMachines(t *testing.T) {
 	t.Parallel()
 
@@ -873,6 +957,8 @@ func (s stubMachineTester) TestConnection(context.Context, domain.Machine) (doma
 type stubMachineHealthCollector struct {
 	reachability        domain.MachineReachability
 	reachabilityErr     error
+	websocketHealth     domain.WebsocketMachineHealth
+	websocketHealthErr  error
 	systemResources     domain.MachineSystemResources
 	systemResourcesErr  error
 	gpuResources        domain.MachineGPUResources
@@ -885,6 +971,10 @@ type stubMachineHealthCollector struct {
 
 func (s stubMachineHealthCollector) CollectReachability(context.Context, domain.Machine) (domain.MachineReachability, error) {
 	return s.reachability, s.reachabilityErr
+}
+
+func (s stubMachineHealthCollector) CollectWebsocketHealth(context.Context, domain.Machine) (domain.WebsocketMachineHealth, error) {
+	return s.websocketHealth, s.websocketHealthErr
 }
 
 func (s stubMachineHealthCollector) CollectSystemResources(context.Context, domain.Machine) (domain.MachineSystemResources, error) {
