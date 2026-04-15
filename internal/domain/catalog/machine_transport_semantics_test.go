@@ -10,6 +10,9 @@ func TestMachineTransportSemanticsHelpers(t *testing.T) {
 		if got := MachineReachabilityModeDirectConnect.String(); got != "direct_connect" {
 			t.Fatalf("MachineReachabilityModeDirectConnect.String() = %q", got)
 		}
+		if got := MachineWebsocketTopologyRemoteListener.String(); got != "remote_listener" {
+			t.Fatalf("MachineWebsocketTopologyRemoteListener.String() = %q", got)
+		}
 		if !MachineReachabilityModeReverseConnect.IsValid() {
 			t.Fatal("MachineReachabilityModeReverseConnect should be valid")
 		}
@@ -237,6 +240,66 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 				executionMode,
 			)
 		}
+
+		connectionMode, reachabilityMode, executionMode, err = ResolveStoredMachineTransport(
+			"",
+			"",
+			"",
+			"builder.example.com",
+		)
+		if err != nil {
+			t.Fatalf("ResolveStoredMachineTransport(remote blank) error = %v", err)
+		}
+		if connectionMode != MachineConnectionModeWSListener ||
+			reachabilityMode != MachineReachabilityModeDirectConnect ||
+			executionMode != MachineExecutionModeWebsocket {
+			t.Fatalf(
+				"ResolveStoredMachineTransport(remote blank) = %q %q %q",
+				connectionMode,
+				reachabilityMode,
+				executionMode,
+			)
+		}
+
+		connectionMode, reachabilityMode, executionMode, err = ResolveStoredMachineTransport(
+			"ws_listener",
+			"",
+			"",
+			LocalMachineHost,
+		)
+		if err != nil {
+			t.Fatalf("ResolveStoredMachineTransport(local ws_listener legacy) error = %v", err)
+		}
+		if connectionMode != MachineConnectionModeLocal ||
+			reachabilityMode != MachineReachabilityModeLocal ||
+			executionMode != MachineExecutionModeLocalProcess {
+			t.Fatalf(
+				"ResolveStoredMachineTransport(local ws_listener legacy) = %q %q %q",
+				connectionMode,
+				reachabilityMode,
+				executionMode,
+			)
+		}
+
+		connectionMode, reachabilityMode, executionMode, err = ResolveStoredMachineTransport(
+			"",
+			"reverse_connect",
+			"websocket",
+			"builder.example.com",
+		)
+		if err != nil {
+			t.Fatalf("ResolveStoredMachineTransport(reverse websocket semantics) error = %v", err)
+		}
+		if connectionMode != MachineConnectionModeWSReverse ||
+			reachabilityMode != MachineReachabilityModeReverseConnect ||
+			executionMode != MachineExecutionModeWebsocket {
+			t.Fatalf(
+				"ResolveStoredMachineTransport(reverse websocket semantics) = %q %q %q",
+				connectionMode,
+				reachabilityMode,
+				executionMode,
+			)
+		}
 	})
 
 	t.Run("semantic compatibility matrix", func(t *testing.T) {
@@ -323,6 +386,41 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 		}
 		if got := MachineWebsocketTopologyReverseConnect.ConnectionMode(); got != MachineConnectionModeWSReverse {
 			t.Fatalf("MachineWebsocketTopologyReverseConnect.ConnectionMode() = %q", got)
+		}
+		if got := MachineWebsocketTopologyLocalProcess.ConnectionMode(); got != MachineConnectionModeLocal {
+			t.Fatalf("MachineWebsocketTopologyLocalProcess.ConnectionMode() = %q", got)
+		}
+		if got := MachineWebsocketTopologyRemoteListener.ConnectionMode(); got != MachineConnectionModeWSListener {
+			t.Fatalf("MachineWebsocketTopologyRemoteListener.ConnectionMode() = %q", got)
+		}
+		if got := MachineWebsocketTopology("bogus").ConnectionMode(); got != MachineConnectionModeWSListener {
+			t.Fatalf("MachineWebsocketTopology(bogus).ConnectionMode() = %q", got)
+		}
+	})
+
+	t.Run("machine websocket topology helper follows semantic source of truth", func(t *testing.T) {
+		directMachine := Machine{
+			ReachabilityMode: MachineReachabilityModeDirectConnect,
+			ExecutionMode:    MachineExecutionModeWebsocket,
+		}
+		if got, err := directMachine.WebsocketTopology(); err != nil || got != MachineWebsocketTopologyRemoteListener {
+			t.Fatalf("directMachine.WebsocketTopology() = %q, %v", got, err)
+		}
+
+		reverseMachine := Machine{
+			ReachabilityMode: MachineReachabilityModeReverseConnect,
+			ExecutionMode:    MachineExecutionModeWebsocket,
+		}
+		if got, err := reverseMachine.WebsocketTopology(); err != nil || got != MachineWebsocketTopologyReverseConnect {
+			t.Fatalf("reverseMachine.WebsocketTopology() = %q, %v", got, err)
+		}
+
+		invalidMachine := Machine{
+			ReachabilityMode: MachineReachabilityModeDirectConnect,
+			ExecutionMode:    MachineExecutionModeLocalProcess,
+		}
+		if _, err := invalidMachine.WebsocketTopology(); err == nil {
+			t.Fatal("invalidMachine.WebsocketTopology() expected error")
 		}
 	})
 
