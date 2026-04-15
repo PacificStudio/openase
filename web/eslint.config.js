@@ -5,7 +5,7 @@ import sonarjs from 'eslint-plugin-sonarjs'
 import svelte from 'eslint-plugin-svelte'
 import globals from 'globals'
 import ts from 'typescript-eslint'
-import { eslintFileBudgetOverrides, fileBudgetLimits } from './file-budgets.config.mjs'
+import { fileBudgetLimits } from './file-budgets.config.mjs'
 import svelteConfig from './svelte.config.js'
 
 function maxLinesRule(max) {
@@ -124,12 +124,6 @@ export default defineConfig(
       'max-lines': maxLinesRule(fileBudgetLimits.uiPrimitive.hard),
     },
   },
-  ...eslintFileBudgetOverrides.map(({ files, hardLimit }) => ({
-    files,
-    rules: {
-      'max-lines': maxLinesRule(hardLimit),
-    },
-  })),
   {
     files: ['**/*.{js,cjs,mjs,ts}'],
     rules: {

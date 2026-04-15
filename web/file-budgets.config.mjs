@@ -7,57 +7,7 @@ export const fileBudgetLimits = {
   featureModule: { soft: 200, hard: 325 },
   layoutComponent: { soft: 200, hard: 300 },
   uiPrimitive: { soft: 150, hard: 250 },
-  workspaceBrowserComponent: { soft: 300, hard: 700 },
-  workspaceBrowserTest: { soft: 450, hard: 900 },
-  workspaceStateModule: { soft: 350, hard: 750 },
 }
-
-function buildBudgetRule({ name, match, softLimit, hardLimit, eslintFiles }) {
-  return { name, match, softLimit, hardLimit, eslintFiles }
-}
-
-export const namedFileBudgetCategories = [
-  buildBudgetRule({
-    name: 'Workspace browser components',
-    match: (filePath) =>
-      /^src\/lib\/features\/chat\/project-conversation-workspace-browser(?:-.+)?\.svelte$/.test(
-        filePath,
-      ),
-    softLimit: fileBudgetLimits.workspaceBrowserComponent.soft,
-    hardLimit: fileBudgetLimits.workspaceBrowserComponent.hard,
-    eslintFiles: ['src/lib/features/chat/project-conversation-workspace-browser*.svelte'],
-  }),
-  buildBudgetRule({
-    name: 'Workspace browser tests',
-    match: (filePath) =>
-      /^src\/lib\/features\/chat\/project-conversation-workspace-browser(?:-.+)?\.test\.(ts|js|mjs|cjs)$/.test(
-        filePath,
-      ),
-    softLimit: fileBudgetLimits.workspaceBrowserTest.soft,
-    hardLimit: fileBudgetLimits.workspaceBrowserTest.hard,
-    eslintFiles: [
-      'src/lib/features/chat/project-conversation-workspace-browser*.test.{js,ts,mjs,cjs}',
-    ],
-  }),
-  buildBudgetRule({
-    name: 'Workspace state modules',
-    match: (filePath) =>
-      /^src\/lib\/features\/chat\/project-conversation-workspace(?:-.+)?\.svelte\.(ts|js)$/.test(
-        filePath,
-      ),
-    softLimit: fileBudgetLimits.workspaceStateModule.soft,
-    hardLimit: fileBudgetLimits.workspaceStateModule.hard,
-    eslintFiles: ['src/lib/features/chat/project-conversation-workspace-*.svelte.{ts,js}'],
-  }),
-]
-
-export const eslintFileBudgetOverrides = namedFileBudgetCategories.map(
-  ({ name, eslintFiles, hardLimit }) => ({
-    name,
-    files: eslintFiles,
-    hardLimit,
-  }),
-)
 
 function isRoutePage(filePath) {
   return /^src\/routes\/.+\/\+page\.svelte$|^src\/routes\/\+page\.svelte$/.test(filePath)
@@ -92,7 +42,6 @@ function isUiPrimitive(filePath) {
 }
 
 export const fileBudgetRules = [
-  ...namedFileBudgetCategories,
   {
     name: 'Route pages',
     match: isRoutePage,

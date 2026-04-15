@@ -168,5 +168,5 @@ func (s runtimeWorkspacePreparationSlice) buildDeveloperInstructions(
 		return "", fmt.Errorf("render workflow harness for agent launch: %w", err)
 	}
 
-	return composeWorkflowDeveloperInstructions(rendered, platformContract), nil
+	return composeWorkflowDeveloperInstructions(rendered, composeWorkflowTicketContext(data), platformContract), nil
 }
