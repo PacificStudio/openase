@@ -12,7 +12,7 @@ VERSION ?= dev
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test test-backend-coverage installer-test remote-runtime-container check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build desktop-install desktop-install-browsers desktop-test desktop-build desktop-package desktop-package-smoke desktop-validate build build-web run doctor lint lint-all lint-depguard lint-architecture
+.PHONY: help format fmt-check test test-backend-coverage installer-test installer-smoke install-matrix-smoke remote-runtime-container check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build desktop-install desktop-install-browsers desktop-test desktop-build desktop-package desktop-package-smoke desktop-validate build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -22,6 +22,8 @@ help:
 		'  make test          Run the Go test suite' \
 		'  make test-backend-coverage Run full backend tests plus domain/core 100% coverage gate (set OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true for optional overall 75%+ metric)' \
 		'  make installer-test Run the hermetic installer integration tests' \
+		'  make installer-smoke Run the release-installer smoke test' \
+		'  make install-matrix-smoke Run one install-path/database smoke case (set INSTALL_PATH and PG_MODE)' \
 		'  make remote-runtime-container Run the local-only docker compose harness for websocket runtime and SSH helper validation' \
 		'  make check         Run Go formatting and enforced backend coverage checks' \
 		'  make hooks-install Install Git hooks via lefthook' \
@@ -79,6 +81,14 @@ test-backend-coverage:
 
 installer-test:
 	python3 ./scripts/ci/test_installer.py
+
+installer-smoke:
+	./scripts/ci/installer_smoke.sh
+
+install-matrix-smoke:
+	@: $${INSTALL_PATH:?set INSTALL_PATH=installer_script|source_build|release_binary}
+	@: $${PG_MODE:?set PG_MODE=docker|system}
+	./scripts/ci/install_matrix_smoke.sh --install-path "$$INSTALL_PATH" --pg-mode "$$PG_MODE"
 
 remote-runtime-container:
 	./scripts/ci/remote_runtime_container_harness.sh $(REMOTE_RUNTIME_CASES)
