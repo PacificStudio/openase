@@ -1028,6 +1028,7 @@ func projectRepoWorkspaceDirname(repo *ent.ProjectRepo) string {
 }
 
 func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {
+	connectionMode, reachabilityMode, executionMode := resolveRuntimeMachineTransport(item)
 	return catalogdomain.Machine{
 		ID:                 item.ID,
 		OrganizationID:     item.OrganizationID,
@@ -1039,7 +1040,9 @@ func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {
 		Description:        item.Description,
 		Labels:             append([]string(nil), item.Labels...),
 		Status:             catalogdomain.MachineStatus(item.Status),
-		ConnectionMode:     mapStoredRuntimeConnectionMode(item),
+		ReachabilityMode:   reachabilityMode,
+		ExecutionMode:      executionMode,
+		ConnectionMode:     connectionMode,
 		AdvertisedEndpoint: optionalRuntimeString(item.AdvertisedEndpoint),
 		WorkspaceRoot:      optionalRuntimeString(item.WorkspaceRoot),
 		AgentCLIPath:       optionalRuntimeString(item.AgentCliPath),
@@ -1059,18 +1062,27 @@ func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {
 	}
 }
 
-func mapStoredRuntimeConnectionMode(item *ent.Machine) catalogdomain.MachineConnectionMode {
+func resolveRuntimeMachineTransport(item *ent.Machine) (catalogdomain.MachineConnectionMode, catalogdomain.MachineReachabilityMode, catalogdomain.MachineExecutionMode) {
 	if item == nil {
-		return ""
+		return "", "", ""
+	}
+	mode, reachabilityMode, executionMode, err := catalogdomain.ResolveStoredMachineTransport(
+		string(item.ConnectionMode),
+		string(item.ReachabilityMode),
+		string(item.ExecutionMode),
+		item.Host,
+	)
+	if err == nil {
+		return mode, reachabilityMode, executionMode
 	}
 	if item.Host == catalogdomain.LocalMachineHost || item.Name == catalogdomain.LocalMachineName {
-		return catalogdomain.MachineConnectionModeLocal
+		return catalogdomain.MachineConnectionModeLocal, catalogdomain.MachineReachabilityModeLocal, catalogdomain.MachineExecutionModeLocalProcess
 	}
-	mode, err := catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
+	mode, err = catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
 	if err != nil {
-		return catalogdomain.MachineConnectionModeWSListener
+		mode = catalogdomain.MachineConnectionModeWSListener
 	}
-	return mode
+	return mode, mode.ReachabilityMode(), mode.ExecutionMode()
 }
 
 func optionalRuntimeString(raw string) *string {

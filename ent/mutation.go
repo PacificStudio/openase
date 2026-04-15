@@ -25274,6 +25274,8 @@ type MachineMutation struct {
 	port                      *int
 	addport                   *int
 	connection_mode           *machine.ConnectionMode
+	reachability_mode         *machine.ReachabilityMode
+	execution_mode            *machine.ExecutionMode
 	transport_capabilities    *pgarray.StringArray
 	ssh_user                  *string
 	ssh_key_path              *string
@@ -25615,6 +25617,104 @@ func (m *MachineMutation) OldConnectionMode(ctx context.Context) (v machine.Conn
 // ResetConnectionMode resets all changes to the "connection_mode" field.
 func (m *MachineMutation) ResetConnectionMode() {
 	m.connection_mode = nil
+}
+
+// SetReachabilityMode sets the "reachability_mode" field.
+func (m *MachineMutation) SetReachabilityMode(mm machine.ReachabilityMode) {
+	m.reachability_mode = &mm
+}
+
+// ReachabilityMode returns the value of the "reachability_mode" field in the mutation.
+func (m *MachineMutation) ReachabilityMode() (r machine.ReachabilityMode, exists bool) {
+	v := m.reachability_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReachabilityMode returns the old "reachability_mode" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldReachabilityMode(ctx context.Context) (v machine.ReachabilityMode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReachabilityMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReachabilityMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReachabilityMode: %w", err)
+	}
+	return oldValue.ReachabilityMode, nil
+}
+
+// ClearReachabilityMode clears the value of the "reachability_mode" field.
+func (m *MachineMutation) ClearReachabilityMode() {
+	m.reachability_mode = nil
+	m.clearedFields[machine.FieldReachabilityMode] = struct{}{}
+}
+
+// ReachabilityModeCleared returns if the "reachability_mode" field was cleared in this mutation.
+func (m *MachineMutation) ReachabilityModeCleared() bool {
+	_, ok := m.clearedFields[machine.FieldReachabilityMode]
+	return ok
+}
+
+// ResetReachabilityMode resets all changes to the "reachability_mode" field.
+func (m *MachineMutation) ResetReachabilityMode() {
+	m.reachability_mode = nil
+	delete(m.clearedFields, machine.FieldReachabilityMode)
+}
+
+// SetExecutionMode sets the "execution_mode" field.
+func (m *MachineMutation) SetExecutionMode(mm machine.ExecutionMode) {
+	m.execution_mode = &mm
+}
+
+// ExecutionMode returns the value of the "execution_mode" field in the mutation.
+func (m *MachineMutation) ExecutionMode() (r machine.ExecutionMode, exists bool) {
+	v := m.execution_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExecutionMode returns the old "execution_mode" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldExecutionMode(ctx context.Context) (v machine.ExecutionMode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExecutionMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExecutionMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExecutionMode: %w", err)
+	}
+	return oldValue.ExecutionMode, nil
+}
+
+// ClearExecutionMode clears the value of the "execution_mode" field.
+func (m *MachineMutation) ClearExecutionMode() {
+	m.execution_mode = nil
+	m.clearedFields[machine.FieldExecutionMode] = struct{}{}
+}
+
+// ExecutionModeCleared returns if the "execution_mode" field was cleared in this mutation.
+func (m *MachineMutation) ExecutionModeCleared() bool {
+	_, ok := m.clearedFields[machine.FieldExecutionMode]
+	return ok
+}
+
+// ResetExecutionMode resets all changes to the "execution_mode" field.
+func (m *MachineMutation) ResetExecutionMode() {
+	m.execution_mode = nil
+	delete(m.clearedFields, machine.FieldExecutionMode)
 }
 
 // SetTransportCapabilities sets the "transport_capabilities" field.
@@ -26814,7 +26914,7 @@ func (m *MachineMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MachineMutation) Fields() []string {
-	fields := make([]string, 0, 27)
+	fields := make([]string, 0, 29)
 	if m.organization != nil {
 		fields = append(fields, machine.FieldOrganizationID)
 	}
@@ -26829,6 +26929,12 @@ func (m *MachineMutation) Fields() []string {
 	}
 	if m.connection_mode != nil {
 		fields = append(fields, machine.FieldConnectionMode)
+	}
+	if m.reachability_mode != nil {
+		fields = append(fields, machine.FieldReachabilityMode)
+	}
+	if m.execution_mode != nil {
+		fields = append(fields, machine.FieldExecutionMode)
 	}
 	if m.transport_capabilities != nil {
 		fields = append(fields, machine.FieldTransportCapabilities)
@@ -26914,6 +27020,10 @@ func (m *MachineMutation) Field(name string) (ent.Value, bool) {
 		return m.Port()
 	case machine.FieldConnectionMode:
 		return m.ConnectionMode()
+	case machine.FieldReachabilityMode:
+		return m.ReachabilityMode()
+	case machine.FieldExecutionMode:
+		return m.ExecutionMode()
 	case machine.FieldTransportCapabilities:
 		return m.TransportCapabilities()
 	case machine.FieldSSHUser:
@@ -26977,6 +27087,10 @@ func (m *MachineMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldPort(ctx)
 	case machine.FieldConnectionMode:
 		return m.OldConnectionMode(ctx)
+	case machine.FieldReachabilityMode:
+		return m.OldReachabilityMode(ctx)
+	case machine.FieldExecutionMode:
+		return m.OldExecutionMode(ctx)
 	case machine.FieldTransportCapabilities:
 		return m.OldTransportCapabilities(ctx)
 	case machine.FieldSSHUser:
@@ -27064,6 +27178,20 @@ func (m *MachineMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetConnectionMode(v)
+		return nil
+	case machine.FieldReachabilityMode:
+		v, ok := value.(machine.ReachabilityMode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReachabilityMode(v)
+		return nil
+	case machine.FieldExecutionMode:
+		v, ok := value.(machine.ExecutionMode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExecutionMode(v)
 		return nil
 	case machine.FieldTransportCapabilities:
 		v, ok := value.(pgarray.StringArray)
@@ -27264,6 +27392,12 @@ func (m *MachineMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *MachineMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(machine.FieldReachabilityMode) {
+		fields = append(fields, machine.FieldReachabilityMode)
+	}
+	if m.FieldCleared(machine.FieldExecutionMode) {
+		fields = append(fields, machine.FieldExecutionMode)
+	}
 	if m.FieldCleared(machine.FieldTransportCapabilities) {
 		fields = append(fields, machine.FieldTransportCapabilities)
 	}
@@ -27320,6 +27454,12 @@ func (m *MachineMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *MachineMutation) ClearField(name string) error {
 	switch name {
+	case machine.FieldReachabilityMode:
+		m.ClearReachabilityMode()
+		return nil
+	case machine.FieldExecutionMode:
+		m.ClearExecutionMode()
+		return nil
 	case machine.FieldTransportCapabilities:
 		m.ClearTransportCapabilities()
 		return nil
@@ -27384,6 +27524,12 @@ func (m *MachineMutation) ResetField(name string) error {
 		return nil
 	case machine.FieldConnectionMode:
 		m.ResetConnectionMode()
+		return nil
+	case machine.FieldReachabilityMode:
+		m.ResetReachabilityMode()
+		return nil
+	case machine.FieldExecutionMode:
+		m.ResetExecutionMode()
 		return nil
 	case machine.FieldTransportCapabilities:
 		m.ResetTransportCapabilities()

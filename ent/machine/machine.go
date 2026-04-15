@@ -25,6 +25,10 @@ const (
 	FieldPort = "port"
 	// FieldConnectionMode holds the string denoting the connection_mode field in the database.
 	FieldConnectionMode = "connection_mode"
+	// FieldReachabilityMode holds the string denoting the reachability_mode field in the database.
+	FieldReachabilityMode = "reachability_mode"
+	// FieldExecutionMode holds the string denoting the execution_mode field in the database.
+	FieldExecutionMode = "execution_mode"
 	// FieldTransportCapabilities holds the string denoting the transport_capabilities field in the database.
 	FieldTransportCapabilities = "transport_capabilities"
 	// FieldSSHUser holds the string denoting the ssh_user field in the database.
@@ -117,6 +121,8 @@ var Columns = []string{
 	FieldHost,
 	FieldPort,
 	FieldConnectionMode,
+	FieldReachabilityMode,
+	FieldExecutionMode,
 	FieldTransportCapabilities,
 	FieldSSHUser,
 	FieldSSHKeyPath,
@@ -191,6 +197,53 @@ func ConnectionModeValidator(cm ConnectionMode) error {
 		return nil
 	default:
 		return fmt.Errorf("machine: invalid enum value for connection_mode field: %q", cm)
+	}
+}
+
+// ReachabilityMode defines the type for the "reachability_mode" enum field.
+type ReachabilityMode string
+
+// ReachabilityMode values.
+const (
+	ReachabilityModeLocal          ReachabilityMode = "local"
+	ReachabilityModeDirectConnect  ReachabilityMode = "direct_connect"
+	ReachabilityModeReverseConnect ReachabilityMode = "reverse_connect"
+)
+
+func (rm ReachabilityMode) String() string {
+	return string(rm)
+}
+
+// ReachabilityModeValidator is a validator for the "reachability_mode" field enum values. It is called by the builders before save.
+func ReachabilityModeValidator(rm ReachabilityMode) error {
+	switch rm {
+	case ReachabilityModeLocal, ReachabilityModeDirectConnect, ReachabilityModeReverseConnect:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for reachability_mode field: %q", rm)
+	}
+}
+
+// ExecutionMode defines the type for the "execution_mode" enum field.
+type ExecutionMode string
+
+// ExecutionMode values.
+const (
+	ExecutionModeLocalProcess ExecutionMode = "local_process"
+	ExecutionModeWebsocket    ExecutionMode = "websocket"
+)
+
+func (em ExecutionMode) String() string {
+	return string(em)
+}
+
+// ExecutionModeValidator is a validator for the "execution_mode" field enum values. It is called by the builders before save.
+func ExecutionModeValidator(em ExecutionMode) error {
+	switch em {
+	case ExecutionModeLocalProcess, ExecutionModeWebsocket:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for execution_mode field: %q", em)
 	}
 }
 
@@ -390,6 +443,16 @@ func ByPort(opts ...sql.OrderTermOption) OrderOption {
 // ByConnectionMode orders the results by the connection_mode field.
 func ByConnectionMode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldConnectionMode, opts...).ToFunc()
+}
+
+// ByReachabilityMode orders the results by the reachability_mode field.
+func ByReachabilityMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReachabilityMode, opts...).ToFunc()
+}
+
+// ByExecutionMode orders the results by the execution_mode field.
+func ByExecutionMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExecutionMode, opts...).ToFunc()
 }
 
 // ByTransportCapabilities orders the results by the transport_capabilities field.

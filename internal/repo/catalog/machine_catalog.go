@@ -137,6 +137,8 @@ func createLocalMachine(ctx context.Context, tx *ent.Tx, organizationID uuid.UUI
 		SetHost(domain.LocalMachineHost).
 		SetPort(22).
 		SetConnectionMode(entmachine.ConnectionModeLocal).
+		SetReachabilityMode(entmachine.ReachabilityModeLocal).
+		SetExecutionMode(entmachine.ExecutionModeLocalProcess).
 		SetTransportCapabilities(pgarray.StringArray(domainTransportCapabilityStrings(defaultLocalTransportCapabilities()))).
 		SetDescription("Control-plane local execution host.").
 		SetStatus(toEntMachineStatus(domain.MachineStatusOnline)).
@@ -162,6 +164,8 @@ func machineCreateBuilder(builder *ent.MachineCreate, input domain.CreateMachine
 		SetHost(input.Host).
 		SetPort(input.Port).
 		SetConnectionMode(entmachine.ConnectionMode(input.ConnectionMode.String())).
+		SetReachabilityMode(entmachine.ReachabilityMode(input.ReachabilityMode.String())).
+		SetExecutionMode(entmachine.ExecutionMode(input.ExecutionMode.String())).
 		SetDescription(input.Description).
 		SetStatus(toEntMachineStatus(input.Status)).
 		SetNillableSSHUser(input.SSHUser).
@@ -198,6 +202,8 @@ func machineUpdateBuilder(builder *ent.MachineUpdateOne, input domain.UpdateMach
 		SetHost(input.Host).
 		SetPort(input.Port).
 		SetConnectionMode(entmachine.ConnectionMode(input.ConnectionMode.String())).
+		SetReachabilityMode(entmachine.ReachabilityMode(input.ReachabilityMode.String())).
+		SetExecutionMode(entmachine.ExecutionMode(input.ExecutionMode.String())).
 		SetDescription(input.Description).
 		SetStatus(toEntMachineStatus(input.Status)).
 		SetDaemonRegistered(input.DaemonStatus.Registered).
@@ -271,17 +277,14 @@ func machineUpdateBuilder(builder *ent.MachineUpdateOne, input domain.UpdateMach
 }
 
 func normalizeCreateMachineDefaults(input domain.CreateMachine) (domain.CreateMachine, error) {
-	mode, err := domain.ParseStoredMachineConnectionMode(input.ConnectionMode.String(), input.Host)
+	mode, reachabilityMode, executionMode, err := domain.ResolveMachineConnectionMode(
+		input.ConnectionMode.String(),
+		input.ReachabilityMode.String(),
+		input.ExecutionMode.String(),
+		input.Host,
+	)
 	if err != nil {
 		return domain.CreateMachine{}, err
-	}
-	reachabilityMode, err := domain.ParseStoredMachineReachabilityMode(input.ReachabilityMode.String(), input.Host)
-	if err != nil {
-		reachabilityMode = mode.ReachabilityMode()
-	}
-	executionMode, err := domain.ParseStoredMachineExecutionMode(input.ExecutionMode.String(), input.Host)
-	if err != nil {
-		executionMode = mode.ExecutionMode()
 	}
 	capabilities, err := domain.ParseStoredMachineTransportCapabilities(domainTransportCapabilityStrings(input.TransportCapabilities), mode)
 	if err != nil {
@@ -349,6 +352,8 @@ func normalizeUpdateMachineDefaults(input domain.UpdateMachine) (domain.UpdateMa
 		return domain.UpdateMachine{}, err
 	}
 	input.ConnectionMode = createInput.ConnectionMode
+	input.ReachabilityMode = createInput.ReachabilityMode
+	input.ExecutionMode = createInput.ExecutionMode
 	input.TransportCapabilities = createInput.TransportCapabilities
 	input.DaemonStatus = createInput.DaemonStatus
 	input.DetectedOS = createInput.DetectedOS
@@ -368,7 +373,7 @@ func mapMachines(items []*ent.Machine) []domain.Machine {
 }
 
 func mapMachine(item *ent.Machine) domain.Machine {
-	connectionMode := parseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
+	connectionMode, reachabilityMode, executionMode := resolveStoredMachineTransport(item)
 	transportCapabilities := parseStoredMachineTransportCapabilities(item.TransportCapabilities, connectionMode)
 	detectedOS := parseStoredMachineDetectedOS(string(item.DetectedOs))
 	detectedArch := parseStoredMachineDetectedArch(string(item.DetectedArch))
@@ -391,8 +396,8 @@ func mapMachine(item *ent.Machine) domain.Machine {
 		Name:                  item.Name,
 		Host:                  item.Host,
 		Port:                  item.Port,
-		ReachabilityMode:      connectionMode.ReachabilityMode(),
-		ExecutionMode:         connectionMode.ExecutionMode(),
+		ReachabilityMode:      reachabilityMode,
+		ExecutionMode:         executionMode,
 		ConnectionMode:        connectionMode,
 		TransportCapabilities: transportCapabilities,
 		SSHUser:               optionalString(item.SSHUser),
@@ -412,6 +417,23 @@ func mapMachine(item *ent.Machine) domain.Machine {
 		LastHeartbeatAt:       cloneTimePointer(item.LastHeartbeatAt),
 		Resources:             cloneAnyMap(item.Resources),
 	}
+}
+
+func resolveStoredMachineTransport(item *ent.Machine) (domain.MachineConnectionMode, domain.MachineReachabilityMode, domain.MachineExecutionMode) {
+	if item == nil {
+		return "", "", ""
+	}
+	mode, reachabilityMode, executionMode, err := domain.ResolveStoredMachineTransport(
+		string(item.ConnectionMode),
+		string(item.ReachabilityMode),
+		string(item.ExecutionMode),
+		item.Host,
+	)
+	if err == nil {
+		return mode, reachabilityMode, executionMode
+	}
+	mode = parseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
+	return mode, mode.ReachabilityMode(), mode.ExecutionMode()
 }
 
 func domainTransportCapabilityStrings(items []domain.MachineTransportCapability) []string {

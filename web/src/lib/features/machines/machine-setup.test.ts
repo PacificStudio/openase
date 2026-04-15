@@ -65,6 +65,14 @@ describe('machine setup guidance', () => {
           command: 'ssh -i /keys/id_ed25519 ubuntu@builder.internal',
         }),
         expect.objectContaining({
+          title: 'SSH bootstrap listener',
+          command: 'openase machine ssh-bootstrap machine-1',
+        }),
+        expect.objectContaining({
+          title: 'SSH diagnostics',
+          command: 'openase machine ssh-diagnostics machine-1',
+        }),
+        expect.objectContaining({
           title: 'Control-plane connection test',
           command: 'openase machine test machine-1',
         }),

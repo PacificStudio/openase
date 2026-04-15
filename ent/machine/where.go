@@ -362,6 +362,66 @@ func ConnectionModeNotIn(vs ...ConnectionMode) predicate.Machine {
 	return predicate.Machine(sql.FieldNotIn(FieldConnectionMode, vs...))
 }
 
+// ReachabilityModeEQ applies the EQ predicate on the "reachability_mode" field.
+func ReachabilityModeEQ(v ReachabilityMode) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldReachabilityMode, v))
+}
+
+// ReachabilityModeNEQ applies the NEQ predicate on the "reachability_mode" field.
+func ReachabilityModeNEQ(v ReachabilityMode) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldReachabilityMode, v))
+}
+
+// ReachabilityModeIn applies the In predicate on the "reachability_mode" field.
+func ReachabilityModeIn(vs ...ReachabilityMode) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldReachabilityMode, vs...))
+}
+
+// ReachabilityModeNotIn applies the NotIn predicate on the "reachability_mode" field.
+func ReachabilityModeNotIn(vs ...ReachabilityMode) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldReachabilityMode, vs...))
+}
+
+// ReachabilityModeIsNil applies the IsNil predicate on the "reachability_mode" field.
+func ReachabilityModeIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldReachabilityMode))
+}
+
+// ReachabilityModeNotNil applies the NotNil predicate on the "reachability_mode" field.
+func ReachabilityModeNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldReachabilityMode))
+}
+
+// ExecutionModeEQ applies the EQ predicate on the "execution_mode" field.
+func ExecutionModeEQ(v ExecutionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldExecutionMode, v))
+}
+
+// ExecutionModeNEQ applies the NEQ predicate on the "execution_mode" field.
+func ExecutionModeNEQ(v ExecutionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldExecutionMode, v))
+}
+
+// ExecutionModeIn applies the In predicate on the "execution_mode" field.
+func ExecutionModeIn(vs ...ExecutionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldExecutionMode, vs...))
+}
+
+// ExecutionModeNotIn applies the NotIn predicate on the "execution_mode" field.
+func ExecutionModeNotIn(vs ...ExecutionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldExecutionMode, vs...))
+}
+
+// ExecutionModeIsNil applies the IsNil predicate on the "execution_mode" field.
+func ExecutionModeIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldExecutionMode))
+}
+
+// ExecutionModeNotNil applies the NotNil predicate on the "execution_mode" field.
+func ExecutionModeNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldExecutionMode))
+}
+
 // TransportCapabilitiesEQ applies the EQ predicate on the "transport_capabilities" field.
 func TransportCapabilitiesEQ(v pgarray.StringArray) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldTransportCapabilities, v))
