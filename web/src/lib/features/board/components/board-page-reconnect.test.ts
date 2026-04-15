@@ -1,27 +1,31 @@
 import { cleanup, render, waitFor, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { ActivityPayload, AgentPayload, Project, TicketPayload, WorkflowListPayload } from '$lib/api/contracts'
+import type {
+  ActivityPayload,
+  AgentPayload,
+  Project,
+  TicketPayload,
+  WorkflowListPayload,
+} from '$lib/api/contracts'
 import { retainProjectEventBus } from '$lib/features/project-events'
-import { TicketsPage, resetProjectBoardCacheForTests, resetTicketBoardToolbarStoreForTests } from '$lib/features/tickets'
+import {
+  TicketsPage,
+  resetProjectBoardCacheForTests,
+  resetTicketBoardToolbarStoreForTests,
+} from '$lib/features/tickets'
 import { orderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
 import { appStore } from '$lib/stores/app.svelte'
 
-const {
-  connectEventStream,
-  listActivity,
-  listAgents,
-  listStatuses,
-  listTickets,
-  listWorkflows,
-} = vi.hoisted(() => ({
-  connectEventStream: vi.fn(),
-  listActivity: vi.fn(),
-  listAgents: vi.fn(),
-  listStatuses: vi.fn(),
-  listTickets: vi.fn(),
-  listWorkflows: vi.fn(),
-}))
+const { connectEventStream, listActivity, listAgents, listStatuses, listTickets, listWorkflows } =
+  vi.hoisted(() => ({
+    connectEventStream: vi.fn(),
+    listActivity: vi.fn(),
+    listAgents: vi.fn(),
+    listStatuses: vi.fn(),
+    listTickets: vi.fn(),
+    listWorkflows: vi.fn(),
+  }))
 
 vi.mock('$lib/api/sse', async () => {
   const actual = await vi.importActual<typeof import('$lib/api/sse')>('$lib/api/sse')
