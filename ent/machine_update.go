@@ -111,6 +111,46 @@ func (_u *MachineUpdate) SetNillableConnectionMode(v *machine.ConnectionMode) *M
 	return _u
 }
 
+// SetReachabilityMode sets the "reachability_mode" field.
+func (_u *MachineUpdate) SetReachabilityMode(v machine.ReachabilityMode) *MachineUpdate {
+	_u.mutation.SetReachabilityMode(v)
+	return _u
+}
+
+// SetNillableReachabilityMode sets the "reachability_mode" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableReachabilityMode(v *machine.ReachabilityMode) *MachineUpdate {
+	if v != nil {
+		_u.SetReachabilityMode(*v)
+	}
+	return _u
+}
+
+// ClearReachabilityMode clears the value of the "reachability_mode" field.
+func (_u *MachineUpdate) ClearReachabilityMode() *MachineUpdate {
+	_u.mutation.ClearReachabilityMode()
+	return _u
+}
+
+// SetExecutionMode sets the "execution_mode" field.
+func (_u *MachineUpdate) SetExecutionMode(v machine.ExecutionMode) *MachineUpdate {
+	_u.mutation.SetExecutionMode(v)
+	return _u
+}
+
+// SetNillableExecutionMode sets the "execution_mode" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableExecutionMode(v *machine.ExecutionMode) *MachineUpdate {
+	if v != nil {
+		_u.SetExecutionMode(*v)
+	}
+	return _u
+}
+
+// ClearExecutionMode clears the value of the "execution_mode" field.
+func (_u *MachineUpdate) ClearExecutionMode() *MachineUpdate {
+	_u.mutation.ClearExecutionMode()
+	return _u
+}
+
 // SetTransportCapabilities sets the "transport_capabilities" field.
 func (_u *MachineUpdate) SetTransportCapabilities(v pgarray.StringArray) *MachineUpdate {
 	_u.mutation.SetTransportCapabilities(v)
@@ -639,6 +679,16 @@ func (_u *MachineUpdate) check() error {
 			return &ValidationError{Name: "connection_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.connection_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReachabilityMode(); ok {
+		if err := machine.ReachabilityModeValidator(v); err != nil {
+			return &ValidationError{Name: "reachability_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.reachability_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ExecutionMode(); ok {
+		if err := machine.ExecutionModeValidator(v); err != nil {
+			return &ValidationError{Name: "execution_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.execution_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DaemonSessionState(); ok {
 		if err := machine.DaemonSessionStateValidator(v); err != nil {
 			return &ValidationError{Name: "daemon_session_state", err: fmt.Errorf(`ent: validator failed for field "Machine.daemon_session_state": %w`, err)}
@@ -701,6 +751,18 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.ConnectionMode(); ok {
 		_spec.SetField(machine.FieldConnectionMode, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReachabilityMode(); ok {
+		_spec.SetField(machine.FieldReachabilityMode, field.TypeEnum, value)
+	}
+	if _u.mutation.ReachabilityModeCleared() {
+		_spec.ClearField(machine.FieldReachabilityMode, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.ExecutionMode(); ok {
+		_spec.SetField(machine.FieldExecutionMode, field.TypeEnum, value)
+	}
+	if _u.mutation.ExecutionModeCleared() {
+		_spec.ClearField(machine.FieldExecutionMode, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.TransportCapabilities(); ok {
 		_spec.SetField(machine.FieldTransportCapabilities, field.TypeOther, value)
@@ -1068,6 +1130,46 @@ func (_u *MachineUpdateOne) SetNillableConnectionMode(v *machine.ConnectionMode)
 	if v != nil {
 		_u.SetConnectionMode(*v)
 	}
+	return _u
+}
+
+// SetReachabilityMode sets the "reachability_mode" field.
+func (_u *MachineUpdateOne) SetReachabilityMode(v machine.ReachabilityMode) *MachineUpdateOne {
+	_u.mutation.SetReachabilityMode(v)
+	return _u
+}
+
+// SetNillableReachabilityMode sets the "reachability_mode" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableReachabilityMode(v *machine.ReachabilityMode) *MachineUpdateOne {
+	if v != nil {
+		_u.SetReachabilityMode(*v)
+	}
+	return _u
+}
+
+// ClearReachabilityMode clears the value of the "reachability_mode" field.
+func (_u *MachineUpdateOne) ClearReachabilityMode() *MachineUpdateOne {
+	_u.mutation.ClearReachabilityMode()
+	return _u
+}
+
+// SetExecutionMode sets the "execution_mode" field.
+func (_u *MachineUpdateOne) SetExecutionMode(v machine.ExecutionMode) *MachineUpdateOne {
+	_u.mutation.SetExecutionMode(v)
+	return _u
+}
+
+// SetNillableExecutionMode sets the "execution_mode" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableExecutionMode(v *machine.ExecutionMode) *MachineUpdateOne {
+	if v != nil {
+		_u.SetExecutionMode(*v)
+	}
+	return _u
+}
+
+// ClearExecutionMode clears the value of the "execution_mode" field.
+func (_u *MachineUpdateOne) ClearExecutionMode() *MachineUpdateOne {
+	_u.mutation.ClearExecutionMode()
 	return _u
 }
 
@@ -1612,6 +1714,16 @@ func (_u *MachineUpdateOne) check() error {
 			return &ValidationError{Name: "connection_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.connection_mode": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ReachabilityMode(); ok {
+		if err := machine.ReachabilityModeValidator(v); err != nil {
+			return &ValidationError{Name: "reachability_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.reachability_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ExecutionMode(); ok {
+		if err := machine.ExecutionModeValidator(v); err != nil {
+			return &ValidationError{Name: "execution_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.execution_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.DaemonSessionState(); ok {
 		if err := machine.DaemonSessionStateValidator(v); err != nil {
 			return &ValidationError{Name: "daemon_session_state", err: fmt.Errorf(`ent: validator failed for field "Machine.daemon_session_state": %w`, err)}
@@ -1691,6 +1803,18 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 	}
 	if value, ok := _u.mutation.ConnectionMode(); ok {
 		_spec.SetField(machine.FieldConnectionMode, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReachabilityMode(); ok {
+		_spec.SetField(machine.FieldReachabilityMode, field.TypeEnum, value)
+	}
+	if _u.mutation.ReachabilityModeCleared() {
+		_spec.ClearField(machine.FieldReachabilityMode, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.ExecutionMode(); ok {
+		_spec.SetField(machine.FieldExecutionMode, field.TypeEnum, value)
+	}
+	if _u.mutation.ExecutionModeCleared() {
+		_spec.ClearField(machine.FieldExecutionMode, field.TypeEnum)
 	}
 	if value, ok := _u.mutation.TransportCapabilities(); ok {
 		_spec.SetField(machine.FieldTransportCapabilities, field.TypeOther, value)

@@ -72,6 +72,34 @@ func (_c *MachineCreate) SetNillableConnectionMode(v *machine.ConnectionMode) *M
 	return _c
 }
 
+// SetReachabilityMode sets the "reachability_mode" field.
+func (_c *MachineCreate) SetReachabilityMode(v machine.ReachabilityMode) *MachineCreate {
+	_c.mutation.SetReachabilityMode(v)
+	return _c
+}
+
+// SetNillableReachabilityMode sets the "reachability_mode" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableReachabilityMode(v *machine.ReachabilityMode) *MachineCreate {
+	if v != nil {
+		_c.SetReachabilityMode(*v)
+	}
+	return _c
+}
+
+// SetExecutionMode sets the "execution_mode" field.
+func (_c *MachineCreate) SetExecutionMode(v machine.ExecutionMode) *MachineCreate {
+	_c.mutation.SetExecutionMode(v)
+	return _c
+}
+
+// SetNillableExecutionMode sets the "execution_mode" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableExecutionMode(v *machine.ExecutionMode) *MachineCreate {
+	if v != nil {
+		_c.SetExecutionMode(*v)
+	}
+	return _c
+}
+
 // SetTransportCapabilities sets the "transport_capabilities" field.
 func (_c *MachineCreate) SetTransportCapabilities(v pgarray.StringArray) *MachineCreate {
 	_c.mutation.SetTransportCapabilities(v)
@@ -525,6 +553,16 @@ func (_c *MachineCreate) check() error {
 			return &ValidationError{Name: "connection_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.connection_mode": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.ReachabilityMode(); ok {
+		if err := machine.ReachabilityModeValidator(v); err != nil {
+			return &ValidationError{Name: "reachability_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.reachability_mode": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.ExecutionMode(); ok {
+		if err := machine.ExecutionModeValidator(v); err != nil {
+			return &ValidationError{Name: "execution_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.execution_mode": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.DaemonRegistered(); !ok {
 		return &ValidationError{Name: "daemon_registered", err: errors.New(`ent: missing required field "Machine.daemon_registered"`)}
 	}
@@ -632,6 +670,14 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ConnectionMode(); ok {
 		_spec.SetField(machine.FieldConnectionMode, field.TypeEnum, value)
 		_node.ConnectionMode = value
+	}
+	if value, ok := _c.mutation.ReachabilityMode(); ok {
+		_spec.SetField(machine.FieldReachabilityMode, field.TypeEnum, value)
+		_node.ReachabilityMode = value
+	}
+	if value, ok := _c.mutation.ExecutionMode(); ok {
+		_spec.SetField(machine.FieldExecutionMode, field.TypeEnum, value)
+		_node.ExecutionMode = value
 	}
 	if value, ok := _c.mutation.TransportCapabilities(); ok {
 		_spec.SetField(machine.FieldTransportCapabilities, field.TypeOther, value)

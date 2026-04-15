@@ -924,6 +924,19 @@ func pointerString(value *string) string {
 }
 
 func effectiveConnectionMode(machine domain.Machine) domain.MachineConnectionMode {
+	if machine.ConnectionMode.IsValid() &&
+		!machine.ReachabilityMode.IsValid() &&
+		!machine.ExecutionMode.IsValid() {
+		return machine.ConnectionMode
+	}
+	if mode, _, _, err := domain.ResolveMachineConnectionMode(
+		machine.ConnectionMode.String(),
+		machine.ReachabilityMode.String(),
+		machine.ExecutionMode.String(),
+		machine.Host,
+	); err == nil {
+		return mode
+	}
 	if machine.ConnectionMode.IsValid() {
 		return machine.ConnectionMode
 	}
