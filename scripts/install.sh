@@ -33,6 +33,16 @@ die() {
   exit 1
 }
 
+die_command_failed() {
+  failed_command=$1
+  shift
+  printf 'error: Command failed: %s\n' "$failed_command" >&2
+  if [ "$#" -gt 0 ]; then
+    printf 'error: %s\n' "$*" >&2
+  fi
+  exit 1
+}
+
 usage() {
   cat <<'EOF'
 OpenASE installer
@@ -455,6 +465,58 @@ choose_install_dir() {
   fi
 }
 
+choose_existing_binary_action() {
+  DEST_BIN_PREVIEW=${INSTALL_DIR}/${OPENASE_BIN_NAME}
+  EXISTING_BINARY_FOUND=0
+  EXISTING_BINARY_VERSION=""
+  EXISTING_BINARY_ACTION=install
+
+  if [ ! -x "$DEST_BIN_PREVIEW" ]; then
+    return 0
+  fi
+
+  EXISTING_BINARY_FOUND=1
+  EXISTING_BINARY_VERSION=$("$DEST_BIN_PREVIEW" version 2>/dev/null | head -n 1 | tr -d '\r' || true)
+
+  if [ "$OPENASE_INSTALL_YES" = "1" ]; then
+    if [ -n "$EXISTING_BINARY_VERSION" ] && printf '%s' "$EXISTING_BINARY_VERSION" | grep -F "$RELEASE_TAG" >/dev/null 2>&1; then
+      EXISTING_BINARY_ACTION=keep
+      return 0
+    fi
+    EXISTING_BINARY_ACTION=replace
+    return 0
+  fi
+
+  binary_prompt=$(
+    prompt_choice \
+      "An existing ${OPENASE_BIN_NAME} binary was found at ${DEST_BIN_PREVIEW}. What should the installer do?" \
+      3 \
+      3 \
+      "Keep the current binary and continue OpenASE setup" \
+      "Replace it with the selected release (${RELEASE_TAG})" \
+      "Check the installed version and replace only if needed"
+  )
+
+  case "$binary_prompt" in
+    1)
+      EXISTING_BINARY_ACTION=keep
+      ;;
+    2)
+      EXISTING_BINARY_ACTION=replace
+      ;;
+    3)
+      if [ -n "$EXISTING_BINARY_VERSION" ] && printf '%s' "$EXISTING_BINARY_VERSION" | grep -F "$RELEASE_TAG" >/dev/null 2>&1; then
+        EXISTING_BINARY_ACTION=keep
+      else
+        EXISTING_BINARY_ACTION=replace
+      fi
+      ;;
+    *)
+      die "Unexpected existing-binary selection: ${binary_prompt}"
+      ;;
+  esac
+}
+
 choose_pg_mode() {
   CONFIG_PATH=${HOME}/.openase/config.yaml
   AUTO_SETUP_ALLOWED=1
@@ -578,12 +640,14 @@ download_release_assets() {
 
   info "Downloading ${ASSET_NAME}"
   curl -fsSL "$ARCHIVE_URL" -o "$ARCHIVE_PATH" || {
-    die "Could not download ${ARCHIVE_URL}. Confirm that release ${RELEASE_TAG} has a ${OPENASE_OS}/${OPENASE_ARCH} archive."
+    die_command_failed "curl -fsSL ${ARCHIVE_URL} -o ${ARCHIVE_PATH}" \
+      "Could not download ${ARCHIVE_URL}. Confirm that release ${RELEASE_TAG} has a ${OPENASE_OS}/${OPENASE_ARCH} archive."
   }
 
   info "Downloading checksums.txt"
   curl -fsSL "$CHECKSUM_URL" -o "$CHECKSUM_PATH" || {
-    die "Could not download ${CHECKSUM_URL}. Confirm that release ${RELEASE_TAG} publishes checksums.txt."
+    die_command_failed "curl -fsSL ${CHECKSUM_URL} -o ${CHECKSUM_PATH}" \
+      "Could not download ${CHECKSUM_URL}. Confirm that release ${RELEASE_TAG} publishes checksums.txt."
   }
 }
 
@@ -598,7 +662,7 @@ verify_release_archive() {
 extract_release_binary() {
   EXTRACT_DIR=${TMP_DIR}/extract
   mkdir -p "$EXTRACT_DIR"
-  tar -xzf "$ARCHIVE_PATH" -C "$EXTRACT_DIR" || die "Could not extract ${ASSET_NAME}."
+  tar -xzf "$ARCHIVE_PATH" -C "$EXTRACT_DIR" || die_command_failed "tar -xzf ${ARCHIVE_PATH} -C ${EXTRACT_DIR}" "Could not extract ${ASSET_NAME}."
 
   EXTRACTED_BIN=$(find "$EXTRACT_DIR" -type f -name "$OPENASE_BIN_NAME" | head -n 1)
   [ -n "$EXTRACTED_BIN" ] || die "The release archive does not contain ${OPENASE_BIN_NAME}."
@@ -607,6 +671,16 @@ extract_release_binary() {
 
 install_release_binary() {
   DEST_BIN=${INSTALL_DIR}/${OPENASE_BIN_NAME}
+  if [ "$EXISTING_BINARY_ACTION" = "keep" ] && [ -x "$DEST_BIN" ]; then
+    INSTALLED_BIN=$DEST_BIN
+    if [ -n "$EXISTING_BINARY_VERSION" ]; then
+      info "Keeping the existing ${OPENASE_BIN_NAME} binary at ${DEST_BIN} (${EXISTING_BINARY_VERSION})"
+    else
+      info "Keeping the existing ${OPENASE_BIN_NAME} binary at ${DEST_BIN}"
+    fi
+    return 0
+  fi
+
   info "Installing ${OPENASE_BIN_NAME} to ${DEST_BIN}"
   if [ "$INSTALL_WITH_SUDO" = "1" ]; then
     run_as_root mkdir -p "$INSTALL_DIR"
@@ -698,24 +772,24 @@ bootstrap_system_postgres() {
   info "Installing PostgreSQL via ${SUPPORTED_PACKAGE_MANAGER}"
   case "$SUPPORTED_PACKAGE_MANAGER" in
     brew)
-      brew list postgresql@16 >/dev/null 2>&1 || brew install postgresql@16
+      brew list postgresql@16 >/dev/null 2>&1 || brew install postgresql@16 || die_command_failed "brew install postgresql@16" "Homebrew could not install postgresql@16."
       ensure_brew_postgres_path
-      brew services start postgresql@16 >/dev/null || die "Homebrew could not start postgresql@16. Run 'brew services start postgresql@16' manually and rerun the installer."
+      brew services start postgresql@16 >/dev/null || die_command_failed "brew services start postgresql@16" "Homebrew could not start postgresql@16. Run 'brew services start postgresql@16' manually and rerun the installer."
       ;;
     apt-get)
-      run_as_root apt-get update
-      run_as_root apt-get install -y postgresql postgresql-client
+      run_as_root apt-get update || die_command_failed "sudo apt-get update" "apt metadata refresh failed. If dpkg was interrupted earlier, run 'sudo dpkg --configure -a' and rerun the installer."
+      run_as_root apt-get install -y postgresql postgresql-client || die_command_failed "sudo apt-get install -y postgresql postgresql-client" "PostgreSQL package install failed. If dpkg was interrupted, run 'sudo dpkg --configure -a' and rerun the installer."
       start_linux_postgres_service || die "PostgreSQL was installed, but the service could not be started automatically. Start it with 'sudo service postgresql start' or 'sudo systemctl start postgresql', then rerun the installer."
       ;;
     dnf)
-      run_as_root dnf install -y postgresql-server postgresql
+      run_as_root dnf install -y postgresql-server postgresql || die_command_failed "sudo dnf install -y postgresql-server postgresql" "PostgreSQL package install failed. Resolve the package-manager error, then rerun the installer."
       if command -v postgresql-setup >/dev/null 2>&1; then
         run_as_root postgresql-setup --initdb >/dev/null 2>&1 || true
       fi
       start_linux_postgres_service || die "PostgreSQL was installed, but the service could not be started automatically. Start it with 'sudo systemctl start postgresql', then rerun the installer."
       ;;
     yum)
-      run_as_root yum install -y postgresql-server postgresql
+      run_as_root yum install -y postgresql-server postgresql || die_command_failed "sudo yum install -y postgresql-server postgresql" "PostgreSQL package install failed. Resolve the package-manager error, then rerun the installer."
       if command -v postgresql-setup >/dev/null 2>&1; then
         run_as_root postgresql-setup --initdb >/dev/null 2>&1 || true
       fi
@@ -739,7 +813,7 @@ run_setup_apply() {
 
   if ! "$INSTALLED_BIN" setup apply --input "$setup_input_path" >"$setup_output_path"; then
     cat "$setup_output_path" >&2 || true
-    die "OpenASE setup apply failed. Resolve the database issue, then rerun the installer or run '${INSTALLED_BIN} setup' manually."
+    die_command_failed "${INSTALLED_BIN} setup apply --input ${setup_input_path}" "OpenASE setup apply failed. Resolve the database issue, then rerun the installer. If the OpenASE binary is already installed, the rerun will let you keep it or replace it."
   fi
 
   if ! grep -q '"ready"[[:space:]]*:[[:space:]]*true' "$setup_output_path"; then
@@ -815,6 +889,14 @@ print_dry_run_plan() {
   say "  install_dir=${INSTALL_DIR}"
   say "  install_with_sudo=${INSTALL_WITH_SUDO}"
   say "  pg_mode=${PG_MODE}"
+  if [ "$EXISTING_BINARY_FOUND" = "1" ]; then
+    if [ -n "$EXISTING_BINARY_VERSION" ]; then
+      say "  existing_binary=${DEST_BIN_PREVIEW} (${EXISTING_BINARY_VERSION})"
+    else
+      say "  existing_binary=${DEST_BIN_PREVIEW} (version unknown)"
+    fi
+    say "  existing_binary_action=${EXISTING_BINARY_ACTION}"
+  fi
 }
 
 print_completion_notes() {
@@ -829,13 +911,17 @@ print_completion_notes() {
   else
     say "OpenASE configuration was written to ${HOME}/.openase/config.yaml."
     say "Next step: start OpenASE with '${INSTALLED_BIN} all-in-one --config ${HOME}/.openase/config.yaml'."
+    say "After OpenASE is running, generate a local bootstrap sign-in link with:"
+    say "  ${INSTALLED_BIN} auth bootstrap create-link --return-to / --format text"
   fi
 
   if ! path_contains_dir "$INSTALL_DIR"; then
     say
+    say "User-level installs place ${OPENASE_BIN_NAME} under ${INSTALL_DIR}."
     say "Your shell PATH does not currently include ${INSTALL_DIR}."
-    say "Add this line to your shell profile, then open a new shell:"
+    say "Add this line to your shell profile, or run it now before using '${OPENASE_BIN_NAME}':"
     say "  export PATH=\"${INSTALL_DIR}:\$PATH\""
+    say "Then open a new login shell."
   fi
 }
 
@@ -855,6 +941,7 @@ main() {
   print_environment_summary
   choose_release_tag
   choose_install_dir
+  choose_existing_binary_action
   choose_pg_mode
 
   TMP_DIR=$(mktemp -d)
