@@ -125,7 +125,7 @@ func (l *RuntimeLauncher) appendAgentRawEvent(
 	if raw == nil {
 		return nil
 	}
-	dedupKey := strings.TrimSpace(raw.DedupKey)
+	dedupKey := sanitizeRawEventDBText(raw.DedupKey)
 	if dedupKey == "" {
 		return nil
 	}
@@ -148,28 +148,32 @@ func (l *RuntimeLauncher) appendAgentRawEvent(
 		SetAgentID(input.AgentID).
 		SetAgentRunID(input.RunID).
 		SetDedupKey(dedupKey).
-		SetProvider(strings.TrimSpace(input.Provider)).
-		SetProviderEventKind(strings.TrimSpace(raw.ProviderEventKind)).
-		SetProviderEventSubtype(strings.TrimSpace(raw.ProviderEventSubtype)).
+		SetProvider(sanitizeRawEventDBText(input.Provider)).
+		SetProviderEventKind(sanitizeRawEventDBText(raw.ProviderEventKind)).
+		SetProviderEventSubtype(sanitizeRawEventDBText(raw.ProviderEventSubtype)).
 		SetOccurredAt(input.ObservedAt.UTC()).
 		SetPayload(cloneProjectionMap(raw.Payload)).
-		SetTextExcerpt(strings.TrimSpace(raw.TextExcerpt))
-	if trimmed := strings.TrimSpace(raw.ProviderEventID); trimmed != "" {
+		SetTextExcerpt(sanitizeRawEventDBText(raw.TextExcerpt))
+	if trimmed := sanitizeRawEventDBText(raw.ProviderEventID); trimmed != "" {
 		create.SetProviderEventID(trimmed)
 	}
-	if trimmed := strings.TrimSpace(raw.ThreadID); trimmed != "" {
+	if trimmed := sanitizeRawEventDBText(raw.ThreadID); trimmed != "" {
 		create.SetThreadID(trimmed)
 	}
-	if trimmed := strings.TrimSpace(raw.TurnID); trimmed != "" {
+	if trimmed := sanitizeRawEventDBText(raw.TurnID); trimmed != "" {
 		create.SetTurnID(trimmed)
 	}
-	if trimmed := strings.TrimSpace(raw.ActivityHintID); trimmed != "" {
+	if trimmed := sanitizeRawEventDBText(raw.ActivityHintID); trimmed != "" {
 		create.SetActivityHintID(trimmed)
 	}
 	if _, err := create.Save(ctx); err != nil {
 		return fmt.Errorf("append raw event for run %s: %w", input.RunID, err)
 	}
 	return nil
+}
+
+func sanitizeRawEventDBText(raw string) string {
+	return strings.TrimSpace(strings.ReplaceAll(strings.ToValidUTF8(raw, ""), "\x00", ""))
 }
 
 func (l *RuntimeLauncher) projectItemStartedEvent(ctx context.Context, input runtimeEventProjectionInput) error {
