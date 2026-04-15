@@ -1,7 +1,7 @@
 import { driver, type DriveStep, type Config } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import type { TranslationKey } from '$lib/i18n'
-import { toursAllowed } from '$lib/features/tour/runtime'
+import { toursAllowed } from '$lib/features/tour'
 
 const TOUR_STORAGE_KEY = 'openase.tour.workflowCreation.completed'
 
