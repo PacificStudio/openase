@@ -81,6 +81,7 @@ var intentionalCLIOpenAPIGaps = map[string]string{
 	contractKey("PUT", "/api/v1/projects/{projectId}/security-settings/oidc-draft"):                                "OIDC draft persistence has no first-class CLI yet",
 	contractKey("POST", "/api/v1/projects/{projectId}/security-settings/oidc-draft/test"):                          "OIDC draft connectivity testing has no first-class CLI yet",
 	contractKey("POST", "/api/v1/projects/{projectId}/security-settings/oidc-enable"):                              "OIDC activation is intentionally guided through the admin UI today",
+	contractKey("POST", "/api/v1/projects/{projectId}/tickets/{ticketId}/workspace/reset"):                         "project-scoped ticket workspace reset has no first-class CLI yet",
 	contractKey("GET", "/api/v1/projects/{projectId}/token-usage"):                                                 "project token usage has no first-class CLI yet",
 	contractKey("POST", "/api/v1/projects/{projectId}/updates/{threadId}/comments"):                                "project update comments have no first-class CLI yet",
 	contractKey("DELETE", "/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}"):                  "project update comment deletion has no first-class CLI yet",

@@ -73,6 +73,35 @@ describe('ticket run transcript real sample replay', () => {
     expect(hydrateThenSupplement).toEqual(streamThenHydrate)
   })
 
+  it('maps replayed Claude interrupted execution errors to friendly copy while keeping raw diagnostics', () => {
+    const fixture = loadFixture('claude-code-replay-fixture.json')
+    const state = replayFrames(fixture.supplement_frames, fixture.detail, true)
+
+    const errorBlock = state.blocks.find(
+      (block) =>
+        block.kind === 'task_status' &&
+        block.statusType === 'error' &&
+        block.raw?.subtype === 'error_during_execution',
+    )
+
+    expect(errorBlock).toBeDefined()
+    expect(errorBlock).toMatchObject({
+      kind: 'task_status',
+      statusType: 'error',
+      raw: {
+        subtype: 'error_during_execution',
+        terminal_reason: 'aborted_streaming',
+      },
+    })
+    if (!errorBlock || errorBlock.kind !== 'task_status' || errorBlock.statusType !== 'error') {
+      throw new Error('expected replayed Claude error task status block')
+    }
+    expect(errorBlock.detail).toBe(
+      "Claude couldn't finish this reply because the session was interrupted. Try sending your message again.",
+    )
+    expect(errorBlock.detail).not.toContain('error_during_execution')
+  })
+
   it('keeps the terminal Codex run snapshot stable when older lifecycle frames arrive after detail hydration', () => {
     const fixture = loadFixture('openai-codex-replay-fixture.json')
     const detail = mapTicketRunDetail(fixture.detail)

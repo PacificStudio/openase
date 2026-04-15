@@ -1,14 +1,11 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Button } from '$ui/button'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import {
     ChevronRight,
     CloudDownload,
     CloudUpload,
     Ellipsis,
-    FilePlus2,
-    FolderPlus,
     GitGraph,
     LoaderCircle,
     RefreshCcw,
@@ -34,11 +31,12 @@
     parentOf,
   } from './project-conversation-workspace-browser-sidebar-helpers'
   import WorkspaceBrowserSearch from './project-conversation-workspace-browser-search.svelte'
-  import WorkspaceBrowserTree, {
-    type PendingCreate,
-    type TreeMenuTarget,
+  import type {
+    PendingCreate,
+    TreeMenuTarget,
   } from './project-conversation-workspace-browser-tree.svelte'
   import WorkspaceBrowserTreeMenu from './project-conversation-workspace-browser-tree-menu.svelte'
+  import WorkspaceBrowserExplorerPanel from './workspace-browser-explorer-panel.svelte'
 
   let {
     repos = [],
@@ -135,9 +133,11 @@
   const dirtyFileStatus = $derived(buildDirtyFileStatusMap(dirtyFiles))
   const dirtyParentDirs = $derived.by(() => buildDirtyParentDirs(dirtyFiles))
 
-  let explorerExpanded = $state(true)
   let gitGraphExpanded = $state(false)
   let gitRemoteOpLoading = $state(false)
+  let pendingCreate = $state<PendingCreate | null>(null)
+  let renameTarget = $state<{ path: string } | null>(null)
+  let contextMenu = $state<{ x: number; y: number; entry: TreeMenuTarget } | null>(null)
 
   async function handleGitRemoteOp(op: ProjectConversationWorkspaceGitRemoteOp) {
     if (gitRemoteOpLoading) return
@@ -149,15 +149,9 @@
     }
   }
 
-  let pendingCreate = $state<PendingCreate | null>(null)
-  let renameTarget = $state<{ path: string } | null>(null)
-  let contextMenu = $state<{ x: number; y: number; entry: TreeMenuTarget } | null>(null)
-
   function ensureExpanded(path: string) {
     if (!path) return
-    if (!expandedDirs.has(path)) {
-      onToggleDir?.(path)
-    }
+    if (!expandedDirs.has(path)) onToggleDir?.(path)
   }
 
   function startCreate(kind: 'file' | 'folder', parentPath?: string) {
@@ -165,7 +159,6 @@
     renameTarget = null
     pendingCreate = { parentPath: target, kind }
     ensureExpanded(target)
-    explorerExpanded = true
   }
 
   function startRename(path: string) {
@@ -223,67 +216,24 @@
     onSelectFile={(path) => onSelectFile?.(path)}
   />
 
-  <div class="flex min-h-0 flex-1 flex-col" data-testid="workspace-browser-explorer-panel">
-    <div class="flex shrink-0 items-center gap-0.5 pr-1">
-      <button
-        type="button"
-        class="text-muted-foreground hover:bg-muted/30 flex flex-1 items-center gap-1 px-2 py-1 text-[10px] font-semibold tracking-wider uppercase transition-colors"
-        onclick={() => (explorerExpanded = !explorerExpanded)}
-      >
-        <ChevronRight
-          class={cn(
-            'size-2.5 shrink-0 transition-transform duration-100',
-            explorerExpanded && 'rotate-90',
-          )}
-        />
-        Explorer
-      </button>
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        class="size-5"
-        title="New File"
-        data-testid="workspace-browser-new-file"
-        onclick={() => startCreate('file')}
-      >
-        <FilePlus2 class="size-3" />
-      </Button>
-      <Button
-        size="icon-xs"
-        variant="ghost"
-        class="size-5"
-        title="New Folder"
-        data-testid="workspace-browser-new-folder"
-        onclick={() => startCreate('folder')}
-      >
-        <FolderPlus class="size-3" />
-      </Button>
-    </div>
-    {#if explorerExpanded}
-      <div
-        class="min-h-0 flex-1 overflow-y-auto pb-1"
-        data-testid="workspace-browser-explorer-list"
-      >
-        <WorkspaceBrowserTree
-          {treeNodes}
-          {expandedDirs}
-          {loadingDirs}
-          {selectedFilePath}
-          {dirtyFileStatus}
-          {dirtyParentDirs}
-          {pendingCreate}
-          {renameTarget}
-          {onToggleDir}
-          onSelectFile={(path) => onSelectFile?.(path)}
-          onOpenMenu={openMenu}
-          onCommitCreate={commitCreate}
-          onCancelCreate={() => (pendingCreate = null)}
-          onCommitRename={commitRename}
-          onCancelRename={() => (renameTarget = null)}
-        />
-      </div>
-    {/if}
-  </div>
+  <WorkspaceBrowserExplorerPanel
+    {treeNodes}
+    {expandedDirs}
+    {loadingDirs}
+    {selectedFilePath}
+    {dirtyFileStatus}
+    {dirtyParentDirs}
+    {pendingCreate}
+    {renameTarget}
+    {onToggleDir}
+    onSelectFile={(path) => onSelectFile?.(path)}
+    onOpenMenu={openMenu}
+    onStartCreate={startCreate}
+    onCommitCreate={commitCreate}
+    onCancelCreate={() => (pendingCreate = null)}
+    onCommitRename={commitRename}
+    onCancelRename={() => (renameTarget = null)}
+  />
 
   {#if gitGraph || gitGraphLoading}
     <div
@@ -320,7 +270,7 @@
           <DropdownMenu.Root>
             <DropdownMenu.Trigger
               class="text-muted-foreground hover:bg-muted/40 flex size-5 items-center justify-center rounded transition-colors"
-              onclick={(e: MouseEvent) => e.stopPropagation()}
+              onclick={(event: MouseEvent) => event.stopPropagation()}
             >
               <Ellipsis class="size-3" />
             </DropdownMenu.Trigger>
