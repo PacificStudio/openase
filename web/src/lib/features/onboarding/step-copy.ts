@@ -1,8 +1,9 @@
+import { translate, type AppLocale, type TranslationKey } from '$lib/i18n'
 import type { OnboardingStepId } from './types'
 
 export type StepCopyEntry = {
   fallback: string | string[]
-  translationKey?: string | string[]
+  translationKey?: TranslationKey | TranslationKey[]
 }
 
 const stepCopy: Record<string, StepCopyEntry> = {
@@ -218,18 +219,24 @@ const stepCopy: Record<string, StepCopyEntry> = {
   },
 }
 
-export function stepText(stepId: OnboardingStepId, key: string) {
+export function stepText(locale: AppLocale, stepId: OnboardingStepId, key: string) {
   const entry = stepCopy[`${stepId}.${key}`]
   if (!entry || typeof entry.fallback !== 'string') {
     return ''
   }
+  if (typeof entry.translationKey === 'string') {
+    return translate(locale, entry.translationKey)
+  }
   return entry.fallback
 }
 
-export function stepList(stepId: OnboardingStepId, key: string) {
+export function stepList(locale: AppLocale, stepId: OnboardingStepId, key: string) {
   const entry = stepCopy[`${stepId}.${key}`]
   if (!entry || !Array.isArray(entry.fallback)) {
     return []
+  }
+  if (Array.isArray(entry.translationKey)) {
+    return entry.translationKey.map((translationKey) => translate(locale, translationKey))
   }
   return entry.fallback
 }

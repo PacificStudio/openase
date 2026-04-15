@@ -5,6 +5,7 @@ import type {
   OnboardingStepId,
   ProjectBootstrapPreset,
 } from './types'
+import type { AppLocale } from '$lib/i18n'
 import { presetText } from './preset-copy'
 import { stepList, stepText } from './step-copy'
 
@@ -17,14 +18,16 @@ const stepIds: OnboardingStepId[] = [
   'ai_discovery',
 ]
 
-const stepDefinitions: Omit<OnboardingStep, 'status'>[] = stepIds.map((id) => ({
-  id,
-  label: stepText(id, 'label'),
-  description: stepText(id, 'description'),
-  purpose: stepText(id, 'purpose'),
-  configHighlights: stepList(id, 'configHighlights'),
-  skipRisks: stepList(id, 'skipRisks'),
-}))
+function buildStepDefinitions(locale: AppLocale): Omit<OnboardingStep, 'status'>[] {
+  return stepIds.map((id) => ({
+    id,
+    label: stepText(locale, id, 'label'),
+    description: stepText(locale, id, 'description'),
+    purpose: stepText(locale, id, 'purpose'),
+    configHighlights: stepList(locale, id, 'configHighlights'),
+    skipRisks: stepList(locale, id, 'skipRisks'),
+  }))
+}
 
 export function isStepCompleted(step: OnboardingStepId, data: OnboardingData): boolean {
   switch (step) {
@@ -51,11 +54,14 @@ export function isStepCompleted(step: OnboardingStepId, data: OnboardingData): b
   }
 }
 
-export function buildOnboardingSteps(data: OnboardingData): OnboardingStep[] {
+export function buildOnboardingSteps(
+  data: OnboardingData,
+  locale: AppLocale = 'en',
+): OnboardingStep[] {
   const steps: OnboardingStep[] = []
   let foundActive = false
 
-  for (const def of stepDefinitions) {
+  for (const def of buildStepDefinitions(locale)) {
     const completed = isStepCompleted(def.id, data)
     let status: OnboardingStep['status']
 
@@ -75,9 +81,9 @@ export function buildOnboardingSteps(data: OnboardingData): OnboardingStep[] {
 }
 
 export function currentActiveStep(data: OnboardingData): OnboardingStepId | null {
-  for (const def of stepDefinitions) {
-    if (!isStepCompleted(def.id, data)) {
-      return def.id
+  for (const def of stepIds) {
+    if (!isStepCompleted(def, data)) {
+      return def
     }
   }
   return null

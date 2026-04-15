@@ -21,7 +21,11 @@
   } from '@lucide/svelte'
   import type { GitHubTokenState } from '../types'
   import { parseGitHubTokenState } from '../github'
-  import { GITHUB_TOKEN_KEYS as KEYS, t as tokenCopy } from './step-github-token-copy'
+  import {
+    GITHUB_TOKEN_KEYS as KEYS,
+    type StepGitHubTokenKey,
+    t as tokenCopy,
+  } from './step-github-token-copy'
 
   let {
     projectId,
@@ -43,15 +47,19 @@
   const isProbeValid = $derived(probeResult.probeStatus === 'valid')
   const isProbeInvalid = $derived(probeResult.probeStatus === 'invalid')
 
+  function copy(key: StepGitHubTokenKey, params?: Record<string, string | number>) {
+    return tokenCopy(i18nStore.locale, key, params)
+  }
+
   async function handleImportFromCLI() {
     importing = true
     try {
       await importGitHubOutboundCredentialFromGHCLI(projectId)
-      toastStore.success(tokenCopy(KEYS.importSuccess))
+      toastStore.success(copy(KEYS.importSuccess))
       await runProbe()
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : tokenCopy(KEYS.importFailed),
+        caughtError instanceof ApiError ? caughtError.detail : copy(KEYS.importFailed),
       )
     } finally {
       importing = false
@@ -60,7 +68,7 @@
 
   async function handlePasteToken() {
     if (!tokenInput.trim()) {
-      toastStore.error(tokenCopy(KEYS.tokenRequired))
+      toastStore.error(copy(KEYS.tokenRequired))
       return
     }
     saving = true
@@ -68,12 +76,10 @@
       await saveGitHubOutboundCredential(projectId, {
         token: tokenInput.trim(),
       })
-      toastStore.success(tokenCopy(KEYS.saveSuccess))
+      toastStore.success(copy(KEYS.saveSuccess))
       await runProbe()
     } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : tokenCopy(KEYS.saveFailed),
-      )
+      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : copy(KEYS.saveFailed))
     } finally {
       saving = false
     }
@@ -90,12 +96,12 @@
         confirmed: false,
       }
       if (parsed.probeStatus !== 'valid') {
-        toastStore.error(tokenCopy(KEYS.validationFailedToast))
+        toastStore.error(copy(KEYS.validationFailedToast))
       }
     } catch (caughtError) {
       probeResult = { ...probeResult, probeStatus: 'invalid' }
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : tokenCopy(KEYS.verifyFailed),
+        caughtError instanceof ApiError ? caughtError.detail : copy(KEYS.verifyFailed),
       )
     } finally {
       probing = false
@@ -128,19 +134,19 @@
           <User class="size-5 text-emerald-600 dark:text-emerald-400" />
         </div>
         <div class="flex-1">
-          <p class="text-foreground text-sm font-medium">{tokenCopy(KEYS.identityVerifiedTitle)}</p>
+          <p class="text-foreground text-sm font-medium">{copy(KEYS.identityVerifiedTitle)}</p>
           <p class="text-muted-foreground text-sm">
-            {tokenCopy(KEYS.identityVerifiedBody, { login: probeResult.login })}
+            {copy(KEYS.identityVerifiedBody, { login: probeResult.login })}
           </p>
         </div>
       </div>
       <div class="mt-3 flex items-center gap-2">
         <Button size="sm" onclick={handleConfirmIdentity}>
           <CheckCircle2 class="mr-1.5 size-3.5" />
-          {tokenCopy(KEYS.confirmIdentity)}
+          {copy(KEYS.confirmIdentity)}
         </Button>
         <Button variant="ghost" size="sm" onclick={handleRetry}>
-          {tokenCopy(KEYS.changeToken)}
+          {copy(KEYS.changeToken)}
         </Button>
       </div>
     </div>
@@ -151,30 +157,30 @@
     >
       <CheckCircle2 class="size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
       <div>
-        <p class="text-foreground text-sm font-medium">{tokenCopy(KEYS.connectedTitle)}</p>
+        <p class="text-foreground text-sm font-medium">{copy(KEYS.connectedTitle)}</p>
         <p class="text-muted-foreground text-xs">
-          {tokenCopy(KEYS.connectedAccount, { login: probeResult.login })}
+          {copy(KEYS.connectedAccount, { login: probeResult.login })}
         </p>
       </div>
       <Button variant="ghost" size="sm" class="ml-auto" onclick={handleRetry}>
-        {tokenCopy(KEYS.reconfigure)}
+        {copy(KEYS.reconfigure)}
       </Button>
     </div>
   {:else if probing}
     <!-- Probing state -->
     <div class="border-border flex items-center gap-3 rounded-lg border p-4">
       <Loader2 class="text-primary size-5 animate-spin" />
-      <p class="text-muted-foreground text-sm">{tokenCopy(KEYS.verifyingIdentity)}</p>
+      <p class="text-muted-foreground text-sm">{copy(KEYS.verifyingIdentity)}</p>
     </div>
   {:else if isProbeInvalid}
     <!-- Probe failed -->
     <div class="bg-destructive/5 border-destructive/30 rounded-lg border p-4">
       <div class="flex items-center gap-2">
         <AlertCircle class="text-destructive size-4" />
-        <p class="text-destructive text-sm font-medium">{tokenCopy(KEYS.validationFailedTitle)}</p>
+        <p class="text-destructive text-sm font-medium">{copy(KEYS.validationFailedTitle)}</p>
       </div>
       <p class="text-muted-foreground mt-1 text-xs">
-        {tokenCopy(KEYS.validationFailedMessage)}
+        {copy(KEYS.validationFailedMessage)}
       </p>
       <Button variant="outline" size="sm" class="mt-2" onclick={handleRetry}>
         {i18nStore.t('common.retry')}
@@ -193,9 +199,9 @@
             <Import class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">{tokenCopy(KEYS.chooseImportTitle)}</p>
+            <p class="text-foreground text-sm font-medium">{copy(KEYS.chooseImportTitle)}</p>
             <p class="text-muted-foreground mt-0.5 text-xs">
-              {tokenCopy(KEYS.chooseImportDescription)}
+              {copy(KEYS.chooseImportDescription)}
             </p>
           </div>
         </button>
@@ -209,62 +215,62 @@
             <ClipboardPaste class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">{tokenCopy(KEYS.choosePasteTitle)}</p>
+            <p class="text-foreground text-sm font-medium">{copy(KEYS.choosePasteTitle)}</p>
             <p class="text-muted-foreground mt-0.5 text-xs">
-              {tokenCopy(KEYS.choosePasteDescription)}
+              {copy(KEYS.choosePasteDescription)}
             </p>
           </div>
         </button>
       </div>
     {:else if mode === 'import'}
       <div class="space-y-3">
-        <p class="text-muted-foreground text-sm">{tokenCopy(KEYS.importHint)}</p>
+        <p class="text-muted-foreground text-sm">{copy(KEYS.importHint)}</p>
         <div class="bg-muted/50 rounded-md p-3">
-          <p class="text-muted-foreground mb-1 text-xs">{tokenCopy(KEYS.importSignInHint)}</p>
+          <p class="text-muted-foreground mb-1 text-xs">{copy(KEYS.importSignInHint)}</p>
           <code class="text-foreground text-xs">gh auth login</code>
         </div>
         <div class="flex items-center gap-2">
           <Button onclick={handleImportFromCLI} disabled={importing}>
             {#if importing}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              {tokenCopy(KEYS.importing)}
+              {copy(KEYS.importing)}
             {:else}
               <Github class="mr-1.5 size-3.5" />
-              {tokenCopy(KEYS.importNow)}
+              {copy(KEYS.importNow)}
             {/if}
           </Button>
           <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>
-            {tokenCopy(KEYS.back)}
+            {copy(KEYS.back)}
           </Button>
         </div>
       </div>
     {:else}
       <div class="space-y-3">
-        <p class="text-muted-foreground text-sm">{tokenCopy(KEYS.pastePrompt)}</p>
+        <p class="text-muted-foreground text-sm">{copy(KEYS.pastePrompt)}</p>
         <div class="bg-muted/50 space-y-1 rounded-md p-3">
           <p class="text-muted-foreground text-xs">
-            {tokenCopy(KEYS.pasteCommandHint)}
+            {copy(KEYS.pasteCommandHint)}
           </p>
           <code class="text-foreground text-xs">gh auth token</code>
         </div>
         <div class="flex items-center gap-2">
           <Input
             type="password"
-            placeholder={tokenCopy(KEYS.tokenPlaceholder)}
+            placeholder={copy(KEYS.tokenPlaceholder)}
             bind:value={tokenInput}
             class="flex-1"
           />
           <Button onclick={handlePasteToken} disabled={saving || !tokenInput.trim()}>
             {#if saving}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              {tokenCopy(KEYS.saving)}
+              {copy(KEYS.saving)}
             {:else}
-              {tokenCopy(KEYS.saveToken)}
+              {copy(KEYS.saveToken)}
             {/if}
           </Button>
         </div>
         <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>
-          {tokenCopy(KEYS.back)}
+          {copy(KEYS.back)}
         </Button>
       </div>
     {/if}

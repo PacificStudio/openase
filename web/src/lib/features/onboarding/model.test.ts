@@ -79,4 +79,13 @@ describe('onboarding model', () => {
     expect(firstStep?.configHighlights.length).toBeGreaterThan(0)
     expect(firstStep?.skipRisks.length).toBeGreaterThan(0)
   })
+
+  it('localizes onboarding step copy by locale', () => {
+    const [enFirstStep] = buildOnboardingSteps(emptyData(), 'en')
+    const [zhFirstStep] = buildOnboardingSteps(emptyData(), 'zh')
+
+    expect(enFirstStep?.label).toBe('Connect GitHub')
+    expect(zhFirstStep?.label).toBe('连接 GitHub')
+    expect(zhFirstStep?.description).toBe('配置一个可访问仓库的 GitHub Token')
+  })
 })

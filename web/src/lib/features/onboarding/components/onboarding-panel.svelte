@@ -44,7 +44,7 @@
   let data = $state<OnboardingData | null>(null)
   let expandedStep = $state<OnboardingStepId | null>(null)
 
-  const steps = $derived(data ? buildOnboardingSteps(data) : [])
+  const steps = $derived(data ? buildOnboardingSteps(data, i18nStore.locale) : [])
   const activeStepId = $derived(data ? currentActiveStep(data) : null)
 
   // Auto-expand active step
