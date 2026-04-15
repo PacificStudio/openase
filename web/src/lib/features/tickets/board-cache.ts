@@ -95,11 +95,21 @@ function getRuntime(projectId: string) {
     statusSyncVersion: null,
     unsubscribe: null,
   }
-  created.unsubscribe = subscribeProjectEvents(projectId, () => {
-    if (created.snapshot) {
-      created.dirty = true
-    }
-  })
+  created.unsubscribe = subscribeProjectEvents(
+    projectId,
+    () => {
+      if (created.snapshot) {
+        created.dirty = true
+      }
+    },
+    {
+      onReconnect: () => {
+        if (created.snapshot) {
+          created.dirty = true
+        }
+      },
+    },
+  )
   runtimes.set(projectId, created)
   return created
 }
