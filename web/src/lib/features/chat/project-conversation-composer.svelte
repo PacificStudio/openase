@@ -81,7 +81,7 @@
   }
 </script>
 
-<div class="border-border border-t px-3 py-2">
+<div class="border-border border-t px-3 py-2" data-tour="project-ai-composer">
   {#if loadingProviders}
     <div class="text-muted-foreground mb-1.5 text-[11px]">
       {chatT('chat.loadingProviders')}

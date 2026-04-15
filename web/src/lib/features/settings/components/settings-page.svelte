@@ -50,11 +50,11 @@
   })
 </script>
 
-<PageScaffold title={i18nStore.t('settings.page.title')}>
+<PageScaffold title={i18nStore.t('settings.page.title')} helpSection="settings">
   <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
     <SettingsNav active={activeSection} onSelect={handleSelect} />
 
-    <div class="min-w-0 flex-1">
+    <div class="min-w-0 flex-1" data-tour="settings-content-panel">
       {#if activeSection === 'general'}
         <GeneralSettings />
       {:else if activeSection === 'statuses'}

@@ -53,6 +53,9 @@
   function handleNavClick() {
     onNavigate?.()
   }
+
+  const assistantShortcutLabel =
+    typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘I' : 'Ctrl+I'
 </script>
 
 {#snippet navLink(item: SidebarNavItem)}
@@ -150,7 +153,7 @@
             {i18nStore.t('layout.askAI')}
             <kbd
               class="bg-muted text-muted-foreground ml-1.5 rounded px-1 py-0.5 font-mono text-[10px]"
-              >⌘I</kbd
+              >{assistantShortcutLabel}</kbd
             >
           </Tooltip.Content>
         </Tooltip.Root>
@@ -165,7 +168,9 @@
           <Bot class="mr-2 size-4" />
           <span class="flex-1 text-left text-xs">{i18nStore.t('layout.askAI')}</span>
           {#if !mobile}
-            <kbd class="text-muted-foreground/50 text-[10px] font-normal">⌘I</kbd>
+            <kbd class="text-muted-foreground/50 text-[10px] font-normal">
+              {assistantShortcutLabel}
+            </kbd>
           {/if}
         </Button>
       {/if}

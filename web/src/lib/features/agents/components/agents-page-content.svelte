@@ -74,6 +74,7 @@
 <PageScaffold
   title={i18nStore.t('agents.pageTitle')}
   description={i18nStore.t('agents.pageDescription')}
+  helpSection="agents"
   {actions}
   class="tour-agents-page"
 >

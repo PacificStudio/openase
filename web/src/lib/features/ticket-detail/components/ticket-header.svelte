@@ -176,7 +176,10 @@
     </Button>
   </div>
 {:else}
-  <div class="border-border flex items-center gap-2 border-b px-4 py-1.5">
+  <div
+    class="border-border flex items-center gap-2 border-b px-4 py-1.5"
+    data-tour="ticket-detail-header"
+  >
     <button
       onclick={copyIdentifier}
       class="text-muted-foreground hover:bg-muted flex shrink-0 items-center gap-1 rounded px-1 py-0.5 font-mono text-[11px] transition-colors"

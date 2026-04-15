@@ -49,7 +49,10 @@
   }
 </script>
 
-<div class="border-border flex items-center gap-2 border-b px-3 py-1.5">
+<div
+  class="border-border flex items-center gap-2 border-b px-3 py-1.5"
+  data-tour="project-ai-header"
+>
   <h2 class="text-xs font-medium">{title}</h2>
   <EphemeralChatProviderSelect
     {providers}
@@ -69,6 +72,7 @@
             class="text-muted-foreground size-6 p-0"
             aria-label={chatT('chat.conversationHistory')}
             disabled={conversations.length === 0}
+            data-tour="project-ai-history"
           >
             <History class="size-3" />
           </Button>

@@ -26,6 +26,8 @@
   } = $props()
 
   const isMobile = $derived(viewport.isMobile)
+  const searchShortcutLabel =
+    typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘K' : 'Ctrl+K'
 </script>
 
 {#if searchEnabled}
@@ -48,7 +50,9 @@
     >
       <Search class="size-3.5" />
       <span class="text-xs">{i18nStore.t('layout.search')}</span>
-      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">
+        {searchShortcutLabel}
+      </kbd>
     </Button>
     <Separator orientation="vertical" class="mx-1 h-5" />
   {/if}

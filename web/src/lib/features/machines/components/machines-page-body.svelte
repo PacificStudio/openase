@@ -95,6 +95,7 @@
 <PageScaffold
   title={t('machines.page.title')}
   description={t('machines.page.description')}
+  helpSection="machines"
   variant="workspace"
   {actions}
 >

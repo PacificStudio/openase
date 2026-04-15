@@ -13,6 +13,7 @@
 <PageScaffold
   title={i18nStore.t('tickets.pageTitle')}
   description={i18nStore.t('tickets.pageDescription')}
+  helpSection="tickets"
   variant="workspace"
   contentClass="overflow-hidden"
 >

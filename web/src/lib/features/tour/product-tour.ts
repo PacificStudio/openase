@@ -1,6 +1,7 @@
 import { driver, type DriveStep, type Config } from 'driver.js'
 import 'driver.js/dist/driver.css'
 import type { TranslationKey } from '$lib/i18n'
+import { toursAllowed } from './runtime'
 
 export const TOUR_STORAGE_KEY = 'openase.tour.completed'
 
@@ -152,6 +153,7 @@ function buildSteps(t: (key: TranslationKey) => string): DriveStep[] {
 }
 
 export function startProductTour(projectId: string, t: (key: TranslationKey) => string) {
+  if (!toursAllowed(projectId)) return
   const steps = buildSteps(t)
   if (steps.length === 0) return
 

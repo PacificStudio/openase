@@ -172,8 +172,8 @@
       </div>
     </div>
   {:else}
-    <div class="space-y-4">
-      <div class="relative w-full max-w-xs">
+    <div class="space-y-4" data-tour="machines-list-panel">
+      <div class="relative w-full max-w-xs" data-tour="machines-search">
         <Search class="text-muted-foreground absolute top-2.5 left-2.5 size-3.5" />
         <Input
           value={searchQuery}

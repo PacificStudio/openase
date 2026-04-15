@@ -3,6 +3,7 @@
   import ProjectConversationTabStrip from './project-conversation-tab-strip.svelte'
   import ProjectConversationWorkspaceSummary from './project-conversation-workspace-summary.svelte'
   import ProjectConversationTranscript from './project-conversation-transcript.svelte'
+  import ProjectConversationEmptyState from './project-conversation-empty-state.svelte'
   import type { ProjectConversation } from '$lib/api/chat'
   import type { ProjectConversationTabView } from './project-conversation-panel-labels'
   import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
@@ -24,6 +25,7 @@
     onSelectTab,
     onCloseTab,
     onRespondInterrupt,
+    onPickPrompt,
   }: {
     tabs?: ProjectConversationTabView[]
     activeTabId?: string
@@ -43,7 +45,10 @@
       decision?: string
       answer?: Record<string, unknown>
     }) => void
+    onPickPrompt?: (text: string) => void
   } = $props()
+
+  const showEmptyState = $derived(entries.length === 0 && !pending)
 
   const browserOpen = $derived(workspaceBrowserPortal.open)
 
@@ -103,7 +108,11 @@
       class="h-full px-4 py-4"
       scrollbarYClasses="data-vertical:w-[3px] data-vertical:pr-0"
     >
-      <ProjectConversationTranscript {entries} {pending} {onRespondInterrupt} />
+      {#if showEmptyState}
+        <ProjectConversationEmptyState {onPickPrompt} />
+      {:else}
+        <ProjectConversationTranscript {entries} {pending} {onRespondInterrupt} />
+      {/if}
     </ScrollArea>
   </div>
 </div>

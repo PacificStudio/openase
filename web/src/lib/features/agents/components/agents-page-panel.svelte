@@ -44,7 +44,7 @@
   )
 </script>
 
-<div class="space-y-4">
+<div class="space-y-4" data-tour="agents-list-panel">
   {#if loading}
     <!-- Skeleton: summary line -->
     <div class="px-1">

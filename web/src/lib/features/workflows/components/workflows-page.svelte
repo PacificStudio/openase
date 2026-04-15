@@ -24,6 +24,7 @@
 <PageScaffold
   title={t('workflows.page.title')}
   description={t('workflows.page.description')}
+  helpSection="workflows"
   variant="workspace"
   {actions}
 >

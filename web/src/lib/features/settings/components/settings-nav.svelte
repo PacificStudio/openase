@@ -41,7 +41,10 @@
   ]
 </script>
 
-<nav class="flex w-full shrink-0 flex-wrap gap-1 pb-1 lg:w-[200px] lg:flex-col lg:gap-0.5">
+<nav
+  class="flex w-full shrink-0 flex-wrap gap-1 pb-1 lg:w-[200px] lg:flex-col lg:gap-0.5"
+  data-tour="settings-nav"
+>
   {#each items as item (item.key)}
     {@const Icon = item.icon}
     <button
