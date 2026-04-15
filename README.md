@@ -230,7 +230,7 @@ Follow the User Guide — Quick Start ([EN](docs/guide/en/startup.md) | [中文]
 | 🟡 Medium | **Kubernetes Runtime** | Run agent workloads on Kubernetes clusters for elastic scaling |
 | 🟢 Future | **Multi-org Collaboration** | Cross-organization project sharing and permissions |
 | 🟢 Future | **Plugin Ecosystem** | Third-party plugin support for custom tools and integrations |
-| 🟢 Future | **Metrics Dashboard** | Agent performance metrics, ticket throughput analytics |
+| 🟢 Stable | **Metrics Dashboard** | Agent performance metrics, ticket throughput analytics |
 
 ---
 
