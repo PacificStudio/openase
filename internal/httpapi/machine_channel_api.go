@@ -105,6 +105,7 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		SystemInfo:       authenticatePayload.SystemInfo,
 		ToolInventory:    authenticatePayload.ToolInventory,
 		ResourceSnapshot: authenticatePayload.ResourceSnapshot,
+		WebsocketHealth:  authenticatePayload.WebsocketHealth,
 	})
 	if err != nil {
 		_, _ = s.machineSessions.Remove(sessionID)
@@ -173,6 +174,7 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 				SystemInfo:       heartbeatPayload.SystemInfo,
 				ToolInventory:    heartbeatPayload.ToolInventory,
 				ResourceSnapshot: heartbeatPayload.ResourceSnapshot,
+				WebsocketHealth:  heartbeatPayload.WebsocketHealth,
 			}); err != nil {
 				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "heartbeat_failed", err)
 				return nil

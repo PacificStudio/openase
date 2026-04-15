@@ -138,6 +138,7 @@ type Authenticate struct {
 	Capabilities     []string          `json:"capabilities,omitempty"`
 	ToolInventory    []ToolInfo        `json:"tool_inventory,omitempty"`
 	ResourceSnapshot *ResourceSnapshot `json:"resource_snapshot,omitempty"`
+	WebsocketHealth  *WebsocketHealth  `json:"websocket_health,omitempty"`
 }
 
 type Registered struct {
@@ -153,6 +154,7 @@ type Heartbeat struct {
 	SystemInfo       *SystemInfo       `json:"system_info,omitempty"`
 	ToolInventory    []ToolInfo        `json:"tool_inventory,omitempty"`
 	ResourceSnapshot *ResourceSnapshot `json:"resource_snapshot,omitempty"`
+	WebsocketHealth  *WebsocketHealth  `json:"websocket_health,omitempty"`
 }
 
 type Goodbye struct {
@@ -221,6 +223,22 @@ type FullAudit struct {
 	GitHubCLI        GitHubCLIAudit   `json:"gh_cli"`
 	GitHubTokenProbe GitHubTokenProbe `json:"github_token_probe"`
 	Network          NetworkAudit     `json:"network"`
+}
+
+type WebsocketHealthLayer struct {
+	State      string         `json:"state"`
+	Reason     string         `json:"reason,omitempty"`
+	ObservedAt string         `json:"observed_at"`
+	Details    map[string]any `json:"details,omitempty"`
+}
+
+type WebsocketHealth struct {
+	TransportMode string               `json:"transport_mode"`
+	CheckedAt     string               `json:"checked_at"`
+	L2            WebsocketHealthLayer `json:"l2"`
+	L3            WebsocketHealthLayer `json:"l3"`
+	L4            WebsocketHealthLayer `json:"l4"`
+	L5            WebsocketHealthLayer `json:"l5"`
 }
 
 type ResourceSnapshot struct {

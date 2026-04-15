@@ -45,6 +45,7 @@ var (
 
 type MachineMonitorCollector interface {
 	CollectReachability(ctx context.Context, machine domain.Machine) (domain.MachineReachability, error)
+	CollectWebsocketHealth(ctx context.Context, machine domain.Machine) (domain.WebsocketMachineHealth, error)
 	CollectSystemResources(ctx context.Context, machine domain.Machine) (domain.MachineSystemResources, error)
 	CollectGPUResources(ctx context.Context, machine domain.Machine) (domain.MachineGPUResources, error)
 	CollectAgentEnvironment(ctx context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error)
@@ -211,6 +212,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	systemProbeFailure := false
 	level4ProbeFailure := false
 	level5ProbeFailure := false
+	websocketLayerFailure := false
 	domainMachine := machine.toDomain()
 	isWebsocketMachine := domainMachine.ConnectionMode == domain.MachineConnectionModeWSReverse || domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener
 
@@ -290,6 +292,39 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		}
 	}
 
+	if (level2Due || level3Due || level4Due || level5Due) && !softReachabilityFailure && !hardReachabilityFailure && isWebsocketMachine {
+		if level2Due {
+			report.L2Checks++
+		}
+		if level3Due {
+			report.L3Checks++
+		}
+		if level4Due {
+			report.L4Checks++
+		}
+		if level5Due {
+			report.L5Checks++
+		}
+		websocketHealth, err := m.collector.CollectWebsocketHealth(ctx, domainMachine)
+		if err != nil {
+			logger.Warn("machine monitor websocket layered probe failed", "error", err)
+		} else {
+			logger.Info("machine monitor websocket layered probe completed",
+				"checked_at", formatMachineMonitorTime(websocketHealth.CheckedAt),
+				"transport_mode", websocketHealth.TransportMode.String(),
+				"l2_state", websocketHealth.L2.State.String(),
+				"l3_state", websocketHealth.L3.State.String(),
+				"l4_state", websocketHealth.L4.State.String(),
+				"l5_state", websocketHealth.L5.State.String(),
+			)
+		}
+		resources["websocket_health"] = domain.StoreWebsocketMachineHealth(websocketHealth)
+		websocketLayerFailure = domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L2) ||
+			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L3) ||
+			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L4) ||
+			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L5)
+	}
+
 	if level4Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
 		report.L4Checks++
 		agentEnvironment, err := m.collector.CollectAgentEnvironment(ctx, domainMachine)
@@ -341,7 +376,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		switch {
 		case hardReachabilityFailure:
 			status = entmachine.StatusOffline
-		case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || machineHasLowDisk(resources):
+		case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
 			status = entmachine.StatusDegraded
 		default:
 			status = entmachine.StatusOnline
@@ -356,6 +391,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		"system_probe_failure", systemProbeFailure,
 		"agent_environment_failure", level4ProbeFailure,
 		"full_audit_failure", level5ProbeFailure,
+		"websocket_layer_failure", websocketLayerFailure,
 		"low_disk", machineHasLowDisk(resources),
 	)
 
