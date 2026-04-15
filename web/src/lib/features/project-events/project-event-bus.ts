@@ -20,13 +20,20 @@ export type ProjectDashboardRefreshSection =
 
 type ProjectEventListener = (event: ProjectEventEnvelope) => void
 type ProjectEventStateListener = (state: StreamConnectionState) => void
+type ProjectEventReconnectListener = () => void
+
+type ProjectEventSubscriptionOptions = {
+  onReconnect?: ProjectEventReconnectListener
+}
 
 type Runtime = {
   projectId: string
   retainers: number
   state: StreamConnectionState
+  hasConnected: boolean
   disconnect: (() => void) | null
   eventListeners: Set<ProjectEventListener>
+  reconnectListeners: Set<ProjectEventReconnectListener>
   stateListeners: Set<ProjectEventStateListener>
 }
 
@@ -60,12 +67,22 @@ export function retainProjectEventBus(
   }
 }
 
-export function subscribeProjectEvents(projectId: string, listener: ProjectEventListener) {
+export function subscribeProjectEvents(
+  projectId: string,
+  listener: ProjectEventListener,
+  options: ProjectEventSubscriptionOptions = {},
+) {
   const runtime = getRuntime(projectId)
   runtime.eventListeners.add(listener)
+  if (options.onReconnect) {
+    runtime.reconnectListeners.add(options.onReconnect)
+  }
 
   return () => {
     runtime.eventListeners.delete(listener)
+    if (options.onReconnect) {
+      runtime.reconnectListeners.delete(options.onReconnect)
+    }
     cleanupRuntime(runtime)
   }
 }
@@ -182,8 +199,10 @@ function getRuntime(projectId: string): Runtime {
     projectId,
     retainers: 0,
     state: 'idle',
+    hasConnected: false,
     disconnect: null,
     eventListeners: new Set(),
+    reconnectListeners: new Set(),
     stateListeners: new Set(),
   }
   runtimes.set(projectId, created)
@@ -208,7 +227,18 @@ function ensureRuntimeConnection(runtime: Runtime) {
       }
     },
     onStateChange: (state) => {
+      const reconnected = state === 'live' && runtime.hasConnected
+      if (state === 'live') {
+        runtime.hasConnected = true
+      } else if (state === 'idle') {
+        runtime.hasConnected = false
+      }
       setRuntimeState(runtime, state)
+      if (reconnected) {
+        for (const listener of [...runtime.reconnectListeners]) {
+          listener()
+        }
+      }
     },
     onError: (error) => {
       console.error('Project event bus error:', error)

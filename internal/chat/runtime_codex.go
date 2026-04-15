@@ -584,7 +584,7 @@ func mapCodexAssistantOutput(
 	output *codexadapter.OutputEvent,
 	items map[string]*codexAssistantItemState,
 ) []StreamEvent {
-	if output == nil || strings.TrimSpace(output.Text) == "" {
+	if output == nil || output.Text == "" {
 		return nil
 	}
 

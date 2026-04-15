@@ -112,4 +112,22 @@ describe('connectAgentsPageStreams', () => {
 
     expect(onEvent).toHaveBeenCalledTimes(1)
   })
+
+  it('reloads after the project event bus reconnects', () => {
+    let reconnect: (() => void) | null = null
+    const onEvent = vi.fn()
+
+    subscribeProjectEvents.mockImplementation((_projectId, _listener, options) => {
+      reconnect = options?.onReconnect ?? null
+      return () => {}
+    })
+    connectEventStream.mockReturnValue(() => {})
+
+    connectAgentsPageStreams('project-1', 'org-1', onEvent)
+
+    expect(reconnect).not.toBeNull()
+    reconnect!()
+
+    expect(onEvent).toHaveBeenCalledTimes(1)
+  })
 })

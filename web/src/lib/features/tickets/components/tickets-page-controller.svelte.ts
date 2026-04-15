@@ -236,10 +236,19 @@ export function createTicketsPageController() {
       void loadBoard(projectId, 'initial')
     }
 
-    const disconnectProjectEvents = subscribeProjectEvents(projectId, () => {
-      markProjectBoardCacheDirty(projectId)
-      requestReload(projectId)
-    })
+    const disconnectProjectEvents = subscribeProjectEvents(
+      projectId,
+      () => {
+        markProjectBoardCacheDirty(projectId)
+        requestReload(projectId)
+      },
+      {
+        onReconnect: () => {
+          markProjectBoardCacheDirty(projectId)
+          requestReload(projectId)
+        },
+      },
+    )
 
     return () => {
       if (activeProjectId === projectId) {

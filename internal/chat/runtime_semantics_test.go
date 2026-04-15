@@ -221,6 +221,34 @@ func TestMapCodexAssistantOutputLeavesMalformedDuplicatedTrailingDiffAfterProseA
 	}
 }
 
+func TestMapCodexAssistantOutputPreservesNewlineOnlyDeltas(t *testing.T) {
+	items := make(map[string]*codexAssistantItemState)
+
+	inputs := []string{"Alpha", "\n\n", "Gamma", "\n", "Delta"}
+	var builder strings.Builder
+
+	for index, input := range inputs {
+		events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
+			ItemID: "item-1",
+			Stream: "assistant",
+			Text:   input,
+		}, items)
+		if len(events) != 1 {
+			t.Fatalf("delta %d should emit one text event, got %+v", index, events)
+		}
+
+		payload, ok := events[0].Payload.(textPayload)
+		if !ok {
+			t.Fatalf("delta %d payload = %#v, want text payload", index, events[0].Payload)
+		}
+		builder.WriteString(payload.Content)
+	}
+
+	if got := builder.String(); got != "Alpha\n\nGamma\nDelta" {
+		t.Fatalf("combined assistant text = %q, want %q", got, "Alpha\n\nGamma\nDelta")
+	}
+}
+
 func TestGeminiRuntimeStartTurnLeavesUnsupportedStructuredJSONAsText(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{
