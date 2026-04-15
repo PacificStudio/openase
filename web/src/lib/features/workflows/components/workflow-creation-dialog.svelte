@@ -34,7 +34,10 @@
   import WorkflowStagesExplainer from './workflow-stages-explainer.svelte'
   import WorkflowStatusChipGroup from './workflow-status-chip-group.svelte'
   import { maybeStartWorkflowCreationTour } from './workflow-creation-tour'
-  import { buildWorkflowCreationPayload, validateWorkflowCreationInputs } from './workflow-creation-submit'
+  import {
+    buildWorkflowCreationPayload,
+    validateWorkflowCreationInputs,
+  } from './workflow-creation-submit'
   import { tick } from 'svelte'
   import { CircleHelp } from '@lucide/svelte'
   import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
