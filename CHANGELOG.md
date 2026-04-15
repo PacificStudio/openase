@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.6.0](https://github.com/PacificStudio/openase/compare/v0.5.0...v0.6.0) (2026-04-15)
+
+
+### Features
+
+* **builtin:** add workflow planning authoring skills ([d2c9acd](https://github.com/PacificStudio/openase/commit/d2c9acd3abdcb81087e3372542b1df14abdeecd1))
+* **cli:** support inline ticket repo scopes ([#730](https://github.com/PacificStudio/openase/issues/730)) ([f5abb0a](https://github.com/PacificStudio/openase/commit/f5abb0ab75571a2e57ad89724eb7d1e8d25257e8))
+* **docs:** 添加核心概念和 Project AI 文档 ([c84af8b](https://github.com/PacificStudio/openase/commit/c84af8b931895c2a93ebd25417d785c083d73557))
+* **doctor:** add HTTP port conflict detection ([7065e03](https://github.com/PacificStudio/openase/commit/7065e036955d2bf4563f215d3e54ae7d3519d129))
+* **machine:** add layered websocket health telemetry ([#728](https://github.com/PacificStudio/openase/issues/728)) ([a3e8fb5](https://github.com/PacificStudio/openase/commit/a3e8fb568b17d072ec8324af67bf4919d72a2612))
+* **machine:** support ssh topology bootstrap modes ([5a857ad](https://github.com/PacificStudio/openase/commit/5a857ad11e40acdeaba21a6911cb69fa0504be05))
+* **orchestrator:** inject ticket context into workflow prompts ([af4d440](https://github.com/PacificStudio/openase/commit/af4d4408ba01d2b77f591f09e123472397bcfede))
+
+
+### Bug Fixes
+
+* catch up runtime pages after SSE reconnect ([b62e7e7](https://github.com/PacificStudio/openase/commit/b62e7e78d91509e1a04e3fe40d580a8587233dff))
+* clarify Claude stop/resume execution errors ([#722](https://github.com/PacificStudio/openase/issues/722)) ([574ed66](https://github.com/PacificStudio/openase/commit/574ed66e5ad5d235694df65b22e9630be0999bed))
+* **httpapi:** align project ticket reset routes ([5fb43c7](https://github.com/PacificStudio/openase/commit/5fb43c7448a405931eac202a6a874a52d3cd36d6))
+* **httpapi:** expose project-scoped workspace reset ([caa1411](https://github.com/PacificStudio/openase/commit/caa1411ae1a63ee50f82c4a92dff1e5cefe8d0d1))
+* patch desktop axios transitive dependency ([916111f](https://github.com/PacificStudio/openase/commit/916111f2ad78675c29714221f193181fc67af811))
+* patch desktop wait-on axios dependency ([5086184](https://github.com/PacificStudio/openase/commit/5086184a217c03dcde651a7af7d7c34cb91e10b8))
+* patch transitive cookie dependency ([b558ea6](https://github.com/PacificStudio/openase/commit/b558ea6854afb199dcaf8e08db2ede03b6a0e7fa))
+* remove vulnerable minimatch from web lint deps ([94800e9](https://github.com/PacificStudio/openase/commit/94800e91b9db73625b9c46e8b84d255a464d508e))
+* **web:** annotate picomatch 4.0.3 security guard ([143bf9f](https://github.com/PacificStudio/openase/commit/143bf9fd6594650ac9b2176a9f408e8afddf73a1))
+* **web:** patch @sveltejs/kit security advisory ([9bbfa36](https://github.com/PacificStudio/openase/commit/9bbfa36a96912f7ec3cee4c6bac7e8b81e2d5515))
+* **web:** pin lodash-es for streamdown markdown ([#698](https://github.com/PacificStudio/openase/issues/698)) ([a5bd7eb](https://github.com/PacificStudio/openase/commit/a5bd7eb8ca7891a9ec8c3cef5a05b41a034c5c4d))
+* **web:** remove vulnerable picomatch lock resolution ([847c4fe](https://github.com/PacificStudio/openase/commit/847c4feec3e56943437a29c78d40b65fedce30e0))
+
 ## [0.5.0](https://github.com/PacificStudio/openase/compare/v0.4.0...v0.5.0) (2026-04-13)
 
 
