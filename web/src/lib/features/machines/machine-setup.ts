@@ -163,7 +163,9 @@ function buildDirectConnectGuide(input: {
       })
       commands.push({
         title: i18nStore.t('machines.setup.directConnect.commands.sshDiagnostics.title'),
-        description: i18nStore.t('machines.setup.directConnect.commands.sshDiagnostics.description'),
+        description: i18nStore.t(
+          'machines.setup.directConnect.commands.sshDiagnostics.description',
+        ),
         command: `openase machine ssh-diagnostics ${machine.id}`,
       })
     }
