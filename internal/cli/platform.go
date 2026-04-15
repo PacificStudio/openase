@@ -58,6 +58,7 @@ type ticketCreateInput struct {
 	projectID         string
 	title             string
 	description       string
+	repoScopes        []ticketCreateRepoScopeInput
 	statusID          string
 	priority          string
 	typeName          string
@@ -71,6 +72,31 @@ type ticketCreateInput struct {
 	parentTicketIDSet bool
 	budgetUSDSet      bool
 	archivedSet       bool
+}
+
+type rawTicketCreateInput struct {
+	projectID         string
+	title             string
+	description       string
+	repoScopes        []string
+	statusID          string
+	priority          string
+	typeName          string
+	workflowID        string
+	parentTicketID    string
+	externalRef       string
+	budgetUSD         float64
+	archived          bool
+	statusIDSet       bool
+	workflowIDSet     bool
+	parentTicketIDSet bool
+	budgetUSDSet      bool
+	archivedSet       bool
+}
+
+type ticketCreateRepoScopeInput struct {
+	repoID     string
+	branchName string
 }
 
 type ticketUpdateInput struct {
@@ -449,6 +475,7 @@ func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platfor
 func newTicketCreateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
 	var title string
 	var description string
+	var repoScopes []string
 	var statusID string
 	var priority string
 	var typeName string
@@ -470,19 +497,24 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 			examples: []string{
 				"openase ticket create --title \"Follow-up\" --description \"Split flaky test investigation\"",
 				"openase ticket create --title \"Follow-up\" --workflow-id $OPENASE_WORKFLOW_ID --priority high",
+				"openase ticket create --title \"Sync release notes\" --repo-scope 550e8400-e29b-41d4-a716-446655440000 --repo-scope 550e8400-e29b-41d4-a716-446655440001:feature/release-notes",
+			},
+			notes: []string{
+				"Repeat --repo-scope with <repo-id> or <repo-id>:<branch> to attach inline repository scopes during ticket creation.",
 			},
 		}),
-		Example: "openase ticket create --title \"Follow-up\" --description \"Split flaky test investigation\"\nopenase ticket create --title \"Follow-up\" --workflow-id $OPENASE_WORKFLOW_ID --priority high",
+		Example: "openase ticket create --title \"Follow-up\" --description \"Split flaky test investigation\"\nopenase ticket create --title \"Follow-up\" --workflow-id $OPENASE_WORKFLOW_ID --priority high\nopenase ticket create --title \"Sync release notes\" --repo-scope 550e8400-e29b-41d4-a716-446655440000 --repo-scope 550e8400-e29b-41d4-a716-446655440001:feature/release-notes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			platform, err := options.resolve()
 			if err != nil {
 				return err
 			}
 
-			input, err := platform.parseTicketCreateInput(ticketCreateInput{
+			input, err := platform.parseTicketCreateInput(rawTicketCreateInput{
 				projectID:         options.projectID,
 				title:             title,
 				description:       description,
+				repoScopes:        repoScopes,
 				statusID:          statusID,
 				priority:          priority,
 				typeName:          typeName,
@@ -511,6 +543,7 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 
 	command.Flags().StringVar(&title, "title", "", "Ticket title.")
 	command.Flags().StringVar(&description, "description", "", "Ticket description.")
+	command.Flags().StringArrayVar(&repoScopes, "repo-scope", nil, "Attach a repository scope inline as <repo-id> or <repo-id>:<branch>. Repeat to attach multiple repos.")
 	command.Flags().StringVar(&statusID, "status-id", "", "Ticket status ID override.")
 	command.Flags().StringVar(&priority, "priority", "", "Ticket priority override.")
 	command.Flags().StringVar(&typeName, "type", "", "Ticket type override.")
@@ -521,6 +554,7 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 	command.Flags().BoolVar(&archived, "archived", false, "Create the ticket in archived state.")
 	annotateCLICommandBodyFlag(command, "title", "title")
 	annotateCLICommandBodyFlag(command, "description", "description")
+	annotateCLICommandBodyFlag(command, "repo-scope", "repo_scopes")
 	annotateCLICommandBodyFlag(command, "status-id", "status_id")
 	annotateCLICommandBodyFlag(command, "priority", "priority")
 	annotateCLICommandBodyFlag(command, "type", "type")
@@ -535,6 +569,7 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 		markCLICommandAllowedExtraBodyFields(
 			command,
 			"archived",
+			"repo_scopes",
 		),
 		spec,
 	)
@@ -980,7 +1015,7 @@ func (platform platformContext) parseTicketListInput(raw ticketListInput) (ticke
 	return input, nil
 }
 
-func (platform platformContext) parseTicketCreateInput(raw ticketCreateInput) (ticketCreateInput, error) {
+func (platform platformContext) parseTicketCreateInput(raw rawTicketCreateInput) (ticketCreateInput, error) {
 	projectID := strings.TrimSpace(firstNonEmpty(raw.projectID, platform.projectID))
 	if projectID == "" {
 		return ticketCreateInput{}, fmt.Errorf("project id is required via --project-id or OPENASE_PROJECT_ID")
@@ -994,10 +1029,20 @@ func (platform platformContext) parseTicketCreateInput(raw ticketCreateInput) (t
 		return ticketCreateInput{}, fmt.Errorf("budget-usd must be greater than or equal to zero")
 	}
 
+	repoScopes := make([]ticketCreateRepoScopeInput, 0, len(raw.repoScopes))
+	for index, scope := range raw.repoScopes {
+		parsedScope, err := parseInlineTicketCreateRepoScope(scope)
+		if err != nil {
+			return ticketCreateInput{}, fmt.Errorf("repo-scope[%d]: %w", index, err)
+		}
+		repoScopes = append(repoScopes, parsedScope)
+	}
+
 	return ticketCreateInput{
 		projectID:         projectID,
 		title:             title,
 		description:       strings.TrimSpace(raw.description),
+		repoScopes:        repoScopes,
 		statusID:          strings.TrimSpace(raw.statusID),
 		priority:          strings.TrimSpace(raw.priority),
 		typeName:          strings.TrimSpace(raw.typeName),
@@ -1012,6 +1057,30 @@ func (platform platformContext) parseTicketCreateInput(raw ticketCreateInput) (t
 		budgetUSDSet:      raw.budgetUSDSet,
 		archivedSet:       raw.archivedSet,
 	}, nil
+}
+
+func parseInlineTicketCreateRepoScope(raw string) (ticketCreateRepoScopeInput, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ticketCreateRepoScopeInput{}, fmt.Errorf("must not be empty")
+	}
+
+	repoIDPart, branchPart, hasBranch := strings.Cut(trimmed, ":")
+	repoID := strings.TrimSpace(repoIDPart)
+	if repoID == "" {
+		return ticketCreateRepoScopeInput{}, fmt.Errorf("repo id must not be empty")
+	}
+
+	scope := ticketCreateRepoScopeInput{repoID: repoID}
+	if hasBranch {
+		branchName := strings.TrimSpace(branchPart)
+		if branchName == "" {
+			return ticketCreateRepoScopeInput{}, fmt.Errorf("branch name must not be empty when ':' is present")
+		}
+		scope.branchName = branchName
+	}
+
+	return scope, nil
 }
 
 func (platform platformContext) parseTicketUpdateInput(raw ticketUpdateInput) (ticketUpdateInput, error) {
@@ -1303,6 +1372,17 @@ func (client platformClient) createTicket(ctx context.Context, platform platform
 	}
 	if input.description != "" {
 		payload["description"] = input.description
+	}
+	if len(input.repoScopes) > 0 {
+		repoScopes := make([]map[string]any, 0, len(input.repoScopes))
+		for _, scope := range input.repoScopes {
+			item := map[string]any{"repo_id": scope.repoID}
+			if scope.branchName != "" {
+				item["branch_name"] = scope.branchName
+			}
+			repoScopes = append(repoScopes, item)
+		}
+		payload["repo_scopes"] = repoScopes
 	}
 	if input.statusIDSet {
 		payload["status_id"] = input.statusID

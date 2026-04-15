@@ -393,9 +393,10 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 		t.Fatalf("rawPlatformContext.resolve() missing api url error = %v", err)
 	}
 
-	createInput, err := platform.parseTicketCreateInput(ticketCreateInput{
+	createInput, err := platform.parseTicketCreateInput(rawTicketCreateInput{
 		title:       " Raise backend coverage ",
 		description: " finish CI gate ",
+		repoScopes:  []string{" 550e8400-e29b-41d4-a716-446655440010 ", " 550e8400-e29b-41d4-a716-446655440011 : feature/release-notes "},
 		priority:    " high ",
 		typeName:    " bug ",
 		externalRef: " PacificStudio/openase#278 ",
@@ -406,8 +407,14 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 	if createInput.title != "Raise backend coverage" || createInput.typeName != "bug" || createInput.externalRef != "PacificStudio/openase#278" {
 		t.Fatalf("parseTicketCreateInput() = %+v", createInput)
 	}
-	if _, err := platform.parseTicketCreateInput(ticketCreateInput{projectID: "project-123", title: " "}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
+	if len(createInput.repoScopes) != 2 || createInput.repoScopes[0].repoID != "550e8400-e29b-41d4-a716-446655440010" || createInput.repoScopes[1].branchName != "feature/release-notes" {
+		t.Fatalf("parseTicketCreateInput() repo scopes = %+v", createInput.repoScopes)
+	}
+	if _, err := platform.parseTicketCreateInput(rawTicketCreateInput{projectID: "project-123", title: " "}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
 		t.Fatalf("parseTicketCreateInput() blank title error = %v", err)
+	}
+	if _, err := platform.parseTicketCreateInput(rawTicketCreateInput{projectID: "project-123", title: "ok", repoScopes: []string{"repo-id:"}}); err == nil || !strings.Contains(err.Error(), "repo-scope[0]: branch name must not be empty") {
+		t.Fatalf("parseTicketCreateInput() invalid repo scope error = %v", err)
 	}
 
 	updateInput, err := platform.parseTicketUpdateInput(ticketUpdateInput{
