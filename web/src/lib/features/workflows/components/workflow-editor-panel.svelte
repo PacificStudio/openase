@@ -67,6 +67,7 @@
     {dictionarySize}
     {saving}
     {validating}
+    hasHarness={!!harness}
     {onToggleSkill}
     {onToggleList}
     {onValidate}

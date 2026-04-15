@@ -1,11 +1,12 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import Button from '$ui/button/button.svelte'
-  import { PanelLeftClose, PanelLeftOpen, Settings2 } from '@lucide/svelte'
+  import { PanelLeftClose, PanelLeftOpen, Settings2, Sparkles } from '@lucide/svelte'
   import type { SkillState } from '../model'
   import type { WorkflowSummary } from '../types'
   import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import { appStore } from '$lib/stores/app.svelte'
   import WorkflowSkillsDropdown from './workflow-skills-dropdown.svelte'
 
   let {
@@ -17,6 +18,7 @@
     dictionarySize = 0,
     saving = false,
     validating = false,
+    hasHarness = false,
     onToggleSkill,
     onToggleList,
     onValidate,
@@ -31,6 +33,7 @@
     dictionarySize?: number
     saving?: boolean
     validating?: boolean
+    hasHarness?: boolean
     onToggleSkill?: (skill: SkillState) => void
     onToggleList?: () => void
     onValidate?: () => void
@@ -40,6 +43,32 @@
 
   function t(key: TranslationKey, params?: TranslationParams) {
     return i18nStore.t(key, params)
+  }
+
+  function handleAskAiReview() {
+    if (!selectedWorkflow) return
+    const projectId = appStore.currentProject?.id
+    if (projectId) {
+      appStore.setProjectAssistantFocus(
+        'workflow-editor-review',
+        {
+          kind: 'workflow',
+          projectId,
+          workflowId: selectedWorkflow.id,
+          workflowName: selectedWorkflow.name,
+          workflowType: selectedWorkflow.type ?? '',
+          harnessPath: selectedWorkflow.harnessPath,
+          isActive: true,
+          hasDirtyDraft: isDirty,
+        },
+        20,
+      )
+    }
+    appStore.requestProjectAssistant(
+      t('workflows.editor.toolbar.actions.askAiReview.prompt', {
+        name: selectedWorkflow.name,
+      }),
+    )
   }
 </script>
 
@@ -80,6 +109,17 @@
   {/if}
 
   <div class="ml-auto flex shrink-0 items-center gap-1.5">
+    {#if hasHarness && selectedWorkflow}
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={handleAskAiReview}
+        data-tour="workflow-editor-ask-ai-review"
+      >
+        <Sparkles class="size-3.5" />
+        {t('workflows.editor.toolbar.actions.askAiReview.label')}
+      </Button>
+    {/if}
     <Button
       variant="outline"
       size="sm"

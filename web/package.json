@@ -13,8 +13,8 @@
     "prepare": "svelte-kit sync || echo ''",
     "test": "svelte-kit sync && vitest run",
     "test:ticket-run-transcript": "svelte-kit sync && vitest run src/lib/features/ticket-detail/run-transcript-real-samples.test.ts src/lib/features/ticket-detail/run-transcript-live-updates.test.ts src/lib/features/ticket-detail/run-transcript.test.ts",
-    "test:e2e": "playwright test",
-    "test:e2e:mobile": "playwright test --project=phone-390x844-iphone --project=phone-430x932-android --project=phone-360x800-compact --project=tablet-768x1024-portrait --project=tablet-1024x768-landscape",
+    "test:e2e": "node scripts/run-with-playwright-port.mjs playwright test",
+    "test:e2e:mobile": "node scripts/run-with-playwright-port.mjs playwright test --project=phone-390x844-iphone --project=phone-430x932-android --project=phone-360x800-compact --project=tablet-768x1024-portrait --project=tablet-1024x768-landscape",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "pnpm run lint:eslint && pnpm run lint:i18n",
@@ -28,7 +28,8 @@
     "sort:i18n-locales": "node scripts/sort-i18n-locales.mjs",
     "format": "pnpm run sort:i18n-locales && prettier --log-level warn --write .",
     "format:check": "pnpm run sort:i18n-locales -- --check && prettier --log-level warn --check .",
-    "ci": "pnpm run format:check && pnpm run lint && node scripts/check-file-budgets.mjs && pnpm run lint:deps && node scripts/check-mobile-route-gates.mjs && pnpm run check:security-overrides && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --output machine --threshold error && vitest run --reporter=dot src/lib/i18n/index.test.ts src/lib/components/layout/top-bar.test.ts src/lib/components/layout/top-bar-user-menu.test.ts src/lib/components/layout/sidebar-nav.test.ts src/lib/components/layout/theme-root.test.ts src/lib/features/ticket-detail/run-transcript-real-samples.test.ts src/lib/features/ticket-detail/run-transcript-live-updates.test.ts src/lib/features/ticket-detail/run-transcript.test.ts && vite build --logLevel warn && playwright test --reporter=dot --quiet"
+    "ci": "pnpm run format:check && pnpm run lint && node scripts/check-file-budgets.mjs && pnpm run lint:deps && node scripts/check-mobile-route-gates.mjs && pnpm run check:security-overrides && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --output machine --threshold error && vitest run --reporter=dot src/lib/i18n/index.test.ts src/lib/components/layout/top-bar.test.ts src/lib/components/layout/top-bar-user-menu.test.ts src/lib/components/layout/sidebar-nav.test.ts src/lib/components/layout/theme-root.test.ts src/lib/features/ticket-detail/run-transcript-real-samples.test.ts src/lib/features/ticket-detail/run-transcript-live-updates.test.ts src/lib/features/ticket-detail/run-transcript.test.ts && vite build --logLevel warn && pnpm run test:e2e:ci",
+    "test:e2e:ci": "node scripts/run-with-playwright-port.mjs playwright test --reporter=dot --quiet"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
