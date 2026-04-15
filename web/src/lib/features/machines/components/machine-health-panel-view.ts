@@ -1,7 +1,13 @@
 import { i18nStore } from '$lib/i18n/store.svelte'
 import { friendlyTransportLabel } from '../machine-setup'
 import { formatMachineRelativeTime } from '../machine-i18n'
-import type { MachineCLIStatus, MachineSnapshot } from '../types'
+import type {
+  MachineCLIStatus,
+  MachineSnapshot,
+  MachineWebsocketHealth,
+  MachineWebsocketHealthLayer,
+  WebsocketHealthState,
+} from '../types'
 
 export type HealthStatCard = {
   label: string
@@ -103,6 +109,10 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
 }
 
 export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
+  if (snapshot.websocketHealth) {
+    return buildWebsocketLevelCards(snapshot.websocketHealth)
+  }
+
   const readyRuntimeCount = snapshot.agentEnvironment.filter((runtime) => runtime.ready).length
 
   return [
@@ -187,6 +197,50 @@ export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
   ]
 }
 
+function buildWebsocketLevelCards(health: MachineWebsocketHealth): HealthLevelCard[] {
+  return [
+    websocketLevelCard(
+      'l2',
+      i18nStore.t('machines.machineHealthPanel.levels.l2Link'),
+      health.l2,
+      i18nStore.t('machines.machineHealthPanel.dynamic.noWebsocketLinkObservation'),
+    ),
+    websocketLevelCard(
+      'l3',
+      i18nStore.t('machines.machineHealthPanel.levels.l3ControlPlaneNetwork'),
+      health.l3,
+      i18nStore.t('machines.machineHealthPanel.dynamic.noWebsocketNetworkObservation'),
+    ),
+    websocketLevelCard(
+      'l4',
+      i18nStore.t('machines.machineHealthPanel.levels.l4WebsocketTransport'),
+      health.l4,
+      i18nStore.t('machines.machineHealthPanel.dynamic.noWebsocketTransportObservation'),
+    ),
+    websocketLevelCard(
+      'l5',
+      i18nStore.t('machines.machineHealthPanel.levels.l5MachineAgent'),
+      health.l5,
+      i18nStore.t('machines.machineHealthPanel.dynamic.noWebsocketApplicationObservation'),
+    ),
+  ]
+}
+
+function websocketLevelCard(
+  id: string,
+  label: string,
+  layer: MachineWebsocketHealthLayer | undefined,
+  fallbackValue: string,
+): HealthLevelCard {
+  return {
+    id,
+    label,
+    state: mapWebsocketLayerState(layer?.state),
+    value: layer?.reason ?? fallbackValue,
+    meta: checkedAtLabel(layer?.observedAt),
+  }
+}
+
 export function buildAuditRows(snapshot: MachineSnapshot): HealthAuditRow[] {
   if (!snapshot.fullAudit) {
     return []
@@ -252,6 +306,17 @@ export function runtimeLabel(runtime: MachineCLIStatus): string {
 }
 
 export function levelState(level: { error?: string; checkedAt?: string } | undefined): string {
+  const typed = level as
+    | { error?: string; checkedAt?: string; state?: WebsocketHealthState }
+    | undefined
+  switch (typed?.state) {
+    case 'healthy':
+      return 'ok'
+    case 'degraded':
+      return 'warn'
+    case 'failed':
+      return 'error'
+  }
   if (!level) return 'unknown'
   if (level.error) return 'error'
   if (level.checkedAt) return 'ok'
@@ -262,6 +327,8 @@ export function stateBadgeVariant(state: string): 'secondary' | 'destructive' | 
   switch (state) {
     case 'ok':
       return 'secondary'
+    case 'warn':
+      return 'outline'
     case 'error':
       return 'destructive'
     default:
@@ -272,10 +339,25 @@ export function stateBadgeVariant(state: string): 'secondary' | 'destructive' | 
 export function stateLabel(state: string): string {
   switch (state) {
     case 'ok':
-      return 'OK'
+      return i18nStore.t('machines.machineHealthPanel.status.healthy')
+    case 'warn':
+      return i18nStore.t('machines.machineHealthPanel.status.degraded')
     case 'error':
-      return 'Error'
+      return i18nStore.t('machines.machineHealthPanel.status.failed')
     default:
       return i18nStore.t('machines.machineHealthPanel.status.unknown')
+  }
+}
+
+function mapWebsocketLayerState(state: WebsocketHealthState | undefined): string {
+  switch (state) {
+    case 'healthy':
+      return 'ok'
+    case 'degraded':
+      return 'warn'
+    case 'failed':
+      return 'error'
+    default:
+      return 'unknown'
   }
 }

@@ -30,6 +30,7 @@ type MachineTester interface {
 
 type MachineHealthCollector interface {
 	CollectReachability(ctx context.Context, machine domain.Machine) (domain.MachineReachability, error)
+	CollectWebsocketHealth(ctx context.Context, machine domain.Machine) (domain.WebsocketMachineHealth, error)
 	CollectSystemResources(ctx context.Context, machine domain.Machine) (domain.MachineSystemResources, error)
 	CollectGPUResources(ctx context.Context, machine domain.Machine) (domain.MachineGPUResources, error)
 	CollectAgentEnvironment(ctx context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error)
@@ -364,74 +365,97 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 	level3ProbeFailure := false
 	level4ProbeFailure := false
 	level5ProbeFailure := false
+	websocketLayerFailure := false
+	isWebsocketMachine := machine.ConnectionMode == domain.MachineConnectionModeWSReverse || machine.ConnectionMode == domain.MachineConnectionModeWSListener
 
 	if !softReachabilityFailure && !hardReachabilityFailure {
-		systemResources, err := s.machineHealthCollector.CollectSystemResources(ctx, machine)
-		if err != nil {
-			systemProbeFailure = true
-			setMachineMonitorError(resources, "l2", err.Error())
-			logger.Warn("machine health l2 system probe failed", "error", err)
+		if isWebsocketMachine {
+			websocketHealth, err := s.machineHealthCollector.CollectWebsocketHealth(ctx, machine)
+			if err != nil {
+				logger.Warn("machine health websocket layered probe failed", "error", err)
+			} else {
+				logger.Info("machine health websocket layered probe completed",
+					"checked_at", websocketHealth.CheckedAt.UTC().Format(time.RFC3339),
+					"transport_mode", websocketHealth.TransportMode.String(),
+					"l2_state", websocketHealth.L2.State.String(),
+					"l3_state", websocketHealth.L3.State.String(),
+					"l4_state", websocketHealth.L4.State.String(),
+					"l5_state", websocketHealth.L5.State.String(),
+				)
+			}
+			resources["websocket_health"] = domain.StoreWebsocketMachineHealth(websocketHealth)
+			websocketLayerFailure = domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L2) ||
+				domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L3) ||
+				domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L4) ||
+				domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L5)
 		} else {
-			updateMonitorL2Resources(resources, systemResources)
-			clearMachineMonitorError(resources, "l2")
-			logger.Info("machine health l2 system probe completed",
-				"collected_at", systemResources.CollectedAt.UTC().Format(time.RFC3339),
-				"cpu_cores", systemResources.CPUCores,
-				"cpu_usage_percent", systemResources.CPUUsagePercent,
-				"memory_available_gb", systemResources.MemoryAvailableGB,
-				"memory_available_percent", systemResources.MemoryAvailablePercent,
-				"disk_available_gb", systemResources.DiskAvailableGB,
-				"disk_available_percent", systemResources.DiskAvailablePercent,
-			)
-		}
+			systemResources, err := s.machineHealthCollector.CollectSystemResources(ctx, machine)
+			if err != nil {
+				systemProbeFailure = true
+				setMachineMonitorError(resources, "l2", err.Error())
+				logger.Warn("machine health l2 system probe failed", "error", err)
+			} else {
+				updateMonitorL2Resources(resources, systemResources)
+				clearMachineMonitorError(resources, "l2")
+				logger.Info("machine health l2 system probe completed",
+					"collected_at", systemResources.CollectedAt.UTC().Format(time.RFC3339),
+					"cpu_cores", systemResources.CPUCores,
+					"cpu_usage_percent", systemResources.CPUUsagePercent,
+					"memory_available_gb", systemResources.MemoryAvailableGB,
+					"memory_available_percent", systemResources.MemoryAvailablePercent,
+					"disk_available_gb", systemResources.DiskAvailableGB,
+					"disk_available_percent", systemResources.DiskAvailablePercent,
+				)
+			}
 
-		gpuResources, err := s.machineHealthCollector.CollectGPUResources(ctx, machine)
-		if err != nil {
-			level3ProbeFailure = true
-			setMachineMonitorError(resources, "l3", err.Error())
-			logger.Warn("machine health l3 gpu probe failed", "error", err)
-		} else {
-			updateMonitorL3Resources(resources, gpuResources)
-			clearMachineMonitorError(resources, "l3")
-			logger.Info("machine health l3 gpu probe completed",
-				"collected_at", gpuResources.CollectedAt.UTC().Format(time.RFC3339),
-				"gpu_available", gpuResources.Available,
-				"gpu_count", len(gpuResources.GPUs),
-			)
-		}
+			gpuResources, err := s.machineHealthCollector.CollectGPUResources(ctx, machine)
+			if err != nil {
+				level3ProbeFailure = true
+				setMachineMonitorError(resources, "l3", err.Error())
+				logger.Warn("machine health l3 gpu probe failed", "error", err)
+			} else {
+				updateMonitorL3Resources(resources, gpuResources)
+				clearMachineMonitorError(resources, "l3")
+				logger.Info("machine health l3 gpu probe completed",
+					"collected_at", gpuResources.CollectedAt.UTC().Format(time.RFC3339),
+					"gpu_available", gpuResources.Available,
+					"gpu_count", len(gpuResources.GPUs),
+				)
+			}
 
-		agentEnvironment, err := s.machineHealthCollector.CollectAgentEnvironment(ctx, machine)
-		if err != nil {
-			level4ProbeFailure = true
-			setMachineMonitorError(resources, "l4", err.Error())
-			logger.Warn("machine health l4 agent environment probe failed", "error", err)
-		} else {
-			updateMonitorL4Resources(resources, agentEnvironment)
-			clearMachineMonitorError(resources, "l4")
-			logger.Info("machine health l4 agent environment probe completed",
-				"collected_at", agentEnvironment.CollectedAt.UTC().Format(time.RFC3339),
-				"dispatchable", agentEnvironment.Dispatchable,
-				"cli_count", len(agentEnvironment.CLIs),
-			)
-		}
+			agentEnvironment, err := s.machineHealthCollector.CollectAgentEnvironment(ctx, machine)
+			if err != nil {
+				level4ProbeFailure = true
+				setMachineMonitorError(resources, "l4", err.Error())
+				logger.Warn("machine health l4 agent environment probe failed", "error", err)
+			} else {
+				updateMonitorL4Resources(resources, agentEnvironment)
+				clearMachineMonitorError(resources, "l4")
+				logger.Info("machine health l4 agent environment probe completed",
+					"collected_at", agentEnvironment.CollectedAt.UTC().Format(time.RFC3339),
+					"dispatchable", agentEnvironment.Dispatchable,
+					"cli_count", len(agentEnvironment.CLIs),
+				)
+			}
 
-		fullAudit, err := s.machineHealthCollector.CollectFullAudit(ctx, machine)
-		if err != nil {
-			level5ProbeFailure = true
-			setMachineMonitorError(resources, "l5", err.Error())
-			logger.Warn("machine health l5 full audit failed", "error", err)
-		} else {
-			updateMonitorL5Resources(resources, fullAudit)
-			clearMachineMonitorError(resources, "l5")
-			logger.Info("machine health l5 full audit completed",
-				"collected_at", fullAudit.CollectedAt.UTC().Format(time.RFC3339),
-				"git_installed", fullAudit.Git.Installed,
-				"github_cli_installed", fullAudit.GitHubCLI.Installed,
-				"github_cli_auth_status", string(fullAudit.GitHubCLI.AuthStatus),
-				"github_reachable", fullAudit.Network.GitHubReachable,
-				"pypi_reachable", fullAudit.Network.PyPIReachable,
-				"npm_reachable", fullAudit.Network.NPMReachable,
-			)
+			fullAudit, err := s.machineHealthCollector.CollectFullAudit(ctx, machine)
+			if err != nil {
+				level5ProbeFailure = true
+				setMachineMonitorError(resources, "l5", err.Error())
+				logger.Warn("machine health l5 full audit failed", "error", err)
+			} else {
+				updateMonitorL5Resources(resources, fullAudit)
+				clearMachineMonitorError(resources, "l5")
+				logger.Info("machine health l5 full audit completed",
+					"collected_at", fullAudit.CollectedAt.UTC().Format(time.RFC3339),
+					"git_installed", fullAudit.Git.Installed,
+					"github_cli_installed", fullAudit.GitHubCLI.Installed,
+					"github_cli_auth_status", string(fullAudit.GitHubCLI.AuthStatus),
+					"github_reachable", fullAudit.Network.GitHubReachable,
+					"pypi_reachable", fullAudit.Network.PyPIReachable,
+					"npm_reachable", fullAudit.Network.NPMReachable,
+				)
+			}
 		}
 	} else {
 		logger.Info("machine health deeper probes skipped",
@@ -444,7 +468,7 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 		switch {
 		case hardReachabilityFailure:
 			status = domain.MachineStatusOffline
-		case softReachabilityFailure || systemProbeFailure || level3ProbeFailure || level4ProbeFailure || level5ProbeFailure || machineHasLowDisk(resources):
+		case softReachabilityFailure || systemProbeFailure || level3ProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
 			status = domain.MachineStatusDegraded
 		default:
 			status = domain.MachineStatusOnline
