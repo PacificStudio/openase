@@ -195,7 +195,7 @@ The installer detects OS/arch/package managers, downloads and verifies the match
 To pin a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pacificstudio/openase/main/scripts/install.sh | sh -s -- --version v0.4.0
+curl -fsSL https://raw.githubusercontent.com/pacificstudio/openase/main/scripts/install.sh | sh -s -- --version <version>
 ```
 
 ### Build From Source
