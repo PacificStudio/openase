@@ -36,7 +36,7 @@ test('project ai provider picker matches the available provider catalog', async 
     },
   })
 
-  await page.getByRole('button', { name: 'Ask AI' }).click()
+  await page.locator('[data-tour="sidebar-ai-assistant"]').click()
   await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
     timeout: 10_000,
   })
@@ -65,7 +65,7 @@ test('project ai creates a new conversation and streams the first reply', async 
     },
   })
 
-  await page.getByRole('button', { name: 'Ask AI' }).click()
+  await page.locator('[data-tour="sidebar-ai-assistant"]').click()
   await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
     timeout: 10_000,
   })

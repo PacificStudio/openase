@@ -3430,7 +3430,7 @@
   "workflows.detail.panel.placeholders.unlimited": "Enter unlimited...",
   "workflows.detail.panel.statuses.finish": "Finish Statuses",
   "workflows.detail.panel.statuses.pickup": "Pickup Statuses",
-  "workflows.editor.toolbar.actions.askAiReview.label": "Ask AI to review",
+  "workflows.editor.toolbar.actions.askAiReview.label": "Review with AI",
   "workflows.editor.toolbar.actions.askAiReview.prompt": "Review the workflow \"{name}\" I'm editing. Using the workflow-authoring skill as your rubric, tell me whether this harness is well-written and ready to use. Call out anything vague, missing, or self-contradictory — especially around mission scope, status semantics, exit gates (proof vs intention), feedback channels, and the disposable-workspace reality. Be concrete about what to change and cite the lines you are critiquing.",
   "workflows.editor.toolbar.actions.hideList": "Hide workflow list",
   "workflows.editor.toolbar.actions.save": "Save",

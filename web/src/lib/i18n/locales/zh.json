@@ -3430,7 +3430,7 @@
   "workflows.detail.panel.placeholders.unlimited": "输入不限...",
   "workflows.detail.panel.statuses.finish": "完成状态",
   "workflows.detail.panel.statuses.pickup": "接单状态",
-  "workflows.editor.toolbar.actions.askAiReview.label": "让 AI 评审",
+  "workflows.editor.toolbar.actions.askAiReview.label": "用 AI 评审",
   "workflows.editor.toolbar.actions.askAiReview.prompt": "请评审我正在编辑的 workflow \"{name}\"。以 workflow-authoring 这个 skill 为评分标准，告诉我这份 harness 是否写得合适、可以直接上线使用。任何含糊、缺失或自相矛盾的地方都要指出来——特别关注使命范围、状态语义、出口门槛（要证据而不是意图）、反馈通道、以及一次性工作区的现实。说清楚要怎么改，并引用你点评的那几行。",
   "workflows.editor.toolbar.actions.hideList": "隐藏工作流列表",
   "workflows.editor.toolbar.actions.save": "保存",
