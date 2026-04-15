@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"sync"
@@ -741,21 +743,18 @@ func rawClaudeProviderEvent(event provider.ClaudeCodeEvent) *agentRawProviderEve
 	threadID := claudeEventSessionID(event, payload)
 	turnID := claudeReadString(payload, "turn_id", "turnId")
 	activityHintID := firstClaudeNonEmptyString(claudeReadString(payload, "tool_use_id"), claudeReadString(payload, "parent_tool_use_id"), claudeReadString(payload, "task_id"))
-	dedupKey := strings.Join(
-		[]string{
-			providerKind,
-			subtype,
-			threadID,
-			turnID,
-			eventID,
-			activityHintID,
-			claudeReadString(payload, "text"),
-			claudeReadString(payload, "summary"),
-			claudeReadString(payload, "message"),
-		},
-		"\x00",
+	dedupKey := claudeRawEventDedupKey(
+		providerKind,
+		subtype,
+		threadID,
+		turnID,
+		eventID,
+		activityHintID,
+		claudeReadString(payload, "text"),
+		claudeReadString(payload, "summary"),
+		claudeReadString(payload, "message"),
 	)
-	if strings.TrimSpace(strings.ReplaceAll(dedupKey, "\x00", "")) == "" {
+	if dedupKey == "" {
 		return nil
 	}
 	return &agentRawProviderEvent{
@@ -769,6 +768,23 @@ func rawClaudeProviderEvent(event provider.ClaudeCodeEvent) *agentRawProviderEve
 		Payload:              payload,
 		TextExcerpt:          claudeProtocolTaskStatusText(payload),
 	}
+}
+
+func claudeRawEventDedupKey(parts ...string) string {
+	normalized := make([]string, 0, len(parts))
+	hasContent := false
+	for _, part := range parts {
+		cleaned := strings.ReplaceAll(strings.ToValidUTF8(part, ""), "\x00", "")
+		if strings.TrimSpace(cleaned) != "" {
+			hasContent = true
+		}
+		normalized = append(normalized, cleaned)
+	}
+	if !hasContent {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(strings.Join(normalized, "\x00")))
+	return "claude:" + hex.EncodeToString(sum[:])
 }
 
 func extractClaudeToolResultText(content any) string {
