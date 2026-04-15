@@ -1,5 +1,7 @@
 # Unified Websocket Runtime Contract
 
+For topology selection, migration, daemon install, and operator rollout guidance, see [`remote-websocket-rollout.md`](./remote-websocket-rollout.md). This document specifies the wire contract itself.
+
 The websocket runtime contract is the single execution contract shared by both websocket transport topologies:
 
 - `ws_listener`: the control plane dials the machine listener directly

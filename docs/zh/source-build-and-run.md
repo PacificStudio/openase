@@ -354,3 +354,112 @@ curl -fsS http://127.0.0.1:19836/api/v1/healthz
 - 如果 `all-in-one` 报 `bind: address already in use` 错误，使用 `lsof -nP -iTCP:<port> -sTCP:LISTEN` 检查当前监听者。
 - 从本地 `.env` 运行时，保持文件权限严格，例如 `chmod 600 ~/.openase/.env`。
 - 本地日志文件通常保存在 `~/.openase/logs/` 下。
+
+## 附录 A. 安装前置条件
+
+### Go 1.26+
+
+```bash
+# 下载（根据需要调整版本和系统架构）
+wget https://go.dev/dl/go1.26.1.linux-amd64.tar.gz
+
+# 解压到 /usr/local（需要 sudo）
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go1.26.1.linux-amd64.tar.gz
+
+# 添加到 PATH — 追加到 ~/.bashrc 或 ~/.zshrc
+export PATH=$PATH:/usr/local/go/bin
+
+# 验证
+go version   # go1.26.1 linux/amd64
+```
+
+或使用项目本地工具链:
+
+```bash
+export PATH=$PWD/.tooling/go/bin:$HOME/.local/go1.26.1/bin:$PATH
+```
+
+### Node.js 22 LTS 或 24 LTS 与 pnpm(仅构建时需要)
+
+Node.js 仅在构建前端时需要,**运行时不需要**。
+
+推荐 **Node 22 LTS**,**Node 24 LTS** 也可。避免 **Node 23** 等非 LTS 奇数版本 — 前端依赖的 `engines` 约束可能拒绝 `v23.11.1` 这类版本。
+
+```bash
+# 方式 A: 通过 nvm(推荐)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.bashrc
+nvm install 22
+nvm use 22
+
+# 方式 B: 通过包管理器(Ubuntu/Debian)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# 启用 corepack 以使用 pnpm
+corepack enable
+
+# 验证
+node --version   # v22.x.x
+pnpm --version   # 10.x.x(通过 corepack)
+```
+
+### PostgreSQL
+
+你有两个选择 — 让 OpenASE setup 自动启动 Docker 版 PostgreSQL,或者自行安装。没有第三种由 setup 管理的"用户态本地数据库"方案。如果你的用户无法访问 Docker,请先自行准备 PostgreSQL 再运行 `openase setup`。
+
+**方式 A: Docker(推荐用于本地开发)**
+
+```bash
+# 安装 Docker(如果没有)
+sudo apt-get update && sudo apt-get install -y docker.io
+sudo usermod -aG docker $USER
+newgrp docker   # 或重新登录
+
+# OpenASE setup 会自动为你创建容器
+```
+
+**方式 B: 自行安装 PostgreSQL**
+
+```bash
+# macOS 通过 Homebrew
+brew install postgresql@16
+brew services start postgresql@16
+psql postgres://localhost:5432/postgres?sslmode=disable -c "SELECT 1;"
+```
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y postgresql postgresql-client
+
+# 创建数据库和用户
+sudo -u postgres psql -c "CREATE USER openase WITH PASSWORD 'openase';"
+sudo -u postgres psql -c "CREATE DATABASE openase OWNER openase;"
+
+# 验证
+psql postgres://openase:openase@localhost:5432/openase?sslmode=disable -c "SELECT 1;"
+```
+
+### Git 及其他工具
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y git make curl wget
+
+# 验证
+git --version
+make --version
+```
+
+### (可选) AI Agent CLI
+
+OpenASE setup 会自动检测 `PATH` 上的这些工具:
+
+| Agent | 安装方式 |
+|-------|---------|
+| **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
+| **Codex** | `npm install -g @openai/codex` |
+| **Gemini CLI** | `npm install -g @google/gemini-cli` |
+
+这些也可稍后安装 — setup 会自动发现已安装的 Provider。
