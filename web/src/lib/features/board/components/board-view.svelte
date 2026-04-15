@@ -96,6 +96,7 @@
   ondragover={handleContainerDragOver}
   ondragleave={stopAutoScroll}
   ondrop={stopAutoScroll}
+  data-tour="board-columns-container"
 >
   {#if groups.length === 0}
     <div

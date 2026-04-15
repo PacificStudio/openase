@@ -53,6 +53,9 @@
   function handleNavClick() {
     onNavigate?.()
   }
+
+  const assistantShortcutLabel =
+    typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘I' : 'Ctrl+I'
 </script>
 
 {#snippet navLink(item: SidebarNavItem)}
@@ -65,6 +68,7 @@
             href={item.href}
             {...props}
             data-sveltekit-preload-code="hover"
+            data-tour={item.tourId}
             class={cn(
               'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
               item.active
@@ -90,6 +94,7 @@
     <a
       href={item.href}
       data-sveltekit-preload-code="hover"
+      data-tour={item.tourId}
       class={cn(
         'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
         item.active
@@ -148,7 +153,7 @@
             {i18nStore.t('layout.askAI')}
             <kbd
               class="bg-muted text-muted-foreground ml-1.5 rounded px-1 py-0.5 font-mono text-[10px]"
-              >⌘I</kbd
+              >{assistantShortcutLabel}</kbd
             >
           </Tooltip.Content>
         </Tooltip.Root>
@@ -157,12 +162,15 @@
           variant="ghost"
           size="sm"
           class="text-sidebar-foreground hover:bg-sidebar-accent mb-1 w-full justify-start"
+          data-tour="sidebar-ai-assistant"
           onclick={onOpenProjectAssistant}
         >
           <Bot class="mr-2 size-4" />
           <span class="flex-1 text-left text-xs">{i18nStore.t('layout.askAI')}</span>
           {#if !mobile}
-            <kbd class="text-muted-foreground/50 text-[10px] font-normal">⌘I</kbd>
+            <kbd class="text-muted-foreground/50 text-[10px] font-normal">
+              {assistantShortcutLabel}
+            </kbd>
           {/if}
         </Button>
       {/if}

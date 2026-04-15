@@ -3,7 +3,7 @@
   import { i18nStore } from '$lib/i18n/store.svelte'
   import * as Avatar from '$ui/avatar'
   import * as DropdownMenu from '$ui/dropdown-menu'
-  import { LogOut, Moon, Settings } from '@lucide/svelte'
+  import { LifeBuoy, LogOut, Moon, Settings } from '@lucide/svelte'
 
   let {
     userDisplayName = '',
@@ -13,9 +13,11 @@
     logoutPending = false,
     settingsEnabled = false,
     settingsHref = '',
+    restartTourEnabled = false,
     onToggleTheme,
     onOpenSettings,
     onWarmSettings,
+    onRestartTour,
     onLogout,
   }: {
     userDisplayName?: string
@@ -25,9 +27,11 @@
     logoutPending?: boolean
     settingsEnabled?: boolean
     settingsHref?: string
+    restartTourEnabled?: boolean
     onToggleTheme?: () => void
     onOpenSettings?: () => void
     onWarmSettings?: (href: string) => void
+    onRestartTour?: () => void
     onLogout?: () => void
   } = $props()
 
@@ -83,6 +87,10 @@
     <DropdownMenu.Item onclick={onToggleTheme}>
       <Moon class="mr-2 size-4" />
       {i18nStore.t('layout.toggleTheme')}
+    </DropdownMenu.Item>
+    <DropdownMenu.Item onclick={onRestartTour} disabled={!restartTourEnabled}>
+      <LifeBuoy class="mr-2 size-4" />
+      {i18nStore.t('layout.restartTour')}
     </DropdownMenu.Item>
     <DropdownMenu.Item
       onclick={onOpenSettings}

@@ -228,9 +228,13 @@
 <PageScaffold
   title={activityT('activity.page.title')}
   description={activityT('activity.page.description')}
+  helpSection="activity"
 >
   <div class="w-full space-y-4">
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+    <div
+      class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
+      data-tour="activity-filters"
+    >
       <div class="relative min-w-0 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
         <Input
@@ -266,7 +270,9 @@
         {error}
       </div>
     {:else if filtered.length > 0}
-      <ActivityTimeline entries={filtered} />
+      <div data-tour="activity-timeline">
+        <ActivityTimeline entries={filtered} />
+      </div>
     {:else}
       <div class="animate-fade-in-up flex flex-col items-center justify-center py-20">
         <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">

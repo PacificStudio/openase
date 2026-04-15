@@ -20,6 +20,7 @@ export type SidebarNavItem = {
   icon: Component
   badge?: string | number
   active: boolean
+  tourId?: string
 }
 
 type BuildProjectNavArgs = {
@@ -92,6 +93,7 @@ export function buildProjectNav({
       icon,
       badge: section === 'agents' ? agentCount || undefined : undefined,
       active,
+      tourId: `nav-${section}`,
     }
   })
 }

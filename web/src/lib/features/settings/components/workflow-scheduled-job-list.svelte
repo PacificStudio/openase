@@ -49,11 +49,17 @@
     </p>
     <Button variant="outline" size="sm" class="mt-4" onclick={() => onNewJob?.()}>
       <Plus class="mr-1.5 size-3.5" />
-      {i18nStore.t('settings.workflowScheduledJobList.actions.create')}
+      {i18nStore.t('settings.workflowScheduledJobList.actions.newJob')}
     </Button>
   </div>
 {:else}
   <div class="space-y-2">
+    <div class="flex justify-end">
+      <Button variant="outline" size="sm" onclick={() => onNewJob?.()}>
+        <Plus class="mr-1.5 size-3.5" />
+        {i18nStore.t('settings.workflowScheduledJobList.actions.newJob')}
+      </Button>
+    </div>
     {#each jobs as job (job.id)}
       {@const busy = actionJobId === job.id}
       <div class="border-border/60 bg-card/60 flex items-center gap-3 rounded-xl border px-4 py-3">

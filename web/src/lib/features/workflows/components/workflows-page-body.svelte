@@ -116,28 +116,30 @@
 {:else}
   <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">
     {#if showList}
-      <div class="w-52 shrink-0">
+      <div class="w-52 shrink-0" data-tour="workflows-list-panel">
         <WorkflowList {workflows} {selectedId} onselect={(id) => onSelectedIdChange?.(id)} />
       </div>
     {/if}
-    <WorkflowEditorPanel
-      selectedWorkflow={selectedWorkflow ?? undefined}
-      harness={harness ? toHarnessContent(draftHarness) : null}
-      {variableGroups}
-      {skillStates}
-      {validationIssues}
-      {saving}
-      {validating}
-      {isDirty}
-      {loadingHarness}
-      {showList}
-      onDraftChange={(raw) => onDraftChange?.(raw)}
-      {onSave}
-      {onValidate}
-      onToggleSkill={(skill) => onToggleSkill?.(skill)}
-      onToggleList={() => (showList = !showList)}
-      onToggleDetail={() => (showDetail = !showDetail)}
-    />
+    <div class="flex min-h-0 flex-1" data-tour="workflow-detail-panel">
+      <WorkflowEditorPanel
+        selectedWorkflow={selectedWorkflow ?? undefined}
+        harness={harness ? toHarnessContent(draftHarness) : null}
+        {variableGroups}
+        {skillStates}
+        {validationIssues}
+        {saving}
+        {validating}
+        {isDirty}
+        {loadingHarness}
+        {showList}
+        onDraftChange={(raw) => onDraftChange?.(raw)}
+        {onSave}
+        {onValidate}
+        onToggleSkill={(skill) => onToggleSkill?.(skill)}
+        onToggleList={() => (showList = !showList)}
+        onToggleDetail={() => (showDetail = !showDetail)}
+      />
+    </div>
   </div>
 
   <Sheet.Root bind:open={showDetail}>

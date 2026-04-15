@@ -64,6 +64,7 @@
     onclick={() => onOpenRegister?.()}
     disabled={!canRegister}
     title={registerButtonTitle}
+    data-tour="agents-register"
   >
     <Plus class="size-3.5" />
     {i18nStore.t('agents.registerAgent')}
@@ -73,7 +74,9 @@
 <PageScaffold
   title={i18nStore.t('agents.pageTitle')}
   description={i18nStore.t('agents.pageDescription')}
+  helpSection="agents"
   {actions}
+  class="tour-agents-page"
 >
   <AgentsPagePanel
     {agents}

@@ -81,18 +81,21 @@
 </script>
 
 {#snippet actions()}
-  <MachinePageActions
-    {refreshing}
-    refreshDisabled={loading}
-    createDisabled={!routeOrgId}
-    {onRefresh}
-    {onCreate}
-  />
+  <div data-tour="machines-actions">
+    <MachinePageActions
+      {refreshing}
+      refreshDisabled={loading}
+      createDisabled={!routeOrgId}
+      {onRefresh}
+      {onCreate}
+    />
+  </div>
 {/snippet}
 
 <PageScaffold
   title={t('machines.page.title')}
   description={t('machines.page.description')}
+  helpSection="machines"
   variant="workspace"
   {actions}
 >

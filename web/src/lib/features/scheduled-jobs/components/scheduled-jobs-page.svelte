@@ -2,6 +2,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { ApiError } from '$lib/api/client'
   import { listStatuses } from '$lib/api/openase'
+  import { PageScaffold } from '$lib/components/layout'
   import { WorkflowScheduledJobsPanel } from '$lib/features/settings'
   import { mapStatusOptions, type WorkflowStatusOption } from '$lib/features/workflows'
   import { scheduledJobsT } from './i18n'
@@ -51,24 +52,29 @@
   })
 </script>
 
-<div class="flex h-full flex-col">
-  {#if error}
-    <div class="text-destructive p-6 text-sm">{error}</div>
-  {:else if !loading && !appStore.currentProject?.id}
-    <div class="text-muted-foreground p-6 text-sm">
-      {scheduledJobsT('scheduledJobs.projectContextUnavailable')}
-    </div>
-  {:else if !loading && statuses.length === 0}
-    <div class="text-muted-foreground p-6 text-sm">
-      {scheduledJobsT('scheduledJobs.noTicketStatuses')}
-    </div>
-  {:else}
-    <WorkflowScheduledJobsPanel
-      projectId={appStore.currentProject?.id ?? ''}
-      statuses={loading ? [] : statuses}
-      {loading}
-      title={scheduledJobsT('scheduledJobs.title')}
-      description={scheduledJobsT('scheduledJobs.description')}
-    />
-  {/if}
-</div>
+<PageScaffold
+  title={scheduledJobsT('scheduledJobs.title')}
+  description={scheduledJobsT('scheduledJobs.description')}
+  helpSection="scheduled-jobs"
+>
+  <div data-tour="scheduled-jobs-page">
+    {#if error}
+      <div class="text-destructive text-sm">{error}</div>
+    {:else if !loading && !appStore.currentProject?.id}
+      <div class="text-muted-foreground text-sm">
+        {scheduledJobsT('scheduledJobs.projectContextUnavailable')}
+      </div>
+    {:else if !loading && statuses.length === 0}
+      <div class="text-muted-foreground text-sm">
+        {scheduledJobsT('scheduledJobs.noTicketStatuses')}
+      </div>
+    {:else}
+      <WorkflowScheduledJobsPanel
+        projectId={appStore.currentProject?.id ?? ''}
+        statuses={loading ? [] : statuses}
+        {loading}
+        showHeader={false}
+      />
+    {/if}
+  </div>
+</PageScaffold>

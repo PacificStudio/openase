@@ -11,6 +11,7 @@
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
   import { ChevronRight, Link2, Plus, Search, Wrench } from '@lucide/svelte'
+  import PageHelpButton from '$lib/components/layout/page-help-button.svelte'
   import SkillsPageCreateSheet from './skills-page-create-sheet.svelte'
   import { skillsT } from './i18n'
   import type { TranslationKey } from '$lib/i18n'
@@ -160,15 +161,21 @@
   <div class="mx-auto max-w-5xl space-y-5 p-6">
     <div class="flex items-start justify-between gap-4">
       <div>
-        <h1 class="text-foreground text-xl font-semibold">
-          {skillsT('skills.page.title')}
-        </h1>
+        <div class="flex items-center gap-1.5">
+          <h1 class="text-foreground text-xl font-semibold">
+            {skillsT('skills.page.title')}
+          </h1>
+          <PageHelpButton section="skills" />
+        </div>
         <p class="text-muted-foreground mt-1 text-sm">
           {skillsT('skills.page.description')}
         </p>
       </div>
       {#if !loading}
-        <div class="text-muted-foreground flex items-center gap-2 text-xs">
+        <div
+          class="text-muted-foreground flex items-center gap-2 text-xs"
+          data-tour="skills-stats-region"
+        >
           <span>{skillsT(statsLabelKeys.total, { count: counts.total })}</span>
           <span class="text-muted-foreground/40">/</span>
           <span>{skillsT(statsLabelKeys.enabled, { count: counts.enabled })}</span>
@@ -178,7 +185,7 @@
       {/if}
     </div>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2" data-tour="skills-toolbar">
       <div class="relative min-w-48 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
         <Input bind:value={query} placeholder={skillsT('skills.searchPlaceholder')} class="pl-9" />
@@ -196,7 +203,7 @@
           </Button>
         {/each}
       </div>
-      <Button size="sm" class="h-8 gap-1.5" onclick={openCreate}>
+      <Button size="sm" class="h-8 gap-1.5" data-tour="skills-create" onclick={openCreate}>
         <Plus class="size-3.5" />
         {skillsT('skills.actions.newSkill')}
       </Button>
@@ -240,7 +247,7 @@
         {/if}
       </div>
     {:else}
-      <div class="divide-border divide-y rounded-lg border">
+      <div class="divide-border divide-y rounded-lg border" data-tour="skills-list-grid">
         {#each filteredSkills as skill, idx (skill.id)}
           {@const boundCount = skill.bound_workflows.length}
           {@const boundNames = skill.bound_workflows.map((w) => w.name).join(', ')}

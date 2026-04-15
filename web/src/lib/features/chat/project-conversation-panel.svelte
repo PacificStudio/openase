@@ -19,6 +19,8 @@
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import { applyEligibleInitialPrompt } from './project-conversation-panel-prompt'
   import { watchProjectConversationProviders } from './project-conversation-panel-provider-sync'
+  import { startProjectAITour, hasProjectAITourBeenShown } from '$lib/features/tour'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     context,
@@ -148,6 +150,17 @@
   $effect(() => () => controller.dispose())
 
   $effect(() => {
+    const projectId = context.projectId
+    if (!projectId) return
+    if (hasProjectAITourBeenShown(projectId)) return
+    const timer = setTimeout(() => {
+      if (context.projectId !== projectId) return
+      startProjectAITour(projectId, i18nStore.t)
+    }, 600)
+    return () => clearTimeout(timer)
+  })
+
+  $effect(() => {
     if (!effectiveFocusKey) {
       suppressedFocusKey = ''
     }
@@ -247,6 +260,7 @@
     onSelectTab={controller.selectTab}
     onCloseTab={controller.closeTab}
     onRespondInterrupt={controller.respondInterrupt}
+    onPickPrompt={(text) => controller.setDraft(text)}
   />
   <ProjectConversationComposer
     {loadingProviders}

@@ -130,7 +130,7 @@
     </p>
   </div>
 {:else}
-  <div class="space-y-2">
+  <div class="space-y-2" data-tour="agent-cards-list">
     {#each agents as agent (agent.id)}
       {@const Icon = adapterIcons[agent.adapterType] ?? Cpu}
       {@const runs = activeRuns(agent.id)}

@@ -26,6 +26,8 @@
   } = $props()
 
   const isMobile = $derived(viewport.isMobile)
+  const searchShortcutLabel =
+    typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘K' : 'Ctrl+K'
 </script>
 
 {#if searchEnabled}
@@ -43,11 +45,14 @@
       variant="outline"
       size="sm"
       class="text-muted-foreground w-[200px] justify-start gap-2"
+      data-tour="topbar-search"
       onclick={onOpenSearch}
     >
       <Search class="size-3.5" />
       <span class="text-xs">{i18nStore.t('layout.search')}</span>
-      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">
+        {searchShortcutLabel}
+      </kbd>
     </Button>
     <Separator orientation="vertical" class="mx-1 h-5" />
   {/if}
@@ -69,6 +74,7 @@
   class="gap-1.5"
   disabled={!newTicketEnabled}
   data-testid="topbar-new-ticket-button"
+  data-tour="topbar-new-ticket"
   aria-label={newTicketEnabled
     ? i18nStore.t('layout.newTicketAriaLabel')
     : (newTicketTitle ?? i18nStore.t('layout.newTicketAriaLabel'))}
@@ -83,6 +89,7 @@
 
 <div
   class="text-muted-foreground flex items-center gap-1.5 text-xs"
+  data-tour="topbar-sse-status"
   title={i18nStore.t('layout.sseStatus', { status: sseStatus })}
 >
   {#if sseStatus === 'live'}

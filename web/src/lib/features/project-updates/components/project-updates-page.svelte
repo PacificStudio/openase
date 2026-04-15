@@ -17,12 +17,15 @@
 <PageScaffold
   title={i18nStore.t('projectUpdates.pageTitle')}
   description={i18nStore.t('projectUpdates.pageDescription')}
+  helpSection="updates"
 >
   <div class="w-full space-y-5">
-    <ProjectUpdateComposer
-      creating={projectUpdates.creatingThread}
-      onSubmit={projectUpdates.handleCreateThread}
-    />
+    <div data-tour="updates-composer">
+      <ProjectUpdateComposer
+        creating={projectUpdates.creatingThread}
+        onSubmit={projectUpdates.handleCreateThread}
+      />
+    </div>
 
     {#if projectUpdates.loadError}
       <div
@@ -64,7 +67,7 @@
         </p>
       </div>
     {:else}
-      <div class="space-y-4">
+      <div class="space-y-4" data-tour="project-updates-threads">
         {#each projectUpdates.threads as thread (thread.id)}
           <ProjectUpdateThreadCard
             {thread}

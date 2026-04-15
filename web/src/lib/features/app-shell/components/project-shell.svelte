@@ -14,6 +14,12 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
   import { type AppRouteContext, type ProjectSection } from '$lib/stores/app-context'
+  import {
+    startProductTour,
+    startPageTour,
+    hasPageTourBeenShown,
+    isPageSection,
+  } from '$lib/features/tour'
   import type { Snippet } from 'svelte'
   import ProjectShellFrame from './project-shell-frame.svelte'
   import {
@@ -67,6 +73,21 @@
 
   $effect(() => {
     appStore.currentSection = data.currentSection
+  })
+
+  $effect(() => {
+    const section = data.currentSection
+    const projectId = appStore.currentProject?.id
+    if (!projectId || !isPageSection(section)) return
+    if (hasPageTourBeenShown(section, projectId)) return
+
+    const timer = setTimeout(() => {
+      if (appStore.currentProject?.id !== projectId) return
+      if (appStore.currentSection !== section) return
+      startPageTour(section, projectId, i18nStore.t)
+    }, 700)
+
+    return () => clearTimeout(timer)
   })
 
   $effect(() => {
@@ -214,6 +235,12 @@
     projectAssistantOpen = true
   }
 
+  function handleRestartTour() {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+    startProductTour(projectId, i18nStore.t)
+  }
+
   $effect(() => {
     consumeProjectAssistantRequest(handleOpenProjectAssistant)
   })
@@ -302,6 +329,7 @@
   {isNewTicketEnabled}
   {settingsEnabled}
   {settingsHref}
+  restartTourEnabled={Boolean(appStore.currentProject?.id)}
   userDisplayName={currentUser?.displayName ?? ''}
   userPrimaryEmail={currentUser?.primaryEmail ?? ''}
   userAvatarURL={currentUser?.avatarURL ?? ''}
@@ -312,6 +340,7 @@
   onCreateOrg={handleCreateOrg}
   onCreateProject={handleCreateProject}
   onOpenSettings={handleOpenSettings}
+  onRestartTour={handleRestartTour}
   onLogout={handleLogoutClick}
   onToggleSidebar={handleToggleSidebar}
   onOpenProjectAssistant={handleOpenProjectAssistant}

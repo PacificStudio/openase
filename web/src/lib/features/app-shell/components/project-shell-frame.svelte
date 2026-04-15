@@ -40,6 +40,7 @@
     isNewTicketEnabled = false,
     settingsEnabled = false,
     settingsHref = '',
+    restartTourEnabled = false,
     userDisplayName = '',
     userPrimaryEmail = '',
     userAvatarURL = '',
@@ -50,6 +51,7 @@
     onCreateOrg,
     onCreateProject,
     onOpenSettings,
+    onRestartTour,
     onLogout,
     onToggleSidebar,
     onOpenProjectAssistant,
@@ -80,6 +82,7 @@
     isNewTicketEnabled?: boolean
     settingsEnabled?: boolean
     settingsHref?: string
+    restartTourEnabled?: boolean
     userDisplayName?: string
     userPrimaryEmail?: string
     userAvatarURL?: string
@@ -90,6 +93,7 @@
     onCreateOrg?: () => void
     onCreateProject?: () => void
     onOpenSettings?: () => void
+    onRestartTour?: () => void
     onLogout?: () => void
     onToggleSidebar?: () => void
     onOpenProjectAssistant?: (initialPrompt?: string) => void
@@ -120,6 +124,7 @@
     newTicketEnabled={isNewTicketEnabled}
     {settingsEnabled}
     {settingsHref}
+    {restartTourEnabled}
     {userDisplayName}
     {userPrimaryEmail}
     {userAvatarURL}
@@ -130,6 +135,7 @@
     {onCreateOrg}
     {onCreateProject}
     {onOpenSettings}
+    {onRestartTour}
     {onLogout}
     onOpenMobileNav={() => appStore.openMobileSidebar()}
     {onOpenProjectAssistant}

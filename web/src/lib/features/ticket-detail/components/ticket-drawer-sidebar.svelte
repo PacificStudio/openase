@@ -106,6 +106,7 @@
 
 <div
   class="border-border w-full shrink-0 border-t md:sticky md:top-0 md:w-72 md:self-start md:border-t-0 md:border-l"
+  data-tour="ticket-detail-sidebar"
 >
   <div class="flex flex-col gap-4 px-4 py-4">
     <TicketRuntimeStateCard

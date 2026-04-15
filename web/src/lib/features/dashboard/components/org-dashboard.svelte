@@ -12,8 +12,19 @@
   import { Bot, Coins, Cpu, MessageSquare, Ticket } from '@lucide/svelte'
   import ProjectTokenUsagePanel from './project-token-usage-panel.svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import { startProductTour, hasTourBeenShown } from '$lib/features/tour'
 
   const controller = createOrgDashboardController()
+
+  function handleOnboardingComplete() {
+    controller.dismissOnboarding(appStore.currentProject!.id)
+    const projectId = appStore.currentProject!.id
+    if (!hasTourBeenShown(projectId)) {
+      setTimeout(() => {
+        startProductTour(projectId, i18nStore.t)
+      }, 600)
+    }
+  }
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
@@ -41,9 +52,7 @@
         orgId={appStore.currentOrg.id}
         projectName={controller.projectName}
         projectStatus={controller.currentStatus}
-        onOnboardingComplete={() => {
-          controller.dismissOnboarding(appStore.currentProject!.id)
-        }}
+        onOnboardingComplete={handleOnboardingComplete}
       />
     {:else}
       <div class="space-y-3">
@@ -57,6 +66,7 @@
 
         <div
           class="border-border bg-card flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-md border px-3 py-2"
+          data-tour="dashboard-stats"
         >
           {#if controller.loading}
             {#each { length: 6 } as _}

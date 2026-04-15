@@ -163,9 +163,7 @@
       draft = emptyScheduledJobDraft(statuses[0]?.id ?? '', repoOptions)
     }
   }
-
   const refreshJobs = async () => (jobs = (await listScheduledJobs(projectId)).scheduled_jobs)
-
   async function handleSubmit() {
     const parsed = parseScheduledJobDraft(draft, statuses, repoOptions)
     if (!parsed.ok) {
@@ -306,24 +304,26 @@
       onCreate={openNewJob}
     />
   {/if}
-
   <div class="flex-1 overflow-y-auto p-4">
     {#if loading}
       <WorkflowScheduledJobsLoading />
     {:else}
       {#if jobs.length > 0}
-        <WorkflowScheduledJobsSummary total={jobs.length} enabled={enabledCount} />
+        <div data-tour="scheduled-jobs-summary">
+          <WorkflowScheduledJobsSummary total={jobs.length} enabled={enabledCount} />
+        </div>
       {/if}
-
-      <WorkflowScheduledJobList
-        {jobs}
-        {actionJobId}
-        onNewJob={openNewJob}
-        onEditJob={openEditJob}
-        onToggleEnabled={handleToggleEnabled}
-        onTriggerJob={handleTriggerJob}
-        onDeleteJob={handleDeleteJob}
-      />
+      <div data-tour="scheduled-jobs-list">
+        <WorkflowScheduledJobList
+          {jobs}
+          {actionJobId}
+          onNewJob={openNewJob}
+          onEditJob={openEditJob}
+          onToggleEnabled={handleToggleEnabled}
+          onTriggerJob={handleTriggerJob}
+          onDeleteJob={handleDeleteJob}
+        />
+      </div>
     {/if}
   </div>
 </div>

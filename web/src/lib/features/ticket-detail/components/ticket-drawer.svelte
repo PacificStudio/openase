@@ -8,6 +8,7 @@
   import TicketDrawerContent from './ticket-drawer-content.svelte'
   import TicketDrawerLoading from './ticket-drawer-loading.svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import { startTicketDetailTour, hasTicketDetailTourBeenShown } from '$lib/features/tour'
   import type { TicketDetail } from '../types'
 
   let {
@@ -75,6 +76,18 @@
     }
 
     void drawerState.load(currentProjectId, currentTicketId)
+  })
+
+  $effect(() => {
+    if (!open || !projectId) return
+    if (drawerState.loading || !drawerState.ticket) return
+    if (hasTicketDetailTourBeenShown(projectId)) return
+    const pinnedProjectId = projectId
+    const timer = setTimeout(() => {
+      if (!open || projectId !== pinnedProjectId) return
+      startTicketDetailTour(pinnedProjectId, i18nStore.t)
+    }, 700)
+    return () => clearTimeout(timer)
   })
 
   $effect(() => {
