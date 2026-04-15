@@ -1,7 +1,8 @@
 import { i18nStore } from '$lib/i18n/store.svelte'
 import { friendlyTransportLabel } from '../machine-setup'
 import { formatMachineRelativeTime } from '../machine-i18n'
-import type { MachineCLIStatus, MachineSnapshot } from '../types'
+import type { MachineCLIStatus, MachineSnapshot, WebsocketHealthState } from '../types'
+import { buildWebsocketLevelCards } from './machine-websocket-health-view'
 
 export type HealthStatCard = {
   label: string
@@ -103,6 +104,10 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
 }
 
 export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
+  if (snapshot.websocketHealth) {
+    return buildWebsocketLevelCards(snapshot.websocketHealth)
+  }
+
   const readyRuntimeCount = snapshot.agentEnvironment.filter((runtime) => runtime.ready).length
 
   return [
@@ -252,6 +257,17 @@ export function runtimeLabel(runtime: MachineCLIStatus): string {
 }
 
 export function levelState(level: { error?: string; checkedAt?: string } | undefined): string {
+  const typed = level as
+    | { error?: string; checkedAt?: string; state?: WebsocketHealthState }
+    | undefined
+  switch (typed?.state) {
+    case 'healthy':
+      return 'ok'
+    case 'degraded':
+      return 'warn'
+    case 'failed':
+      return 'error'
+  }
   if (!level) return 'unknown'
   if (level.error) return 'error'
   if (level.checkedAt) return 'ok'
@@ -262,6 +278,8 @@ export function stateBadgeVariant(state: string): 'secondary' | 'destructive' | 
   switch (state) {
     case 'ok':
       return 'secondary'
+    case 'warn':
+      return 'outline'
     case 'error':
       return 'destructive'
     default:
@@ -272,9 +290,11 @@ export function stateBadgeVariant(state: string): 'secondary' | 'destructive' | 
 export function stateLabel(state: string): string {
   switch (state) {
     case 'ok':
-      return 'OK'
+      return i18nStore.t('machines.machineHealthPanel.status.healthy')
+    case 'warn':
+      return i18nStore.t('machines.machineHealthPanel.status.degraded')
     case 'error':
-      return 'Error'
+      return i18nStore.t('machines.machineHealthPanel.status.failed')
     default:
       return i18nStore.t('machines.machineHealthPanel.status.unknown')
   }

@@ -558,22 +558,25 @@ func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Clie
 }
 
 type fakeMachineMonitorCollector struct {
-	now               func() time.Time
-	reachabilityError error
-	systemError       error
-	gpuError          error
-	agentEnvError     error
-	fullAuditError    error
-	systemResources   domain.MachineSystemResources
-	gpuResources      domain.MachineGPUResources
-	agentEnvironment  domain.MachineAgentEnvironment
-	fullAudit         domain.MachineFullAudit
-	reachabilityCalls int
-	systemCalls       int
-	gpuCalls          int
-	agentEnvCalls     int
-	fullAuditCalls    int
-	lastMachine       domain.Machine
+	now                func() time.Time
+	reachabilityError  error
+	systemError        error
+	gpuError           error
+	agentEnvError      error
+	fullAuditError     error
+	websocketHealth    domain.WebsocketMachineHealth
+	websocketHealthErr error
+	systemResources    domain.MachineSystemResources
+	gpuResources       domain.MachineGPUResources
+	agentEnvironment   domain.MachineAgentEnvironment
+	fullAudit          domain.MachineFullAudit
+	reachabilityCalls  int
+	systemCalls        int
+	gpuCalls           int
+	agentEnvCalls      int
+	fullAuditCalls     int
+	websocketCalls     int
+	lastMachine        domain.Machine
 }
 
 func (f *fakeMachineMonitorCollector) CollectReachability(_ context.Context, machine domain.Machine) (domain.MachineReachability, error) {
@@ -623,11 +626,11 @@ func TestMachineMonitorRunTickKeepsReverseWebsocketMachineOnlineWithoutSSHCollec
 	if err != nil {
 		t.Fatalf("RunTick returned error: %v", err)
 	}
-	if report.L1Checks != 1 || report.L2Checks != 0 || report.L3Checks != 0 || report.L4Checks != 0 || report.L5Checks != 0 {
-		t.Fatalf("expected only L1 check for reverse websocket machine, got %+v", report)
+	if report.L1Checks != 1 || report.L2Checks != 1 || report.L3Checks != 1 || report.L4Checks != 1 || report.L5Checks != 1 {
+		t.Fatalf("expected layered websocket checks for reverse websocket machine, got %+v", report)
 	}
-	if collector.systemCalls != 0 || collector.gpuCalls != 0 || collector.agentEnvCalls != 0 || collector.fullAuditCalls != 0 {
-		t.Fatalf("expected websocket machine to skip SSH-only collectors, got %+v", collector)
+	if collector.systemCalls != 0 || collector.gpuCalls != 0 || collector.agentEnvCalls != 0 || collector.fullAuditCalls != 0 || collector.websocketCalls != 1 {
+		t.Fatalf("expected websocket machine to use websocket collector only, got %+v", collector)
 	}
 	if collector.lastMachine.ConnectionMode != domain.MachineConnectionModeWSReverse || !collector.lastMachine.DaemonStatus.Registered {
 		t.Fatalf("expected collector to receive websocket connection metadata, got %+v", collector.lastMachine)
@@ -648,6 +651,28 @@ func (f *fakeMachineMonitorCollector) CollectSystemResources(context.Context, do
 		return domain.MachineSystemResources{}, f.systemError
 	}
 	return f.systemResources, nil
+}
+
+func (f *fakeMachineMonitorCollector) CollectWebsocketHealth(context.Context, domain.Machine) (domain.WebsocketMachineHealth, error) {
+	f.websocketCalls++
+	if f.websocketHealthErr != nil {
+		return f.websocketHealth, f.websocketHealthErr
+	}
+	if f.websocketHealth.TransportMode == "" {
+		now := time.Now().UTC()
+		if f.now != nil {
+			now = f.now().UTC()
+		}
+		return domain.WebsocketMachineHealth{
+			TransportMode: domain.MachineConnectionModeWSReverse,
+			CheckedAt:     now,
+			L2:            domain.WebsocketHealthUnknownLayer(now, "test link telemetry unavailable", map[string]any{}),
+			L3:            domain.WebsocketHealthUnknownLayer(now, "test network telemetry unavailable", map[string]any{}),
+			L4:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: now},
+			L5:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: now},
+		}, nil
+	}
+	return f.websocketHealth, nil
 }
 
 func (f *fakeMachineMonitorCollector) CollectGPUResources(context.Context, domain.Machine) (domain.MachineGPUResources, error) {
