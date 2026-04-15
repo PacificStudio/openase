@@ -207,4 +207,28 @@ describe('projectEventBus', () => {
     unsubscribeState()
     releaseShell()
   })
+
+  it('notifies reconnect subscribers only after a retry returns to live', () => {
+    const disconnect = vi.fn()
+    connectEventStream.mockReturnValue(disconnect)
+
+    const releaseShell = retainProjectEventBus('project-1')
+    const onReconnect = vi.fn()
+    const unsubscribe = subscribeProjectEvents('project-1', vi.fn(), { onReconnect })
+
+    const options = connectEventStream.mock.calls[0]?.[1] as {
+      onStateChange: (state: 'live' | 'idle' | 'connecting' | 'retrying') => void
+    }
+
+    options.onStateChange('connecting')
+    options.onStateChange('live')
+    expect(onReconnect).not.toHaveBeenCalled()
+
+    options.onStateChange('retrying')
+    options.onStateChange('live')
+    expect(onReconnect).toHaveBeenCalledTimes(1)
+
+    unsubscribe()
+    releaseShell()
+  })
 })
