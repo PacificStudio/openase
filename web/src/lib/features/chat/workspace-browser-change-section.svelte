@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ProjectConversationWorkspaceDiffFile } from '$lib/api/chat'
   import { cn } from '$lib/utils'
-import { chatT } from './i18n'
+  import { chatT } from './i18n'
   import { ChevronRight, Minus, Plus, Undo2 } from '@lucide/svelte'
   import { fileIcon, formatTotals } from './project-conversation-workspace-browser-helpers'
   import {
@@ -61,7 +61,10 @@ import { chatT } from './i18n'
       onclick={() => (sectionOpen = !sectionOpen)}
     >
       <ChevronRight
-        class={cn('size-2.5 shrink-0 transition-transform duration-100', sectionOpen && 'rotate-90')}
+        class={cn(
+          'size-2.5 shrink-0 transition-transform duration-100',
+          sectionOpen && 'rotate-90',
+        )}
       />
       {title}
       {#if mode === 'staged'}
@@ -78,7 +81,7 @@ import { chatT } from './i18n'
       class="text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 rounded p-0.5 transition-colors"
       title={headerActionTitle}
       data-testid={headerActionTestId}
-      disabled={disabled}
+      {disabled}
       onclick={() => void onHeaderAction?.()}
     >
       {#if mode === 'staged'}<Minus class="size-3"></Minus>{:else}<Plus class="size-3"></Plus>{/if}
@@ -97,7 +100,12 @@ import { chatT } from './i18n'
         <button
           type="button"
           class="flex min-w-0 flex-1 items-center gap-1.5 text-left"
-          title={chatT('chat.workspace.changeSummary', { path: file.path, status: file.status, added: file.added, removed: file.removed })}
+          title={chatT('chat.workspace.changeSummary', {
+            path: file.path,
+            status: file.status,
+            added: file.added,
+            removed: file.removed,
+          })}
           data-testid={`workspace-branch-file-${file.path}`}
           onclick={() => onSelectFile?.(file.path)}
         >
@@ -126,7 +134,7 @@ import { chatT } from './i18n'
             class="text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 rounded p-0.5 opacity-0 transition-all group-hover:opacity-100"
             title={chatT('chat.workspace.actions.unstage')}
             data-testid={`workspace-branch-unstage-${file.path}`}
-            disabled={disabled}
+            {disabled}
             onclick={(event) => {
               event.stopPropagation()
               void onUnstage?.(file.path)
@@ -135,13 +143,15 @@ import { chatT } from './i18n'
             <Minus class="size-3" />
           </button>
         {:else}
-          <div class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <div
+            class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+          >
             <button
               type="button"
               class="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-0.5 transition-colors"
               title={chatT('chat.workspace.actions.stage')}
               data-testid={`workspace-branch-stage-${file.path}`}
-              disabled={disabled}
+              {disabled}
               onclick={(event) => {
                 event.stopPropagation()
                 void onStage?.(file.path)
@@ -154,7 +164,7 @@ import { chatT } from './i18n'
               class="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-0.5 transition-colors"
               title={chatT('chat.workspace.actions.discard')}
               data-testid={`workspace-branch-discard-${file.path}`}
-              disabled={disabled}
+              {disabled}
               onclick={(event) => {
                 event.stopPropagation()
                 void onDiscard?.(file.path)

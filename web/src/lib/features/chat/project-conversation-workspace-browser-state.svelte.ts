@@ -9,7 +9,10 @@ import {
   type ProjectConversationWorkspaceSearchResult,
 } from '$lib/api/chat'
 import { buildProjectConversationWorkspaceBrowserStateView } from './workspace-browser-state-view'
-import { readWorkspaceAutosavePreference, storeWorkspaceAutosavePreference } from './workspace-browser-autosave'
+import {
+  readWorkspaceAutosavePreference,
+  storeWorkspaceAutosavePreference,
+} from './workspace-browser-autosave'
 import { createWorkspaceBrowserTreeState } from './workspace-browser-tree-state.svelte'
 import { createWorkspaceBrowserTabs } from './workspace-browser-tabs.svelte'
 import { createWorkspaceFileEditorStore } from './project-conversation-workspace-file-editor-state.svelte'
@@ -406,7 +409,9 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     getSelectedGitCommit: () =>
       gitGraph?.commits.find((commit) => commit.commitId === selectedGitCommitID) ?? null,
     getHasDirtyTabs: () =>
-      tabs.openTabs.some((tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true),
+      tabs.openTabs.some(
+        (tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true,
+      ),
     getPreview: () => getActiveTabFileState().preview,
     getPatch: () => getActiveTabFileState().patch,
     getFileLoading: () => getActiveTabFileState().loading,
@@ -456,7 +461,8 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     selectNextChangedFile: () => selectRelativeChangedFile(1),
     selectPreviousChangedFile: () => selectRelativeChangedFile(-1),
     reviewPatch,
-    applySelectedPendingPatch: () => editorStore.applyPendingPatch(tabs.treeRepoPath, activeFilePath()),
+    applySelectedPendingPatch: () =>
+      editorStore.applyPendingPatch(tabs.treeRepoPath, activeFilePath()),
     discardSelectedPendingPatch: editorStore.discardPendingPatch,
     updateSelectedDraft: editorStore.updateSelectedDraft,
     updateSelectedSelection: editorStore.updateSelectedSelection,

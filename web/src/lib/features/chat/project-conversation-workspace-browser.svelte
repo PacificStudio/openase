@@ -288,7 +288,10 @@
   })
 </script>
 
-<div class="bg-background flex h-full min-h-0 w-full flex-col" data-testid="project-conversation-workspace-browser">
+<div
+  class="bg-background flex h-full min-h-0 w-full flex-col"
+  data-testid="project-conversation-workspace-browser"
+>
   <WorkspaceBrowserBody
     {conversationId}
     {browser}

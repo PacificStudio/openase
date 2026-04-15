@@ -62,7 +62,10 @@ export function buildProjectConversationWorkspaceBrowserStateView<
   selectFile: (path: string) => void
   selectGitCommit: (commitId: string) => void
   setDetailMode: (mode: 'file' | 'git_graph') => void
-  searchPaths: (query: string, limit?: number) => Promise<ProjectConversationWorkspaceSearchResult[]>
+  searchPaths: (
+    query: string,
+    limit?: number,
+  ) => Promise<ProjectConversationWorkspaceSearchResult[]>
   openTab: (repoPath: string, filePath: string) => void
   closeTab: (repoPath: string, filePath: string) => void
   closeAllTabs: () => void

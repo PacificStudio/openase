@@ -31,7 +31,10 @@
     parentOf,
   } from './project-conversation-workspace-browser-sidebar-helpers'
   import WorkspaceBrowserSearch from './project-conversation-workspace-browser-search.svelte'
-  import type { PendingCreate, TreeMenuTarget } from './project-conversation-workspace-browser-tree.svelte'
+  import type {
+    PendingCreate,
+    TreeMenuTarget,
+  } from './project-conversation-workspace-browser-tree.svelte'
   import WorkspaceBrowserTreeMenu from './project-conversation-workspace-browser-tree-menu.svelte'
   import WorkspaceBrowserExplorerPanel from './workspace-browser-explorer-panel.svelte'
 
@@ -244,12 +247,17 @@
           onclick={() => (gitGraphExpanded = !gitGraphExpanded)}
         >
           <ChevronRight
-            class={cn('size-2.5 shrink-0 transition-transform duration-100', gitGraphExpanded && 'rotate-90')}
+            class={cn(
+              'size-2.5 shrink-0 transition-transform duration-100',
+              gitGraphExpanded && 'rotate-90',
+            )}
           />
           <GitGraph class="size-2.5 shrink-0" />
           Git Graph
           {#if gitGraph && gitGraph.commits.length > 0}
-            <span class="text-muted-foreground/60 ml-auto text-[9px] font-normal tracking-normal normal-case">
+            <span
+              class="text-muted-foreground/60 ml-auto text-[9px] font-normal tracking-normal normal-case"
+            >
               {gitGraph.commits.length}
             </span>
           {/if}

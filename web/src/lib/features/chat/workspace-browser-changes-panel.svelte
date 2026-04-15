@@ -2,7 +2,7 @@
   import { ApiError } from '$lib/api/client'
   import type { ProjectConversationWorkspaceDiffRepo } from '$lib/api/chat'
   import { cn } from '$lib/utils'
-import { chatT } from './i18n'
+  import { chatT } from './i18n'
   import { ChevronRight } from '@lucide/svelte'
   import WorkspaceBrowserChangeSection from './workspace-browser-change-section.svelte'
 
@@ -45,7 +45,11 @@ import { chatT } from './i18n'
   )
 
   function formatError(error: unknown, fallback: string) {
-    return error instanceof ApiError ? error.detail : error instanceof Error ? error.message : fallback
+    return error instanceof ApiError
+      ? error.detail
+      : error instanceof Error
+        ? error.message
+        : fallback
   }
 
   async function handleStage(path: string) {
@@ -141,7 +145,9 @@ import { chatT } from './i18n'
         )}
       />
     {:else}
-      <span class="text-muted-foreground/40 text-[10px]">{chatT('chat.workspace.changes.clean')}</span>
+      <span class="text-muted-foreground/40 text-[10px]"
+        >{chatT('chat.workspace.changes.clean')}</span
+      >
     {/if}
   </button>
 

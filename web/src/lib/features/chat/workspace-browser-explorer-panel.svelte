@@ -1,10 +1,10 @@
 <script lang="ts">
   import type {
-  ProjectConversationWorkspaceFileStatus,
-  ProjectConversationWorkspaceTreeEntry,
-} from '$lib/api/chat'
+    ProjectConversationWorkspaceFileStatus,
+    ProjectConversationWorkspaceTreeEntry,
+  } from '$lib/api/chat'
   import { cn } from '$lib/utils'
-import { chatT } from './i18n'
+  import { chatT } from './i18n'
   import { Button } from '$ui/button'
   import { ChevronRight, FilePlus2, FolderPlus } from '@lucide/svelte'
   import WorkspaceBrowserTree, {
@@ -59,7 +59,10 @@ import { chatT } from './i18n'
       onclick={() => (explorerExpanded = !explorerExpanded)}
     >
       <ChevronRight
-        class={cn('size-2.5 shrink-0 transition-transform duration-100', explorerExpanded && 'rotate-90')}
+        class={cn(
+          'size-2.5 shrink-0 transition-transform duration-100',
+          explorerExpanded && 'rotate-90',
+        )}
       />
       Explorer
     </button>

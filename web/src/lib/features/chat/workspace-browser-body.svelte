@@ -84,22 +84,28 @@
   metadataLoading={browser.metadataLoading}
   onCopyWorkspacePath={copyWorkspacePath}
   onToggleTerminal={() => terminalManager.togglePanel()}
-  onRefreshWorkspace={onRefreshWorkspace}
+  {onRefreshWorkspace}
   {onClose}
 />
 
 {#if !conversationId}
-  <div class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm">
+  <div
+    class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
+  >
     {chatT('chat.workspaceBrowserNoConversation')}
   </div>
 {:else if browser.metadataLoading && !browser.metadata}
-  <div class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm">
+  <div
+    class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
+  >
     {chatT('chat.workspaceLoading')}
   </div>
 {:else if browser.metadataError}
   <div class="flex flex-1 items-center justify-center px-6">
     <div class="max-w-sm space-y-3 text-center">
-      <div class="bg-destructive/10 text-destructive mx-auto flex size-10 items-center justify-center rounded-full">
+      <div
+        class="bg-destructive/10 text-destructive mx-auto flex size-10 items-center justify-center rounded-full"
+      >
         <AlertCircle class="size-4" />
       </div>
       <p class="text-sm font-medium">{chatT('chat.workspaceBrowserUnavailable')}</p>
@@ -107,7 +113,9 @@
     </div>
   </div>
 {:else if !browser.metadata?.available}
-  <div class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm">
+  <div
+    class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
+  >
     {chatT('chat.workspaceProvisionNotice')}
   </div>
 {:else if syncPrompt && (browser.metadata?.repos.length ?? 0) === 0}
@@ -140,7 +148,7 @@
       repoRefsLoading={browser.repoRefsLoading}
       repoRefsError={browser.repoRefsError}
       checkoutBlockers={browser.checkoutBlockers(browser.selectedRepoPath)}
-      onCheckoutBranch={onCheckoutBranch}
+      {onCheckoutBranch}
       {onCreateBranchName}
       {onGitRemoteOp}
       {onStageFile}

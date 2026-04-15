@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { waitFor } from '@testing-library/svelte'
 
-
 const {
   checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
@@ -490,5 +489,4 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     })
     await waitFor(() => expect(state.metadata?.repos[0]?.branch).toBe('main'))
   })
-
 })

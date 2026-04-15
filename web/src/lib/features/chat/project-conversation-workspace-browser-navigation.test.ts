@@ -70,7 +70,6 @@ import {
   workspaceDiff,
 } from './project-conversation-workspace-browser.test-helpers'
 
-
 describe('ProjectConversationWorkspaceBrowser', () => {
   beforeAll(() => {
     ensureResizeObserver()
@@ -435,5 +434,4 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     )
     expect(view.container.querySelector('.code-editor')).not.toBeNull()
   })
-
 })

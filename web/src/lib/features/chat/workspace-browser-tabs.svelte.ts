@@ -10,10 +10,17 @@ import {
   type WorkspaceTab,
   type WorkspaceTabFileState,
 } from './project-conversation-workspace-browser-state-helpers'
-import { remapWorkspaceTabPath, workspaceActiveFilePath } from './project-conversation-workspace-browser-file-ops'
+import {
+  remapWorkspaceTabPath,
+  workspaceActiveFilePath,
+} from './project-conversation-workspace-browser-file-ops'
 
 export function createWorkspaceBrowserTabs(input: {
-  loadFile: (repoPath: string, filePath: string, options?: { silent?: boolean }) => Promise<void> | void
+  loadFile: (
+    repoPath: string,
+    filePath: string,
+    options?: { silent?: boolean },
+  ) => Promise<void> | void
   renameEditorFileState: (repoPath: string, fromPath: string, toPath: string) => void
 }) {
   let openTabs = $state<WorkspaceTab[]>([])

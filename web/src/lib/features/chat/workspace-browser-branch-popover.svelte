@@ -6,7 +6,7 @@
     ProjectConversationWorkspaceCurrentRef,
   } from '$lib/api/chat'
   import { cn } from '$lib/utils'
-import { chatT } from './i18n'
+  import { chatT } from './i18n'
   import * as Command from '$ui/command'
   import * as Popover from '$ui/popover'
   import { ChevronDown, Plus, GitBranch } from '@lucide/svelte'
@@ -122,7 +122,12 @@ import { chatT } from './i18n'
     <ChevronDown class="text-muted-foreground size-2.5 shrink-0" />
   </Popover.Trigger>
 
-  <Popover.Content class="branch-picker-popover w-56 gap-0! p-0!" side="top" align="start" sideOffset={2}>
+  <Popover.Content
+    class="branch-picker-popover w-56 gap-0! p-0!"
+    side="top"
+    align="start"
+    sideOffset={2}
+  >
     <Command.Root shouldFilter={true} class="p-0!">
       <Command.Input
         placeholder={chatT('chat.branchPicker.placeholder')}
