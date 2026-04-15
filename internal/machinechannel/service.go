@@ -64,6 +64,7 @@ type ConnectedSessionRecord struct {
 	SystemInfo       domain.SystemInfo
 	ToolInventory    []domain.ToolInfo
 	ResourceSnapshot *domain.ResourceSnapshot
+	WebsocketHealth  *domain.WebsocketHealth
 }
 
 type HeartbeatRecord struct {
@@ -73,6 +74,7 @@ type HeartbeatRecord struct {
 	SystemInfo       *domain.SystemInfo
 	ToolInventory    []domain.ToolInfo
 	ResourceSnapshot *domain.ResourceSnapshot
+	WebsocketHealth  *domain.WebsocketHealth
 }
 
 type DisconnectedSessionRecord struct {

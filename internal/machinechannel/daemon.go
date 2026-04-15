@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -94,6 +95,7 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 
 	systemInfo := d.systemInfo(config)
 	toolInventory := d.toolInventory(config)
+	initialHealth := d.websocketHealth(ctx, config, toolInventory, "", false, d.now().UTC())
 
 	if err := writeJSONEnvelope(conn, domain.Envelope{
 		Version: domain.ProtocolVersion,
@@ -120,7 +122,8 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 				"artifact_sync",
 				"process_streaming",
 			},
-			ToolInventory: toolInventory,
+			ToolInventory:   toolInventory,
+			WebsocketHealth: initialHealth,
 		}),
 	}); err != nil {
 		return fmt.Errorf("send authenticate: %w", err)
@@ -214,15 +217,17 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 				}
 			}
 		case now := <-ticker.C:
+			heartbeatHealth := d.websocketHealth(ctx, config, toolInventory, registered.SessionID, true, now.UTC())
 			writeMu.Lock()
 			err := writeJSONEnvelope(conn, domain.Envelope{
 				Version:   domain.ProtocolVersion,
 				Type:      domain.MessageTypeHeartbeat,
 				SessionID: registered.SessionID,
 				Payload: mustMarshalJSON(domain.Heartbeat{
-					SentAt:        now.UTC().Format(time.RFC3339),
-					SystemInfo:    &systemInfo,
-					ToolInventory: toolInventory,
+					SentAt:          now.UTC().Format(time.RFC3339),
+					SystemInfo:      &systemInfo,
+					ToolInventory:   toolInventory,
+					WebsocketHealth: heartbeatHealth,
 				}),
 			})
 			writeMu.Unlock()
@@ -295,6 +300,176 @@ func (d *Daemon) toolInventory(config domain.DaemonConfig) []domain.ToolInfo {
 		tools = append(tools, info)
 	}
 	return tools
+}
+
+func (d *Daemon) websocketHealth(
+	ctx context.Context,
+	config domain.DaemonConfig,
+	toolInventory []domain.ToolInfo,
+	sessionID string,
+	connected bool,
+	observedAt time.Time,
+) *domain.WebsocketHealth {
+	observedAt = observedAt.UTC()
+	return &domain.WebsocketHealth{
+		TransportMode: "ws_reverse",
+		CheckedAt:     observedAt.Format(time.RFC3339),
+		L2:            d.websocketLinkLayer(observedAt),
+		L3:            d.websocketNetworkLayer(ctx, config, observedAt),
+		L4:            websocketTransportLayer(observedAt, sessionID, connected),
+		L5:            websocketApplicationLayer(toolInventory, observedAt),
+	}
+}
+
+func (d *Daemon) websocketLinkLayer(observedAt time.Time) domain.WebsocketHealthLayer {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return domain.WebsocketHealthLayer{
+			State:      "unknown",
+			Reason:     err.Error(),
+			ObservedAt: observedAt.Format(time.RFC3339),
+			Details: map[string]any{
+				"collector": "net.Interfaces",
+			},
+		}
+	}
+
+	active := make([]string, 0, len(interfaces))
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		active = append(active, iface.Name)
+	}
+	if len(active) == 0 {
+		return domain.WebsocketHealthLayer{
+			State:      "failed",
+			Reason:     "no active non-loopback interfaces detected",
+			ObservedAt: observedAt.Format(time.RFC3339),
+			Details: map[string]any{
+				"interfaces": active,
+			},
+		}
+	}
+	return domain.WebsocketHealthLayer{
+		State:      "healthy",
+		ObservedAt: observedAt.Format(time.RFC3339),
+		Details: map[string]any{
+			"interfaces": active,
+		},
+	}
+}
+
+func (d *Daemon) websocketNetworkLayer(
+	ctx context.Context,
+	config domain.DaemonConfig,
+	observedAt time.Time,
+) domain.WebsocketHealthLayer {
+	targetHost, targetPort, err := controlPlaneDialTarget(config.ControlPlaneURL)
+	if err != nil {
+		return domain.WebsocketHealthLayer{
+			State:      "unknown",
+			Reason:     err.Error(),
+			ObservedAt: observedAt.Format(time.RFC3339),
+		}
+	}
+
+	dialer := &net.Dialer{Timeout: 3 * time.Second}
+	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(targetHost, targetPort))
+	if err != nil {
+		return domain.WebsocketHealthLayer{
+			State:      "failed",
+			Reason:     err.Error(),
+			ObservedAt: observedAt.Format(time.RFC3339),
+			Details: map[string]any{
+				"target_host": targetHost,
+				"target_port": targetPort,
+			},
+		}
+	}
+	_ = conn.Close()
+
+	return domain.WebsocketHealthLayer{
+		State:      "healthy",
+		ObservedAt: observedAt.Format(time.RFC3339),
+		Details: map[string]any{
+			"target_host": targetHost,
+			"target_port": targetPort,
+		},
+	}
+}
+
+func websocketTransportLayer(observedAt time.Time, sessionID string, connected bool) domain.WebsocketHealthLayer {
+	state := "degraded"
+	reason := "session registration pending"
+	details := map[string]any{}
+	if strings.TrimSpace(sessionID) != "" {
+		details["session_id"] = strings.TrimSpace(sessionID)
+	}
+	if connected {
+		state = "healthy"
+		reason = ""
+		details["session_state"] = "connected"
+	}
+	return domain.WebsocketHealthLayer{
+		State:      state,
+		Reason:     reason,
+		ObservedAt: observedAt.Format(time.RFC3339),
+		Details:    details,
+	}
+}
+
+func websocketApplicationLayer(toolInventory []domain.ToolInfo, observedAt time.Time) domain.WebsocketHealthLayer {
+	readyCount := 0
+	toolStates := make([]map[string]any, 0, len(toolInventory))
+	for _, tool := range toolInventory {
+		if tool.Ready {
+			readyCount++
+		}
+		toolStates = append(toolStates, map[string]any{
+			"name":        tool.Name,
+			"installed":   tool.Installed,
+			"ready":       tool.Ready,
+			"auth_status": strings.TrimSpace(tool.AuthStatus),
+		})
+	}
+	state := "healthy"
+	reason := ""
+	if readyCount == 0 {
+		state = "failed"
+		reason = "no ready machine-agent runtimes reported"
+	}
+	return domain.WebsocketHealthLayer{
+		State:      state,
+		Reason:     reason,
+		ObservedAt: observedAt.Format(time.RFC3339),
+		Details: map[string]any{
+			"ready_runtime_count": readyCount,
+			"tool_count":          len(toolInventory),
+			"tools":               toolStates,
+		},
+	}
+}
+
+func controlPlaneDialTarget(raw string) (string, string, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "", "", fmt.Errorf("parse control plane url: %w", err)
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return "", "", fmt.Errorf("control plane host is empty")
+	}
+	port := strings.TrimSpace(parsed.Port())
+	if port == "" {
+		switch parsed.Scheme {
+		case "https", "wss":
+			port = "443"
+		default:
+			port = "80"
+		}
+	}
+	return host, port, nil
 }
 
 func resolveCommandPath(lookPath func(string) (string, error), command string) (string, error) {

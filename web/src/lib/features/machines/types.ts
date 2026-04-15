@@ -63,6 +63,24 @@ export type MachineMonitorLevel = {
   agentDispatchable?: boolean
 }
 
+export type WebsocketHealthState = 'healthy' | 'degraded' | 'failed' | 'unknown'
+
+export type MachineWebsocketHealthLayer = {
+  state?: WebsocketHealthState
+  reason?: string
+  observedAt?: string
+  details?: ResourceMap
+}
+
+export type MachineWebsocketHealth = {
+  transportMode?: MachineConnectionMode
+  checkedAt?: string
+  l2?: MachineWebsocketHealthLayer
+  l3?: MachineWebsocketHealthLayer
+  l4?: MachineWebsocketHealthLayer
+  l5?: MachineWebsocketHealthLayer
+}
+
 export type MachineGPUView = {
   index: number
   name: string
@@ -137,6 +155,7 @@ export type MachineSnapshot = {
     githubTokenProbe?: MachineGitHubTokenProbeView
     network?: MachineNetworkAuditView
   }
+  websocketHealth?: MachineWebsocketHealth
   monitorErrors: string[]
 }
 
