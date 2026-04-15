@@ -151,6 +151,8 @@ type monitoredMachine struct {
 	Host               string
 	Port               int
 	ConnectionMode     entmachine.ConnectionMode
+	ReachabilityMode   entmachine.ReachabilityMode
+	ExecutionMode      entmachine.ExecutionMode
 	SSHUser            *string
 	SSHKeyPath         *string
 	AdvertisedEndpoint *string
@@ -164,13 +166,16 @@ type monitoredMachine struct {
 }
 
 func (m monitoredMachine) toDomain() domain.Machine {
+	connectionMode, reachabilityMode, executionMode := resolveMonitoredMachineTransport(m)
 	return domain.Machine{
 		ID:                 m.ID,
 		OrganizationID:     m.OrganizationID,
 		Name:               m.Name,
 		Host:               m.Host,
 		Port:               m.Port,
-		ConnectionMode:     domain.MachineConnectionMode(m.ConnectionMode),
+		ReachabilityMode:   reachabilityMode,
+		ExecutionMode:      executionMode,
+		ConnectionMode:     connectionMode,
 		SSHUser:            m.SSHUser,
 		SSHKeyPath:         m.SSHKeyPath,
 		AdvertisedEndpoint: m.AdvertisedEndpoint,
@@ -617,6 +622,8 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		Host:               item.Host,
 		Port:               item.Port,
 		ConnectionMode:     item.ConnectionMode,
+		ReachabilityMode:   item.ReachabilityMode,
+		ExecutionMode:      item.ExecutionMode,
 		SSHUser:            optionalMachineString(item.SSHUser),
 		SSHKeyPath:         optionalMachineString(item.SSHKeyPath),
 		AdvertisedEndpoint: optionalMachineString(item.AdvertisedEndpoint),
@@ -633,6 +640,27 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		LastHeartbeatAt: lastHeartbeatAt,
 		Resources:       cloneResourceMap(item.Resources),
 	}
+}
+
+func resolveMonitoredMachineTransport(item monitoredMachine) (domain.MachineConnectionMode, domain.MachineReachabilityMode, domain.MachineExecutionMode) {
+	mode, reachabilityMode, executionMode, err := domain.ResolveStoredMachineTransport(
+		string(item.ConnectionMode),
+		string(item.ReachabilityMode),
+		string(item.ExecutionMode),
+		item.Host,
+	)
+	if err == nil {
+		return mode, reachabilityMode, executionMode
+	}
+	mode = domain.MachineConnectionMode(item.ConnectionMode)
+	if !mode.IsValid() {
+		if item.Host == domain.LocalMachineHost || item.Name == domain.LocalMachineName {
+			mode = domain.MachineConnectionModeLocal
+		} else {
+			mode = domain.MachineConnectionModeWSListener
+		}
+	}
+	return mode, mode.ReachabilityMode(), mode.ExecutionMode()
 }
 
 func cloneTimePointer(value *time.Time) *time.Time {

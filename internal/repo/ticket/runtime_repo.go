@@ -149,6 +149,8 @@ func mapTicketHookMachine(item *ent.Machine) catalogdomain.Machine {
 		SSHUser:            cloneOptionalText(item.SSHUser),
 		SSHKeyPath:         cloneOptionalText(item.SSHKeyPath),
 		Status:             catalogdomain.MachineStatus(item.Status),
+		ReachabilityMode:   reachabilityModeFromTicketMachine(item),
+		ExecutionMode:      executionModeFromTicketMachine(item),
 		ConnectionMode:     mapStoredTicketMachineConnectionMode(item),
 		AdvertisedEndpoint: cloneOptionalText(item.AdvertisedEndpoint),
 		WorkspaceRoot:      cloneOptionalText(item.WorkspaceRoot),
@@ -170,17 +172,41 @@ func mapTicketHookMachine(item *ent.Machine) catalogdomain.Machine {
 }
 
 func mapStoredTicketMachineConnectionMode(item *ent.Machine) catalogdomain.MachineConnectionMode {
+	mode, _, _ := resolveTicketMachineTransport(item)
+	return mode
+}
+
+func reachabilityModeFromTicketMachine(item *ent.Machine) catalogdomain.MachineReachabilityMode {
+	_, reachabilityMode, _ := resolveTicketMachineTransport(item)
+	return reachabilityMode
+}
+
+func executionModeFromTicketMachine(item *ent.Machine) catalogdomain.MachineExecutionMode {
+	_, _, executionMode := resolveTicketMachineTransport(item)
+	return executionMode
+}
+
+func resolveTicketMachineTransport(item *ent.Machine) (catalogdomain.MachineConnectionMode, catalogdomain.MachineReachabilityMode, catalogdomain.MachineExecutionMode) {
 	if item == nil {
-		return ""
+		return "", "", ""
+	}
+	mode, reachabilityMode, executionMode, err := catalogdomain.ResolveStoredMachineTransport(
+		string(item.ConnectionMode),
+		string(item.ReachabilityMode),
+		string(item.ExecutionMode),
+		item.Host,
+	)
+	if err == nil {
+		return mode, reachabilityMode, executionMode
 	}
 	if item.Host == catalogdomain.LocalMachineHost || item.Name == catalogdomain.LocalMachineName {
-		return catalogdomain.MachineConnectionModeLocal
+		return catalogdomain.MachineConnectionModeLocal, catalogdomain.MachineReachabilityModeLocal, catalogdomain.MachineExecutionModeLocalProcess
 	}
-	mode, err := catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
+	mode, err = catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
 	if err != nil {
-		return catalogdomain.MachineConnectionModeWSListener
+		mode = catalogdomain.MachineConnectionModeWSListener
 	}
-	return mode
+	return mode, mode.ReachabilityMode(), mode.ExecutionMode()
 }
 
 type pickupDiagnosisBuildContext struct {

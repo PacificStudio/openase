@@ -43,15 +43,17 @@ func TestMachineSSHHelperContainerE2E(t *testing.T) {
 	workspaceRoot := "/home/openase/workspaces"
 	agentCLIPath := "/bin/sh"
 	machine := catalogdomain.Machine{
-		ID:             machineID,
-		Name:           "reverse-ssh-helper",
-		Host:           "127.0.0.1",
-		Port:           hostPort,
-		ConnectionMode: catalogdomain.MachineConnectionModeWSReverse,
-		SSHUser:        &sshUser,
-		SSHKeyPath:     &privateKeyPath,
-		WorkspaceRoot:  &workspaceRoot,
-		AgentCLIPath:   &agentCLIPath,
+		ID:               machineID,
+		Name:             "reverse-ssh-helper",
+		Host:             "127.0.0.1",
+		Port:             hostPort,
+		ReachabilityMode: catalogdomain.MachineReachabilityModeReverseConnect,
+		ExecutionMode:    catalogdomain.MachineExecutionModeWebsocket,
+		ConnectionMode:   catalogdomain.MachineConnectionModeWSReverse,
+		SSHUser:          &sshUser,
+		SSHKeyPath:       &privateKeyPath,
+		WorkspaceRoot:    &workspaceRoot,
+		AgentCLIPath:     &agentCLIPath,
 		DaemonStatus: catalogdomain.MachineDaemonStatus{
 			Registered: true,
 		},
@@ -78,6 +80,7 @@ func TestMachineSSHHelperContainerE2E(t *testing.T) {
 		resolveExecutable: func() (string, error) { return openaseBinary, nil },
 	}, machineSSHBootstrapInput{
 		Machine:           machine,
+		Topology:          catalogdomain.MachineWebsocketTopologyReverseConnect,
 		TokenTTL:          time.Hour,
 		ControlPlaneURL:   "http://127.0.0.1:19836",
 		OpenASEBinaryPath: openaseBinary,
@@ -87,7 +90,7 @@ func TestMachineSSHHelperContainerE2E(t *testing.T) {
 		t.Fatalf("runMachineSSHBootstrap() error = %v", err)
 	}
 
-	layout := buildMachineSSHLayout("/home/openase")
+	layout := buildMachineSSHLayout("/home/openase", machineAgentServiceName)
 	if bootstrapResult.RemoteBinaryPath != layout.RemoteBinaryPath {
 		t.Fatalf("RemoteBinaryPath = %q, want %q", bootstrapResult.RemoteBinaryPath, layout.RemoteBinaryPath)
 	}

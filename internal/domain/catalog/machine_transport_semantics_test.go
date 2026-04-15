@@ -22,6 +22,12 @@ func TestMachineTransportSemanticsHelpers(t *testing.T) {
 		if MachineExecutionMode("bogus").IsValid() {
 			t.Fatal("bogus execution mode should be invalid")
 		}
+		if !MachineWebsocketTopologyRemoteListener.IsValid() {
+			t.Fatal("MachineWebsocketTopologyRemoteListener should be valid")
+		}
+		if MachineWebsocketTopology("bogus").IsValid() {
+			t.Fatal("bogus websocket topology should be invalid")
+		}
 	})
 
 	t.Run("legacy connection mode projections", func(t *testing.T) {
@@ -70,6 +76,10 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 		got, err = ParseStoredMachineConnectionMode(" ssh ", "builder.example.com")
 		if err != nil || got != MachineConnectionModeWSListener {
 			t.Fatalf("ParseStoredMachineConnectionMode(ssh legacy) = %q, %v", got, err)
+		}
+		got, err = ParseStoredMachineConnectionMode(" ssh ", LocalMachineHost)
+		if err != nil || got != MachineConnectionModeLocal {
+			t.Fatalf("ParseStoredMachineConnectionMode(local ssh legacy) = %q, %v", got, err)
 		}
 		got, err = ParseStoredMachineConnectionMode(" ws_reverse ", "builder.example.com")
 		if err != nil || got != MachineConnectionModeWSReverse {
@@ -207,6 +217,28 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 		}
 	})
 
+	t.Run("stored transport preserves legacy ssh when semantic columns are absent", func(t *testing.T) {
+		connectionMode, reachabilityMode, executionMode, err := ResolveStoredMachineTransport(
+			"ssh",
+			"",
+			"",
+			"builder.example.com",
+		)
+		if err != nil {
+			t.Fatalf("ResolveStoredMachineTransport(legacy ssh) error = %v", err)
+		}
+		if connectionMode != MachineConnectionModeSSH ||
+			reachabilityMode != MachineReachabilityModeDirectConnect ||
+			executionMode != MachineExecutionModeWebsocket {
+			t.Fatalf(
+				"ResolveStoredMachineTransport(legacy ssh) = %q %q %q",
+				connectionMode,
+				reachabilityMode,
+				executionMode,
+			)
+		}
+	})
+
 	t.Run("semantic compatibility matrix", func(t *testing.T) {
 		got, err := machineConnectionModeFromSemantics(
 			MachineReachabilityModeLocal,
@@ -255,6 +287,42 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 			MachineExecutionModeWebsocket,
 		); err == nil {
 			t.Fatal("machineConnectionModeFromSemantics(bogus reachability) expected error")
+		}
+	})
+
+	t.Run("websocket topology resolution", func(t *testing.T) {
+		got, err := ResolveMachineWebsocketTopology(
+			MachineReachabilityModeDirectConnect,
+			MachineExecutionModeWebsocket,
+		)
+		if err != nil || got != MachineWebsocketTopologyRemoteListener {
+			t.Fatalf("ResolveMachineWebsocketTopology(direct websocket) = %q, %v", got, err)
+		}
+
+		got, err = ResolveMachineWebsocketTopology(
+			MachineReachabilityModeReverseConnect,
+			MachineExecutionModeWebsocket,
+		)
+		if err != nil || got != MachineWebsocketTopologyReverseConnect {
+			t.Fatalf("ResolveMachineWebsocketTopology(reverse websocket) = %q, %v", got, err)
+		}
+
+		got, err = ResolveMachineWebsocketTopology(
+			MachineReachabilityModeLocal,
+			MachineExecutionModeLocalProcess,
+		)
+		if err != nil || got != MachineWebsocketTopologyLocalProcess {
+			t.Fatalf("ResolveMachineWebsocketTopology(local process) = %q, %v", got, err)
+		}
+
+		if _, err := ResolveMachineWebsocketTopology(
+			MachineReachabilityModeDirectConnect,
+			MachineExecutionModeLocalProcess,
+		); err == nil {
+			t.Fatal("ResolveMachineWebsocketTopology(direct local_process) expected error")
+		}
+		if got := MachineWebsocketTopologyReverseConnect.ConnectionMode(); got != MachineConnectionModeWSReverse {
+			t.Fatalf("MachineWebsocketTopologyReverseConnect.ConnectionMode() = %q", got)
 		}
 	})
 

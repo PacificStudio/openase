@@ -31,6 +31,10 @@ type Machine struct {
 	Port int `json:"port,omitempty"`
 	// ConnectionMode holds the value of the "connection_mode" field.
 	ConnectionMode machine.ConnectionMode `json:"connection_mode,omitempty"`
+	// ReachabilityMode holds the value of the "reachability_mode" field.
+	ReachabilityMode machine.ReachabilityMode `json:"reachability_mode,omitempty"`
+	// ExecutionMode holds the value of the "execution_mode" field.
+	ExecutionMode machine.ExecutionMode `json:"execution_mode,omitempty"`
 	// TransportCapabilities holds the value of the "transport_capabilities" field.
 	TransportCapabilities pgarray.StringArray `json:"transport_capabilities,omitempty"`
 	// SSHUser holds the value of the "ssh_user" field.
@@ -147,7 +151,7 @@ func (*Machine) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case machine.FieldPort:
 			values[i] = new(sql.NullInt64)
-		case machine.FieldName, machine.FieldHost, machine.FieldConnectionMode, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldAdvertisedEndpoint, machine.FieldDaemonSessionID, machine.FieldDaemonSessionState, machine.FieldDetectedOs, machine.FieldDetectedArch, machine.FieldDetectionStatus, machine.FieldChannelCredentialKind, machine.FieldChannelTokenID, machine.FieldChannelCertificateID, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldAgentCliPath:
+		case machine.FieldName, machine.FieldHost, machine.FieldConnectionMode, machine.FieldReachabilityMode, machine.FieldExecutionMode, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldAdvertisedEndpoint, machine.FieldDaemonSessionID, machine.FieldDaemonSessionState, machine.FieldDetectedOs, machine.FieldDetectedArch, machine.FieldDetectionStatus, machine.FieldChannelCredentialKind, machine.FieldChannelTokenID, machine.FieldChannelCertificateID, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldAgentCliPath:
 			values[i] = new(sql.NullString)
 		case machine.FieldDaemonLastRegisteredAt, machine.FieldLastHeartbeatAt:
 			values[i] = new(sql.NullTime)
@@ -203,6 +207,18 @@ func (_m *Machine) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field connection_mode", values[i])
 			} else if value.Valid {
 				_m.ConnectionMode = machine.ConnectionMode(value.String)
+			}
+		case machine.FieldReachabilityMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field reachability_mode", values[i])
+			} else if value.Valid {
+				_m.ReachabilityMode = machine.ReachabilityMode(value.String)
+			}
+		case machine.FieldExecutionMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field execution_mode", values[i])
+			} else if value.Valid {
+				_m.ExecutionMode = machine.ExecutionMode(value.String)
 			}
 		case machine.FieldTransportCapabilities:
 			if value, ok := values[i].(*pgarray.StringArray); !ok {
@@ -410,6 +426,12 @@ func (_m *Machine) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("connection_mode=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ConnectionMode))
+	builder.WriteString(", ")
+	builder.WriteString("reachability_mode=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReachabilityMode))
+	builder.WriteString(", ")
+	builder.WriteString("execution_mode=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ExecutionMode))
 	builder.WriteString(", ")
 	builder.WriteString("transport_capabilities=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TransportCapabilities))

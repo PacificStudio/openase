@@ -206,6 +206,8 @@ func mapMachineRecord(item *ent.Machine) service.MachineRecord {
 		OrganizationID:        item.OrganizationID,
 		Name:                  item.Name,
 		ConnectionMode:        string(item.ConnectionMode),
+		ReachabilityMode:      string(item.ReachabilityMode),
+		ExecutionMode:         string(item.ExecutionMode),
 		Status:                string(item.Status),
 		ChannelCredentialKind: string(item.ChannelCredentialKind),
 		ChannelTokenID:        optionalString(item.ChannelTokenID),

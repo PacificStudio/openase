@@ -47,8 +47,9 @@ For remote machines, the product model is:
 5. Fill in the required machine identity and workspace fields.
 6. For direct-connect machines, save the advertised listener endpoint.
 7. For reverse-connect machines, save the record first, then issue a machine channel token and start `openase machine-agent run` on the remote host.
-8. Add SSH helper credentials only if you want `openase machine ssh-bootstrap` or `openase machine ssh-diagnostics`.
-9. Run `Connection test` to verify the currently configured path.
+8. When SSH helper access is available, `openase machine ssh-bootstrap <machine-id>` installs the topology-specific service automatically: reverse daemon for `reverse_connect`, remote listener for `direct_connect`.
+9. Add SSH helper credentials only if you want `openase machine ssh-bootstrap` or `openase machine ssh-diagnostics`.
+10. Run `Connection test` to verify the currently configured path.
 
 ## Operational Guidance
 
@@ -61,8 +62,9 @@ For remote machines, the product model is:
 
 1. For direct-connect machines, save a valid websocket `advertised_endpoint`.
 2. For reverse-connect machines, issue a machine channel token and start `openase machine-agent run`.
-3. Run `openase machine test <machine-id>` after each topology update.
-4. Keep SSH credentials only if operators still need helper bootstrap or diagnostics.
+3. If SSH helper access is still available, prefer `openase machine ssh-bootstrap <machine-id>` to upload the current binary and refresh the topology-specific service.
+4. Run `openase machine test <machine-id>` after each topology update.
+5. Keep SSH credentials only if operators still need helper bootstrap or diagnostics.
 
 ## Monitoring Machines
 

@@ -155,6 +155,18 @@ function buildDirectConnectGuide(input: {
       description: i18nStore.t('machines.setup.directConnect.commands.sshQuickSetup.description'),
       command: sshPreview,
     })
+    if (machine?.id) {
+      commands.push({
+        title: i18nStore.t('machines.setup.directConnect.commands.sshBootstrap.title'),
+        description: i18nStore.t('machines.setup.directConnect.commands.sshBootstrap.description'),
+        command: `openase machine ssh-bootstrap ${machine.id}`,
+      })
+      commands.push({
+        title: i18nStore.t('machines.setup.directConnect.commands.sshDiagnostics.title'),
+        description: i18nStore.t('machines.setup.directConnect.commands.sshDiagnostics.description'),
+        command: `openase machine ssh-diagnostics ${machine.id}`,
+      })
+    }
   } else {
     nextSteps.push(i18nStore.t('machines.setup.directConnect.nextSteps.addSshHelper'))
   }
