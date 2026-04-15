@@ -183,16 +183,9 @@
     }
   })
   $effect(() => {
-    const pendingPatch = workspaceBrowserPortal.pendingPatch
-    if (!pendingPatch || !browser.metadata?.available) return
-    queueMicrotask(() => {
-      const consumedPatch = workspaceBrowserPortal.consumePendingPatch()
-      if (!consumedPatch) return
-      void browser.reviewPatch(consumedPatch.diff, { autoApply: consumedPatch.autoApply })
-    })
-  })
-  $effect(() => {
-    if (lastConversationId && lastConversationId !== conversationId) terminalManager.disposeAll()
+    if (lastConversationId && lastConversationId !== conversationId) {
+      terminalManager.disposeAll()
+    }
     lastConversationId = conversationId
   })
   $effect(() => {
