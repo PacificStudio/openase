@@ -565,7 +565,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/machines",
-		`{"name":"gpu-01","host":"10.0.1.10","advertised_endpoint":"wss://gpu-01.example.com/openase","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
+		`{"name":"gpu-01","host":"10.0.1.10","advertised_endpoint":"wss://gpu-01.example.com/openase","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","agent_cli_paths":{"codex-app-server":"/opt/codex/bin/codex","gemini-cli":"/opt/gemini/bin/gemini"},"env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
 	)
 	if createMachineRec.Code != http.StatusCreated {
 		t.Fatalf("expected machine create 201, got %d: %s", createMachineRec.Code, createMachineRec.Body.String())
@@ -577,6 +577,9 @@ func TestMachineRoutes(t *testing.T) {
 	decodeResponse(t, createMachineRec, &createMachinePayload)
 	if createMachinePayload.Machine.Status != "maintenance" {
 		t.Fatalf("expected created remote machine to default to maintenance, got %+v", createMachinePayload.Machine)
+	}
+	if got := createMachinePayload.Machine.AgentCLIPaths["codex-app-server"]; got != "/opt/codex/bin/codex" {
+		t.Fatalf("expected codex agent_cli_paths to round-trip, got %+v", createMachinePayload.Machine.AgentCLIPaths)
 	}
 	getMachineRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+createMachinePayload.Machine.ID, "")
 	if getMachineRec.Code != http.StatusOK {
@@ -590,13 +593,16 @@ func TestMachineRoutes(t *testing.T) {
 	if getMachinePayload.Machine.ID != createMachinePayload.Machine.ID || getMachinePayload.Machine.Name != "gpu-01" {
 		t.Fatalf("unexpected machine get payload: %+v", getMachinePayload.Machine)
 	}
+	if got := getMachinePayload.Machine.AgentCLIPaths["gemini-cli"]; got != "/opt/gemini/bin/gemini" {
+		t.Fatalf("expected gemini agent_cli_paths in machine get payload, got %+v", getMachinePayload.Machine.AgentCLIPaths)
+	}
 
 	patchMachineRec := performJSONRequest(
 		t,
 		server,
 		http.MethodPatch,
 		"/api/v1/machines/"+createMachinePayload.Machine.ID,
-		`{"status":"online","description":"A100 worker","advertised_endpoint":"wss://gpu-01.example.com/openase"}`,
+		`{"status":"online","description":"A100 worker","advertised_endpoint":"wss://gpu-01.example.com/openase","agent_cli_paths":{"codex-app-server":"/usr/local/bin/codex"}}`,
 	)
 	if patchMachineRec.Code != http.StatusOK {
 		t.Fatalf("expected machine patch 200, got %d: %s", patchMachineRec.Code, patchMachineRec.Body.String())
@@ -608,6 +614,9 @@ func TestMachineRoutes(t *testing.T) {
 	decodeResponse(t, patchMachineRec, &patchMachinePayload)
 	if patchMachinePayload.Machine.Status != "online" || patchMachinePayload.Machine.Description != "A100 worker" {
 		t.Fatalf("unexpected patched machine payload: %+v", patchMachinePayload.Machine)
+	}
+	if got := patchMachinePayload.Machine.AgentCLIPaths["codex-app-server"]; got != "/usr/local/bin/codex" || len(patchMachinePayload.Machine.AgentCLIPaths) != 1 {
+		t.Fatalf("unexpected patched agent_cli_paths payload: %+v", patchMachinePayload.Machine.AgentCLIPaths)
 	}
 
 	testMachineRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/machines/"+createMachinePayload.Machine.ID+"/test", "")
@@ -1642,6 +1651,7 @@ func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.Creat
 		Status:         input.Status,
 		WorkspaceRoot:  input.WorkspaceRoot,
 		AgentCLIPath:   input.AgentCLIPath,
+		AgentCLIPaths:  domain.CloneMachineAgentCLIPaths(input.AgentCLIPaths),
 		EnvVars:        append([]string(nil), input.EnvVars...),
 		Resources:      map[string]any{},
 	}
@@ -1680,6 +1690,7 @@ func (f *fakeCatalogService) UpdateMachine(_ context.Context, input domain.Updat
 	current.Status = input.Status
 	current.WorkspaceRoot = input.WorkspaceRoot
 	current.AgentCLIPath = input.AgentCLIPath
+	current.AgentCLIPaths = domain.CloneMachineAgentCLIPaths(input.AgentCLIPaths)
 	current.EnvVars = append([]string(nil), input.EnvVars...)
 	f.machines[input.ID] = current
 

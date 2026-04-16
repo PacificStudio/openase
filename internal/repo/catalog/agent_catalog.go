@@ -411,6 +411,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 	var machineSSHUser *string
 	var machineWorkspaceRoot *string
 	var machineAgentCLIPath *string
+	var machineAgentCLIPaths domain.MachineAgentCLIPaths
 	machineResources := map[string]any{}
 	if item.Edges.Machine != nil {
 		machineName = item.Edges.Machine.Name
@@ -419,6 +420,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		machineSSHUser = optionalString(item.Edges.Machine.SSHUser)
 		machineWorkspaceRoot = optionalString(item.Edges.Machine.WorkspaceRoot)
 		machineAgentCLIPath = optionalString(item.Edges.Machine.AgentCliPath)
+		machineAgentCLIPaths = domain.MachineAgentCLIPathsFromRaw(item.Edges.Machine.AgentCliPaths)
 		machineResources = cloneAnyMap(item.Edges.Machine.Resources)
 	}
 
@@ -432,6 +434,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		MachineSSHUser:        machineSSHUser,
 		MachineWorkspaceRoot:  machineWorkspaceRoot,
 		MachineAgentCLIPath:   machineAgentCLIPath,
+		MachineAgentCLIPaths:  machineAgentCLIPaths,
 		MachineResources:      machineResources,
 		Name:                  item.Name,
 		AdapterType:           toDomainAgentProviderAdapterType(item.AdapterType),

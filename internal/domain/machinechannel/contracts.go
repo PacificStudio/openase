@@ -17,6 +17,7 @@ const (
 	EnvMachineChannelToken      = "OPENASE_MACHINE_CHANNEL_TOKEN" // #nosec G101 -- environment variable key name, not a credential
 	EnvMachineControlPlaneURL   = "OPENASE_MACHINE_CONTROL_PLANE_URL"
 	EnvMachineHeartbeatInterval = "OPENASE_MACHINE_HEARTBEAT_INTERVAL"
+	EnvMachineAgentCLIPathsJSON = "OPENASE_MACHINE_AGENT_CLI_PATHS_JSON"
 )
 
 var (
@@ -59,6 +60,7 @@ type DaemonConfig struct {
 	ReconnectBackoff  time.Duration
 	OpenASEBinaryPath string
 	AgentCLIPath      string
+	AgentCLIPaths     map[string]string
 }
 
 func ParseDaemonConfig(
@@ -69,6 +71,7 @@ func ParseDaemonConfig(
 	reconnectBackoff time.Duration,
 	openaseBinaryPath string,
 	agentCLIPath string,
+	agentCLIPaths map[string]string,
 ) (DaemonConfig, error) {
 	parsedMachineID, err := parseUUID(machineID)
 	if err != nil {
@@ -96,7 +99,41 @@ func ParseDaemonConfig(
 		ReconnectBackoff:  reconnectBackoff,
 		OpenASEBinaryPath: strings.TrimSpace(openaseBinaryPath),
 		AgentCLIPath:      strings.TrimSpace(agentCLIPath),
+		AgentCLIPaths:     cloneTrimmedStringMap(agentCLIPaths),
 	}, nil
+}
+
+func ParseDaemonAgentCLIPathsJSON(raw string) (map[string]string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return nil, fmt.Errorf("parse agent_cli_paths_json: %w", err)
+	}
+	return cloneTrimmedStringMap(parsed), nil
+}
+
+func cloneTrimmedStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]string, len(input))
+	for key, value := range input {
+		trimmedKey := strings.TrimSpace(key)
+		trimmedValue := strings.TrimSpace(value)
+		if trimmedKey == "" || trimmedValue == "" {
+			continue
+		}
+		cloned[trimmedKey] = trimmedValue
+	}
+	if len(cloned) == 0 {
+		return nil
+	}
+	return cloned
 }
 
 type MessageType string
@@ -168,11 +205,12 @@ type ErrorPayload struct {
 }
 
 type SystemInfo struct {
-	Hostname          string `json:"hostname"`
-	OS                string `json:"os"`
-	Arch              string `json:"arch"`
-	OpenASEBinaryPath string `json:"openase_binary_path,omitempty"`
-	AgentCLIPath      string `json:"agent_cli_path,omitempty"`
+	Hostname          string            `json:"hostname"`
+	OS                string            `json:"os"`
+	Arch              string            `json:"arch"`
+	OpenASEBinaryPath string            `json:"openase_binary_path,omitempty"`
+	AgentCLIPath      string            `json:"agent_cli_path,omitempty"`
+	AgentCLIPaths     map[string]string `json:"agent_cli_paths,omitempty"`
 }
 
 type ToolInfo struct {

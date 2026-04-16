@@ -123,6 +123,7 @@ type OpenAPIMachine struct {
 	Status                string                          `json:"status"`
 	WorkspaceRoot         *string                         `json:"workspace_root,omitempty"`
 	AgentCLIPath          *string                         `json:"agent_cli_path,omitempty"`
+	AgentCLIPaths         map[string]string               `json:"agent_cli_paths,omitempty"`
 	EnvVars               []string                        `json:"env_vars,omitempty"`
 	LastHeartbeatAt       *string                         `json:"last_heartbeat_at,omitempty"`
 	Resources             map[string]any                  `json:"resources"`
@@ -2654,6 +2655,7 @@ var (
 		"status":                            "Machine lifecycle status value.",
 		"workspace_root":                    "Filesystem root directory where ticket workspaces are created on the machine.",
 		"agent_cli_path":                    "Absolute path to the agent CLI executable on the machine.",
+		"agent_cli_paths":                   "Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks.",
 		"env_vars":                          "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
 	}
 	openAPIProjectRequestDescriptions = map[string]string{

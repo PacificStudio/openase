@@ -1377,6 +1377,16 @@ func AgentCliPathContainsFold(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldContainsFold(FieldAgentCliPath, v))
 }
 
+// AgentCliPathsIsNil applies the IsNil predicate on the "agent_cli_paths" field.
+func AgentCliPathsIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldAgentCliPaths))
+}
+
+// AgentCliPathsNotNil applies the NotNil predicate on the "agent_cli_paths" field.
+func AgentCliPathsNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldAgentCliPaths))
+}
+
 // EnvVarsEQ applies the EQ predicate on the "env_vars" field.
 func EnvVarsEQ(v pgarray.StringArray) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldEnvVars, v))

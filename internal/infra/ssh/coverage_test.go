@@ -105,6 +105,29 @@ func TestMonitorCollectorRunScriptFailures(t *testing.T) {
 	}
 }
 
+func TestBuildAgentEnvironmentScriptUsesScopedCLIPaths(t *testing.T) {
+	t.Parallel()
+
+	legacyCLIPath := "/usr/local/bin/legacy"
+	script := buildAgentEnvironmentScript(domain.Machine{
+		AgentCLIPath: &legacyCLIPath,
+		AgentCLIPaths: domain.MachineAgentCLIPaths{
+			domain.AgentProviderAdapterTypeClaudeCodeCLI:  "/opt/claude/bin/claude",
+			domain.AgentProviderAdapterTypeCodexAppServer: "/opt/codex/bin/codex",
+		},
+	})
+
+	if !strings.Contains(script, "claude_path='/opt/claude/bin/claude'") {
+		t.Fatalf("expected claude scoped path in script, got %q", script)
+	}
+	if !strings.Contains(script, "codex_path='/opt/codex/bin/codex'") {
+		t.Fatalf("expected codex scoped path in script, got %q", script)
+	}
+	if !strings.Contains(script, "gemini_path=''") {
+		t.Fatalf("expected missing gemini path to avoid legacy fallback once scoped paths exist, got %q", script)
+	}
+}
+
 func TestSSHHelperAndRemoteProcessCoverage(t *testing.T) {
 	t.Parallel()
 

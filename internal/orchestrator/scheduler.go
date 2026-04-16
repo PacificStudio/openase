@@ -285,6 +285,7 @@ func (s *Scheduler) resolveExecutionMachine(
 		MachineSSHUser:       schedulerOptionalString(machine.SSHUser),
 		MachineWorkspaceRoot: schedulerOptionalString(machine.WorkspaceRoot),
 		MachineAgentCLIPath:  schedulerOptionalString(machine.AgentCliPath),
+		MachineAgentCLIPaths: domaincatalog.CloneMachineAgentCLIPaths(domaincatalog.MachineAgentCLIPathsFromRaw(machine.AgentCliPaths)),
 		MachineResources:     cloneResourceMap(machine.Resources),
 		Name:                 providerItem.Name,
 		AdapterType:          domaincatalog.AgentProviderAdapterType(providerItem.AdapterType),

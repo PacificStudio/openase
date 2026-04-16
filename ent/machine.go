@@ -73,6 +73,8 @@ type Machine struct {
 	WorkspaceRoot string `json:"workspace_root,omitempty"`
 	// AgentCliPath holds the value of the "agent_cli_path" field.
 	AgentCliPath string `json:"agent_cli_path,omitempty"`
+	// AgentCliPaths holds the value of the "agent_cli_paths" field.
+	AgentCliPaths map[string]string `json:"agent_cli_paths,omitempty"`
 	// EnvVars holds the value of the "env_vars" field.
 	EnvVars pgarray.StringArray `json:"env_vars,omitempty"`
 	// LastHeartbeatAt holds the value of the "last_heartbeat_at" field.
@@ -143,7 +145,7 @@ func (*Machine) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case machine.FieldResources:
+		case machine.FieldAgentCliPaths, machine.FieldResources:
 			values[i] = new([]byte)
 		case machine.FieldTransportCapabilities, machine.FieldLabels, machine.FieldEnvVars:
 			values[i] = new(pgarray.StringArray)
@@ -335,6 +337,14 @@ func (_m *Machine) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AgentCliPath = value.String
 			}
+		case machine.FieldAgentCliPaths:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field agent_cli_paths", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.AgentCliPaths); err != nil {
+					return fmt.Errorf("unmarshal field agent_cli_paths: %w", err)
+				}
+			}
 		case machine.FieldEnvVars:
 			if value, ok := values[i].(*pgarray.StringArray); !ok {
 				return fmt.Errorf("unexpected type %T for field env_vars", values[i])
@@ -491,6 +501,9 @@ func (_m *Machine) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("agent_cli_path=")
 	builder.WriteString(_m.AgentCliPath)
+	builder.WriteString(", ")
+	builder.WriteString("agent_cli_paths=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AgentCliPaths))
 	builder.WriteString(", ")
 	builder.WriteString("env_vars=")
 	builder.WriteString(fmt.Sprintf("%v", _m.EnvVars))
