@@ -95,4 +95,25 @@ describe('connectTicketDetailStreams', () => {
       expect(onRunFrame).not.toHaveBeenCalled()
     },
   )
+
+  it('passes shared reconnect recovery notifications through to the drawer handlers', () => {
+    let reconnectRecovery: ((recovery: { sequence: number }) => void) | undefined
+
+    subscribeProjectEvents.mockImplementation((_projectId, _listener, options) => {
+      reconnectRecovery = options?.onReconnectRecovery
+      return () => {}
+    })
+
+    const onReconnectRecovery = vi.fn()
+
+    connectTicketDetailStreams('project-1', 'ticket-1', {
+      onRelevantEvent: vi.fn(),
+      onRunFrame: vi.fn(),
+      onReconnectRecovery,
+    })
+
+    reconnectRecovery?.({ sequence: 2 })
+
+    expect(onReconnectRecovery).toHaveBeenCalledWith({ sequence: 2 })
+  })
 })
