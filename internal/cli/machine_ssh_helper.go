@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -255,7 +256,7 @@ when you can still reach the machine over SSH.
 	command.Flags().StringVar(&controlPlaneURL, "control-plane-url", "", "Control-plane base URL override. Required when reusing --channel-token and defaults to the local server URL when issuing a fresh token.")
 	command.Flags().StringVar(&openaseBinaryPath, "openase-binary-path", "", "Local OpenASE binary to upload. Defaults to the current executable.")
 	command.Flags().DurationVar(&heartbeatInterval, "heartbeat-interval", machinechannelservice.DefaultHeartbeatInterval, "Daemon heartbeat interval written into the remote environment file.")
-	command.Flags().StringVar(&listenerAddress, "listener-address", defaultMachineListenerAddress, "Remote websocket listener bind address when installing the remote-listener topology.")
+	command.Flags().StringVar(&listenerAddress, "listener-address", "", "Remote websocket listener bind address when installing the remote-listener topology. Defaults to a bind inferred from advertised_endpoint, or "+defaultMachineListenerAddress+" when inference is unavailable.")
 	command.Flags().StringVar(&listenerPath, "listener-path", defaultMachineListenerPath, "Remote websocket listener HTTP path when installing the remote-listener topology.")
 	command.Flags().StringVar(&listenerBearerToken, "listener-bearer-token", "", "Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present.")
 	return command
@@ -394,7 +395,7 @@ func buildMachineSSHBootstrapPlan(
 			),
 		}, nil
 	case catalogdomain.MachineWebsocketTopologyRemoteListener:
-		listenerAddress := firstNonEmpty(input.ListenerAddress, defaultMachineListenerAddress)
+		listenerAddress := inferMachineListenerAddress(input.Machine, input.ListenerAddress)
 		listenerPath := normalizeMachineListenerPath(input.ListenerPath)
 		listenerToken := firstNonEmpty(input.ListenerBearerToken, strings.TrimSpace(pointerString(input.Machine.ChannelCredential.TokenID)))
 		values := map[string]string{
@@ -987,6 +988,52 @@ type machineSSHServiceInstallInput struct {
 	AgentCLIPath      string
 	HeartbeatInterval time.Duration
 	UID               string
+}
+
+func inferMachineListenerAddress(machine catalogdomain.Machine, explicit string) string {
+	trimmedExplicit := strings.TrimSpace(explicit)
+	if trimmedExplicit != "" {
+		return trimmedExplicit
+	}
+	endpoint := strings.TrimSpace(pointerString(machine.AdvertisedEndpoint))
+	if endpoint == "" {
+		return defaultMachineListenerAddress
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return defaultMachineListenerAddress
+	}
+	port := strings.TrimSpace(parsed.Port())
+	if port == "" {
+		switch strings.ToLower(strings.TrimSpace(parsed.Scheme)) {
+		case "wss", "https":
+			port = "443"
+		default:
+			port = "80"
+		}
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return net.JoinHostPort("0.0.0.0", port)
+	}
+	switch strings.ToLower(host) {
+	case "localhost":
+		return net.JoinHostPort("127.0.0.1", port)
+	case "127.0.0.1":
+		return net.JoinHostPort("127.0.0.1", port)
+	case "::1":
+		return net.JoinHostPort("::1", port)
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLoopback() {
+			return net.JoinHostPort(host, port)
+		}
+		if ip.To4() == nil {
+			return net.JoinHostPort("::", port)
+		}
+		return net.JoinHostPort("0.0.0.0", port)
+	}
+	return net.JoinHostPort("0.0.0.0", port)
 }
 
 func buildMachineSSHEnvironmentFile(

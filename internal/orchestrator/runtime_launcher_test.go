@@ -6469,6 +6469,10 @@ func (s *runtimeSSHPrepareSession) StderrPipe() (io.Reader, error) { return stri
 
 func (s *runtimeSSHPrepareSession) Start(string) error { return fmt.Errorf("not supported") }
 
+func (s *runtimeSSHPrepareSession) StartPTY(string, int, int) error { return fmt.Errorf("not supported") }
+
+func (s *runtimeSSHPrepareSession) Resize(int, int) error { return nil }
+
 func (s *runtimeSSHPrepareSession) Signal(string) error { return nil }
 
 func (s *runtimeSSHPrepareSession) Wait() error { return nil }
@@ -6557,6 +6561,12 @@ func (s *runtimeSSHProcessSession) Start(cmd string) error {
 	}()
 	return nil
 }
+
+func (s *runtimeSSHProcessSession) StartPTY(cmd string, _ int, _ int) error {
+	return s.Start(cmd)
+}
+
+func (s *runtimeSSHProcessSession) Resize(int, int) error { return nil }
 
 func (s *runtimeSSHProcessSession) Signal(string) error {
 	return s.Close()

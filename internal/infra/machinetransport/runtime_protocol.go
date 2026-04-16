@@ -755,7 +755,8 @@ func (s shellCommandSpec) start(ctx context.Context, sessionID string, send runt
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		go runtimeCopyPTYOutput(sessionID, ptmx, send)
+		//nolint:gosec // PTY stream forwarding must continue asynchronously for the lifetime of the session.
+		go runtimeCopyPTYOutput(ctx, sessionID, ptmx, send)
 		return cmd, ptmx, ptmx, nil
 	}
 	stdin, err := cmd.StdinPipe()
@@ -965,15 +966,23 @@ func runtimePTYSize(cols int, rows int) (*pty.Winsize, error) {
 	if cols <= 0 || rows <= 0 {
 		return nil, fmt.Errorf("pty size must use positive cols and rows")
 	}
+	if cols > 65535 || rows > 65535 {
+		return nil, fmt.Errorf("pty size must not exceed 65535")
+	}
 	return &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}, nil
 }
 
-func runtimeCopyPTYOutput(sessionID string, ptmx *os.File, send runtimeEnvelopeSender) {
+func runtimeCopyPTYOutput(ctx context.Context, sessionID string, ptmx *os.File, send runtimeEnvelopeSender) {
 	if ptmx == nil || send == nil {
 		return
 	}
 	buffer := make([]byte, 4096)
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		count, err := ptmx.Read(buffer)
 		if count > 0 {
 			_ = send(context.Background(), runtimecontract.Envelope{

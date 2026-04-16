@@ -616,6 +616,12 @@ func (s *remoteHookTestSession) Start(cmd string) error {
 	return nil
 }
 
+func (s *remoteHookTestSession) StartPTY(cmd string, _ int, _ int) error {
+	return s.Start(cmd)
+}
+
+func (s *remoteHookTestSession) Resize(int, int) error { return nil }
+
 func (s *remoteHookTestSession) Signal(string) error { return nil }
 
 func (s *remoteHookTestSession) Wait() error { return <-s.done }
