@@ -31,6 +31,7 @@
     parentOf,
   } from './project-conversation-workspace-browser-sidebar-helpers'
   import WorkspaceBrowserSearch from './project-conversation-workspace-browser-search.svelte'
+  import { chatT } from './i18n'
   import type {
     PendingCreate,
     TreeMenuTarget,
@@ -253,7 +254,7 @@
             )}
           />
           <GitGraph class="size-2.5 shrink-0" />
-          Git Graph
+          {chatT('chat.gitGraph.title')}
           {#if gitGraph && gitGraph.commits.length > 0}
             <span
               class="text-muted-foreground/60 ml-auto text-[9px] font-normal tracking-normal normal-case"
@@ -277,15 +278,15 @@
             <DropdownMenu.Content align="end" class="w-40">
               <DropdownMenu.Item onclick={() => handleGitRemoteOp('fetch')}>
                 <RefreshCcw class="size-3.5" />
-                <span>Fetch</span>
+                <span>{chatT('chat.gitGraph.fetch')}</span>
               </DropdownMenu.Item>
               <DropdownMenu.Item onclick={() => handleGitRemoteOp('pull')}>
                 <CloudDownload class="size-3.5" />
-                <span>Pull</span>
+                <span>{chatT('chat.gitGraph.pull')}</span>
               </DropdownMenu.Item>
               <DropdownMenu.Item onclick={() => handleGitRemoteOp('push')}>
                 <CloudUpload class="size-3.5" />
-                <span>Push</span>
+                <span>{chatT('chat.gitGraph.push')}</span>
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Root>

@@ -7,6 +7,7 @@
     ProjectConversationWorkspaceGitRefLabel,
   } from '$lib/api/chat'
   import { buildWorkspaceGitGraphRows } from './project-conversation-workspace-git-graph'
+  import { chatT } from './i18n'
 
   let {
     gitGraph = null,
@@ -47,18 +48,18 @@
 
 {#if loading}
   <div class="text-muted-foreground flex h-full items-center justify-center px-6 text-sm">
-    Loading git graph...
+    {chatT('chat.gitGraph.loading')}
   </div>
 {:else if error}
   <div class="flex h-full items-center justify-center px-6">
     <div class="max-w-sm space-y-2 text-center">
-      <p class="text-sm font-medium">Git graph unavailable</p>
+      <p class="text-sm font-medium">{chatT('chat.gitGraph.unavailable')}</p>
       <p class="text-muted-foreground text-sm">{error}</p>
     </div>
   </div>
 {:else if !gitGraph || gitGraph.commits.length === 0}
   <div class="text-muted-foreground flex h-full items-center justify-center px-6 text-sm">
-    No commits available for this repo yet.
+    {chatT('chat.gitGraph.noCommitsYet')}
   </div>
 {:else}
   <div class="flex h-full min-h-0 flex-col">
@@ -169,36 +170,46 @@
           <div class="space-y-3">
             <div>
               <p class="text-muted-foreground text-[11px] font-semibold tracking-wide uppercase">
-                Commit
+                {chatT('chat.gitGraph.commit')}
               </p>
               <p class="mt-1 text-sm font-medium">{selectedCommit.subject}</p>
             </div>
             <dl class="space-y-2 text-sm">
               <div>
-                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">SHA</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  {chatT('chat.gitGraph.sha')}
+                </dt>
                 <dd class="mt-1 font-mono text-[12px]">{selectedCommit.commitId}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Author</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  {chatT('chat.gitGraph.author')}
+                </dt>
                 <dd class="mt-1">{selectedCommit.authorName}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Authored</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  {chatT('chat.gitGraph.authored')}
+                </dt>
                 <dd class="mt-1">{new Date(selectedCommit.authoredAt).toLocaleString()}</dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Parents</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  {chatT('chat.gitGraph.parents')}
+                </dt>
                 <dd class="mt-1 font-mono text-[12px]">
                   {selectedCommit.parentIds.length > 0
                     ? selectedCommit.parentIds.join(', ')
-                    : 'Root commit'}
+                    : chatT('chat.gitGraph.rootCommit')}
                 </dd>
               </div>
               <div>
-                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">Labels</dt>
+                <dt class="text-muted-foreground text-[11px] tracking-wide uppercase">
+                  {chatT('chat.gitGraph.labels')}
+                </dt>
                 <dd class="mt-2 flex flex-wrap gap-1.5">
                   {#if selectedCommit.labels.length === 0}
-                    <span class="text-muted-foreground">No labels</span>
+                    <span class="text-muted-foreground">{chatT('chat.gitGraph.noLabels')}</span>
                   {:else}
                     {#each selectedCommit.labels as label (label.scope + label.name)}
                       <span
@@ -217,7 +228,7 @@
           </div>
         {:else}
           <div class="text-muted-foreground flex h-full items-center justify-center text-sm">
-            Select a commit to inspect it.
+            {chatT('chat.gitGraph.selectCommit')}
           </div>
         {/if}
       </div>
