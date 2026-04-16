@@ -508,7 +508,7 @@
               <Input
                 id="wizard-ssh-key"
                 bind:value={sshKeyPath}
-                placeholder="~/.ssh/id_ed25519"
+                placeholder={i18nStore.t('machines.machineCreateWizard.credentials.keyPlaceholder')}
                 autocomplete="off"
                 data-testid="machine-wizard-ssh-key"
               />

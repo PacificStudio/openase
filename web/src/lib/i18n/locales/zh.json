@@ -1165,6 +1165,7 @@
   "machines.machineCreateWizard.credentials.helper": "OpenASE 将用它登录目标机器，自动安装 Agent。密钥只保存在本服务器。",
   "machines.machineCreateWizard.credentials.keyHint": "私钥文件路径，默认使用 id_ed25519。若用 ~ 请展开到实际 home 目录。",
   "machines.machineCreateWizard.credentials.keyLabel": "SSH 私钥路径",
+  "machines.machineCreateWizard.credentials.keyPlaceholder": "~/.ssh/id_ed25519",
   "machines.machineCreateWizard.credentials.question": "怎么 SSH 登录过去？",
   "machines.machineCreateWizard.credentials.userLabel": "SSH 用户名",
   "machines.machineCreateWizard.credentials.userPlaceholder": "例如 agentuser",

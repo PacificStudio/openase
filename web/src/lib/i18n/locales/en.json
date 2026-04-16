@@ -1165,6 +1165,7 @@
   "machines.machineCreateWizard.credentials.helper": "OpenASE will use this to SSH in and install the agent automatically. The key stays on this server.",
   "machines.machineCreateWizard.credentials.keyHint": "Path to the private key. Defaults to your id_ed25519. Expand ~ to your home directory if needed.",
   "machines.machineCreateWizard.credentials.keyLabel": "SSH private key path",
+  "machines.machineCreateWizard.credentials.keyPlaceholder": "~/.ssh/id_ed25519",
   "machines.machineCreateWizard.credentials.question": "How do we log in over SSH?",
   "machines.machineCreateWizard.credentials.userLabel": "SSH user",
   "machines.machineCreateWizard.credentials.userPlaceholder": "e.g. agentuser",
