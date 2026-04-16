@@ -21,6 +21,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import { formatUserAPIKeyTime, toRFC3339Local } from './security-settings-user-api-keys.model'
 
   type Security = SecuritySettingsResponse['security']
   type PlainTextResult =
@@ -80,20 +81,6 @@
     selectedScopes = []
   }
 
-  function toRFC3339(localValue: string): string | undefined {
-    const trimmed = localValue.trim()
-    if (!trimmed) return undefined
-    const value = new Date(trimmed)
-    return Number.isNaN(value.getTime()) ? undefined : value.toISOString()
-  }
-
-  function formatTime(value?: string | null): string {
-    if (!value) return 'Never'
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return value
-    return date.toLocaleString()
-  }
-
   async function handleCreate() {
     const projectId = appStore.currentProject?.id
     if (!projectId) return
@@ -102,7 +89,7 @@
       const payload = await createProjectUserAPIKey(projectId, {
         name: name.trim(),
         scopes: [...selectedScopes],
-        expires_at: toRFC3339(expiresAtLocal) ?? null,
+        expires_at: toRFC3339Local(expiresAtLocal) ?? null,
       })
       items = [payload.api_key, ...items]
       showPlainTextToken(payload)
@@ -286,9 +273,9 @@
               <div class="text-muted-foreground font-mono text-xs">{item.token_hint}</div>
               <div class="text-muted-foreground text-xs">
                 {i18nStore.t('settings.security.userApiKeys.messages.metadata', {
-                  created: formatTime(item.created_at),
-                  lastUsed: formatTime(item.last_used_at),
-                  expires: formatTime(item.expires_at),
+                  created: formatUserAPIKeyTime(item.created_at),
+                  lastUsed: formatUserAPIKeyTime(item.last_used_at),
+                  expires: formatUserAPIKeyTime(item.expires_at),
                 })}
               </div>
             </div>
