@@ -5607,6 +5607,122 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 		}
 	})
 
+	t.Run("websocket runtime keeps workspace browse edit and git flows available", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceWebsocketFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name: "backend",
+				files: map[string]string{
+					"README.md":  "line one\nline two\n",
+					"src/app.ts": "export const app = 1\n",
+				},
+			},
+		})
+
+		metadata, err := fixture.service.GetWorkspaceMetadata(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceMetadata() error = %v", err)
+		}
+		if !metadata.Available || len(metadata.Repos) != 1 || metadata.Repos[0].Path != "backend" {
+			t.Fatalf("unexpected websocket workspace metadata: %+v", metadata)
+		}
+
+		tree, err := fixture.service.ListWorkspaceTree(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			"backend",
+			"src",
+		)
+		if err != nil {
+			t.Fatalf("ListWorkspaceTree() error = %v", err)
+		}
+		if len(tree.Entries) != 1 || tree.Entries[0].Path != "src/app.ts" {
+			t.Fatalf("unexpected websocket tree entries: %+v", tree.Entries)
+		}
+
+		preview, err := fixture.service.ReadWorkspaceFilePreview(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			"backend",
+			"src/app.ts",
+		)
+		if err != nil {
+			t.Fatalf("ReadWorkspaceFilePreview() error = %v", err)
+		}
+		if preview.PreviewKind != ProjectConversationWorkspacePreviewKindText || !strings.Contains(preview.Content, "app = 1") {
+			t.Fatalf("unexpected websocket preview: %+v", preview)
+		}
+
+		saved, err := fixture.service.SaveWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceFileSaveInput{
+				RepoPath:     WorkspaceRepoPath("backend"),
+				Path:         WorkspaceFilePath("src/app.ts"),
+				BaseRevision: WorkspaceFileRevision(preview.Revision),
+				Content:      WorkspaceTextContent("export const app = 2\n"),
+				Encoding:     WorkspaceEncodingUTF8,
+				LineEnding:   WorkspaceLineEndingLF,
+			},
+		)
+		if err != nil {
+			t.Fatalf("SaveWorkspaceFile() error = %v", err)
+		}
+		if saved.Revision == preview.Revision {
+			t.Fatalf("expected websocket save to update revision, got %+v", saved)
+		}
+
+		if _, err := fixture.service.StageWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceStageFileInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				Path:     "src/app.ts",
+			},
+		); err != nil {
+			t.Fatalf("StageWorkspaceFile() error = %v", err)
+		}
+
+		committed, err := fixture.service.CommitWorkspace(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceCommitInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				Message:  "workspace websocket edit",
+			},
+		)
+		if err != nil {
+			t.Fatalf("CommitWorkspace() error = %v", err)
+		}
+		if !strings.Contains(committed.Output, "workspace websocket edit") {
+			t.Fatalf("unexpected websocket commit output: %+v", committed)
+		}
+
+		graph, err := fixture.service.GetWorkspaceGitGraph(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			WorkspaceRepoPath("backend"),
+			WorkspaceGitGraphWindow{Limit: 10},
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceGitGraph() error = %v", err)
+		}
+		if len(graph.Commits) == 0 || graph.Commits[0].Subject != "workspace websocket edit" {
+			t.Fatalf("unexpected websocket git graph: %+v", graph.Commits)
+		}
+	})
+
 	t.Run("scopes access to the repo root", func(t *testing.T) {
 		t.Parallel()
 
@@ -6539,6 +6655,109 @@ func setupProjectConversationWorkspaceDiffFixture(
 			Name:          catalogdomain.LocalMachineName,
 			Host:          catalogdomain.LocalMachineHost,
 			WorkspaceRoot: stringPointer(workspaceRoot),
+		},
+	}
+
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		catalog,
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		nil,
+		nil,
+	)
+	workspace, err := service.ensureConversationWorkspace(ctx, catalog.machine, projectItem, providerItem, conversation.ID)
+	if err != nil {
+		t.Fatalf("ensureConversationWorkspace() error = %v", err)
+	}
+
+	repoPaths := make(map[string]string, len(projectRepos))
+	for _, repo := range projectRepos {
+		repoPaths[repo.Name] = workspaceinfra.RepoPath(workspace.String(), repo.WorkspaceDirname, repo.Name)
+	}
+
+	return projectConversationWorkspaceDiffFixture{
+		ctx:           ctx,
+		service:       service,
+		catalog:       catalog,
+		conversation:  conversation,
+		workspacePath: workspace.String(),
+		repoPaths:     repoPaths,
+	}
+}
+
+func setupProjectConversationWorkspaceWebsocketFixture(
+	t *testing.T,
+	repos []projectConversationWorkspaceRepoFixture,
+) projectConversationWorkspaceDiffFixture {
+	t.Helper()
+
+	server := httptest.NewServer(machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{}))
+	t.Cleanup(server.Close)
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectRepos := make([]catalogdomain.ProjectRepo, 0, len(repos))
+	for _, repo := range repos {
+		remoteRepoPath, _ := createConversationRemoteRepo(t, "main", repo.files)
+		projectRepo := catalogdomain.ProjectRepo{
+			ID:            uuid.New(),
+			ProjectID:     project.ID,
+			Name:          repo.name,
+			RepositoryURL: remoteRepoPath,
+			DefaultBranch: "main",
+		}
+		if strings.TrimSpace(repo.workspaceDirname) != "" {
+			projectRepo.WorkspaceDirname = repo.workspaceDirname
+		}
+		projectRepos = append(projectRepos, projectRepo)
+	}
+
+	workspaceRoot := t.TempDir()
+	projectItem := catalogdomain.Project{
+		ID:             project.ID,
+		OrganizationID: org.ID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Description:    "Issue-driven automation",
+	}
+	providerItem := catalogdomain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: org.ID,
+		MachineID:      machineID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+		CliCommand:     "gemini",
+	}
+	catalog := &fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project:      projectItem,
+			projectRepos: projectRepos,
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: providerItem,
+			},
+		},
+		machine: catalogdomain.Machine{
+			ID:                 machineID,
+			Name:               "listener-01",
+			Host:               "listener.internal",
+			WorkspaceRoot:      stringPointer(workspaceRoot),
+			ConnectionMode:     catalogdomain.MachineConnectionModeWSListener,
+			AdvertisedEndpoint: stringPointer(projectConversationWebsocketURL(server.URL)),
 		},
 	}
 
