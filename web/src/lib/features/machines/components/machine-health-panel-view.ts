@@ -1,7 +1,12 @@
 import { i18nStore } from '$lib/i18n/store.svelte'
 import { friendlyTransportLabel } from '../machine-setup'
 import { formatMachineRelativeTime } from '../machine-i18n'
-import type { MachineCLIStatus, MachineSnapshot, WebsocketHealthState } from '../types'
+import type {
+  MachineCLIStatus,
+  MachineReachabilityMode,
+  MachineSnapshot,
+  WebsocketHealthState,
+} from '../types'
 import { buildWebsocketLevelCards } from './machine-websocket-health-view'
 
 export type HealthStatCard = {
@@ -103,9 +108,16 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
   ]
 }
 
-export function buildLevelCards(snapshot: MachineSnapshot): HealthLevelCard[] {
+export function buildLevelCards(
+  snapshot: MachineSnapshot,
+  reachabilityMode?: MachineReachabilityMode,
+): HealthLevelCard[] {
   if (snapshot.websocketHealth) {
     return buildWebsocketLevelCards(snapshot.websocketHealth)
+  }
+
+  if (reachabilityMode === 'reverse_connect') {
+    return buildWebsocketLevelCards({})
   }
 
   const readyRuntimeCount = snapshot.agentEnvironment.filter((runtime) => runtime.ready).length

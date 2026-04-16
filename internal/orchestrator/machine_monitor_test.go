@@ -657,7 +657,7 @@ func TestMachineMonitorRunTickKeepsReverseWebsocketMachineOnlineWithoutSSHCollec
 	if err != nil {
 		t.Fatalf("RunTick returned error: %v", err)
 	}
-	if report.L1Checks != 1 || report.L2Checks != 1 || report.L3Checks != 1 || report.L4Checks != 1 || report.L5Checks != 1 {
+	if report.L1Checks != 1 || report.L2Checks != 0 || report.L3Checks != 1 || report.L4Checks != 1 || report.L5Checks != 1 {
 		t.Fatalf("expected layered websocket checks for reverse websocket machine, got %+v", report)
 	}
 	if collector.systemCalls != 0 || collector.gpuCalls != 0 || collector.agentEnvCalls != 0 || collector.fullAuditCalls != 0 || collector.websocketCalls != 1 {

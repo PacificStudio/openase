@@ -37,6 +37,8 @@ import type {
   MachineHealthRefreshResponse,
   MachineResourcesResponse,
   MachineResponse,
+  MachineSSHBootstrapRequest,
+  MachineSSHBootstrapResponse,
   MachineTestResponse,
   NotificationChannelDeleteResponse,
   NotificationChannelPayload,
@@ -282,6 +284,12 @@ export function testMachineConnection(machineId: string) {
 
 export function refreshMachineHealth(machineId: string) {
   return api.post<MachineHealthRefreshResponse>(`/api/v1/machines/${machineId}/refresh-health`)
+}
+
+export function sshBootstrapMachine(machineId: string, body: MachineSSHBootstrapRequest = {}) {
+  return api.post<MachineSSHBootstrapResponse>(`/api/v1/machines/${machineId}/ssh-bootstrap`, {
+    body,
+  })
 }
 
 export function getMachineResources(machineId: string) {

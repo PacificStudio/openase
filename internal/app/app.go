@@ -18,6 +18,7 @@ import (
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
+	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
 	codex "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
@@ -334,6 +335,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithConversationTerminalService(conversationTerminalSvc),
 		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
 		httpapi.WithReverseRuntimeRelay(a.reverseRuntimeRelay),
+		httpapi.WithSSHBootstrapper(machinesetup.NewBootstrapper(sshPool, machineChannelSvc)),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	}
 	if humanAuthSvc != nil && humanAuthorizer != nil {

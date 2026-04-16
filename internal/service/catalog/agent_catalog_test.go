@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
 	transportinfra "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/google/uuid"
 )
@@ -524,6 +526,16 @@ func TestRefreshMachineHealthCollectsAndPersistsMultiLevelSnapshot(t *testing.T)
 	}
 	if updated.Resources["agent_environment_checked_at"] != checkedAt.Format(time.RFC3339) {
 		t.Fatalf("expected updated agent environment timestamp, got %+v", updated.Resources)
+	}
+	wantOS, wantArch, wantStatus := machineprobe.NormalizePlatform(runtime.GOOS, runtime.GOARCH)
+	if updated.DetectedOS != wantOS {
+		t.Fatalf("expected local refresh to backfill detected OS %q, got %q", wantOS, updated.DetectedOS)
+	}
+	if updated.DetectedArch != wantArch {
+		t.Fatalf("expected local refresh to backfill detected arch %q, got %q", wantArch, updated.DetectedArch)
+	}
+	if updated.DetectionStatus != wantStatus {
+		t.Fatalf("expected local refresh to backfill detection status %q, got %q", wantStatus, updated.DetectionStatus)
 	}
 }
 

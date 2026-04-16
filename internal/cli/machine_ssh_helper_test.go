@@ -212,6 +212,12 @@ func TestRunMachineSSHBootstrapInstallsRemoteListenerTopology(t *testing.T) {
 	if !strings.Contains(serviceBody, `ExecStart="/home/remote/.openase/bin/openase" "machine-agent" "listen"`) {
 		t.Fatalf("service upload missing machine-agent listen: %q", serviceBody)
 	}
+	if !strings.Contains(serviceBody, `"--listen-address" "0.0.0.0:19837" "--path" "/openase/runtime"`) {
+		t.Fatalf("service upload missing explicit listener flags: %q", serviceBody)
+	}
+	if restartCommand := restartSession.combinedCommand; !strings.Contains(restartCommand, "mkdir -p") || !strings.Contains(restartCommand, "/home/remote/.openase/logs") {
+		t.Fatalf("restart command should prepare log directories, got %q", restartCommand)
+	}
 	if result.EnvironmentFile != layout.EnvironmentFile {
 		t.Fatalf("EnvironmentFile = %q, want %q", result.EnvironmentFile, layout.EnvironmentFile)
 	}

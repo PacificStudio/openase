@@ -1,8 +1,25 @@
 <script lang="ts">
-  import { CircleCheck, CircleX, CircleHelp, GitBranch, Terminal, Globe } from '@lucide/svelte'
+  import {
+    CircleCheck,
+    CircleX,
+    CircleHelp,
+    GitBranch,
+    Terminal,
+    Globe,
+    ChevronDown,
+    ChevronUp,
+    Loader2,
+    Wrench,
+  } from '@lucide/svelte'
+  import { slide } from 'svelte/transition'
   import { formatMachineRelativeTime } from '../machine-i18n'
   import { Badge } from '$ui/badge'
-  import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
+  import type {
+    MachineItem,
+    MachineProbeResult,
+    MachineReachabilityMode,
+    MachineSnapshot,
+  } from '../types'
   import { buildMachineSetupGuide } from '../machine-setup'
   import type { TruthyState } from './machine-health-panel-view'
   import {
@@ -20,6 +37,10 @@
   import MachineHealthHeader from './machine-health-header.svelte'
   import MachineProbeCard from './machine-probe-card.svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import { Button } from '$ui/button'
+  import { toastStore } from '$lib/stores/toast.svelte'
+  import { runMachineSSHBootstrap, machineErrorMessage } from './machines-page-api'
+  import type { MachineSSHBootstrapResult } from '$lib/api/contracts'
 
   const truthyIcon: Record<TruthyState, typeof CircleCheck> = {
     yes: CircleCheck,
@@ -56,10 +77,70 @@
   } = $props()
 
   const statCards = $derived(snapshot ? buildStatCards(snapshot) : [])
-  const levelCards = $derived(snapshot ? buildLevelCards(snapshot) : [])
+  const levelCards = $derived(
+    snapshot
+      ? buildLevelCards(snapshot, machine?.reachability_mode as MachineReachabilityMode | undefined)
+      : [],
+  )
   const runtimeRows = $derived(snapshot?.agentEnvironment ?? [])
   const auditRows = $derived(snapshot ? buildAuditRows(snapshot) : [])
   const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
+
+  // When the machine is healthy we don't want the wall of setup commands and
+  // topology prose in the user's face — that content is only useful as a
+  // recovery aid. Auto-expand on signs of trouble; otherwise keep it tucked
+  // behind a disclosure the user can open on demand.
+  const hasTrouble = $derived(
+    (snapshot?.monitorErrors?.length ?? 0) > 0 ||
+      levelCards.some((card) => card.state === 'error') ||
+      (machine?.reachability_mode === 'reverse_connect' &&
+        Boolean(machine?.daemon_status) &&
+        machine?.daemon_status?.session_state !== 'connected'),
+  )
+  let setupExpanded = $state(false)
+  $effect(() => {
+    if (hasTrouble) setupExpanded = true
+  })
+
+  const repairBootstrapTopology = $derived.by(() => {
+    if (!machine?.id || !machine?.ssh_helper_enabled) return null
+    if (machine.reachability_mode === 'reverse_connect') {
+      return 'reverse-connect'
+    }
+    if (machine.reachability_mode === 'direct_connect' && machine.execution_mode === 'websocket') {
+      return 'remote-listener'
+    }
+    return null
+  })
+  const showBootstrapRepair = $derived(Boolean(hasTrouble && repairBootstrapTopology))
+  let bootstrapRunning = $state(false)
+  let bootstrapResult = $state<MachineSSHBootstrapResult | null>(null)
+  let bootstrapError = $state('')
+
+  async function handleBootstrapRepair() {
+    if (!machine?.id || !repairBootstrapTopology) return
+    bootstrapRunning = true
+    bootstrapResult = null
+    bootstrapError = ''
+    try {
+      bootstrapResult = await runMachineSSHBootstrap(machine.id, {
+        topology: repairBootstrapTopology,
+      })
+      toastStore.success(
+        bootstrapResult.summary ||
+          i18nStore.t('machines.machineHealthPanel.bootstrapRepair.successFallback'),
+      )
+      onRefresh?.()
+    } catch (caughtError) {
+      bootstrapError = machineErrorMessage(
+        caughtError,
+        i18nStore.t('machines.machineHealthPanel.bootstrapRepair.failureFallback'),
+      )
+      toastStore.error(bootstrapError)
+    } finally {
+      bootstrapRunning = false
+    }
+  }
 </script>
 
 <div class="space-y-4">
@@ -72,55 +153,153 @@
       {i18nStore.t('machines.machineHealthPanel.emptyState')}
     </div>
   {:else}
+    <!-- Collapsed disclosure: one-line row showing topology + a toggle.
+         Auto-expands when hasTrouble is true so problems are never hidden. -->
     <div class="border-border bg-card rounded-xl border">
-      <div
-        class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      <button
+        type="button"
+        class="hover:bg-muted/40 flex w-full items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-left transition-colors"
+        onclick={() => (setupExpanded = !setupExpanded)}
+        aria-expanded={setupExpanded}
+        data-testid="machine-health-setup-toggle"
       >
-        <div class="min-w-0">
-          <h4 class="text-foreground text-sm font-semibold">
+        <div class="flex min-w-0 items-center gap-2">
+          <span class="text-foreground text-sm font-medium">
             {i18nStore.t('machines.machineHealthPanel.heading.setupGuidance')}
-          </h4>
-          <p class="text-muted-foreground mt-1 text-xs">{setupGuide.topologySummary}</p>
+          </span>
+          <Badge variant="outline" class="text-[10px]">{setupGuide.topologyLabel}</Badge>
+          {#if hasTrouble}
+            <Badge variant="destructive" class="text-[10px]">
+              {i18nStore.t('machines.machineHealthPanel.status.needsAttention')}
+            </Badge>
+          {/if}
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{setupGuide.topologyLabel}</Badge>
-          <Badge variant="outline">{setupGuide.stateLabel}</Badge>
-        </div>
-      </div>
+        {#if setupExpanded}
+          <ChevronUp class="text-muted-foreground size-4" />
+        {:else}
+          <ChevronDown class="text-muted-foreground size-4" />
+        {/if}
+      </button>
 
-      <div class="grid gap-3 px-4 py-4 lg:grid-cols-3">
-        <div class="space-y-1.5">
-          <p class="text-foreground text-sm font-medium">{setupGuide.runtimeLabel}</p>
-          <p class="text-muted-foreground text-xs leading-relaxed">{setupGuide.runtimeSummary}</p>
-        </div>
-        <div class="space-y-1.5">
-          <p class="text-foreground text-sm font-medium">{setupGuide.helperLabel}</p>
-          <p class="text-muted-foreground text-xs leading-relaxed">{setupGuide.helperSummary}</p>
-        </div>
-        <div class="space-y-1.5">
-          <p class="text-foreground text-sm font-medium">
-            {i18nStore.t('machines.machineHealthPanel.heading.nextSteps')}
+      {#if setupExpanded}
+        <div class="border-border border-t" transition:slide={{ duration: 200 }}>
+          <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <Badge variant="outline">{setupGuide.stateLabel}</Badge>
+            {#if showBootstrapRepair}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={bootstrapRunning}
+                onclick={handleBootstrapRepair}
+                data-testid="machine-health-bootstrap-repair"
+              >
+                {#if bootstrapRunning}
+                  <Loader2 class="size-3.5 animate-spin" />
+                  {i18nStore.t('machines.machineHealthPanel.bootstrapRepair.running')}
+                {:else}
+                  <Wrench class="size-3.5" />
+                  {i18nStore.t('machines.machineHealthPanel.bootstrapRepair.action')}
+                {/if}
+              </Button>
+            {/if}
+          </div>
+          <p class="text-muted-foreground px-4 pb-3 text-xs leading-relaxed">
+            {hasTrouble && showBootstrapRepair
+              ? i18nStore.t('machines.machineHealthPanel.bootstrapRepair.description')
+              : setupGuide.topologySummary}
           </p>
-          <ul class="text-muted-foreground space-y-1.5 text-xs leading-relaxed">
-            {#each setupGuide.nextSteps as step, index (`${step}-${index}`)}
-              <li>{step}</li>
-            {/each}
-          </ul>
-        </div>
-      </div>
 
-      {#if setupGuide.commands.length > 0}
-        <div class="border-border grid gap-3 border-t px-4 py-4">
-          {#each setupGuide.commands as command (command.title)}
-            <div class="rounded-lg border border-dashed px-3.5 py-3">
-              <p class="text-foreground text-sm font-medium">{command.title}</p>
-              <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-                {command.description}
-              </p>
-              <pre
-                class="bg-muted/60 text-foreground mt-3 overflow-x-auto rounded-md px-3 py-2 text-xs whitespace-pre-wrap">{command.command}</pre>
+          {#if bootstrapError}
+            <div
+              class="border-destructive/20 bg-destructive/5 text-destructive mx-4 mb-3 rounded-md border px-3 py-2 text-[11px] leading-relaxed"
+            >
+              {bootstrapError}
             </div>
-          {/each}
+          {/if}
+
+          {#if bootstrapResult}
+            <div
+              class="border-primary/20 bg-primary/5 mx-4 mb-3 rounded-md border px-3 py-2 text-[11px] leading-relaxed"
+            >
+              <div class="flex flex-wrap gap-x-4 gap-y-1">
+                <span>
+                  <span class="text-muted-foreground">
+                    {i18nStore.t(
+                      'machines.machineEditorGuidance.progressive.bootstrap.serviceManager',
+                    )}
+                  </span>
+                  <span class="text-foreground ml-1">{bootstrapResult.service_manager}</span>
+                </span>
+                <span>
+                  <span class="text-muted-foreground">
+                    {i18nStore.t(
+                      'machines.machineEditorGuidance.progressive.bootstrap.serviceName',
+                    )}
+                  </span>
+                  <span class="text-foreground ml-1">{bootstrapResult.service_name}</span>
+                </span>
+                <span>
+                  <span class="text-muted-foreground">
+                    {i18nStore.t(
+                      'machines.machineEditorGuidance.progressive.bootstrap.serviceStatus',
+                    )}
+                  </span>
+                  <span class="text-foreground ml-1">{bootstrapResult.service_status}</span>
+                </span>
+              </div>
+              {#if bootstrapResult.connection_target}
+                <p class="text-muted-foreground mt-1">
+                  <span>
+                    {i18nStore.t(
+                      'machines.machineEditorGuidance.progressive.bootstrap.connectionTarget',
+                    )}
+                  </span>
+                  <span class="text-foreground ml-1">{bootstrapResult.connection_target}</span>
+                </p>
+              {/if}
+            </div>
+          {/if}
+
+          <div class="grid gap-3 px-4 py-3 lg:grid-cols-3">
+            <div class="space-y-1.5">
+              <p class="text-foreground text-sm font-medium">{setupGuide.runtimeLabel}</p>
+              <p class="text-muted-foreground text-xs leading-relaxed">
+                {setupGuide.runtimeSummary}
+              </p>
+            </div>
+            <div class="space-y-1.5">
+              <p class="text-foreground text-sm font-medium">{setupGuide.helperLabel}</p>
+              <p class="text-muted-foreground text-xs leading-relaxed">
+                {setupGuide.helperSummary}
+              </p>
+            </div>
+            <div class="space-y-1.5">
+              <p class="text-foreground text-sm font-medium">
+                {i18nStore.t('machines.machineHealthPanel.heading.nextSteps')}
+              </p>
+              <ul class="text-muted-foreground space-y-1.5 text-xs leading-relaxed">
+                {#each setupGuide.nextSteps as step, index (`${step}-${index}`)}
+                  <li>{step}</li>
+                {/each}
+              </ul>
+            </div>
+          </div>
+
+          {#if setupGuide.commands.length > 0}
+            <div class="border-border grid gap-3 border-t px-4 py-4">
+              {#each setupGuide.commands as command (command.title)}
+                <div class="rounded-lg border border-dashed px-3.5 py-3">
+                  <p class="text-foreground text-sm font-medium">{command.title}</p>
+                  <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                    {command.description}
+                  </p>
+                  <pre
+                    class="bg-muted/60 text-foreground mt-3 overflow-x-auto rounded-md px-3 py-2 text-xs whitespace-pre-wrap">{command.command}</pre>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </div>
       {/if}
     </div>

@@ -6,6 +6,7 @@
   import MachineRowCardActions from './machine-row-card-actions.svelte'
   import { buildResourceBars, buildStatusDots, type StatusDot } from './machine-row-card-view'
   import {
+    detectedPlatformFromSnapshot,
     isLocalMachine,
     machineDetectedArchLabel,
     machineDetectedOSLabel,
@@ -49,9 +50,10 @@
 
   const snapshot = $derived(parseMachineSnapshot(machine.resources))
   const localMachine = $derived(isLocalMachine(machine))
+  const detectedPlatform = $derived(detectedPlatformFromSnapshot(snapshot))
   const reachabilityLabel = $derived(machineReachabilityLabel(machine.reachability_mode))
   const platformLabel = $derived(
-    `${machineDetectedOSLabel(machine.detected_os)} / ${machineDetectedArchLabel(machine.detected_arch)}`,
+    `${machineDetectedOSLabel(machine.detected_os ?? detectedPlatform.os)} / ${machineDetectedArchLabel(machine.detected_arch ?? detectedPlatform.arch)}`,
   )
   const detectionLabel = $derived(machineDetectionStatusLabel(machine.detection_status))
   const detectionBadgeClass = $derived(machineDetectionBadgeClass(machine.detection_status))

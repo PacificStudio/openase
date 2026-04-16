@@ -967,6 +967,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/machines/{machineId}/ssh-bootstrap': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Run the SSH bootstrap helper in-process on the server */
+    post: operations['sshBootstrapMachine']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/machines/{machineId}/test': {
     parameters: {
       query?: never
@@ -9323,6 +9340,120 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  sshBootstrapMachine: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    /** @description Run the SSH bootstrap helper in-process on the server request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          control_plane_url?: string
+          listener_address?: string
+          listener_bearer_token?: string
+          listener_path?: string
+          token_ttl_seconds?: number
+          topology?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Run the SSH bootstrap helper in-process on the server response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            result?: {
+              commands?: string[]
+              connection_target?: string
+              environment_file?: string
+              machine_id?: string
+              machine_name?: string
+              remote_binary_path?: string
+              remote_home?: string
+              retry_advice?: string[]
+              rollback_advice?: string[]
+              service_file?: string
+              service_manager?: string
+              service_name?: string
+              service_status?: string
+              summary?: string
+              token_id?: string
+              topology?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
         headers: {
           [name: string]: unknown
         }

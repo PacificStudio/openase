@@ -217,7 +217,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    organizationPermissionForPath(path, method),
 			checkRequired: true,
 		}, true
-	case "/api/v1/machines/:machineId", "/api/v1/machines/:machineId/test", "/api/v1/machines/:machineId/refresh-health", "/api/v1/machines/:machineId/resources":
+	case "/api/v1/machines/:machineId", "/api/v1/machines/:machineId/test", "/api/v1/machines/:machineId/refresh-health", "/api/v1/machines/:machineId/resources", "/api/v1/machines/:machineId/ssh-bootstrap":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverOrganization,
 			resource:      "machine",

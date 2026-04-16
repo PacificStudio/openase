@@ -9,6 +9,7 @@
     getWorkspaceRootRecommendation,
     getWorkspaceRootState,
     isLocalMachine,
+    machineReachabilityLabel,
     normalizeExecutionMode,
     normalizeReachabilityMode,
   } from '../model'
@@ -19,6 +20,8 @@
     MachineReachabilityMode,
     WorkspaceRootState,
   } from '../types'
+  import { ChevronDown, ChevronUp } from '@lucide/svelte'
+  import { slide } from 'svelte/transition'
 
   let {
     machine,
@@ -33,6 +36,14 @@
   const localMachine = $derived(isLocalMachine(machine, draft))
   const reachabilityMode = $derived(normalizeReachabilityMode(draft.reachabilityMode, draft.host))
   const executionMode = $derived(normalizeExecutionMode(draft.executionMode, draft.host))
+
+  // The full topology wizard is overwhelming for an already-created machine.
+  // Collapse it by default for edit mode; expose a "change connection" toggle
+  // so users can still alter the topology when they need to.
+  let guidanceOpen = $state(false)
+  $effect(() => {
+    if (machine === null) guidanceOpen = true
+  })
   const workspaceRootRecommendation = $derived(getWorkspaceRootRecommendation({ draft, machine }))
   const workspaceRootState = $derived(getWorkspaceRootState({ draft, machine }))
 
@@ -60,7 +71,45 @@
     </div>
   {/if}
 
-  <MachineEditorGuidance {machine} {draft} onSelectReachability={updateReachability} />
+  {#if machine}
+    <!-- Existing machine: hide the big guided wizard behind a disclosure. The
+         summary row keeps the current topology visible without the noise. -->
+    <div class="border-border bg-card rounded-lg border">
+      <button
+        type="button"
+        class="hover:bg-muted/40 flex w-full items-center justify-between gap-3 rounded-lg px-3.5 py-2.5 text-left transition-colors"
+        onclick={() => (guidanceOpen = !guidanceOpen)}
+        aria-expanded={guidanceOpen}
+        data-testid="machine-editor-guidance-toggle"
+      >
+        <div class="flex min-w-0 items-center gap-2">
+          <span class="text-foreground text-sm font-medium">
+            {i18nStore.t('machines.machineEditor.connection.heading')}
+          </span>
+          <Badge variant="outline" class="text-[10px]">
+            {machineReachabilityLabel(reachabilityMode)}
+          </Badge>
+        </div>
+        <span class="text-muted-foreground flex items-center gap-1 text-[11px]">
+          {guidanceOpen
+            ? i18nStore.t('machines.machineEditor.connection.hide')
+            : i18nStore.t('machines.machineEditor.connection.change')}
+          {#if guidanceOpen}
+            <ChevronUp class="size-3.5" />
+          {:else}
+            <ChevronDown class="size-3.5" />
+          {/if}
+        </span>
+      </button>
+      {#if guidanceOpen}
+        <div class="border-border border-t px-3.5 py-3" transition:slide={{ duration: 200 }}>
+          <MachineEditorGuidance {machine} {draft} onSelectReachability={updateReachability} />
+        </div>
+      {/if}
+    </div>
+  {:else}
+    <MachineEditorGuidance {machine} {draft} onSelectReachability={updateReachability} />
+  {/if}
 
   <section class="border-border space-y-3 border-t pt-5">
     <h3 class="text-foreground text-sm font-semibold">

@@ -36,6 +36,7 @@
     editorOpen = $bindable(false),
     onRefresh,
     onCreate,
+    onWizardCreated,
     onSearchChange,
     onSelectMachine,
     onDraftChange,
@@ -67,6 +68,7 @@
     editorOpen?: boolean
     onRefresh?: () => void
     onCreate?: () => void
+    onWizardCreated?: (machine: MachineItem) => void
     onSearchChange?: (value: string) => void
     onSelectMachine?: (machineId: string) => void
     onDraftChange?: (field: MachineDraftField, value: string) => void
@@ -117,10 +119,12 @@
     {deletingMachineId}
     bind:editorOpen
     stateMessage={listMessage}
+    organizationId={routeOrgId || null}
     {onSearchChange}
     {onSelectMachine}
     {onDraftChange}
     {onCreate}
+    {onWizardCreated}
     {onRetry}
     {onRefreshHealth}
     {onSave}
