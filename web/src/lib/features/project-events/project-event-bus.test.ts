@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SSEFrame } from '$lib/api/sse'
 import {
-  createProjectReconnectRecoveryTask,
   isProjectDashboardRefreshEvent,
   projectEventAffectsTicketDetailReferences,
   projectEventReferencesTicket,
@@ -12,6 +11,7 @@ import {
   subscribeProjectEvents,
   toProjectEventFrame,
 } from './project-event-bus'
+import { createProjectReconnectRecoveryTask } from './project-reconnect-recovery'
 
 const { connectEventStream } = vi.hoisted(() => ({
   connectEventStream: vi.fn(),

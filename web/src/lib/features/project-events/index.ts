@@ -1,5 +1,4 @@
 export {
-  createProjectReconnectRecoveryTask,
   isProjectDashboardRefreshEvent,
   isProjectUpdateEvent,
   isTicketRunProjectEvent,
@@ -14,5 +13,8 @@ export {
   toProjectEventFrame,
   type ProjectDashboardRefreshSection,
   type ProjectEventEnvelope,
-  type ProjectReconnectRecovery,
 } from './project-event-bus'
+export {
+  createProjectReconnectRecoveryTask,
+  type ProjectReconnectRecovery,
+} from './project-reconnect-recovery'

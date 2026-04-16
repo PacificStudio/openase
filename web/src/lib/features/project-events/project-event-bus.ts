@@ -1,4 +1,5 @@
 import { connectEventStream, type SSEFrame, type StreamConnectionState } from '$lib/api/sse'
+import type { ProjectReconnectRecovery } from './project-reconnect-recovery'
 
 export type ProjectEventEnvelope = {
   topic: string
@@ -21,9 +22,6 @@ export type ProjectDashboardRefreshSection =
 type ProjectEventListener = (event: ProjectEventEnvelope) => void
 type ProjectEventStateListener = (state: StreamConnectionState) => void
 type ProjectEventReconnectListener = () => void
-export type ProjectReconnectRecovery = {
-  sequence: number
-}
 type ProjectEventReconnectRecoveryListener = (recovery: ProjectReconnectRecovery) => void
 
 type ProjectEventSubscriptionOptions = {
@@ -100,40 +98,6 @@ export function subscribeProjectEvents(
   }
 }
 
-// Reconnect recovery runs should refetch authoritative state after an outage window.
-// This helper coalesces quick retry/live flaps into a single in-order recovery pipeline.
-export function createProjectReconnectRecoveryTask(
-  recover: (recovery: ProjectReconnectRecovery) => Promise<void> | void,
-) {
-  let running = false
-  let queued: ProjectReconnectRecovery | null = null
-
-  const drain = async () => {
-    if (running) {
-      return
-    }
-
-    running = true
-    try {
-      while (queued) {
-        const nextRecovery = queued
-        queued = null
-        await recover(nextRecovery)
-      }
-    } finally {
-      running = false
-      if (queued) {
-        void drain()
-      }
-    }
-  }
-
-  return (recovery: ProjectReconnectRecovery) => {
-    queued = recovery
-    void drain()
-  }
-}
-
 export function subscribeProjectEventBusState(
   projectId: string,
   listener: ProjectEventStateListener,
@@ -152,15 +116,12 @@ export function isProjectUpdateEvent(event: Pick<ProjectEventEnvelope, 'type' | 
   return event.topic === 'activity.events' && event.type.startsWith('project_update_')
 }
 
-export function isTicketRunProjectEvent(event: Pick<ProjectEventEnvelope, 'topic'>) {
-  return event.topic === 'ticket.run.events'
-}
+export const isTicketRunProjectEvent = (event: Pick<ProjectEventEnvelope, 'topic'>) =>
+  event.topic === 'ticket.run.events'
 
-export function isProjectDashboardRefreshEvent(
+export const isProjectDashboardRefreshEvent = (
   event: Pick<ProjectEventEnvelope, 'topic' | 'type'>,
-) {
-  return event.topic === projectDashboardRefreshTopic && event.type === projectDashboardRefreshType
-}
+) => event.topic === projectDashboardRefreshTopic && event.type === projectDashboardRefreshType
 
 export function readProjectDashboardRefreshSections(
   event: Pick<ProjectEventEnvelope, 'payload'>,
@@ -191,13 +152,9 @@ export function projectEventAffectsTicketDetailReferences(
   event: Pick<ProjectEventEnvelope, 'topic' | 'type' | 'payload'>,
   ticketId: string,
 ) {
-  if (event.topic === 'ticket.events') {
+  if (event.topic === 'ticket.events')
     return readNestedString(event.payload, ['ticket', 'id']) !== ticketId
-  }
-
-  if (event.topic !== 'activity.events') {
-    return false
-  }
+  if (event.topic !== 'activity.events') return false
 
   const eventType = readNestedString(event.payload, ['event', 'event_type']) ?? event.type
   return (
@@ -307,9 +264,8 @@ function cleanupRuntime(runtime: Runtime) {
     runtime.disconnect === null &&
     runtime.eventListeners.size === 0 &&
     runtime.stateListeners.size === 0
-  ) {
+  )
     runtimes.delete(runtime.projectId)
-  }
 }
 
 function setRuntimeState(runtime: Runtime, state: StreamConnectionState) {
