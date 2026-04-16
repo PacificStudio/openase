@@ -125,3 +125,33 @@ func waitForRuntimeRelayHealth(t *testing.T, relayURL string) {
 	}
 	t.Fatalf("timed out waiting for relay %s", relayURL)
 }
+
+func TestRuntimeLocalRelayManagerKeepsOlderSessionWhenNewerSessionCloses(t *testing.T) {
+	t.Parallel()
+	manager := newRuntimeAPIRelayManager()
+	var first *runtimeAPIRelaySession
+	first = newRuntimeAPIRelaySession(func(_ context.Context, requestID string, _ runtimecontract.APIRelayRequest) error {
+		go func() {
+			_ = first.HandleResponse(requestID, runtimecontract.APIRelayResponse{StatusCode: http.StatusOK, Status: "200 OK", Body: []byte("first")})
+		}()
+		return nil
+	})
+	firstID := manager.SetSession(first)
+	var second *runtimeAPIRelaySession
+	second = newRuntimeAPIRelaySession(func(_ context.Context, requestID string, _ runtimecontract.APIRelayRequest) error {
+		go func() {
+			_ = second.HandleResponse(requestID, runtimecontract.APIRelayResponse{StatusCode: http.StatusOK, Status: "200 OK", Body: []byte("second")})
+		}()
+		return nil
+	})
+	secondID := manager.SetSession(second)
+	manager.ClearSession(secondID, second, context.Canceled)
+	response, err := manager.RoundTrip(context.Background(), runtimecontract.APIRelayRequest{Method: http.MethodGet, URL: "http://example.com"})
+	if err != nil {
+		t.Fatalf("RoundTrip() error = %v", err)
+	}
+	if string(response.Body) != "first" {
+		t.Fatalf("RoundTrip() body = %s", string(response.Body))
+	}
+	manager.ClearSession(firstID, first, context.Canceled)
+}

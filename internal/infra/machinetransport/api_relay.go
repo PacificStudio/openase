@@ -26,8 +26,66 @@ var _ = logging.DeclareComponent("machine-transport-runtime-api-relay")
 var errRuntimeAPIRelayUnavailable = errors.New("runtime api relay is not connected")
 
 type runtimeAPIRelayManager struct {
-	mu      sync.RWMutex
-	session *runtimeAPIRelaySession
+	mu       sync.RWMutex
+	sessions map[string]*runtimeAPIRelaySession
+	order    []string
+}
+
+func newRuntimeAPIRelayManager() *runtimeAPIRelayManager {
+	return &runtimeAPIRelayManager{sessions: map[string]*runtimeAPIRelaySession{}}
+}
+
+func (m *runtimeAPIRelayManager) SetSession(session *runtimeAPIRelaySession) string {
+	if m == nil || session == nil {
+		return ""
+	}
+	sessionID := uuid.NewString()
+	m.mu.Lock()
+	m.sessions[sessionID] = session
+	m.order = append(m.order, sessionID)
+	m.mu.Unlock()
+	return sessionID
+}
+
+func (m *runtimeAPIRelayManager) ClearSession(sessionID string, session *runtimeAPIRelaySession, err error) {
+	if m == nil {
+		return
+	}
+	trimmed := strings.TrimSpace(sessionID)
+	m.mu.Lock()
+	if current, ok := m.sessions[trimmed]; ok && current == session {
+		delete(m.sessions, trimmed)
+	}
+	filtered := m.order[:0]
+	for _, item := range m.order {
+		if item != trimmed {
+			filtered = append(filtered, item)
+		}
+	}
+	m.order = filtered
+	m.mu.Unlock()
+	if session != nil {
+		session.close(err)
+	}
+}
+
+func (m *runtimeAPIRelayManager) RoundTrip(ctx context.Context, request runtimecontract.APIRelayRequest) (runtimecontract.APIRelayResponse, error) {
+	if m == nil {
+		return runtimecontract.APIRelayResponse{}, errRuntimeAPIRelayUnavailable
+	}
+	m.mu.RLock()
+	var session *runtimeAPIRelaySession
+	for i := len(m.order) - 1; i >= 0; i-- {
+		if candidate := m.sessions[m.order[i]]; candidate != nil {
+			session = candidate
+			break
+		}
+	}
+	m.mu.RUnlock()
+	if session == nil {
+		return runtimecontract.APIRelayResponse{}, errRuntimeAPIRelayUnavailable
+	}
+	return session.Do(ctx, request)
 }
 
 type runtimeAPIRelaySession struct {
@@ -40,47 +98,6 @@ type runtimeAPIRelaySession struct {
 type runtimeAPIRelayResult struct {
 	response runtimecontract.APIRelayResponse
 	err      error
-}
-
-func newRuntimeAPIRelayManager() *runtimeAPIRelayManager { return &runtimeAPIRelayManager{} }
-
-func (m *runtimeAPIRelayManager) SetSession(session *runtimeAPIRelaySession) {
-	if m == nil {
-		return
-	}
-	m.mu.Lock()
-	if m.session != nil && m.session != session {
-		m.session.close(errRuntimeAPIRelayUnavailable)
-	}
-	m.session = session
-	m.mu.Unlock()
-}
-
-func (m *runtimeAPIRelayManager) ClearSession(session *runtimeAPIRelaySession, err error) {
-	if m == nil {
-		return
-	}
-	m.mu.Lock()
-	if m.session == session {
-		m.session = nil
-	}
-	m.mu.Unlock()
-	if session != nil {
-		session.close(err)
-	}
-}
-
-func (m *runtimeAPIRelayManager) RoundTrip(ctx context.Context, request runtimecontract.APIRelayRequest) (runtimecontract.APIRelayResponse, error) {
-	if m == nil {
-		return runtimecontract.APIRelayResponse{}, errRuntimeAPIRelayUnavailable
-	}
-	m.mu.RLock()
-	session := m.session
-	m.mu.RUnlock()
-	if session == nil {
-		return runtimecontract.APIRelayResponse{}, errRuntimeAPIRelayUnavailable
-	}
-	return session.Do(ctx, request)
 }
 
 func newRuntimeAPIRelaySession(send func(context.Context, string, runtimecontract.APIRelayRequest) error) *runtimeAPIRelaySession {

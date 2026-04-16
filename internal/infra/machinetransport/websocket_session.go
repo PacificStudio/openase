@@ -172,8 +172,8 @@ func runWebsocketListenerSession(parent context.Context, conn *websocket.Conn, r
 			}
 			return sendEnvelope(ctx, runtimecontract.Envelope{Version: runtimecontract.ProtocolVersion, Type: runtimecontract.MessageTypeRequest, RequestID: requestID, Operation: runtimecontract.OperationAPIRelay, Payload: payload})
 		})
-		relay.SetSession(relaySession)
-		defer relay.ClearSession(relaySession, context.Canceled)
+		relaySessionID := relay.SetSession(relaySession)
+		defer relay.ClearSession(relaySessionID, relaySession, context.Canceled)
 	}
 
 	for {
