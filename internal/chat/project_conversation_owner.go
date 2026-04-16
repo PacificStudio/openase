@@ -14,6 +14,9 @@ const (
 	// LegacyLocalProjectConversationUserID is the previous auth-disabled owner
 	// marker that now converges to instance-admin.
 	LegacyLocalProjectConversationUserID UserID = "local-user:default"
+)
+
+const (
 	browserSessionProjectConversationUserIDPrefix = "browser-session:"
 	humanProjectConversationUserIDPrefix          = "user:"
 )
