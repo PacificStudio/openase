@@ -81,6 +81,8 @@ const (
 	EdgeChatConversations = "chat_conversations"
 	// EdgeNotificationRules holds the string denoting the notification_rules edge name in mutations.
 	EdgeNotificationRules = "notification_rules"
+	// EdgeUserAPIKeys holds the string denoting the user_api_keys edge name in mutations.
+	EdgeUserAPIKeys = "user_api_keys"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
 	EdgeDefaultAgentProvider = "default_agent_provider"
 	// Table holds the table name of the project in the database.
@@ -218,6 +220,13 @@ const (
 	NotificationRulesInverseTable = "notification_rules"
 	// NotificationRulesColumn is the table column denoting the notification_rules relation/edge.
 	NotificationRulesColumn = "project_id"
+	// UserAPIKeysTable is the table that holds the user_api_keys relation/edge.
+	UserAPIKeysTable = "user_api_keys"
+	// UserAPIKeysInverseTable is the table name for the UserAPIKey entity.
+	// It exists in this package in order to avoid circular dependency with the "userapikey" package.
+	UserAPIKeysInverseTable = "user_api_keys"
+	// UserAPIKeysColumn is the table column denoting the user_api_keys relation/edge.
+	UserAPIKeysColumn = "project_id"
 	// DefaultAgentProviderTable is the table that holds the default_agent_provider relation/edge.
 	DefaultAgentProviderTable = "projects"
 	// DefaultAgentProviderInverseTable is the table name for the AgentProvider entity.
@@ -602,6 +611,20 @@ func ByNotificationRules(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 	}
 }
 
+// ByUserAPIKeysCount orders the results by user_api_keys count.
+func ByUserAPIKeysCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newUserAPIKeysStep(), opts...)
+	}
+}
+
+// ByUserAPIKeys orders the results by user_api_keys terms.
+func ByUserAPIKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newUserAPIKeysStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDefaultAgentProviderField orders the results by default_agent_provider field.
 func ByDefaultAgentProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -739,6 +762,13 @@ func newNotificationRulesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(NotificationRulesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, NotificationRulesTable, NotificationRulesColumn),
+	)
+}
+func newUserAPIKeysStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(UserAPIKeysInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, UserAPIKeysTable, UserAPIKeysColumn),
 	)
 }
 func newDefaultAgentProviderStep() *sqlgraph.Step {

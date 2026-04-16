@@ -10,6 +10,7 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagenttoken "github.com/BetterAndBetterII/openase/ent/agenttoken"
 	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	entuserapikey "github.com/BetterAndBetterII/openase/ent/userapikey"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	"github.com/google/uuid"
 )
@@ -107,6 +108,35 @@ func (r *EntRepository) TokenByHash(ctx context.Context, tokenHash string) (doma
 
 func (r *EntRepository) TouchTokenLastUsed(ctx context.Context, tokenID uuid.UUID, usedAt time.Time) error {
 	_, err := r.client.AgentToken.UpdateOneID(tokenID).
+		SetLastUsedAt(usedAt).
+		Save(ctx)
+	return err
+}
+
+func (r *EntRepository) UserAPIKeyByHash(ctx context.Context, tokenHash string) (domain.StoredUserAPIKeyRecord, error) {
+	record, err := r.client.UserAPIKey.Query().
+		Where(entuserapikey.TokenHashEQ(tokenHash)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return domain.StoredUserAPIKeyRecord{}, fmt.Errorf("%w: user api key", domain.ErrNotFound)
+		}
+		return domain.StoredUserAPIKeyRecord{}, err
+	}
+	return domain.StoredUserAPIKeyRecord{
+		ID:         record.ID,
+		UserID:     record.UserID,
+		ProjectID:  record.ProjectID,
+		Name:       record.Name,
+		Scopes:     copyStrings(record.Scopes),
+		Status:     string(record.Status),
+		ExpiresAt:  cloneTimePointer(record.ExpiresAt),
+		LastUsedAt: cloneTimePointer(record.LastUsedAt),
+	}, nil
+}
+
+func (r *EntRepository) TouchUserAPIKeyLastUsed(ctx context.Context, keyID uuid.UUID, usedAt time.Time) error {
+	_, err := r.client.UserAPIKey.UpdateOneID(keyID).
 		SetLastUsedAt(usedAt).
 		Save(ctx)
 	return err

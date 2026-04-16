@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	userapikeydomain "github.com/BetterAndBetterII/openase/internal/domain/userapikey"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	"github.com/google/uuid"
 )
@@ -27,6 +28,12 @@ type rawSecurityOIDCDraftRequest struct {
 	SessionIdleTTL       string   `json:"session_idle_ttl,omitempty"`
 }
 
+type rawCreateProjectUserAPIKeyRequest struct {
+	Name      string   `json:"name"`
+	Scopes    []string `json:"scopes"`
+	ExpiresAt *string  `json:"expires_at,omitempty"`
+}
+
 func parseSaveGitHubOutboundCredentialRequest(
 	projectID uuid.UUID,
 	raw rawSaveGitHubOutboundCredentialRequest,
@@ -47,4 +54,18 @@ func parseGitHubCredentialScopeRequest(projectID uuid.UUID) githubauthservice.Sc
 		ProjectID: projectID,
 		Scope:     githubauthdomain.ScopeProject,
 	}
+}
+
+func parseCreateProjectUserAPIKeyRequest(
+	projectID uuid.UUID,
+	userID uuid.UUID,
+	raw rawCreateProjectUserAPIKeyRequest,
+) (userapikeydomain.CreateInput, error) {
+	return userapikeydomain.ParseCreate(userapikeydomain.ParseCreateInput{
+		ProjectID: projectID.String(),
+		UserID:    userID,
+		Name:      raw.Name,
+		Scopes:    raw.Scopes,
+		ExpiresAt: raw.ExpiresAt,
+	})
 }

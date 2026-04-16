@@ -1092,6 +1092,8 @@ func writeAgentPlatformError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusUnauthorized, "AGENT_TOKEN_NOT_FOUND", err.Error())
 	case errors.Is(err, agentplatform.ErrTokenExpired):
 		return writeAPIError(c, http.StatusUnauthorized, "AGENT_TOKEN_EXPIRED", err.Error())
+	case errors.Is(err, agentplatform.ErrTokenDisabled):
+		return writeAPIError(c, http.StatusUnauthorized, "AGENT_TOKEN_DISABLED", err.Error())
 	case errors.Is(err, agentplatform.ErrInvalidScope):
 		return writeAPIError(c, http.StatusForbidden, "AGENT_SCOPE_INVALID", err.Error())
 	case errors.Is(err, agentplatform.ErrInvalidPrincipal):

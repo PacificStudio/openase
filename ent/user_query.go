@@ -16,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/google/uuid"
 )
 
@@ -28,6 +29,7 @@ type UserQuery struct {
 	predicates                          []predicate.User
 	withOrganizationMemberships         *OrganizationMembershipQuery
 	withAcceptedOrganizationInvitations *OrganizationInvitationQuery
+	withAPIKeys                         *UserAPIKeyQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -101,6 +103,28 @@ func (_q *UserQuery) QueryAcceptedOrganizationInvitations() *OrganizationInvitat
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(organizationinvitation.Table, organizationinvitation.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.AcceptedOrganizationInvitationsTable, user.AcceptedOrganizationInvitationsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAPIKeys chains the current query on the "api_keys" edge.
+func (_q *UserQuery) QueryAPIKeys() *UserAPIKeyQuery {
+	query := (&UserAPIKeyClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(userapikey.Table, userapikey.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.APIKeysTable, user.APIKeysColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -302,6 +326,7 @@ func (_q *UserQuery) Clone() *UserQuery {
 		predicates:                          append([]predicate.User{}, _q.predicates...),
 		withOrganizationMemberships:         _q.withOrganizationMemberships.Clone(),
 		withAcceptedOrganizationInvitations: _q.withAcceptedOrganizationInvitations.Clone(),
+		withAPIKeys:                         _q.withAPIKeys.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -327,6 +352,17 @@ func (_q *UserQuery) WithAcceptedOrganizationInvitations(opts ...func(*Organizat
 		opt(query)
 	}
 	_q.withAcceptedOrganizationInvitations = query
+	return _q
+}
+
+// WithAPIKeys tells the query-builder to eager-load the nodes that are connected to
+// the "api_keys" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithAPIKeys(opts ...func(*UserAPIKeyQuery)) *UserQuery {
+	query := (&UserAPIKeyClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAPIKeys = query
 	return _q
 }
 
@@ -408,9 +444,10 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withOrganizationMemberships != nil,
 			_q.withAcceptedOrganizationInvitations != nil,
+			_q.withAPIKeys != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -446,6 +483,13 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			func(n *User, e *OrganizationInvitation) {
 				n.Edges.AcceptedOrganizationInvitations = append(n.Edges.AcceptedOrganizationInvitations, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAPIKeys; query != nil {
+		if err := _q.loadAPIKeys(ctx, query, nodes,
+			func(n *User) { n.Edges.APIKeys = []*UserAPIKey{} },
+			func(n *User, e *UserAPIKey) { n.Edges.APIKeys = append(n.Edges.APIKeys, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -513,6 +557,36 @@ func (_q *UserQuery) loadAcceptedOrganizationInvitations(ctx context.Context, qu
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "accepted_by_user_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadAPIKeys(ctx context.Context, query *UserAPIKeyQuery, nodes []*User, init func(*User), assign func(*User, *UserAPIKey)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(userapikey.FieldUserID)
+	}
+	query.Where(predicate.UserAPIKey(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.APIKeysColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

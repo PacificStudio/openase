@@ -10,7 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
-const TokenPrefix = "ase_agent_"
+const (
+	TokenPrefix           = "ase_agent_"
+	UserAPIKeyTokenPrefix = "ase_pat_"
+)
 
 const (
 	EnvAPIURL         = "OPENASE_API_URL"
@@ -98,6 +101,7 @@ type PrincipalKind string
 const (
 	PrincipalKindTicketAgent         PrincipalKind = "ticket_agent"
 	PrincipalKindProjectConversation PrincipalKind = "project_conversation"
+	PrincipalKindUserAPIKey          PrincipalKind = "user_api_key"
 )
 
 type ScopeSet []Scope
@@ -120,6 +124,8 @@ func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
 	switch kind {
 	case PrincipalKindProjectConversation:
 		return SupportedScopesForPrincipalKind(kind)
+	case PrincipalKindUserAPIKey:
+		return nil
 	default:
 		return DefaultAgentScopes()
 	}
@@ -201,6 +207,18 @@ func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
 			scopes = append(scopes, scope)
 		}
 		return scopes
+	case PrincipalKindUserAPIKey:
+		return []string{
+			string(ScopeActivityRead),
+			string(ScopeProjectUpdatesRead),
+			string(ScopeProjectUpdatesWrite),
+			string(ScopeReposRead),
+			string(ScopeStatusesList),
+			string(ScopeTicketsCreate),
+			string(ScopeTicketsList),
+			string(ScopeTicketsUpdate),
+			string(ScopeWorkflowsRead),
+		}
 	default:
 		return SupportedAgentScopes()
 	}
@@ -303,6 +321,17 @@ type StoredTokenRecord struct {
 	LastUsedAt     *time.Time
 }
 
+type StoredUserAPIKeyRecord struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	ProjectID  uuid.UUID
+	Name       string
+	Scopes     []string
+	Status     string
+	ExpiresAt  *time.Time
+	LastUsedAt *time.Time
+}
+
 func (c Claims) HasScope(scope Scope) bool {
 	for _, item := range c.Scopes {
 		if item == string(scope) {
@@ -319,6 +348,8 @@ func (c Claims) CreatedBy() string {
 			return c.PrincipalName
 		}
 		return "project-conversation:" + c.PrincipalName
+	case PrincipalKindUserAPIKey:
+		return "user:" + c.PrincipalID.String() + " via user-api-key:" + strings.TrimSpace(c.PrincipalName)
 	default:
 		return "agent:" + c.PrincipalName
 	}

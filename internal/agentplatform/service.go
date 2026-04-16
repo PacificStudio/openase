@@ -84,12 +84,14 @@ const (
 const (
 	PrincipalKindTicketAgent         = domain.PrincipalKindTicketAgent
 	PrincipalKindProjectConversation = domain.PrincipalKindProjectConversation
+	PrincipalKindUserAPIKey          = domain.PrincipalKindUserAPIKey
 )
 
 var (
 	ErrUnavailable       = errors.New("agent platform service unavailable")
 	ErrTokenNotFound     = errors.New("agent token not found")
 	ErrTokenExpired      = errors.New("agent token expired")
+	ErrTokenDisabled     = errors.New("agent token is disabled")
 	ErrInvalidToken      = errors.New("agent token is invalid")
 	ErrInvalidScope      = errors.New("agent token scope is invalid")
 	ErrInvalidPrincipal  = errors.New("agent token principal is invalid")
@@ -261,6 +263,10 @@ func (s *Service) Authenticate(ctx context.Context, rawToken string) (Claims, er
 		return Claims{}, err
 	}
 
+	if strings.HasPrefix(tokenText, domain.UserAPIKeyTokenPrefix) {
+		return s.authenticateUserAPIKey(ctx, tokenText)
+	}
+
 	record, err := s.repo.TokenByHash(ctx, hashToken(tokenText))
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -346,7 +352,10 @@ func (s *Service) ProjectTokenInventory(ctx context.Context, projectID uuid.UUID
 
 func ParseToken(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" || !strings.HasPrefix(trimmed, TokenPrefix) {
+	if trimmed == "" {
+		return "", ErrInvalidToken
+	}
+	if !strings.HasPrefix(trimmed, TokenPrefix) && !strings.HasPrefix(trimmed, domain.UserAPIKeyTokenPrefix) {
 		return "", ErrInvalidToken
 	}
 	return trimmed, nil
@@ -402,6 +411,18 @@ func SupportedScopeGroups() []ScopeGroup {
 
 func SupportedScopeGroupsForPrincipalKind(kind PrincipalKind) []ScopeGroup {
 	return scopeGroupsFor(supportedScopesForPrincipalKind(kind))
+}
+
+func ParseExplicitScopesForPrincipalKind(kind PrincipalKind, raw []string) ([]string, error) {
+	parsed, err := parseExplicitScopesForPrincipalKind(kind, raw)
+	if err != nil {
+		return nil, err
+	}
+	return scopeStrings(parsed), nil
+}
+
+func UserAPIKeyTokenPrefix() string {
+	return domain.UserAPIKeyTokenPrefix
 }
 
 func parseScopes(raw []string) (ScopeSet, error) {
@@ -469,13 +490,29 @@ func resolveTTL(raw time.Duration) time.Duration {
 }
 
 func generateToken(rng io.Reader) (string, string, error) {
+	return generateTokenWithPrefix(rng, TokenPrefix)
+}
+
+func GenerateOpaqueToken(prefix string, rng io.Reader) (string, string, error) {
+	return generateTokenWithPrefix(rng, prefix)
+}
+
+func generateTokenWithPrefix(rng io.Reader, prefix string) (string, string, error) {
 	bytes := make([]byte, 24)
 	if _, err := io.ReadFull(rng, bytes); err != nil {
 		return "", "", fmt.Errorf("generate agent token bytes: %w", err)
 	}
 
-	token := TokenPrefix + base64.RawURLEncoding.EncodeToString(bytes)
+	token := prefix + base64.RawURLEncoding.EncodeToString(bytes)
 	return token, hashToken(token), nil
+}
+
+func TokenPreview(token string) string {
+	trimmed := strings.TrimSpace(token)
+	if len(trimmed) <= 18 {
+		return trimmed
+	}
+	return trimmed[:12] + "..." + trimmed[len(trimmed)-4:]
 }
 
 func hashToken(token string) string {
@@ -616,6 +653,45 @@ func (s *Service) resolvePrincipalIssueInput(ctx context.Context, input IssueInp
 
 func uuidPointer(value uuid.UUID) *uuid.UUID {
 	return &value
+}
+
+func (s *Service) authenticateUserAPIKey(ctx context.Context, rawToken string) (Claims, error) {
+	record, err := s.repo.UserAPIKeyByHash(ctx, hashToken(rawToken))
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return Claims{}, ErrTokenNotFound
+		}
+		return Claims{}, fmt.Errorf("load user api key: %w", err)
+	}
+	if record.Status != "active" {
+		return Claims{}, ErrTokenDisabled
+	}
+	if record.ExpiresAt != nil && record.ExpiresAt.Before(s.now().UTC()) {
+		return Claims{}, ErrTokenExpired
+	}
+	scopes, err := parseExplicitScopesForPrincipalKind(PrincipalKindUserAPIKey, record.Scopes)
+	if err != nil {
+		return Claims{}, err
+	}
+	if err := s.repo.TouchUserAPIKeyLastUsed(ctx, record.ID, s.now().UTC()); err != nil {
+		return Claims{}, fmt.Errorf("touch user api key last_used_at: %w", err)
+	}
+	return Claims{
+		TokenID:       record.ID,
+		PrincipalKind: PrincipalKindUserAPIKey,
+		PrincipalID:   record.UserID,
+		PrincipalName: record.Name,
+		ProjectID:     record.ProjectID,
+		Scopes:        scopeStrings(scopes),
+		ExpiresAt:     timePointerValue(record.ExpiresAt),
+	}, nil
+}
+
+func timePointerValue(value *time.Time) time.Time {
+	if value == nil {
+		return time.Time{}
+	}
+	return value.UTC()
 }
 
 func uuidPointerValue(value *uuid.UUID) uuid.UUID {

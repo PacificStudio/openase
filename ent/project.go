@@ -97,11 +97,13 @@ type ProjectEdges struct {
 	ChatConversations []*ChatConversation `json:"chat_conversations,omitempty"`
 	// NotificationRules holds the value of the notification_rules edge.
 	NotificationRules []*NotificationRule `json:"notification_rules,omitempty"`
+	// UserAPIKeys holds the value of the user_api_keys edge.
+	UserAPIKeys []*UserAPIKey `json:"user_api_keys,omitempty"`
 	// DefaultAgentProvider holds the value of the default_agent_provider edge.
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [20]bool
+	loadedTypes [21]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -277,12 +279,21 @@ func (e ProjectEdges) NotificationRulesOrErr() ([]*NotificationRule, error) {
 	return nil, &NotLoadedError{edge: "notification_rules"}
 }
 
+// UserAPIKeysOrErr returns the UserAPIKeys value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) UserAPIKeysOrErr() ([]*UserAPIKey, error) {
+	if e.loadedTypes[19] {
+		return e.UserAPIKeys, nil
+	}
+	return nil, &NotLoadedError{edge: "user_api_keys"}
+}
+
 // DefaultAgentProviderOrErr returns the DefaultAgentProvider value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ProjectEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[19] {
+	} else if e.loadedTypes[20] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -531,6 +542,11 @@ func (_m *Project) QueryChatConversations() *ChatConversationQuery {
 // QueryNotificationRules queries the "notification_rules" edge of the Project entity.
 func (_m *Project) QueryNotificationRules() *NotificationRuleQuery {
 	return NewProjectClient(_m.config).QueryNotificationRules(_m)
+}
+
+// QueryUserAPIKeys queries the "user_api_keys" edge of the Project entity.
+func (_m *Project) QueryUserAPIKeys() *UserAPIKeyQuery {
+	return NewProjectClient(_m.config).QueryUserAPIKeys(_m)
 }
 
 // QueryDefaultAgentProvider queries the "default_agent_provider" edge of the Project entity.

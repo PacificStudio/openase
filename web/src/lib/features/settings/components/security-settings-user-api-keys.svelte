@@ -1,0 +1,341 @@
+<script lang="ts">
+  import type {
+    CreateProjectUserAPIKeyResponse,
+    DisableProjectUserAPIKeyResponse,
+    ProjectUserAPIKey,
+    SecuritySettingsResponse,
+  } from '$lib/api/contracts'
+  import {
+    createProjectUserAPIKey,
+    deleteProjectUserAPIKey,
+    disableProjectUserAPIKey,
+    listProjectUserAPIKeys,
+    rotateProjectUserAPIKey,
+  } from '$lib/api/openase'
+  import { ScopeGroupPicker } from '$lib/features/workflows'
+  import { appStore } from '$lib/stores/app.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
+  import { ApiError } from '$lib/api/client'
+  import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
+  import { Input } from '$ui/input'
+  import { Label } from '$ui/label'
+
+  type Security = SecuritySettingsResponse['security']
+  type PlainTextResult =
+    | CreateProjectUserAPIKeyResponse
+    | { plain_text_token: string; api_key: ProjectUserAPIKey }
+
+  let { security }: { security: Security } = $props()
+
+  let items = $state<ProjectUserAPIKey[]>([])
+  let loading = $state(false)
+  let error = $state('')
+  let createOpen = $state(false)
+  let revealOpen = $state(false)
+  let currentToken = $state('')
+  let currentTokenName = $state('')
+  let name = $state('')
+  let expiresAtLocal = $state('')
+  let selectedScopes = $state<string[]>([])
+  let mutationKey = $state('')
+
+  const scopeGroups = $derived(security.user_api_keys.allowed_scope_groups ?? [])
+  const availableScopes = $derived(security.user_api_keys.allowed_scopes ?? [])
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      items = []
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      loading = true
+      error = ''
+      try {
+        const payload = await listProjectUserAPIKeys(projectId)
+        if (!cancelled) items = payload.api_keys
+      } catch (caughtError) {
+        if (!cancelled) error = formatError(caughtError)
+      } finally {
+        if (!cancelled) loading = false
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  })
+
+  $effect(() => {
+    selectedScopes = []
+  })
+
+  function formatError(caughtError: unknown): string {
+    return caughtError instanceof ApiError ? caughtError.detail : 'Request failed'
+  }
+
+  function resetDraft() {
+    name = ''
+    expiresAtLocal = ''
+    selectedScopes = []
+  }
+
+  function toRFC3339(localValue: string): string | undefined {
+    const trimmed = localValue.trim()
+    if (!trimmed) return undefined
+    const value = new Date(trimmed)
+    return Number.isNaN(value.getTime()) ? undefined : value.toISOString()
+  }
+
+  function formatTime(value?: string | null): string {
+    if (!value) return 'Never'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleString()
+  }
+
+  async function handleCreate() {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+    mutationKey = 'create'
+    try {
+      const payload = await createProjectUserAPIKey(projectId, {
+        name: name.trim(),
+        scopes: [...selectedScopes],
+        expires_at: toRFC3339(expiresAtLocal) ?? null,
+      })
+      items = [payload.api_key, ...items]
+      showPlainTextToken(payload)
+      toastStore.success('API key created')
+      createOpen = false
+      resetDraft()
+    } catch (caughtError) {
+      toastStore.error(formatError(caughtError))
+    } finally {
+      mutationKey = ''
+    }
+  }
+
+  function showPlainTextToken(payload: PlainTextResult) {
+    currentToken = payload.plain_text_token
+    currentTokenName = payload.api_key.name
+    revealOpen = true
+  }
+
+  async function handleRotate(item: ProjectUserAPIKey) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+    mutationKey = `rotate:${item.id}`
+    try {
+      const payload = await rotateProjectUserAPIKey(projectId, item.id)
+      items = items.map((candidate) => (candidate.id === item.id ? payload.api_key : candidate))
+      showPlainTextToken(payload)
+      toastStore.success('API key rotated')
+    } catch (caughtError) {
+      toastStore.error(formatError(caughtError))
+    } finally {
+      mutationKey = ''
+    }
+  }
+
+  async function handleDisable(item: ProjectUserAPIKey) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+    mutationKey = `disable:${item.id}`
+    try {
+      const payload: DisableProjectUserAPIKeyResponse = await disableProjectUserAPIKey(
+        projectId,
+        item.id,
+      )
+      items = items.map((candidate) => (candidate.id === item.id ? payload.api_key : candidate))
+      toastStore.success('API key disabled')
+    } catch (caughtError) {
+      toastStore.error(formatError(caughtError))
+    } finally {
+      mutationKey = ''
+    }
+  }
+
+  async function handleDelete(item: ProjectUserAPIKey) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+    mutationKey = `delete:${item.id}`
+    try {
+      await deleteProjectUserAPIKey(projectId, item.id)
+      items = items.filter((candidate) => candidate.id !== item.id)
+      toastStore.success('API key deleted')
+    } catch (caughtError) {
+      toastStore.error(formatError(caughtError))
+    } finally {
+      mutationKey = ''
+    }
+  }
+
+  async function copyToken() {
+    try {
+      await navigator.clipboard.writeText(currentToken)
+      toastStore.success('Token copied')
+    } catch {
+      toastStore.error('Copy failed')
+    }
+  }
+</script>
+
+<div class="space-y-4">
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <h3 class="text-sm font-semibold">User API keys</h3>
+      <p class="text-muted-foreground mt-1 text-xs">
+        Create project-scoped API keys for external automation. Plaintext tokens are only shown
+        once.
+      </p>
+    </div>
+    <Dialog.Root bind:open={createOpen}>
+      <Dialog.Trigger>
+        {#snippet child({ props })}
+          <Button size="sm" {...props}>Create key</Button>
+        {/snippet}
+      </Dialog.Trigger>
+      <Dialog.Content class="sm:max-w-2xl">
+        <Dialog.Header>
+          <Dialog.Title>Create project API key</Dialog.Title>
+          <Dialog.Description>
+            Choose a name, an optional expiry, and the scopes this key should carry.
+          </Dialog.Description>
+        </Dialog.Header>
+        <Dialog.Body class="space-y-4">
+          <div class="space-y-2">
+            <Label for="api-key-name">Name</Label>
+            <Input
+              id="api-key-name"
+              value={name}
+              oninput={(event) => (name = (event.currentTarget as HTMLInputElement).value)}
+            />
+          </div>
+          <div class="space-y-2">
+            <Label for="api-key-expires">Expires at</Label>
+            <Input
+              id="api-key-expires"
+              type="datetime-local"
+              value={expiresAtLocal}
+              oninput={(event) =>
+                (expiresAtLocal = (event.currentTarget as HTMLInputElement).value)}
+            />
+          </div>
+          <div class="space-y-2">
+            <Label>Allowed scopes</Label>
+            <ScopeGroupPicker
+              groups={scopeGroups}
+              selected={selectedScopes}
+              onchange={(scopes) => (selectedScopes = scopes)}
+              disabled={mutationKey === 'create'}
+            />
+            {#if scopeGroups.length === 0}
+              <p class="text-muted-foreground text-xs">
+                No mintable scopes are available for your current project permissions.
+              </p>
+            {/if}
+          </div>
+        </Dialog.Body>
+        <Dialog.Footer>
+          <Dialog.Close>
+            {#snippet child({ props })}
+              <Button variant="outline" {...props}>Cancel</Button>
+            {/snippet}
+          </Dialog.Close>
+          <Button
+            onclick={handleCreate}
+            disabled={mutationKey === 'create' || !name.trim() || selectedScopes.length === 0}
+            >Create key</Button
+          >
+        </Dialog.Footer>
+      </Dialog.Content>
+    </Dialog.Root>
+  </div>
+
+  {#if loading}
+    <div class="text-muted-foreground text-sm">Loading API keys...</div>
+  {:else if error}
+    <div class="text-destructive text-sm">{error}</div>
+  {:else if items.length === 0}
+    <div class="bg-muted/30 text-muted-foreground rounded-lg px-4 py-3 text-sm">
+      No project API keys yet.
+    </div>
+  {:else}
+    <div class="space-y-3">
+      {#each items as item (item.id)}
+        <div class="rounded-lg border px-4 py-3">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <div class="text-sm font-medium">{item.name}</div>
+                <span
+                  class="text-muted-foreground rounded-full border px-2 py-0.5 text-[10px] uppercase"
+                  >{item.status}</span
+                >
+              </div>
+              <div class="text-muted-foreground font-mono text-xs">{item.token_hint}</div>
+              <div class="text-muted-foreground text-xs">
+                Created {formatTime(item.created_at)} · Last used {formatTime(item.last_used_at)} · Expires
+                {formatTime(item.expires_at)}
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onclick={() => handleRotate(item)}
+                disabled={mutationKey !== ''}>Rotate</Button
+              >
+              <Button
+                size="sm"
+                variant="outline"
+                onclick={() => handleDisable(item)}
+                disabled={mutationKey !== '' || item.status !== 'active'}>Disable</Button
+              >
+              <Button
+                size="sm"
+                variant="destructive"
+                onclick={() => handleDelete(item)}
+                disabled={mutationKey !== ''}>Delete</Button
+              >
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-1">
+            {#each item.scopes as scope (scope)}
+              <code class="bg-muted rounded px-1.5 py-0.5 text-[10px]">{scope}</code>
+            {/each}
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>
+
+<Dialog.Root bind:open={revealOpen}>
+  <Dialog.Content class="sm:max-w-xl">
+    <Dialog.Header>
+      <Dialog.Title>Copy this API key now</Dialog.Title>
+      <Dialog.Description>
+        {currentTokenName} was created successfully. This plaintext token is only shown once.
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Body class="space-y-3">
+      <div class="bg-muted rounded-lg p-3 font-mono text-xs break-all">{currentToken}</div>
+      <p class="text-muted-foreground text-xs">
+        Store it in your secret manager before closing this dialog. OpenASE only keeps a hashed
+        preview.
+      </p>
+    </Dialog.Body>
+    <Dialog.Footer>
+      <Button variant="outline" onclick={copyToken}>Copy token</Button>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button {...props}>Done</Button>
+        {/snippet}
+      </Dialog.Close>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

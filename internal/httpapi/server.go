@@ -34,6 +34,7 @@ import (
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
+	userapikeyservice "github.com/BetterAndBetterII/openase/internal/service/userapikey"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -70,6 +71,7 @@ type Server struct {
 	githubAuthService           githubauthservice.SecurityManager
 	githubRepoService           githubreposervice.Service
 	secretService               secretsservice.Manager
+	userAPIKeyService           *userapikeyservice.Service
 	instanceAuthService         *accesscontrolservice.Service
 	humanAuthService            *humanauthservice.Service
 	humanAuthorizer             *humanauthservice.Authorizer
@@ -137,6 +139,12 @@ func WithGitHubRepoService(service githubreposervice.Service) ServerOption {
 func WithSecretService(service secretsservice.Manager) ServerOption {
 	return func(server *Server) {
 		server.secretService = service
+	}
+}
+
+func WithUserAPIKeyService(service *userapikeyservice.Service) ServerOption {
+	return func(server *Server) {
+		server.userAPIKeyService = service
 	}
 }
 
