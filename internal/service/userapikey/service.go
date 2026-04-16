@@ -3,6 +3,9 @@ package userapikey
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -10,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/userapikey"
@@ -52,7 +54,7 @@ func (s *Service) List(ctx context.Context, projectID uuid.UUID, principal human
 }
 
 func (s *Service) AllowedScopes(ctx context.Context, projectID uuid.UUID, principal *humanauthdomain.AuthenticatedPrincipal) ([]string, []agentplatformdomain.ScopeGroup, error) {
-	requestedSupported := agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindUserAPIKey)
+	requestedSupported := agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindUserAPIKey)
 	if principal == nil {
 		return requestedSupported, domain.SupportedScopeGroups(requestedSupported), nil
 	}
@@ -89,7 +91,7 @@ func (s *Service) Create(ctx context.Context, principal humanauthdomain.Authenti
 	if err != nil {
 		return domain.CreateResult{}, err
 	}
-	requested, err := agentplatform.ParseExplicitScopesForPrincipalKind(agentplatform.PrincipalKindUserAPIKey, input.Scopes)
+	requested, err := parseSupportedUserAPIKeyScopes(input.Scopes)
 	if err != nil {
 		return domain.CreateResult{}, fmt.Errorf("%w: %v", ErrInvalidInput, err)
 	}
@@ -102,7 +104,7 @@ func (s *Service) Create(ctx context.Context, principal humanauthdomain.Authenti
 	if input.ExpiresAt != nil && !input.ExpiresAt.After(s.now().UTC()) {
 		return domain.CreateResult{}, fmt.Errorf("%w: expires_at must be in the future", ErrInvalidInput)
 	}
-	plainTextToken, tokenHash, err := agentplatform.GenerateOpaqueToken(agentplatform.UserAPIKeyTokenPrefix(), s.rng)
+	plainTextToken, tokenHash, err := generateOpaqueToken(agentplatformdomain.UserAPIKeyTokenPrefix, s.rng)
 	if err != nil {
 		return domain.CreateResult{}, err
 	}
@@ -110,8 +112,8 @@ func (s *Service) Create(ctx context.Context, principal humanauthdomain.Authenti
 		UserID:      input.UserID,
 		ProjectID:   input.ProjectID,
 		Name:        input.Name,
-		TokenPrefix: agentplatform.UserAPIKeyTokenPrefix(),
-		TokenHint:   agentplatform.TokenPreview(plainTextToken),
+		TokenPrefix: agentplatformdomain.UserAPIKeyTokenPrefix,
+		TokenHint:   tokenPreview(plainTextToken),
 		TokenHash:   tokenHash,
 		Scopes:      requested,
 		ExpiresAt:   input.ExpiresAt,
@@ -151,14 +153,14 @@ func (s *Service) Rotate(ctx context.Context, projectID, keyID uuid.UUID, princi
 	if !isSubset(item.Scopes, allowedScopes) {
 		return domain.CreateResult{}, ErrScopeForbidden
 	}
-	plainTextToken, tokenHash, err := agentplatform.GenerateOpaqueToken(agentplatform.UserAPIKeyTokenPrefix(), s.rng)
+	plainTextToken, tokenHash, err := generateOpaqueToken(agentplatformdomain.UserAPIKeyTokenPrefix, s.rng)
 	if err != nil {
 		return domain.CreateResult{}, err
 	}
 	rotated, err := s.repo.Rotate(ctx, keyID, userapikeyrepo.RotateRecord{
 		Name:        item.Name,
-		TokenPrefix: agentplatform.UserAPIKeyTokenPrefix(),
-		TokenHint:   agentplatform.TokenPreview(plainTextToken),
+		TokenPrefix: agentplatformdomain.UserAPIKeyTokenPrefix,
+		TokenHint:   tokenPreview(plainTextToken),
 		TokenHash:   tokenHash,
 		Scopes:      item.Scopes,
 		ExpiresAt:   item.ExpiresAt,
@@ -209,25 +211,25 @@ func scopesForPermissions(permissions []humanauthdomain.PermissionKey) []string 
 	for _, permission := range permissions {
 		switch permission {
 		case humanauthdomain.PermissionProjectRead:
-			mapped = append(mapped, string(agentplatform.ScopeActivityRead))
+			mapped = append(mapped, string(agentplatformdomain.ScopeActivityRead))
 		case humanauthdomain.PermissionProjectUpdateRead:
-			mapped = append(mapped, string(agentplatform.ScopeProjectUpdatesRead))
+			mapped = append(mapped, string(agentplatformdomain.ScopeProjectUpdatesRead))
 		case humanauthdomain.PermissionProjectUpdateCreate,
 			humanauthdomain.PermissionProjectUpdateUpdate,
 			humanauthdomain.PermissionProjectUpdateDelete:
-			mapped = append(mapped, string(agentplatform.ScopeProjectUpdatesWrite))
+			mapped = append(mapped, string(agentplatformdomain.ScopeProjectUpdatesWrite))
 		case humanauthdomain.PermissionRepoRead:
-			mapped = append(mapped, string(agentplatform.ScopeReposRead))
+			mapped = append(mapped, string(agentplatformdomain.ScopeReposRead))
 		case humanauthdomain.PermissionStatusRead:
-			mapped = append(mapped, string(agentplatform.ScopeStatusesList))
+			mapped = append(mapped, string(agentplatformdomain.ScopeStatusesList))
 		case humanauthdomain.PermissionTicketRead:
-			mapped = append(mapped, string(agentplatform.ScopeTicketsList))
+			mapped = append(mapped, string(agentplatformdomain.ScopeTicketsList))
 		case humanauthdomain.PermissionTicketCreate:
-			mapped = append(mapped, string(agentplatform.ScopeTicketsCreate))
+			mapped = append(mapped, string(agentplatformdomain.ScopeTicketsCreate))
 		case humanauthdomain.PermissionTicketUpdate:
-			mapped = append(mapped, string(agentplatform.ScopeTicketsUpdate))
+			mapped = append(mapped, string(agentplatformdomain.ScopeTicketsUpdate))
 		case humanauthdomain.PermissionWorkflowRead, humanauthdomain.PermissionHarnessRead:
-			mapped = append(mapped, string(agentplatform.ScopeWorkflowsRead))
+			mapped = append(mapped, string(agentplatformdomain.ScopeWorkflowsRead))
 		}
 	}
 	return uniqueStrings(mapped)
@@ -263,4 +265,41 @@ func isSubset(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+func parseSupportedUserAPIKeyScopes(raw []string) ([]string, error) {
+	supported := agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindUserAPIKey)
+	result := make([]string, 0, len(raw))
+	for _, item := range raw {
+		scope := strings.TrimSpace(item)
+		if scope == "" {
+			return nil, fmt.Errorf("scope must not be empty")
+		}
+		if !slices.Contains(supported, scope) {
+			return nil, fmt.Errorf("unsupported scope %q", scope)
+		}
+		if !slices.Contains(result, scope) {
+			result = append(result, scope)
+		}
+	}
+	slices.Sort(result)
+	return result, nil
+}
+
+func generateOpaqueToken(prefix string, rng io.Reader) (string, string, error) {
+	bytes := make([]byte, 24)
+	if _, err := io.ReadFull(rng, bytes); err != nil {
+		return "", "", fmt.Errorf("generate user api key bytes: %w", err)
+	}
+	token := prefix + base64.RawURLEncoding.EncodeToString(bytes)
+	sum := sha256.Sum256([]byte(token))
+	return token, hex.EncodeToString(sum[:]), nil
+}
+
+func tokenPreview(token string) string {
+	trimmed := strings.TrimSpace(token)
+	if len(trimmed) <= 18 {
+		return trimmed
+	}
+	return trimmed[:12] + "..." + trimmed[len(trimmed)-4:]
 }

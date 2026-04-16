@@ -41,7 +41,6 @@
   let mutationKey = $state('')
 
   const scopeGroups = $derived(security.user_api_keys.allowed_scope_groups ?? [])
-  const availableScopes = $derived(security.user_api_keys.allowed_scopes ?? [])
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -66,10 +65,6 @@
     return () => {
       cancelled = true
     }
-  })
-
-  $effect(() => {
-    selectedScopes = []
   })
 
   function formatError(caughtError: unknown): string {
