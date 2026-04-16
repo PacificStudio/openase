@@ -8,6 +8,7 @@ import {
   listWorkflows,
 } from '$lib/api/openase'
 import { subscribeProjectEvents } from '$lib/features/project-events'
+import { createProjectReconnectRecoveryTask } from '$lib/features/project-events'
 import { statusSync } from '$lib/features/statuses/public'
 import {
   markProjectBoardCacheDirty,
@@ -243,10 +244,10 @@ export function createTicketsPageController() {
         requestReload(projectId)
       },
       {
-        onReconnect: () => {
+        onReconnectRecovery: createProjectReconnectRecoveryTask(() => {
           markProjectBoardCacheDirty(projectId)
           requestReload(projectId)
-        },
+        }),
       },
     )
 

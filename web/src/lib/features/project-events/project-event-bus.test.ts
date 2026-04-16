@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SSEFrame } from '$lib/api/sse'
 import {
+  createProjectReconnectRecoveryTask,
   isProjectDashboardRefreshEvent,
   projectEventAffectsTicketDetailReferences,
   projectEventReferencesTicket,
@@ -230,5 +231,60 @@ describe('projectEventBus', () => {
 
     unsubscribe()
     releaseShell()
+  })
+
+  it('emits ordered reconnect recovery sequences for each retry to live transition', () => {
+    const disconnect = vi.fn()
+    connectEventStream.mockReturnValue(disconnect)
+
+    const releaseShell = retainProjectEventBus('project-1')
+    const onReconnectRecovery = vi.fn()
+    const unsubscribe = subscribeProjectEvents('project-1', vi.fn(), { onReconnectRecovery })
+
+    const options = connectEventStream.mock.calls[0]?.[1] as {
+      onStateChange: (state: 'live' | 'idle' | 'connecting' | 'retrying') => void
+    }
+
+    options.onStateChange('connecting')
+    options.onStateChange('live')
+    expect(onReconnectRecovery).not.toHaveBeenCalled()
+
+    options.onStateChange('retrying')
+    options.onStateChange('live')
+    options.onStateChange('retrying')
+    options.onStateChange('live')
+
+    expect(onReconnectRecovery.mock.calls).toEqual([[{ sequence: 1 }], [{ sequence: 2 }]])
+
+    unsubscribe()
+    releaseShell()
+  })
+
+  it('coalesces quick reconnect recoveries into a single latest rerun while work is in flight', async () => {
+    const completions: Array<() => void> = []
+    const recover = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          completions.push(resolve)
+        }),
+    )
+    const runRecovery = createProjectReconnectRecoveryTask(recover)
+
+    runRecovery({ sequence: 1 })
+    await Promise.resolve()
+    expect(recover).toHaveBeenCalledTimes(1)
+    expect(recover).toHaveBeenNthCalledWith(1, { sequence: 1 })
+
+    runRecovery({ sequence: 2 })
+    runRecovery({ sequence: 3 })
+    await Promise.resolve()
+    expect(recover).toHaveBeenCalledTimes(1)
+
+    completions.shift()?.()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(recover).toHaveBeenCalledTimes(2)
+    expect(recover).toHaveBeenNthCalledWith(2, { sequence: 3 })
   })
 })

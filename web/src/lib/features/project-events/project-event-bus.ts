@@ -21,9 +21,14 @@ export type ProjectDashboardRefreshSection =
 type ProjectEventListener = (event: ProjectEventEnvelope) => void
 type ProjectEventStateListener = (state: StreamConnectionState) => void
 type ProjectEventReconnectListener = () => void
+export type ProjectReconnectRecovery = {
+  sequence: number
+}
+type ProjectEventReconnectRecoveryListener = (recovery: ProjectReconnectRecovery) => void
 
 type ProjectEventSubscriptionOptions = {
   onReconnect?: ProjectEventReconnectListener
+  onReconnectRecovery?: ProjectEventReconnectRecoveryListener
 }
 
 type Runtime = {
@@ -31,9 +36,11 @@ type Runtime = {
   retainers: number
   state: StreamConnectionState
   hasConnected: boolean
+  reconnectSequence: number
   disconnect: (() => void) | null
   eventListeners: Set<ProjectEventListener>
   reconnectListeners: Set<ProjectEventReconnectListener>
+  reconnectRecoveryListeners: Set<ProjectEventReconnectRecoveryListener>
   stateListeners: Set<ProjectEventStateListener>
 }
 
@@ -77,13 +84,53 @@ export function subscribeProjectEvents(
   if (options.onReconnect) {
     runtime.reconnectListeners.add(options.onReconnect)
   }
+  if (options.onReconnectRecovery) {
+    runtime.reconnectRecoveryListeners.add(options.onReconnectRecovery)
+  }
 
   return () => {
     runtime.eventListeners.delete(listener)
     if (options.onReconnect) {
       runtime.reconnectListeners.delete(options.onReconnect)
     }
+    if (options.onReconnectRecovery) {
+      runtime.reconnectRecoveryListeners.delete(options.onReconnectRecovery)
+    }
     cleanupRuntime(runtime)
+  }
+}
+
+// Reconnect recovery runs should refetch authoritative state after an outage window.
+// This helper coalesces quick retry/live flaps into a single in-order recovery pipeline.
+export function createProjectReconnectRecoveryTask(
+  recover: (recovery: ProjectReconnectRecovery) => Promise<void> | void,
+) {
+  let running = false
+  let queued: ProjectReconnectRecovery | null = null
+
+  const drain = async () => {
+    if (running) {
+      return
+    }
+
+    running = true
+    try {
+      while (queued) {
+        const nextRecovery = queued
+        queued = null
+        await recover(nextRecovery)
+      }
+    } finally {
+      running = false
+      if (queued) {
+        void drain()
+      }
+    }
+  }
+
+  return (recovery: ProjectReconnectRecovery) => {
+    queued = recovery
+    void drain()
   }
 }
 
@@ -200,9 +247,11 @@ function getRuntime(projectId: string): Runtime {
     retainers: 0,
     state: 'idle',
     hasConnected: false,
+    reconnectSequence: 0,
     disconnect: null,
     eventListeners: new Set(),
     reconnectListeners: new Set(),
+    reconnectRecoveryListeners: new Set(),
     stateListeners: new Set(),
   }
   runtimes.set(projectId, created)
@@ -232,11 +281,17 @@ function ensureRuntimeConnection(runtime: Runtime) {
         runtime.hasConnected = true
       } else if (state === 'idle') {
         runtime.hasConnected = false
+        runtime.reconnectSequence = 0
       }
       setRuntimeState(runtime, state)
       if (reconnected) {
+        runtime.reconnectSequence += 1
+        const recovery = { sequence: runtime.reconnectSequence }
         for (const listener of [...runtime.reconnectListeners]) {
           listener()
+        }
+        for (const listener of [...runtime.reconnectRecoveryListeners]) {
+          listener(recovery)
         }
       }
     },

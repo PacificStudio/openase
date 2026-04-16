@@ -6,6 +6,7 @@ import {
   makeProjectUpdatesPayload,
   makeThreadRecord,
   projectFixture,
+  subscribeProjectEvents,
   setupProjectUpdatesPageTest,
 } from './project-updates-page.test-support'
 import { ProjectUpdatesPage } from '..'
@@ -78,6 +79,40 @@ describe('ProjectUpdatesPage cache behavior', () => {
 
     await waitFor(() => {
       expect(secondRender.getByText('Sprint 2 rollout (fresh)')).toBeTruthy()
+    })
+  })
+
+  it('revalidates updates after reconnect even when no later stream event arrives', async () => {
+    appStore.currentProject = projectFixture
+    listProjectUpdates
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({
+          threads: [makeThreadRecord({ body_markdown: 'Sprint 2 rollout' })],
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({
+          threads: [
+            makeThreadRecord({
+              title: 'Recovered rollout status',
+              body_markdown: 'Recovered rollout status',
+              last_activity_at: '2026-04-01T12:00:00Z',
+            }),
+          ],
+        }),
+      )
+
+    const view = render(ProjectUpdatesPage)
+    expect(await view.findByText('Sprint 2 rollout')).toBeTruthy()
+
+    for (const [, , options] of subscribeProjectEvents.mock.calls) {
+      ;(options as { onReconnectRecovery?: (recovery: { sequence: number }) => void } | undefined)
+        ?.onReconnectRecovery?.({ sequence: 1 })
+    }
+
+    await waitFor(() => {
+      expect(listProjectUpdates).toHaveBeenCalledTimes(2)
+      expect(view.getByText('Recovered rollout status')).toBeTruthy()
     })
   })
 })
