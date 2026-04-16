@@ -44,9 +44,8 @@ function createAdvisoryMermaidPlugin() {
       return {
         initialize() {},
         async render() {
-          const { default: createDOMPurify } = await import(
-            '../../../../node_modules/.pnpm/dompurify@3.4.0/node_modules/dompurify/dist/purify.es.mjs'
-          )
+          const { default: createDOMPurify } =
+            await import('../../../../node_modules/.pnpm/dompurify@3.4.0/node_modules/dompurify/dist/purify.es.mjs')
           const domPurify = createDOMPurify(window)
           const svg = domPurify.sanitize(
             [
@@ -175,12 +174,7 @@ describe('Streamdown mermaid security', () => {
   it('preserves FORBID_TAGS when mermaid-style sanitization adds foreignObject tags', async () => {
     const { container } = render(Streamdown, {
       props: {
-        content: [
-          '```mermaid',
-          'graph TD',
-          '  A --> B',
-          '```',
-        ].join('\n'),
+        content: ['```mermaid', 'graph TD', '  A --> B', '```'].join('\n'),
         mode: 'static',
         plugins: {
           mermaid: createAdvisoryMermaidPlugin(),
