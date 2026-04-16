@@ -9368,7 +9368,7 @@ export interface operations {
         'application/json': {
           /** @description Optional control-plane base URL override written into the remote environment file. Defaults to the incoming request URL. */
           control_plane_url?: string
-          /** @description Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837. */
+          /** @description Remote websocket listener bind address when installing the remote-listener topology. Defaults to the bind address derived from advertised_endpoint, or 127.0.0.1:19837 when no endpoint is available. */
           listener_address?: string
           /** @description Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present. */
           listener_bearer_token?: string

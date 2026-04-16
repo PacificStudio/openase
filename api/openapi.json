@@ -11699,7 +11699,7 @@
                     "type": "string"
                   },
                   "listener_address": {
-                    "description": "Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837.",
+                    "description": "Remote websocket listener bind address when installing the remote-listener topology. Defaults to the bind address derived from advertised_endpoint, or 127.0.0.1:19837 when no endpoint is available.",
                     "type": "string"
                   },
                   "listener_bearer_token": {
