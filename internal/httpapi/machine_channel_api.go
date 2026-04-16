@@ -1,11 +1,16 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"time"
 
@@ -209,6 +214,17 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "runtime_delivery_failed", err)
 				return nil
 			}
+		case domain.MessageTypeAPIRequest:
+			requestPayload, decodeErr := domain.DecodePayload[domain.APIRelayRequest](envelope)
+			if decodeErr != nil {
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "invalid_api_request", decodeErr)
+				return nil
+			}
+			responsePayload := s.dispatchMachineAPIRequest(requestPayload)
+			if err := writeMachineEnvelope(conn, domain.MessageTypeAPIResponse, sessionID, responsePayload); err != nil {
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "api_response_failed", err)
+				return nil
+			}
 		default:
 			s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "unexpected_message", domain.ErrUnexpectedMessage)
 			return nil
@@ -239,6 +255,62 @@ func runtimeEnvelopeFromMachineEnvelope(envelope domain.Envelope) (runtimecontra
 		return runtimecontract.Envelope{}, err
 	}
 	return runtimeEnvelope, nil
+}
+
+func (s *Server) dispatchMachineAPIRequest(request domain.APIRelayRequest) domain.APIRelayResponse {
+	response := domain.APIRelayResponse{RequestID: strings.TrimSpace(request.RequestID)}
+	method := strings.ToUpper(strings.TrimSpace(request.Method))
+	if method == "" {
+		method = http.MethodGet
+	}
+	targetURL := strings.TrimSpace(request.URL)
+	parsedURL, err := url.Parse(targetURL)
+	if err != nil {
+		response.StatusCode = http.StatusBadRequest
+		response.Status = http.StatusText(http.StatusBadRequest)
+		response.Headers = map[string][]string{"Content-Type": {"application/json"}}
+		response.Body = []byte(`{"error":"invalid relay url"}`)
+		return response
+	}
+	requestURI := parsedURL.RequestURI()
+	if requestURI == "" {
+		requestURI = parsedURL.Path
+	}
+	if requestURI == "" {
+		requestURI = "/"
+	}
+	httpRequest := httptest.NewRequest(method, requestURI, bytes.NewReader(request.Body))
+	httpRequest.Header = http.Header{}
+	for key, values := range request.Headers {
+		for _, value := range values {
+			httpRequest.Header.Add(key, value)
+		}
+	}
+	if parsedURL.Host != "" {
+		httpRequest.Host = parsedURL.Host
+	}
+	if parsedURL.Scheme == "https" {
+		httpRequest.TLS = &tls.ConnectionState{}
+		httpRequest.Header.Set("X-Forwarded-Proto", "https")
+	}
+	recorder := httptest.NewRecorder()
+	s.Handler().ServeHTTP(recorder, httpRequest)
+	result := recorder.Result()
+	defer func() {
+		_ = result.Body.Close()
+	}()
+	body, readErr := io.ReadAll(result.Body)
+	if readErr != nil {
+		body = []byte(`{"error":"read relay response failed"}`)
+		result.StatusCode = http.StatusInternalServerError
+		result.Status = fmt.Sprintf("%d %s", result.StatusCode, http.StatusText(result.StatusCode))
+		result.Header = http.Header{"Content-Type": {"application/json"}}
+	}
+	response.StatusCode = result.StatusCode
+	response.Status = result.Status
+	response.Headers = map[string][]string(result.Header.Clone())
+	response.Body = body
+	return response
 }
 
 func (s *Server) runMachineSessionExpiryLoop(ctx context.Context) {
