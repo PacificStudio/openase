@@ -13,11 +13,14 @@ import (
 const (
 	TokenPrefix = "ase_machine_"
 
-	EnvMachineID                = "OPENASE_MACHINE_ID"
-	EnvMachineChannelToken      = "OPENASE_MACHINE_CHANNEL_TOKEN" // #nosec G101 -- environment variable key name, not a credential
-	EnvMachineControlPlaneURL   = "OPENASE_MACHINE_CONTROL_PLANE_URL"
-	EnvMachineHeartbeatInterval = "OPENASE_MACHINE_HEARTBEAT_INTERVAL"
-	EnvMachineAgentCLIPathsJSON = "OPENASE_MACHINE_AGENT_CLI_PATHS_JSON"
+	EnvMachineID                    = "OPENASE_MACHINE_ID"
+	EnvMachineChannelToken          = "OPENASE_MACHINE_CHANNEL_TOKEN" // #nosec G101 -- environment variable key name, not a credential
+	EnvMachineControlPlaneURL       = "OPENASE_MACHINE_CONTROL_PLANE_URL"
+	EnvMachineHeartbeatInterval     = "OPENASE_MACHINE_HEARTBEAT_INTERVAL"
+	EnvMachineAgentCLIPathsJSON     = "OPENASE_MACHINE_AGENT_CLI_PATHS_JSON"
+	EnvMachineLocalRelayURL         = "OPENASE_MACHINE_LOCAL_RELAY_URL"
+	EnvMachineLocalRelayAddress     = "OPENASE_MACHINE_LOCAL_RELAY_ADDRESS"
+	DefaultMachineLocalRelayAddress = "127.0.0.1:19839"
 )
 
 var (
@@ -151,6 +154,8 @@ const (
 	MessageTypeError         MessageType = "error"
 	MessageTypeRetryAfter    MessageType = "retry_after"
 	MessageTypeRuntime       MessageType = "runtime"
+	MessageTypeAPIRequest    MessageType = "api_request"
+	MessageTypeAPIResponse   MessageType = "api_response"
 )
 
 const ProtocolVersion = 1
@@ -292,6 +297,37 @@ type ResourceSnapshot struct {
 	FullAudit         *FullAudit `json:"full_audit,omitempty"`
 }
 
+type APIRelayRequest struct {
+	RequestID string              `json:"request_id"`
+	Method    string              `json:"method"`
+	URL       string              `json:"url"`
+	Headers   map[string][]string `json:"headers,omitempty"`
+	Body      []byte              `json:"body,omitempty"`
+}
+
+type APIRelayResponse struct {
+	RequestID  string              `json:"request_id"`
+	StatusCode int                 `json:"status_code"`
+	Status     string              `json:"status"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       []byte              `json:"body,omitempty"`
+}
+
+type LocalRelayRequest struct {
+	Method  string              `json:"method"`
+	URL     string              `json:"url"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    []byte              `json:"body,omitempty"`
+}
+
+type LocalRelayResponse struct {
+	StatusCode int                 `json:"status_code,omitempty"`
+	Status     string              `json:"status,omitempty"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       []byte              `json:"body,omitempty"`
+	Error      string              `json:"error,omitempty"`
+}
+
 func ParseToken(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" || !strings.HasPrefix(trimmed, TokenPrefix) {
@@ -320,7 +356,9 @@ func ParseEnvelope(raw []byte) (Envelope, error) {
 		MessageTypeToolInventory,
 		MessageTypeError,
 		MessageTypeRetryAfter,
-		MessageTypeRuntime:
+		MessageTypeRuntime,
+		MessageTypeAPIRequest,
+		MessageTypeAPIResponse:
 	default:
 		return Envelope{}, fmt.Errorf("%w: unsupported message type %q", ErrUnexpectedMessage, strings.TrimSpace(string(envelope.Type)))
 	}

@@ -436,6 +436,7 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 		ctx,
 		conversation,
 		project,
+		catalogdomain.Machine{},
 		providerItem,
 		&ProjectConversationFocus{
 			Kind: ProjectConversationFocusTicket,
@@ -476,7 +477,7 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	}
 
 	platform.lastInput = agentplatform.IssueInput{}
-	environment, err = service.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, nil)
+	environment, err = service.buildConversationRuntimeEnvironment(ctx, conversation, project, catalogdomain.Machine{}, providerItem, nil)
 	if err != nil {
 		t.Fatalf("build conversation runtime environment without ticket focus: %v", err)
 	}
@@ -561,7 +562,7 @@ func TestProjectConversationRuntimeEnvironmentFiltersLegacyInvalidScopes(t *test
 		MachineHost:    catalogdomain.LocalMachineHost,
 	}
 
-	environment, err := service.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, nil)
+	environment, err := service.buildConversationRuntimeEnvironment(ctx, conversation, project, catalogdomain.Machine{}, providerItem, nil)
 	if err != nil {
 		t.Fatalf("build conversation runtime environment: %v", err)
 	}
@@ -576,6 +577,43 @@ func TestProjectConversationRuntimeEnvironmentFiltersLegacyInvalidScopes(t *test
 	}
 	if !containsEnvironmentPrefix(environment, "OPENASE_AGENT_SCOPES=tickets.list") {
 		t.Fatalf("expected filtered OPENASE_AGENT_SCOPES in environment, got %+v", environment)
+	}
+}
+
+func TestProjectConversationRuntimeEnvironmentInjectsRemoteOpenASERealBin(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	service := NewProjectConversationService(nil, nil, nil, nil, nil, nil, nil)
+	conversation := chatdomain.Conversation{
+		ID:         uuid.New(),
+		ProjectID:  uuid.New(),
+		ProviderID: uuid.New(),
+	}
+	project := catalogdomain.Project{
+		ID:             conversation.ProjectID,
+		OrganizationID: uuid.New(),
+		Name:           "OpenASE",
+		Slug:           "openase",
+	}
+	providerItem := catalogdomain.AgentProvider{
+		ID:             conversation.ProviderID,
+		OrganizationID: project.OrganizationID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+		MachineHost:    "listener.internal",
+	}
+	sshUser := "agentuser"
+	machine := catalogdomain.Machine{
+		Host:    "listener.internal",
+		SSHUser: &sshUser,
+	}
+
+	environment, err := service.buildConversationRuntimeEnvironment(ctx, conversation, project, machine, providerItem, nil)
+	if err != nil {
+		t.Fatalf("build conversation runtime environment: %v", err)
+	}
+	if !containsEnvironmentPrefix(environment, "OPENASE_REAL_BIN=/home/agentuser/.openase/bin/openase") {
+		t.Fatalf("expected remote OPENASE_REAL_BIN in environment, got %+v", environment)
 	}
 }
 
@@ -6354,6 +6392,12 @@ func (s *projectConversationSSHPrepareSession) Start(string) error {
 	return fmt.Errorf("not supported")
 }
 
+func (s *projectConversationSSHPrepareSession) StartPTY(string, int, int) error {
+	return fmt.Errorf("not supported")
+}
+
+func (s *projectConversationSSHPrepareSession) Resize(int, int) error { return nil }
+
 func (s *projectConversationSSHPrepareSession) Signal(string) error { return nil }
 
 func (s *projectConversationSSHPrepareSession) Wait() error { return nil }
@@ -6391,6 +6435,13 @@ func (s *projectConversationSSHProcessSession) Start(cmd string) error {
 	s.startedCommand = cmd
 	return nil
 }
+
+func (s *projectConversationSSHProcessSession) StartPTY(cmd string, _ int, _ int) error {
+	s.startedCommand = cmd
+	return nil
+}
+
+func (s *projectConversationSSHProcessSession) Resize(int, int) error { return nil }
 
 func (s *projectConversationSSHProcessSession) Signal(string) error { return nil }
 

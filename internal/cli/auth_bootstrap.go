@@ -68,7 +68,7 @@ func newAuthBootstrapCommand(options *rootOptions) *cobra.Command {
 		Short: "Create and redeem local bootstrap browser authorization links.",
 	}
 	command.AddCommand(newAuthBootstrapCreateLinkCommand(options))
-	command.AddCommand(newAuthBootstrapLoginCommand(options, authBootstrapLoginDeps{httpClient: http.DefaultClient}))
+	command.AddCommand(newAuthBootstrapLoginCommand(options, authBootstrapLoginDeps{httpClient: defaultCLIHTTPDoer()}))
 	return command
 }
 
@@ -158,7 +158,7 @@ long-lived bearer token.
 
 func newAuthBootstrapLoginCommand(options *rootOptions, deps authBootstrapLoginDeps) *cobra.Command {
 	if deps.httpClient == nil {
-		deps.httpClient = http.DefaultClient
+		deps.httpClient = defaultCLIHTTPDoer()
 	}
 
 	var (

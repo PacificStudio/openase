@@ -73,8 +73,12 @@ func (s runtimeExecutionSlice) startReadyExecutions(ctx context.Context) error {
 			executingAt,
 		)
 
+		executionCtx := context.Background()
+		if ctx != nil {
+			executionCtx = context.WithoutCancel(ctx)
+		}
 		//nolint:gosec // runtime executions intentionally continue asynchronously after the launcher tick claims the run.
-		go s.runReadyExecution(ctx, assignment.run.ID)
+		go s.runReadyExecution(executionCtx, assignment.run.ID)
 	}
 
 	return nil
