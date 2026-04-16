@@ -2619,7 +2619,7 @@ var (
 	// #nosec G101 -- OpenAPI request field descriptions mention token names but do not embed secrets.
 	openAPIMachineSSHBootstrapRequestDescriptions = map[string]string{
 		"topology":              "Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology.",
-		"listener_address":      "Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837.",
+		"listener_address":      "Remote websocket listener bind address when installing the remote-listener topology. Defaults to the bind address derived from advertised_endpoint, or 127.0.0.1:19837 when no endpoint is available.",
 		"listener_path":         "Remote websocket listener HTTP path when installing the remote-listener topology. Defaults to /openase/runtime.",
 		"listener_bearer_token": "Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present.",
 		"control_plane_url":     "Optional control-plane base URL override written into the remote environment file. Defaults to the incoming request URL.",

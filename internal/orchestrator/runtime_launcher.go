@@ -604,7 +604,8 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 				return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageRuntimeSnapshot, fmt.Errorf("materialize runtime snapshot: %w", err))
 			}
 		}
-		if err := l.runRemoteRuntimePreflight(sessionCtx, machine, remote, workingDirectoryValue, command.String(), environment); err != nil {
+		environment, err = l.runRemoteRuntimePreflight(sessionCtx, machine, remote, workingDirectoryValue, command.String(), environment)
+		if err != nil {
 			return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, classifyRuntimeLaunchPreflightStage(err), err)
 		}
 		workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
@@ -713,14 +714,14 @@ func (l *RuntimeLauncher) runRemoteRuntimePreflight(
 	workingDirectory string,
 	command string,
 	environment []string,
-) error {
+) ([]string, error) {
 	if !remote || l == nil || l.transports == nil {
-		return nil
+		return append([]string(nil), environment...), nil
 	}
 
 	resolved, err := l.transports.ResolveRuntime(machine)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resolved.Execution.Runtime == nil ||
 		!resolved.Execution.Runtime.SupportsAll(
@@ -729,14 +730,27 @@ func (l *RuntimeLauncher) runRemoteRuntimePreflight(
 			catalogdomain.MachineTransportCapabilityProcessStreaming,
 		) ||
 		resolved.CommandSessionExecutor() == nil {
-		return nil
+		return append([]string(nil), environment...), nil
 	}
 
-	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.CommandSessionExecutor(), machine, machinetransport.RuntimePreflightSpec{
+	preparedEnvironment, err := machinetransport.PrepareRemoteOpenASEEnvironment(
+		ctx,
+		resolved.CommandSessionExecutor(),
+		resolved.ArtifactSyncExecutor(),
+		machine,
+		environment,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := machinetransport.RunRemoteRuntimePreflight(ctx, resolved.CommandSessionExecutor(), machine, machinetransport.RuntimePreflightSpec{
 		WorkingDirectory: workingDirectory,
 		AgentCommand:     command,
-		Environment:      environment,
-	})
+		Environment:      preparedEnvironment,
+	}); err != nil {
+		return nil, err
+	}
+	return preparedEnvironment, nil
 }
 
 func (l *RuntimeLauncher) buildGitHubOutboundEnvironment(

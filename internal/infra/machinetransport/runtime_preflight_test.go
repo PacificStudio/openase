@@ -3,6 +3,8 @@ package machinetransport
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -10,8 +12,44 @@ import (
 	"testing"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
+
+func TestPrepareRemoteOpenASEEnvironmentRepairsMissingBinary(t *testing.T) {
+	t.Parallel()
+
+	remoteHome := "/home/agentuser"
+	existing := map[string]bool{}
+	commandExecutor := &fakeRuntimePreflightCommandExecutor{
+		home:     remoteHome,
+		existing: existing,
+	}
+	artifactSync := &fakeRuntimePreflightArtifactSync{
+		onSync: func(request SyncArtifactsRequest) {
+			existing[filepath.ToSlash(filepath.Join(request.TargetRoot, request.Paths[0]))] = true
+		},
+	}
+
+	environment, err := PrepareRemoteOpenASEEnvironment(context.Background(), commandExecutor, artifactSync, runtimePreflightTestMachine(""), []string{"PATH=/usr/bin"})
+	if err != nil {
+		t.Fatalf("PrepareRemoteOpenASEEnvironment() error = %v", err)
+	}
+	wantBin := filepath.ToSlash(filepath.Join(remoteHome, defaultRemoteOpenASEBinRelativePath))
+	if got, ok := provider.LookupEnvironmentValue(environment, "OPENASE_REAL_BIN"); !ok || got != wantBin {
+		t.Fatalf("OPENASE_REAL_BIN = %q, %v, want %q", got, ok, wantBin)
+	}
+	if artifactSync.calls != 1 {
+		t.Fatalf("artifact sync calls = %d, want 1", artifactSync.calls)
+	}
+	if !existing[wantBin] {
+		t.Fatalf("expected repaired binary at %s", wantBin)
+	}
+	if got := commandExecutor.homeLookups; got == 0 {
+		t.Fatal("expected remote home lookup")
+	}
+}
 
 func TestRunRemoteRuntimePreflightOverWebsocketListener(t *testing.T) {
 	t.Parallel()
@@ -154,3 +192,60 @@ exit 0
 		t.Fatalf("WriteFile(fake openase) error = %v", err)
 	}
 }
+
+type fakeRuntimePreflightArtifactSync struct {
+	calls  int
+	onSync func(SyncArtifactsRequest)
+}
+
+func (f *fakeRuntimePreflightArtifactSync) SyncArtifacts(_ context.Context, _ domain.Machine, request SyncArtifactsRequest) error {
+	f.calls++
+	if f.onSync != nil {
+		f.onSync(request)
+	}
+	return nil
+}
+
+type fakeRuntimePreflightCommandExecutor struct {
+	home        string
+	existing    map[string]bool
+	homeLookups int
+}
+
+func (f *fakeRuntimePreflightCommandExecutor) OpenCommandSession(context.Context, domain.Machine) (CommandSession, error) {
+	return &fakeRuntimePreflightCommandSession{executor: f}, nil
+}
+
+type fakeRuntimePreflightCommandSession struct {
+	executor *fakeRuntimePreflightCommandExecutor
+}
+
+func (s *fakeRuntimePreflightCommandSession) CombinedOutput(cmd string) ([]byte, error) {
+	if strings.Contains(cmd, `printf %s "${HOME:-}"`) {
+		s.executor.homeLookups++
+		return []byte(s.executor.home), nil
+	}
+	if strings.Contains(cmd, "test -x ") {
+		for path, ok := range s.executor.existing {
+			if ok && strings.Contains(cmd, sshinfra.ShellQuote(path)) {
+				return []byte("ok"), nil
+			}
+		}
+		return nil, fmt.Errorf("missing executable")
+	}
+	return nil, fmt.Errorf("unexpected command %s", cmd)
+}
+
+func (s *fakeRuntimePreflightCommandSession) StdinPipe() (io.WriteCloser, error) {
+	return nil, fmt.Errorf("not supported")
+}
+func (s *fakeRuntimePreflightCommandSession) StdoutPipe() (io.Reader, error) {
+	return strings.NewReader(""), nil
+}
+func (s *fakeRuntimePreflightCommandSession) StderrPipe() (io.Reader, error) {
+	return strings.NewReader(""), nil
+}
+func (s *fakeRuntimePreflightCommandSession) Start(string) error  { return fmt.Errorf("not supported") }
+func (s *fakeRuntimePreflightCommandSession) Signal(string) error { return nil }
+func (s *fakeRuntimePreflightCommandSession) Wait() error         { return nil }
+func (s *fakeRuntimePreflightCommandSession) Close() error        { return nil }

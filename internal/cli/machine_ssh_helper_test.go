@@ -139,6 +139,71 @@ func TestRunMachineSSHBootstrapUploadsBinaryEnvAndService(t *testing.T) {
 	}
 }
 
+func TestResolveMachineListenerAddressUsesAdvertisedEndpoint(t *testing.T) {
+	t.Parallel()
+	machine := catalogdomain.Machine{AdvertisedEndpoint: stringPtr("ws://143.198.200.192:19837/openase/runtime")}
+	if got := resolveMachineListenerAddress("", machine); got != "0.0.0.0:19837" {
+		t.Fatalf("resolveMachineListenerAddress() = %q, want %q", got, "0.0.0.0:19837")
+	}
+}
+
+func TestResolveMachineListenerAddressKeepsLoopbackEndpointsLocal(t *testing.T) {
+	t.Parallel()
+	machine := catalogdomain.Machine{AdvertisedEndpoint: stringPtr("ws://127.0.0.1:19837/openase/runtime")}
+	if got := resolveMachineListenerAddress("", machine); got != "127.0.0.1:19837" {
+		t.Fatalf("resolveMachineListenerAddress() = %q, want %q", got, "127.0.0.1:19837")
+	}
+}
+
+func TestRunMachineSSHBootstrapDerivesRemoteListenerBindAddressFromAdvertisedEndpoint(t *testing.T) {
+	ctx := context.Background()
+	machineID := uuid.New()
+	advertisedEndpoint := "ws://143.198.200.192:19837/openase/runtime"
+
+	platformSession := &machineSSHTestSession{combinedOutput: "Linux\n/home/remote\nsystemd\n1000\n"}
+	binaryUploadSession := &machineSSHTestSession{}
+	envUploadSession := &machineSSHTestSession{}
+	serviceUploadSession := &machineSSHTestSession{}
+	restartSession := &machineSSHTestSession{combinedOutput: "active\n"}
+	client := &machineSSHTestClient{sessions: []sshinfra.Session{platformSession, binaryUploadSession, envUploadSession, serviceUploadSession, restartSession}}
+
+	result, err := runMachineSSHBootstrap(ctx, machineSSHBootstrapDeps{
+		getClient: func(context.Context, catalogdomain.Machine) (sshinfra.Client, error) { return client, nil },
+		issueToken: func(context.Context, uuid.UUID, time.Duration, string, string) (machineChannelTokenResponse, error) {
+			t.Fatal("remote-listener bootstrap should not issue a reverse channel token")
+			return machineChannelTokenResponse{}, nil
+		},
+		readLocalFile:     func(string) ([]byte, error) { return []byte("openase-binary"), nil },
+		resolveExecutable: func() (string, error) { return "/usr/local/bin/openase", nil },
+	}, machineSSHBootstrapInput{
+		Machine: catalogdomain.Machine{
+			ID:                 machineID,
+			Name:               "listener-derived",
+			Host:               "143.198.200.192",
+			ReachabilityMode:   catalogdomain.MachineReachabilityModeDirectConnect,
+			ExecutionMode:      catalogdomain.MachineExecutionModeWebsocket,
+			ConnectionMode:     catalogdomain.MachineConnectionModeWSListener,
+			AdvertisedEndpoint: &advertisedEndpoint,
+		},
+		Topology:     catalogdomain.MachineWebsocketTopologyRemoteListener,
+		ListenerPath: "/openase/runtime",
+	})
+	if err != nil {
+		t.Fatalf("runMachineSSHBootstrap(remote-listener derived) error = %v", err)
+	}
+	if result.ConnectionTarget != advertisedEndpoint {
+		t.Fatalf("ConnectionTarget = %q, want %q", result.ConnectionTarget, advertisedEndpoint)
+	}
+	envBody := envUploadSession.stdin.String()
+	if !strings.Contains(envBody, `OPENASE_MACHINE_LISTENER_ADDRESS="0.0.0.0:19837"`) {
+		t.Fatalf("env upload missing derived listener address: %q", envBody)
+	}
+	serviceBody := serviceUploadSession.stdin.String()
+	if !strings.Contains(serviceBody, `"--listen-address" "0.0.0.0:19837" "--path" "/openase/runtime"`) {
+		t.Fatalf("service upload missing derived listener flags: %q", serviceBody)
+	}
+}
+
 func TestRunMachineSSHBootstrapInstallsRemoteListenerTopology(t *testing.T) {
 	ctx := context.Background()
 	machineID := uuid.New()

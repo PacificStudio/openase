@@ -149,7 +149,8 @@ func (m *projectConversationRuntimeManager) ensureLiveRuntime(
 	if err != nil {
 		return nil, false, err
 	}
-	if err := m.runRemoteRuntimePreflight(ctx, machine, providerItem, workspacePath.String()); err != nil {
+	machine, err = m.runRemoteRuntimePreflight(ctx, machine, providerItem, workspacePath.String())
+	if err != nil {
 		return nil, false, err
 	}
 	manager, err := m.resolveProcessManager(machine)
@@ -392,14 +393,14 @@ func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 	machine catalogdomain.Machine,
 	providerItem catalogdomain.AgentProvider,
 	workspacePath string,
-) error {
+) (catalogdomain.Machine, error) {
 	if machine.Host == catalogdomain.LocalMachineHost {
-		return nil
+		return machine, nil
 	}
 
 	resolved, err := m.resolveRuntimeTransport(machine)
 	if err != nil {
-		return err
+		return catalogdomain.Machine{}, err
 	}
 	if resolved.Execution.Runtime == nil ||
 		!resolved.Execution.Runtime.SupportsAll(
@@ -408,16 +409,31 @@ func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 			catalogdomain.MachineTransportCapabilityProcessStreaming,
 		) ||
 		resolved.CommandSessionExecutor() == nil {
-		return nil
+		return machine, nil
+	}
+
+	preparedEnvironment, err := machinetransport.PrepareRemoteOpenASEEnvironment(
+		ctx,
+		resolved.CommandSessionExecutor(),
+		resolved.ArtifactSyncExecutor(),
+		machine,
+		machine.EnvVars,
+	)
+	if err != nil {
+		return catalogdomain.Machine{}, err
 	}
 
 	command := strings.TrimSpace(providerItem.CliCommand)
 	if machine.AgentCLIPath != nil && strings.TrimSpace(*machine.AgentCLIPath) != "" {
 		command = strings.TrimSpace(*machine.AgentCLIPath)
 	}
-	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.CommandSessionExecutor(), machine, machinetransport.RuntimePreflightSpec{
+	if err := machinetransport.RunRemoteRuntimePreflight(ctx, resolved.CommandSessionExecutor(), machine, machinetransport.RuntimePreflightSpec{
 		WorkingDirectory: workspacePath,
 		AgentCommand:     command,
-		Environment:      append([]string(nil), machine.EnvVars...),
-	})
+		Environment:      preparedEnvironment,
+	}); err != nil {
+		return catalogdomain.Machine{}, err
+	}
+	machine.EnvVars = preparedEnvironment
+	return machine, nil
 }

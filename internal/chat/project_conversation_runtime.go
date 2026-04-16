@@ -105,6 +105,7 @@ func (s *ProjectConversationService) startTurn(
 				conversation,
 				project,
 				providerItem,
+				live.machine,
 				live.workspace,
 				resumePrompt,
 				resumeThreadID,
@@ -204,6 +205,7 @@ func (s *ProjectConversationService) startTurn(
 	if err != nil {
 		return domain.Turn{}, err
 	}
+	environment = appendConversationMachineOpenASEEnvironment(environment, live.machine)
 	stream, err := live.runtime.StartTurn(ctx, RuntimeTurnInput{
 		SessionID:              SessionID(conversationID.String()),
 		Provider:               providerItem,
@@ -325,6 +327,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 				conversation,
 				project,
 				providerItem,
+				live.machine,
 				live.workspace,
 				systemPrompt,
 				strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
@@ -353,6 +356,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
+	environment = appendConversationMachineOpenASEEnvironment(environment, live.machine)
 	stream, err := live.interrupt.RespondInterrupt(ctx, RuntimeInterruptResponseInput{
 		SessionID:              SessionID(conversationID.String()),
 		ProjectID:              project.ID,
@@ -439,6 +443,7 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 	conversation domain.Conversation,
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
+	machine catalogdomain.Machine,
 	workspace provider.AbsolutePath,
 	systemPrompt string,
 	resumeThreadID string,
@@ -449,6 +454,7 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 	if err != nil {
 		return RuntimeTurnInput{}, err
 	}
+	environment = appendConversationMachineOpenASEEnvironment(environment, machine)
 	return RuntimeTurnInput{
 		SessionID:              SessionID(conversation.ID.String()),
 		ProjectID:              project.ID,
@@ -778,6 +784,20 @@ func firstNonEmptyTrimmed(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func appendConversationMachineOpenASEEnvironment(environment []string, machine catalogdomain.Machine) []string {
+	if machine.Host == catalogdomain.LocalMachineHost {
+		return environment
+	}
+	openaseBin, ok := provider.LookupEnvironmentValue(machine.EnvVars, "OPENASE_REAL_BIN")
+	if !ok || strings.TrimSpace(openaseBin) == "" {
+		return environment
+	}
+	if existing, ok := provider.LookupEnvironmentValue(environment, "OPENASE_REAL_BIN"); ok && strings.TrimSpace(existing) != "" {
+		return environment
+	}
+	return append(environment, "OPENASE_REAL_BIN="+strings.TrimSpace(openaseBin))
 }
 
 func cloneMapAny(value map[string]any) map[string]any {

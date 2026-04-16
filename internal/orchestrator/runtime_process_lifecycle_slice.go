@@ -569,7 +569,8 @@ func (s runtimeProcessLifecycleSlice) startRuntimeSessionOnMachine(
 			return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageRuntimeSnapshot, fmt.Errorf("materialize runtime snapshot: %w", err))
 		}
 	}
-	if err := l.runRemoteRuntimePreflight(ctx, machine, remote, workingDirectoryValue, command.String(), environment); err != nil {
+	environment, err = l.runRemoteRuntimePreflight(ctx, machine, remote, workingDirectoryValue, command.String(), environment)
+	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, classifyRuntimeLaunchPreflightStage(err), err)
 	}
 	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)

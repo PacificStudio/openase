@@ -3,15 +3,18 @@ package machinetransport
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/logging"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
 const runtimePreflightFailurePrefix = "OPENASE_RUNTIME_PREFLIGHT_FAILURE"
+const defaultRemoteOpenASEBinRelativePath = ".openase/bin/openase"
 
 var _ = logging.DeclareComponent("machine-transport-runtime-preflight")
 
@@ -63,6 +66,34 @@ func (e *RuntimePreflightError) Unwrap() error {
 	return e.Cause
 }
 
+func PrepareRemoteOpenASEEnvironment(
+	ctx context.Context,
+	commandExecutor CommandSessionExecution,
+	artifactSync ArtifactSyncExecution,
+	machine domain.Machine,
+	environment []string,
+) ([]string, error) {
+	if commandExecutor == nil {
+		return nil, fmt.Errorf("remote preflight command session unavailable for machine %s", machine.Name)
+	}
+
+	resolvedEnvironment := append([]string(nil), environment...)
+	openaseBinPath := strings.TrimSpace(resolveEnvironmentValue(resolvedEnvironment, "OPENASE_REAL_BIN"))
+	if openaseBinPath == "" {
+		remoteHome, err := resolveRemoteHome(ctx, commandExecutor, machine)
+		if err != nil {
+			return nil, fmt.Errorf("resolve remote home for machine %s: %w", machine.Name, err)
+		}
+		openaseBinPath = filepath.ToSlash(filepath.Join(remoteHome, defaultRemoteOpenASEBinRelativePath))
+		resolvedEnvironment = upsertEnvironmentValue(resolvedEnvironment, "OPENASE_REAL_BIN", openaseBinPath)
+	}
+
+	if err := ensureRemoteOpenASEBinary(ctx, commandExecutor, artifactSync, machine, openaseBinPath); err != nil {
+		return nil, err
+	}
+	return resolvedEnvironment, nil
+}
+
 func RunRemoteRuntimePreflight(
 	ctx context.Context,
 	execution CommandSessionExecution,
@@ -100,6 +131,101 @@ func RunRemoteRuntimePreflight(
 	}
 }
 
+func ensureRemoteOpenASEBinary(
+	ctx context.Context,
+	commandExecutor CommandSessionExecution,
+	artifactSync ArtifactSyncExecution,
+	machine domain.Machine,
+	openaseBinPath string,
+) error {
+	trimmedPath := strings.TrimSpace(openaseBinPath)
+	if trimmedPath == "" {
+		return fmt.Errorf("remote OPENASE_REAL_BIN must not be empty for machine %s", machine.Name)
+	}
+	if remoteExecutableExists(ctx, commandExecutor, machine, trimmedPath) {
+		return nil
+	}
+	if !filepath.IsAbs(trimmedPath) {
+		return fmt.Errorf("remote OPENASE_REAL_BIN for machine %s must be absolute for auto-repair: %s", machine.Name, trimmedPath)
+	}
+	if artifactSync == nil {
+		return fmt.Errorf("%w: artifact sync unavailable for machine %s", ErrTransportUnavailable, machine.Name)
+	}
+
+	localExecutable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve local openase executable for remote repair: %w", err)
+	}
+	if strings.TrimSpace(localExecutable) == "" {
+		return fmt.Errorf("resolve local openase executable for remote repair: empty path")
+	}
+
+	tempRoot, err := os.MkdirTemp("", "openase-remote-bin-*")
+	if err != nil {
+		return fmt.Errorf("create remote repair temp root: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tempRoot) }()
+
+	targetName := filepath.Base(trimmedPath)
+	localCopyPath := filepath.Join(tempRoot, targetName)
+	content, err := os.ReadFile(localExecutable)
+	if err != nil {
+		return fmt.Errorf("read local openase executable for remote repair: %w", err)
+	}
+	if err := os.WriteFile(localCopyPath, content, 0o755); err != nil {
+		return fmt.Errorf("stage local openase executable for remote repair: %w", err)
+	}
+	if err := artifactSync.SyncArtifacts(ctx, machine, SyncArtifactsRequest{
+		LocalRoot:  tempRoot,
+		TargetRoot: filepath.Dir(trimmedPath),
+		Paths:      []string{targetName},
+	}); err != nil {
+		return fmt.Errorf("sync remote openase executable for machine %s: %w", machine.Name, err)
+	}
+	if !remoteExecutableExists(ctx, commandExecutor, machine, trimmedPath) {
+		return fmt.Errorf("remote openase executable repair for machine %s did not produce an executable binary at %s", machine.Name, trimmedPath)
+	}
+	return nil
+}
+
+func remoteExecutableExists(
+	ctx context.Context,
+	commandExecutor CommandSessionExecution,
+	machine domain.Machine,
+	path string,
+) bool {
+	output, err := runRemoteCommand(ctx, commandExecutor, machine, "test -x "+sshinfra.ShellQuote(path)+" && printf ok")
+	return err == nil && strings.TrimSpace(output) == "ok"
+}
+
+func resolveRemoteHome(ctx context.Context, commandExecutor CommandSessionExecution, machine domain.Machine) (string, error) {
+	output, err := runRemoteCommand(ctx, commandExecutor, machine, `printf %s "${HOME:-}"`)
+	if err != nil {
+		return "", err
+	}
+	remoteHome := strings.TrimSpace(output)
+	if remoteHome == "" {
+		return "", fmt.Errorf("remote HOME is empty")
+	}
+	return remoteHome, nil
+}
+
+func runRemoteCommand(
+	ctx context.Context,
+	commandExecutor CommandSessionExecution,
+	machine domain.Machine,
+	command string,
+) (string, error) {
+	session, err := commandExecutor.OpenCommandSession(ctx, machine)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = session.Close() }()
+
+	output, err := session.CombinedOutput("sh -lc " + sshinfra.ShellQuote(command))
+	return string(output), err
+}
+
 func buildRemoteRuntimePreflightCommand(spec RuntimePreflightSpec) string {
 	workingDirectory := strings.TrimSpace(spec.WorkingDirectory)
 	agentCommand := strings.TrimSpace(spec.AgentCommand)
@@ -134,6 +260,25 @@ func buildRemoteRuntimePreflightCommand(spec RuntimePreflightSpec) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func resolveEnvironmentValue(environment []string, key string) string {
+	value, _ := provider.LookupEnvironmentValue(environment, key)
+	return value
+}
+
+func upsertEnvironmentValue(environment []string, key string, value string) []string {
+	trimmedKey := strings.TrimSpace(key)
+	prefix := trimmedKey + "="
+	filtered := make([]string, 0, len(environment)+1)
+	for _, entry := range environment {
+		name, _, found := strings.Cut(entry, "=")
+		if found && strings.EqualFold(strings.TrimSpace(name), trimmedKey) {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return append(filtered, prefix+value)
 }
 
 func buildRemotePreflightEnvPrefix(environment []string) string {
