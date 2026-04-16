@@ -59,8 +59,12 @@ func TestDaemonToolInventoryFallsBackToLegacyPathOnlyWhenNoScopedPaths(t *testin
 
 func writeExecutable(t *testing.T, path string) string {
 	t.Helper()
-	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o755); err != nil {
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"), 0o600); err != nil {
 		t.Fatalf("write executable %s: %v", path, err)
+	}
+	// #nosec G302 -- test wrapper must be executable inside the temp workspace.
+	if err := os.Chmod(path, 0o755); err != nil {
+		t.Fatalf("chmod executable %s: %v", path, err)
 	}
 	return path
 }

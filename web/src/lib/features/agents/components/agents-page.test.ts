@@ -20,6 +20,11 @@ vi.mock('$lib/api/sse', () => ({
 }))
 
 vi.mock('$lib/features/project-events', () => ({
+  createProjectReconnectRecoveryTask: vi.fn(
+    (recover: (recovery: { sequence: number }) => Promise<void> | void) => (recovery: { sequence: number }) => {
+      void recover(recovery)
+    },
+  ),
   isProjectDashboardRefreshEvent: vi.fn(() => false),
   readProjectDashboardRefreshSections: vi.fn(() => []),
   subscribeProjectEvents,
@@ -64,9 +69,9 @@ describe('AgentsPage', () => {
     const { findByText } = render(AgentsPage)
 
     expect(await findByText('代理')).toBeTruthy()
-    expect(await findByText('管理代理定义并监控它们的运行情况。')).toBeTruthy()
+    expect(await findByText('管理代理定义并跟踪各自的运行状态。')).toBeTruthy()
     expect(await findByText('注册代理')).toBeTruthy()
-    expect(await findByText('运行中 1/1 个代理')).toBeTruthy()
+    expect(await findByText('运行中 1/1')).toBeTruthy()
   })
 
   it('reuses the cached agents page snapshot when remounting in the same project', async () => {

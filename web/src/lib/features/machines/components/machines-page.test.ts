@@ -94,6 +94,7 @@ const machineFixture = {
   status: 'online',
   workspace_root: '/workspace',
   agent_cli_path: '/usr/local/bin/openase-agent',
+  agent_cli_paths: {},
   env_vars: [],
   resources: {
     checked_at: '2026-04-02T10:00:00Z',
