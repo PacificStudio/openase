@@ -1,3 +1,4 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
   import * as Dialog from '$ui/dialog'
   import { Button } from '$ui/button'
@@ -10,7 +11,6 @@
     ArrowRight,
     ArrowLeft,
     Check,
-    KeyRound,
     Loader2,
     Monitor,
     Radio,

@@ -1,3 +1,4 @@
+<!-- eslint-disable max-lines -->
 <script lang="ts">
   import {
     CircleCheck,
