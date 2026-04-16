@@ -298,6 +298,7 @@ type conversationTerminalManagedSession struct {
 
 	mu                 sync.Mutex
 	client             *conversationTerminalAttachedClient
+	clientReady        bool
 	pendingOutput      [][]byte
 	pendingOutputBytes int
 	closing            bool
@@ -358,6 +359,7 @@ func (s *conversationTerminalManagedSession) attach(
 	s.pendingOutputBytes = 0
 	client := newConversationTerminalAttachedClient(len(pendingOutput) + 1)
 	s.client = client
+	s.clientReady = false
 	s.meta.LastAttachedAt = &attachedAt
 	meta := s.meta
 	s.mu.Unlock()
@@ -443,7 +445,7 @@ func (s *conversationTerminalManagedSession) emitOutput(chunk []byte) {
 	copied := append([]byte(nil), chunk...)
 	s.mu.Lock()
 	client := s.client
-	if client == nil {
+	if client == nil || !s.clientReady {
 		s.queuePendingOutputLocked(copied)
 		s.mu.Unlock()
 		return
@@ -491,10 +493,27 @@ func (s *conversationTerminalManagedSession) flushPendingOutput(
 	if !s.sendEvent(client, ConversationTerminalEvent{Type: "ready"}) {
 		return
 	}
-	for _, chunk := range pendingOutput {
-		if !s.sendEvent(client, ConversationTerminalEvent{Type: "output", Data: append([]byte(nil), chunk...)}) {
+	queued := pendingOutput
+	for {
+		for _, chunk := range queued {
+			if !s.sendEvent(client, ConversationTerminalEvent{Type: "output", Data: append([]byte(nil), chunk...)}) {
+				return
+			}
+		}
+		s.mu.Lock()
+		if s.client != client {
+			s.mu.Unlock()
 			return
 		}
+		if len(s.pendingOutput) == 0 {
+			s.clientReady = true
+			s.mu.Unlock()
+			return
+		}
+		queued = append([][]byte(nil), s.pendingOutput...)
+		s.pendingOutput = nil
+		s.pendingOutputBytes = 0
+		s.mu.Unlock()
 	}
 }
 
