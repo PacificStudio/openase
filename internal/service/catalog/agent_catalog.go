@@ -85,6 +85,15 @@ func (s *service) ListAgentRuns(ctx context.Context, projectID uuid.UUID) ([]dom
 	return s.repo.ListAgentRuns(ctx, projectID)
 }
 
+func (s *service) ListTicketRuns(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.AgentRun, error) {
+	if allowed, err := s.allowsProjectScope(ctx, projectID); err != nil {
+		return nil, err
+	} else if !allowed {
+		return []domain.AgentRun{}, nil
+	}
+	return s.repo.ListTicketRuns(ctx, projectID, ticketID)
+}
+
 func (s *service) CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	return s.repo.CreateAgent(ctx, input)
 }
