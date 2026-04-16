@@ -97,35 +97,13 @@ func (d machineRelayHTTPDoer) Do(request *http.Request) (*http.Response, error) 
 	}, nil
 }
 
-func cloneRelayHeaders(headers map[string][]string) map[string][]string {
-	if len(headers) == 0 {
-		return nil
-	}
-	cloned := make(map[string][]string, len(headers))
-	for key, values := range headers {
-		trimmedKey := strings.TrimSpace(key)
-		if trimmedKey == "" {
-			continue
-		}
-		cloned[trimmedKey] = append([]string(nil), values...)
-	}
-	if len(cloned) == 0 {
-		return nil
-	}
-	return cloned
-}
-
 func cloneRelayHeaderMap(headers map[string][]string) map[string][]string {
 	if len(headers) == 0 {
 		return nil
 	}
 	cloned := make(map[string][]string, len(headers))
 	for key, values := range headers {
-		copied := make([]string, 0, len(values))
-		for _, value := range values {
-			copied = append(copied, value)
-		}
-		cloned[key] = copied
+		cloned[key] = append([]string(nil), values...)
 	}
 	return cloned
 }

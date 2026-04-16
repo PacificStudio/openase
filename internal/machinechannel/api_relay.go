@@ -1,7 +1,6 @@
 package machinechannel
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -239,7 +238,7 @@ func startDaemonLocalRelayServer(ctx context.Context, relay *apiRelayManager, ad
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		_ = server.Shutdown(shutdownCtx)
 	}()
@@ -259,27 +258,10 @@ func cloneRelayHeaders(headers map[string][]string) map[string][]string {
 		if trimmedKey == "" {
 			continue
 		}
-		copied := make([]string, 0, len(values))
-		for _, value := range values {
-			copied = append(copied, value)
-		}
-		cloned[trimmedKey] = copied
+		cloned[trimmedKey] = append([]string(nil), values...)
 	}
 	if len(cloned) == 0 {
 		return nil
 	}
 	return cloned
-}
-
-func localRelayRoundTrip(ctx context.Context, relayURL string, request domain.LocalRelayRequest) (*http.Response, error) {
-	body, err := json.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("marshal local relay request: %w", err)
-	}
-	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(strings.TrimSpace(relayURL), "/")+machineLocalRelayPath, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("build local relay request: %w", err)
-	}
-	httpRequest.Header.Set("Content-Type", "application/json")
-	return http.DefaultClient.Do(httpRequest)
 }

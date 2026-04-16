@@ -6469,7 +6469,9 @@ func (s *runtimeSSHPrepareSession) StderrPipe() (io.Reader, error) { return stri
 
 func (s *runtimeSSHPrepareSession) Start(string) error { return fmt.Errorf("not supported") }
 
-func (s *runtimeSSHPrepareSession) StartPTY(string, int, int) error { return fmt.Errorf("not supported") }
+func (s *runtimeSSHPrepareSession) StartPTY(string, int, int) error {
+	return fmt.Errorf("not supported")
+}
 
 func (s *runtimeSSHPrepareSession) Resize(int, int) error { return nil }
 

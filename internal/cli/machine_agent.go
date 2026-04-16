@@ -35,7 +35,7 @@ const (
 	envMachineListenerAddress     = "OPENASE_MACHINE_LISTENER_ADDRESS"
 	envMachineListenerPath        = "OPENASE_MACHINE_LISTENER_PATH"
 	envMachineListenerBearerToken = "OPENASE_MACHINE_LISTENER_BEARER_TOKEN"
-	defaultMachineListenerAddress = "127.0.0.1:19837"
+	defaultMachineListenerAddress = "0.0.0.0:19837"
 	defaultMachineListenerPath    = "/openase/runtime"
 )
 
