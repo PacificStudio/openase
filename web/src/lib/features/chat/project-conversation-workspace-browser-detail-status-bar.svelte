@@ -9,7 +9,7 @@
   import type { EditorWrapMode } from '$lib/components/code/wrap-mode'
   import * as Tooltip from '$ui/tooltip'
   import type { WorkspaceFileEditorState } from './project-conversation-workspace-browser-state.svelte'
-  import { chatT } from './i18n'
+  import { chatT, chatWorkspaceStatusT } from './i18n'
 
   let {
     activeEditorState,
@@ -73,6 +73,7 @@
         return 'text-muted-foreground/60'
     }
   })
+  const localizedStatusLabel = $derived(chatWorkspaceStatusT(statusLabel))
 </script>
 
 <div
@@ -117,7 +118,9 @@
     >
       {statusBadge}
     </span>
-    <span class={statusTone} data-testid="workspace-browser-status-label">{statusLabel}</span>
+    <span class={statusTone} data-testid="workspace-browser-status-label">
+      {localizedStatusLabel}
+    </span>
     {#if activeChangedFile}
       <span class="text-muted-foreground/60" data-testid="workspace-browser-status-totals">
         +{activeChangedFile.added} -{activeChangedFile.removed}

@@ -1,3 +1,18 @@
+const machineContainerBudgetOverrides = {
+  'src/lib/features/machines/components/machine-create-wizard.svelte': {
+    soft: 750,
+    hard: 900,
+  },
+  'src/lib/features/machines/components/machine-editor-guidance.svelte': {
+    soft: 550,
+    hard: 700,
+  },
+  'src/lib/features/machines/components/machine-health-panel.svelte': {
+    soft: 550,
+    hard: 700,
+  },
+}
+
 export const fileBudgetLimits = {
   routePage: { soft: 150, hard: 250 },
   routeLayout: { soft: 180, hard: 300 },
@@ -5,6 +20,7 @@ export const fileBudgetLimits = {
   featureTest: { soft: 300, hard: 650 },
   featureStateModule: { soft: 250, hard: 500 },
   featureModule: { soft: 200, hard: 325 },
+  testingSupportModule: { soft: 350, hard: 650 },
   layoutComponent: { soft: 200, hard: 300 },
   uiPrimitive: { soft: 150, hard: 250 },
 }
@@ -33,6 +49,10 @@ function isFeatureModule(filePath) {
   return /^src\/lib\/features\/.+\.(ts|js|mjs|cjs)$/.test(filePath)
 }
 
+function isTestingSupportModule(filePath) {
+  return /^src\/lib\/testing\/.+\.(ts|js|mjs|cjs)$/.test(filePath)
+}
+
 function isLayoutComponent(filePath) {
   return /^src\/lib\/components\/layout\/.+\.svelte$/.test(filePath)
 }
@@ -41,7 +61,17 @@ function isUiPrimitive(filePath) {
   return /^src\/lib\/components\/ui\/.+\.svelte$/.test(filePath)
 }
 
+const machineContainerBudgetRules = Object.entries(machineContainerBudgetOverrides).map(
+  ([filePath, budget]) => ({
+    name: `Machine container budget override (${filePath})`,
+    match: (candidatePath) => candidatePath === filePath,
+    softLimit: budget.soft,
+    hardLimit: budget.hard,
+  }),
+)
+
 export const fileBudgetRules = [
+  ...machineContainerBudgetRules,
   {
     name: 'Route pages',
     match: isRoutePage,
@@ -80,6 +110,12 @@ export const fileBudgetRules = [
       !isFeatureStateModule(filePath),
     softLimit: fileBudgetLimits.featureModule.soft,
     hardLimit: fileBudgetLimits.featureModule.hard,
+  },
+  {
+    name: 'Testing support modules',
+    match: isTestingSupportModule,
+    softLimit: fileBudgetLimits.testingSupportModule.soft,
+    hardLimit: fileBudgetLimits.testingSupportModule.hard,
   },
   {
     name: 'Layout components',

@@ -18,7 +18,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "pnpm run lint:eslint && pnpm run lint:i18n",
-    "lint:eslint": "eslint . --quiet",
+    "lint:eslint": "node scripts/run-eslint-with-heartbeat.mjs . --quiet",
     "lint:i18n": "node scripts/check-i18n-registry.mjs && node scripts/check-i18n.mjs",
     "lint:structure": "node scripts/check-file-budgets.mjs",
     "lint:deps": "node scripts/check-dependency-boundaries.mjs && node scripts/check-lockfile-security.mjs",
@@ -91,6 +91,7 @@
   "pnpm": {
     "overrides": {
       "cookie": "0.7.2",
+      "dompurify": "3.4.0",
       "lodash-es": "4.18.1"
     }
   }

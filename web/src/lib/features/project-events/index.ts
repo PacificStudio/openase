@@ -14,3 +14,7 @@ export {
   type ProjectDashboardRefreshSection,
   type ProjectEventEnvelope,
 } from './project-event-bus'
+export {
+  createProjectReconnectRecoveryTask,
+  type ProjectReconnectRecovery,
+} from './project-reconnect-recovery'

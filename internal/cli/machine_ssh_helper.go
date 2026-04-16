@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -50,6 +51,7 @@ type cliMachineRecord struct {
 	AdvertisedEndpoint *string                     `json:"advertised_endpoint"`
 	WorkspaceRoot      *string                     `json:"workspace_root"`
 	AgentCLIPath       *string                     `json:"agent_cli_path"`
+	AgentCLIPaths      map[string]string           `json:"agent_cli_paths"`
 	DaemonStatus       cliMachineDaemonInfo        `json:"daemon_status"`
 	ChannelCredential  cliMachineChannelCredential `json:"channel_credential"`
 }
@@ -243,6 +245,7 @@ when you can still reach the machine over SSH.
 		},
 	}
 
+	markCLICommandAPICoverage(command, "POST", "/api/v1/machines/{machineId}/ssh-bootstrap")
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
 	applyCLICommandFlagNormalization(command)
 	bindAPICommandFlags(command.Flags(), &apiOptions)
@@ -373,7 +376,7 @@ func buildMachineSSHBootstrapPlan(
 			Topology:         input.Topology,
 			ServiceName:      machineAgentServiceName,
 			ServiceLabel:     "OpenASE reverse-connect machine-agent",
-			EnvironmentBody:  buildMachineSSHEnvironmentFile(tokenResp, input.HeartbeatInterval),
+			EnvironmentBody:  buildMachineSSHEnvironmentFile(tokenResp, input.HeartbeatInterval, input.Machine.AgentCLIPaths.ToRawMap()),
 			CommandArgs:      []string{"machine-agent", "run"},
 			ConnectionTarget: tokenResp.ControlPlaneURL,
 			TokenID:          tokenResp.TokenID,
@@ -410,7 +413,14 @@ func buildMachineSSHBootstrapPlan(
 				envMachineListenerPath,
 				envMachineListenerBearerToken,
 			}),
-			CommandArgs:      []string{"machine-agent", "listen"},
+			CommandArgs: []string{
+				"machine-agent",
+				"listen",
+				"--listen-address",
+				listenerAddress,
+				"--path",
+				listenerPath,
+			},
 			ConnectionTarget: firstNonEmpty(strings.TrimSpace(pointerString(input.Machine.AdvertisedEndpoint)), listenerAddress+listenerPath),
 			RetryAdvice: []string{
 				"Confirm the advertised websocket endpoint and any firewall or proxy rules before rerunning bootstrap.",
@@ -525,7 +535,7 @@ func runMachineSSHBootstrap(
 	commandArgs := append([]string(nil), plan.CommandArgs...)
 	if plan.Topology == catalogdomain.MachineWebsocketTopologyReverseConnect {
 		commandArgs = append(commandArgs, "--openase-binary-path", layout.RemoteBinaryPath)
-		if agentCLIPath := strings.TrimSpace(pointerString(input.Machine.AgentCLIPath)); agentCLIPath != "" {
+		if agentCLIPath := strings.TrimSpace(pointerString(input.Machine.AgentCLIPath)); agentCLIPath != "" && len(input.Machine.AgentCLIPaths) == 0 {
 			commandArgs = append(commandArgs, "--agent-cli-path", agentCLIPath)
 		}
 		if input.HeartbeatInterval > 0 {
@@ -649,21 +659,7 @@ func runMachineSSHDiagnostics(
 		checks = append(checks, machineSSHDiagnosticCheck{Name: "machine_agent_binary", Status: "pass", Detail: layout.RemoteBinaryPath + " is executable."})
 	}
 
-	agentCLIPath := strings.TrimSpace(pointerString(machine.AgentCLIPath))
-	if agentCLIPath != "" {
-		agentCLICmd := "sh -lc " + sshinfra.ShellQuote("test -x "+sshinfra.ShellQuote(agentCLIPath))
-		if _, checkErr := runRemoteSSHCommand(ctx, client, agentCLICmd); checkErr != nil {
-			checks = append(checks, machineSSHDiagnosticCheck{Name: "agent_cli_path", Status: "fail", Detail: checkErr.Error()})
-			issues = append(issues, machineSSHDiagnosticIssue{
-				Code:        "agent_cli_missing",
-				Title:       "Configured agent CLI is missing",
-				Detail:      fmt.Sprintf("The machine record points to %s, but SSH diagnostics could not execute it.", agentCLIPath),
-				Remediation: "Install the preferred agent CLI on the remote host or update the machine's agent CLI path.",
-			})
-		} else {
-			checks = append(checks, machineSSHDiagnosticCheck{Name: "agent_cli_path", Status: "pass", Detail: agentCLIPath + " is executable."})
-		}
-	}
+	addMachineSSHAgentCLIPathChecks(ctx, client, machine, &checks, &issues)
 
 	serviceOutput, serviceErr := runRemoteSSHCommand(ctx, client, buildMachineSSHDiagnosticCommand(platform, layout))
 	serviceDetail := strings.TrimSpace(serviceOutput)
@@ -747,6 +743,70 @@ func runMachineSSHDiagnostics(
 	}, nil
 }
 
+func addMachineSSHAgentCLIPathChecks(
+	ctx context.Context,
+	client sshinfra.Client,
+	machine catalogdomain.Machine,
+	checks *[]machineSSHDiagnosticCheck,
+	issues *[]machineSSHDiagnosticIssue,
+) {
+	scopedPaths := machine.AgentCLIPaths.ToRawMap()
+	if len(scopedPaths) > 0 {
+		adapterKeys := make([]string, 0, len(scopedPaths))
+		for key := range scopedPaths {
+			adapterKeys = append(adapterKeys, key)
+		}
+		sort.Strings(adapterKeys)
+		for _, adapterKey := range adapterKeys {
+			checkMachineSSHAgentCLIPath(ctx, client, adapterKey, scopedPaths[adapterKey], checks, issues)
+		}
+		return
+	}
+
+	legacyPath := strings.TrimSpace(pointerString(machine.AgentCLIPath))
+	if legacyPath != "" {
+		checkMachineSSHAgentCLIPath(ctx, client, "legacy", legacyPath, checks, issues)
+	}
+}
+
+func checkMachineSSHAgentCLIPath(
+	ctx context.Context,
+	client sshinfra.Client,
+	label string,
+	agentCLIPath string,
+	checks *[]machineSSHDiagnosticCheck,
+	issues *[]machineSSHDiagnosticIssue,
+) {
+	checkName := "agent_cli_path"
+	title := "Configured agent CLI is missing"
+	remediation := "Install the preferred agent CLI on the remote host or update the machine's agent CLI path."
+	detail := fmt.Sprintf("The machine record points to %s, but SSH diagnostics could not execute it.", agentCLIPath)
+	if strings.TrimSpace(label) != "" && label != "legacy" {
+		checkName = "agent_cli_path_" + strings.ReplaceAll(label, "-", "_")
+		title = "Configured adaptor-scoped agent CLI is missing"
+		remediation = fmt.Sprintf("Install the preferred %s CLI on the remote host or update machine.agent_cli_paths[%q].", label, label)
+		detail = fmt.Sprintf("The machine record points %q to %s, but SSH diagnostics could not execute it.", label, agentCLIPath)
+	}
+
+	agentCLICmd := "sh -lc " + sshinfra.ShellQuote("test -x "+sshinfra.ShellQuote(agentCLIPath))
+	if _, checkErr := runRemoteSSHCommand(ctx, client, agentCLICmd); checkErr != nil {
+		*checks = append(*checks, machineSSHDiagnosticCheck{Name: checkName, Status: "fail", Detail: checkErr.Error()})
+		*issues = append(*issues, machineSSHDiagnosticIssue{
+			Code:        "agent_cli_missing",
+			Title:       title,
+			Detail:      detail,
+			Remediation: remediation,
+		})
+		return
+	}
+
+	successDetail := agentCLIPath + " is executable."
+	if strings.TrimSpace(label) != "" && label != "legacy" {
+		successDetail = fmt.Sprintf("%s is executable for %s.", agentCLIPath, label)
+	}
+	*checks = append(*checks, machineSSHDiagnosticCheck{Name: checkName, Status: "pass", Detail: successDetail})
+}
+
 func fetchCLIMachine(ctx context.Context, apiContext apiCommandContext, machineID string) (catalogdomain.Machine, error) {
 	response, err := apiContext.do(ctx, apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
 		Method: http.MethodGet,
@@ -799,6 +859,7 @@ func fetchCLIMachine(ctx context.Context, apiContext apiCommandContext, machineI
 		AdvertisedEndpoint: optionalTrimmedString(payload.Machine.AdvertisedEndpoint),
 		WorkspaceRoot:      optionalTrimmedString(payload.Machine.WorkspaceRoot),
 		AgentCLIPath:       optionalTrimmedString(payload.Machine.AgentCLIPath),
+		AgentCLIPaths:      catalogdomain.MachineAgentCLIPathsFromRaw(payload.Machine.AgentCLIPaths),
 		DaemonStatus: catalogdomain.MachineDaemonStatus{
 			Registered: payload.Machine.DaemonStatus.Registered,
 		},
@@ -928,7 +989,11 @@ type machineSSHServiceInstallInput struct {
 	UID               string
 }
 
-func buildMachineSSHEnvironmentFile(response machineChannelTokenResponse, heartbeatInterval time.Duration) string {
+func buildMachineSSHEnvironmentFile(
+	response machineChannelTokenResponse,
+	heartbeatInterval time.Duration,
+	agentCLIPaths map[string]string,
+) string {
 	values := map[string]string{
 		machinechanneldomain.EnvMachineID:              response.MachineID,
 		machinechanneldomain.EnvMachineChannelToken:    response.Token,
@@ -937,12 +1002,18 @@ func buildMachineSSHEnvironmentFile(response machineChannelTokenResponse, heartb
 	if heartbeatInterval > 0 {
 		values[machinechanneldomain.EnvMachineHeartbeatInterval] = heartbeatInterval.String()
 	}
+	if len(agentCLIPaths) > 0 {
+		if encoded, err := json.Marshal(agentCLIPaths); err == nil {
+			values[machinechanneldomain.EnvMachineAgentCLIPathsJSON] = string(encoded)
+		}
+	}
 
 	order := []string{
 		machinechanneldomain.EnvMachineID,
 		machinechanneldomain.EnvMachineChannelToken,
 		machinechanneldomain.EnvMachineControlPlaneURL,
 		machinechanneldomain.EnvMachineHeartbeatInterval,
+		machinechanneldomain.EnvMachineAgentCLIPathsJSON,
 	}
 	return buildMachineSSHKeyValueEnvironmentFile(values, order)
 }
@@ -974,7 +1045,7 @@ func buildMachineSSHServiceFile(
 		target := buildLaunchdBootstrapTarget(platform.UID)
 		return servicePath, buildMachineAgentLaunchdPlist("com."+input.ServiceName, input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nlaunchctl bootout "+sshinfra.ShellQuote(target)+" >/dev/null 2>&1 || true\nlaunchctl bootstrap "+sshinfra.ShellQuote(target)+" "+sshinfra.ShellQuote(servicePath)+"\nlaunchctl enable "+sshinfra.ShellQuote(target+"/com."+input.ServiceName)+" >/dev/null 2>&1 || true\nlaunchctl kickstart -k "+sshinfra.ShellQuote(target+"/com."+input.ServiceName)+"\nlaunchctl print "+sshinfra.ShellQuote(target+"/com."+input.ServiceName))
 	default:
-		return layout.ServiceFile, buildMachineAgentSystemdUnit(input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nsystemctl --user daemon-reload\nsystemctl --user enable "+sshinfra.ShellQuote(input.ServiceName+".service")+" >/dev/null\nsystemctl --user restart "+sshinfra.ShellQuote(input.ServiceName+".service")+"\nsystemctl --user is-active "+sshinfra.ShellQuote(input.ServiceName+".service"))
+		return layout.ServiceFile, buildMachineAgentSystemdUnit(input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nmkdir -p "+sshinfra.ShellQuote(filepath.Dir(input.StdoutPath))+" "+sshinfra.ShellQuote(filepath.Dir(input.StderrPath))+"\nsystemctl --user daemon-reload\nsystemctl --user enable "+sshinfra.ShellQuote(input.ServiceName+".service")+" >/dev/null\nsystemctl --user restart "+sshinfra.ShellQuote(input.ServiceName+".service")+"\nsystemctl --user is-active "+sshinfra.ShellQuote(input.ServiceName+".service"))
 	}
 }
 

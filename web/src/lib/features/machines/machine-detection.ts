@@ -1,5 +1,10 @@
 import { i18nStore } from '$lib/i18n/store.svelte'
-import type { MachineDetectedArch, MachineDetectedOS, MachineDetectionStatus } from './types'
+import type {
+  MachineDetectedArch,
+  MachineDetectedOS,
+  MachineDetectionStatus,
+  MachineSnapshot,
+} from './types'
 
 export function normalizeDetectedOS(value: string | null | undefined): MachineDetectedOS {
   return value === 'darwin' || value === 'linux' ? value : 'unknown'
@@ -61,4 +66,18 @@ export function machineDetectionBadgeClass(value: string | null | undefined): st
     default:
       return 'border-slate-500/20 bg-slate-500/10 text-slate-700'
   }
+}
+
+export function detectedPlatformFromSnapshot(snapshot: MachineSnapshot | null | undefined): {
+  os: MachineDetectedOS
+  arch: MachineDetectedArch
+} {
+  const details = snapshot?.websocketHealth?.l5?.details
+  const os = normalizeDetectedOS(
+    typeof details?.detected_os === 'string' ? details.detected_os : undefined,
+  )
+  const arch = normalizeDetectedArch(
+    typeof details?.detected_arch === 'string' ? details.detected_arch : undefined,
+  )
+  return { os, arch }
 }

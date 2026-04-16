@@ -109,6 +109,12 @@ API base such as http://127.0.0.1:19836/api/v1, or a direct websocket endpoint.
 					resolvedOpenASEBinaryPath = executablePath
 				}
 			}
+			agentCLIPaths, err := machinechanneldomain.ParseDaemonAgentCLIPathsJSON(
+				os.Getenv(machinechanneldomain.EnvMachineAgentCLIPathsJSON),
+			)
+			if err != nil {
+				return err
+			}
 
 			config, err := machinechanneldomain.ParseDaemonConfig(
 				firstNonEmpty(machineID, os.Getenv(machinechanneldomain.EnvMachineID)),
@@ -118,6 +124,7 @@ API base such as http://127.0.0.1:19836/api/v1, or a direct websocket endpoint.
 				firstNonZeroDuration(reconnectBackoff, machinechannelservice.DefaultReconnectBackoff),
 				resolvedOpenASEBinaryPath,
 				agentCLIPath,
+				agentCLIPaths,
 			)
 			if err != nil {
 				return err

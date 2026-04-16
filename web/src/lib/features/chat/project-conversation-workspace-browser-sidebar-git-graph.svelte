@@ -9,6 +9,7 @@
   } from '$lib/api/chat'
   import { buildWorkspaceGitGraphRows } from './project-conversation-workspace-git-graph'
   import { Copy, GitBranchPlus } from '@lucide/svelte'
+  import { chatT } from './i18n'
 
   let {
     gitGraph = null,
@@ -48,7 +49,7 @@
     const now = new Date()
     const diffMs = now.getTime() - d.getTime()
     const diffMin = Math.floor(diffMs / 60000)
-    if (diffMin < 1) return 'now'
+    if (diffMin < 1) return chatT('chat.time.justNow')
     if (diffMin < 60) return `${diffMin}m`
     const diffHr = Math.floor(diffMin / 60)
     if (diffHr < 24) return `${diffHr}h`
@@ -76,11 +77,11 @@
 </script>
 
 {#if loading}
-  <div class="text-muted-foreground px-4 py-3 text-[11px]">Loading…</div>
+  <div class="text-muted-foreground px-4 py-3 text-[11px]">{chatT('chat.gitGraph.loading')}</div>
 {:else if error}
   <div class="text-destructive px-4 py-2 text-[11px]">{error}</div>
 {:else if !gitGraph || rows.length === 0}
-  <div class="text-muted-foreground px-4 py-3 text-[11px]">No commits.</div>
+  <div class="text-muted-foreground px-4 py-3 text-[11px]">{chatT('chat.gitGraph.noCommits')}</div>
 {:else}
   {#each rows as row (row.commit.commitId)}
     {@const laneW = 14}
@@ -200,7 +201,7 @@
         }}
       >
         <Copy class="size-3.5" />
-        <span>Copy commit hash</span>
+        <span>{chatT('chat.gitGraph.copyCommitHash')}</span>
       </DropdownMenu.Item>
       <DropdownMenu.Item
         onclick={() => {
@@ -209,7 +210,7 @@
         }}
       >
         <Copy class="size-3.5" />
-        <span>Copy short hash</span>
+        <span>{chatT('chat.gitGraph.copyShortHash')}</span>
       </DropdownMenu.Item>
       <DropdownMenu.Item
         onclick={() => {
@@ -218,7 +219,7 @@
         }}
       >
         <Copy class="size-3.5" />
-        <span>Copy commit message</span>
+        <span>{chatT('chat.gitGraph.copyCommitMessage')}</span>
       </DropdownMenu.Item>
       <DropdownMenu.Separator />
       <DropdownMenu.Item
@@ -228,7 +229,7 @@
         }}
       >
         <GitBranchPlus class="size-3.5" />
-        <span>Create branch here…</span>
+        <span>{chatT('chat.gitGraph.createBranchHere')}</span>
       </DropdownMenu.Item>
     </DropdownMenu.Content>
   </DropdownMenu.Root>

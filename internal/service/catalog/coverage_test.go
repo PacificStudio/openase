@@ -106,6 +106,9 @@ func TestServiceDelegatesRepositoryWrappers(t *testing.T) {
 	if _, err := svc.ListAgentRuns(ctx, projectID); err != nil {
 		t.Fatalf("ListAgentRuns error = %v", err)
 	}
+	if _, err := svc.ListTicketRuns(ctx, projectID, ticketID); err != nil {
+		t.Fatalf("ListTicketRuns error = %v", err)
+	}
 	if _, err := svc.CreateAgent(ctx, domain.CreateAgent{ProjectID: projectID}); err != nil {
 		t.Fatalf("CreateAgent error = %v", err)
 	}

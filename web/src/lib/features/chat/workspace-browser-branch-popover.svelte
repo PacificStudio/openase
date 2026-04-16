@@ -78,7 +78,7 @@
           ? error.detail
           : error instanceof Error
             ? error.message
-            : 'Failed to switch branches.'
+            : chatT('chat.branchPicker.switchError')
     } finally {
       checkoutPending = ''
     }
@@ -97,7 +97,7 @@
           ? error.detail
           : error instanceof Error
             ? error.message
-            : 'Failed to create the branch.'
+            : chatT('chat.branchPicker.createError')
     } finally {
       checkoutPending = ''
     }
@@ -169,7 +169,7 @@
             >
               <Plus class="size-3" />
               <span class="min-w-0 truncate text-[11px]">
-                Create branch "{trimmedSearchValue}"
+                {chatT('chat.branchPicker.createAction', { branchName: trimmedSearchValue })}
               </span>
             </Command.Item>
             {#if localBranches.length > 0 || remoteBranches.length > 0}

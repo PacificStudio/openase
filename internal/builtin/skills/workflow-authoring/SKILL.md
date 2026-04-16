@@ -113,6 +113,16 @@ Weak status rules only say "move to Done when finished."
 
 A workflow should explicitly say where it reads and writes feedback.
 
+When this skill is used for AI suggestions or review, ground the advice in actual project evidence before proposing changes:
+
+- inspect the user's stated goal first
+- inspect the current workflow harness and status bindings
+- inspect recent tickets that ran through the workflow, especially retries, paused tickets, and repeated failure patterns
+- inspect recent activity, ticket comments, and durable ticket descriptions for what humans actually asked for
+- prefer explaining which observed pattern caused each suggested harness change
+
+Do not invent a lane split, exit gate, or escalation rule unless the observed workflow history or the user's request supports it.
+
 Common durable sources:
 
 - ticket description
@@ -276,6 +286,17 @@ Rewrite the harness if any of these are true:
 - The workflow tells the agent to wait for humans by default instead of progressing autonomously.
 - The workflow repeats a large reusable checklist that should be a bound skill.
 
+## Suggestion Mode
+
+When the user asks for suggestions instead of only critique, switch from pure review mode into editor mode:
+
+- start with a short diagnosis tied to the user request and the workflow's recent ticket/run history
+- then provide either a precise diff plan or a full revised harness draft
+- if confidence is high, prefer returning a complete revised harness in a fenced Markdown block so it can be applied directly
+- if confidence is lower, separate hard recommendations from open questions and avoid rewriting uncertain sections as if they were settled
+
+Suggestion mode should still preserve existing workflow intent unless the user explicitly wants a role or ownership change.
+
 ## Default Deliverable Shape
 
 When authoring or reviewing a workflow file, return these sections:
@@ -287,6 +308,10 @@ When authoring or reviewing a workflow file, return these sections:
 5. `Escalation Rules`
 6. `Suggested Harness Outline`
 7. `Open Questions`
+
+When the user explicitly asks for an editable suggestion, add one more section:
+
+8. `Suggested Harness Draft`
 
 ## Authoring Quality Bar
 

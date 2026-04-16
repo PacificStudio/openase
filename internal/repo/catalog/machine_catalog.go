@@ -182,7 +182,8 @@ func machineCreateBuilder(builder *ent.MachineCreate, input domain.CreateMachine
 		SetNillableChannelTokenID(input.ChannelCredential.TokenID).
 		SetNillableChannelCertificateID(input.ChannelCredential.CertificateID).
 		SetNillableWorkspaceRoot(input.WorkspaceRoot).
-		SetNillableAgentCliPath(input.AgentCLIPath)
+		SetNillableAgentCliPath(input.AgentCLIPath).
+		SetAgentCliPaths(input.AgentCLIPaths.ToRawMap())
 	if len(input.TransportCapabilities) > 0 {
 		builder.SetTransportCapabilities(pgarray.StringArray(domainTransportCapabilityStrings(input.TransportCapabilities)))
 	}
@@ -267,6 +268,7 @@ func machineUpdateBuilder(builder *ent.MachineUpdateOne, input domain.UpdateMach
 	} else {
 		builder.ClearAgentCliPath()
 	}
+	builder.SetAgentCliPaths(input.AgentCLIPaths.ToRawMap())
 	if len(input.EnvVars) > 0 {
 		builder.SetEnvVars(pgarray.StringArray(input.EnvVars))
 	} else {
@@ -346,6 +348,7 @@ func normalizeUpdateMachineDefaults(input domain.UpdateMachine) (domain.UpdateMa
 		Status:                input.Status,
 		WorkspaceRoot:         input.WorkspaceRoot,
 		AgentCLIPath:          input.AgentCLIPath,
+		AgentCLIPaths:         input.AgentCLIPaths,
 		EnvVars:               input.EnvVars,
 	})
 	if err != nil {
@@ -360,6 +363,7 @@ func normalizeUpdateMachineDefaults(input domain.UpdateMachine) (domain.UpdateMa
 	input.DetectedArch = createInput.DetectedArch
 	input.DetectionStatus = createInput.DetectionStatus
 	input.ChannelCredential = createInput.ChannelCredential
+	input.AgentCLIPaths = createInput.AgentCLIPaths
 	return input, nil
 }
 
@@ -413,6 +417,7 @@ func mapMachine(item *ent.Machine) domain.Machine {
 		Status:                toDomainMachineStatus(item.Status),
 		WorkspaceRoot:         optionalString(item.WorkspaceRoot),
 		AgentCLIPath:          optionalString(item.AgentCliPath),
+		AgentCLIPaths:         domain.MachineAgentCLIPathsFromRaw(item.AgentCliPaths),
 		EnvVars:               append([]string(nil), item.EnvVars...),
 		LastHeartbeatAt:       cloneTimePointer(item.LastHeartbeatAt),
 		Resources:             cloneAnyMap(item.Resources),

@@ -473,6 +473,18 @@ func (_u *MachineUpdate) ClearAgentCliPath() *MachineUpdate {
 	return _u
 }
 
+// SetAgentCliPaths sets the "agent_cli_paths" field.
+func (_u *MachineUpdate) SetAgentCliPaths(v map[string]string) *MachineUpdate {
+	_u.mutation.SetAgentCliPaths(v)
+	return _u
+}
+
+// ClearAgentCliPaths clears the value of the "agent_cli_paths" field.
+func (_u *MachineUpdate) ClearAgentCliPaths() *MachineUpdate {
+	_u.mutation.ClearAgentCliPaths()
+	return _u
+}
+
 // SetEnvVars sets the "env_vars" field.
 func (_u *MachineUpdate) SetEnvVars(v pgarray.StringArray) *MachineUpdate {
 	_u.mutation.SetEnvVars(v)
@@ -856,6 +868,12 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AgentCliPathCleared() {
 		_spec.ClearField(machine.FieldAgentCliPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.AgentCliPaths(); ok {
+		_spec.SetField(machine.FieldAgentCliPaths, field.TypeJSON, value)
+	}
+	if _u.mutation.AgentCliPathsCleared() {
+		_spec.ClearField(machine.FieldAgentCliPaths, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.EnvVars(); ok {
 		_spec.SetField(machine.FieldEnvVars, field.TypeOther, value)
@@ -1495,6 +1513,18 @@ func (_u *MachineUpdateOne) ClearAgentCliPath() *MachineUpdateOne {
 	return _u
 }
 
+// SetAgentCliPaths sets the "agent_cli_paths" field.
+func (_u *MachineUpdateOne) SetAgentCliPaths(v map[string]string) *MachineUpdateOne {
+	_u.mutation.SetAgentCliPaths(v)
+	return _u
+}
+
+// ClearAgentCliPaths clears the value of the "agent_cli_paths" field.
+func (_u *MachineUpdateOne) ClearAgentCliPaths() *MachineUpdateOne {
+	_u.mutation.ClearAgentCliPaths()
+	return _u
+}
+
 // SetEnvVars sets the "env_vars" field.
 func (_u *MachineUpdateOne) SetEnvVars(v pgarray.StringArray) *MachineUpdateOne {
 	_u.mutation.SetEnvVars(v)
@@ -1908,6 +1938,12 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 	}
 	if _u.mutation.AgentCliPathCleared() {
 		_spec.ClearField(machine.FieldAgentCliPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.AgentCliPaths(); ok {
+		_spec.SetField(machine.FieldAgentCliPaths, field.TypeJSON, value)
+	}
+	if _u.mutation.AgentCliPathsCleared() {
+		_spec.ClearField(machine.FieldAgentCliPaths, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.EnvVars(); ok {
 		_spec.SetField(machine.FieldEnvVars, field.TypeOther, value)

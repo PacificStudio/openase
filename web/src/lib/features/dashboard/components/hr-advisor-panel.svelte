@@ -1,35 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { ApiError } from '$lib/api/client'
-  import type { BuiltinRole, HRAdvisorRecommendation } from '$lib/api/contracts'
-  import { activateHRRecommendation, getHRAdvisor, listBuiltinRoles } from '$lib/api/openase'
-  import { toastStore } from '$lib/stores/toast.svelte'
-  import { cn } from '$lib/utils'
+  import { appStore } from '$lib/stores/app.svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
-  import { ChevronDown, ChevronRight } from '@lucide/svelte'
+  import { Button } from '$ui/button'
+  import { MessageSquarePlus, WandSparkles } from '@lucide/svelte'
   import type { HRAdvisorSnapshot } from '../types'
-  import HRAdvisorHarnessDialog from './hr-advisor-harness-dialog.svelte'
-  import HRAdvisorRecommendationCard from './hr-advisor-recommendation-card.svelte'
-  import {
-    activationStatusText,
-    applyActivatedRecommendation,
-    loadDeferredRecommendationKeys,
-    persistDeferredRecommendationKeys as persistDeferredRecommendationKeysForProject,
-    recommendationKey,
-    toPrioritySectionKey,
-  } from './hr-advisor-panel-state'
-
-  type ActivationSuccessToastKey =
-    | 'dashboard.hrAdvisor.toasts.activation.successWithTicket'
-    | 'dashboard.hrAdvisor.toasts.activation.success'
-
-  const priorityDotClass: Record<string, string> = {
-    high: 'bg-rose-500',
-    medium: 'bg-amber-500',
-    low: 'bg-sky-500',
-    other: 'bg-muted-foreground',
-  }
+  import HRAdvisorSummaryGrid from './hr-advisor-summary-grid.svelte'
 
   let {
     projectId,
@@ -41,141 +18,24 @@
     class?: string
   } = $props()
 
-  let advisorStateOverride = $state<HRAdvisorSnapshot | null>(null)
-  let deferredRecommendationKeys = $state<string[]>([])
-  let activatingRecommendationKey = $state<string | null>(null)
-  let activationErrors = $state<Record<string, string>>({})
-  let builtinRolesBySlug = $state<Record<string, BuiltinRole>>({})
-  let harnessDialogOpen = $state(false)
-  let selectedHarnessRoleSlug = $state('')
-  let selectedHarnessRoleName = $state('')
-  let harnessLoading = $state(false)
-  let harnessError = $state('')
-  let showDeferred = $state(false)
+  const focusOwner = 'hr-advisor'
 
-  $effect(() => {
-    void advisor
-    advisorStateOverride = null
-  })
-
-  onMount(() => {
-    deferredRecommendationKeys = loadDeferredRecommendationKeys(projectId)
-  })
-
-  const advisorState = $derived(advisorStateOverride ?? advisor)
-
-  const visibleRecommendations = $derived(
-    advisorState.recommendations.filter(
-      (r) => !deferredRecommendationKeys.includes(recommendationKey(r)),
-    ),
-  )
-
-  const deferredRecommendations = $derived(
-    advisorState.recommendations.filter((r) =>
-      deferredRecommendationKeys.includes(recommendationKey(r)),
-    ),
-  )
-
-  const selectedHarness = $derived(
-    selectedHarnessRoleSlug ? (builtinRolesBySlug[selectedHarnessRoleSlug] ?? null) : null,
-  )
-
-  function persistDeferredRecommendationKeys(nextKeys: string[]) {
-    deferredRecommendationKeys = persistDeferredRecommendationKeysForProject(projectId, nextKeys)
-  }
-
-  function deferRecommendation(recommendation: HRAdvisorRecommendation) {
-    const key = recommendationKey(recommendation)
-    if (deferredRecommendationKeys.includes(key)) return
-    persistDeferredRecommendationKeys([...deferredRecommendationKeys, key])
-  }
-
-  function restoreRecommendation(recommendation: HRAdvisorRecommendation) {
-    const key = recommendationKey(recommendation)
-    persistDeferredRecommendationKeys(deferredRecommendationKeys.filter((k) => k !== key))
-  }
-
-  async function openHarnessDialog(recommendation: HRAdvisorRecommendation) {
-    selectedHarnessRoleSlug = recommendation.role_slug
-    selectedHarnessRoleName = recommendation.role_name
-    harnessError = ''
-    harnessDialogOpen = true
-
-    if (builtinRolesBySlug[recommendation.role_slug]) return
-
-    harnessLoading = true
-    try {
-      const payload = await listBuiltinRoles()
-      builtinRolesBySlug = Object.fromEntries(payload.roles.map((role) => [role.slug, role]))
-      if (!payload.roles.find((role) => role.slug === recommendation.role_slug)) {
-        harnessError = i18nStore.t('dashboard.hrAdvisor.harnessDialog.errors.templateUnavailable')
-      }
-    } catch (caughtError) {
-      harnessError =
-        caughtError instanceof ApiError
-          ? caughtError.detail
-          : i18nStore.t('dashboard.hrAdvisor.harnessDialog.errors.loadFailed')
-    } finally {
-      harnessLoading = false
-    }
-  }
-
-  async function activateRecommendation(recommendation: HRAdvisorRecommendation) {
-    const key = recommendationKey(recommendation)
-    if (!recommendation.activation_ready || activatingRecommendationKey === key) return
-
-    activatingRecommendationKey = key
-    activationErrors = Object.fromEntries(
-      Object.entries(activationErrors).filter(([k]) => k !== key),
+  function requestAdvice() {
+    appStore.clearProjectAssistantFocus(focusOwner)
+    appStore.requestProjectAssistant(
+      i18nStore.t('dashboard.hrAdvisor.prompts.suggest', {
+        projectId,
+      }),
     )
+  }
 
-    try {
-      const payload = await activateHRRecommendation(projectId, {
-        role_slug: recommendation.role_slug,
-        create_bootstrap_ticket: true,
-      })
-
-      persistDeferredRecommendationKeys(deferredRecommendationKeys.filter((k) => k !== key))
-
-      advisorStateOverride = applyActivatedRecommendation(
-        advisorState,
-        recommendation,
-        payload.workflow.name || recommendation.suggested_workflow_name,
-      )
-
-      const bootstrapTicketIdentifier = payload.bootstrap_ticket.ticket?.identifier
-      const toastKey: ActivationSuccessToastKey = bootstrapTicketIdentifier
-        ? 'dashboard.hrAdvisor.toasts.activation.successWithTicket'
-        : 'dashboard.hrAdvisor.toasts.activation.success'
-      toastStore.success(
-        bootstrapTicketIdentifier
-          ? i18nStore.t(toastKey, {
-              role: recommendation.role_name,
-              ticket: bootstrapTicketIdentifier,
-            })
-          : i18nStore.t(toastKey, {
-              role: recommendation.role_name,
-            }),
-      )
-
-      try {
-        const refreshedAdvisor = await getHRAdvisor(projectId)
-        advisorStateOverride = {
-          summary: refreshedAdvisor.summary,
-          staffing: refreshedAdvisor.staffing,
-          recommendations: refreshedAdvisor.recommendations,
-        }
-      } catch {
-        // Keep the optimistic card state if a follow-up refresh fails.
-      }
-    } catch (caughtError) {
-      const fallback = i18nStore.t('dashboard.hrAdvisor.toasts.activationFailed')
-      const detail = caughtError instanceof ApiError ? caughtError.detail : fallback
-      activationErrors = { ...activationErrors, [key]: detail }
-      toastStore.error(detail)
-    } finally {
-      activatingRecommendationKey = null
-    }
+  function requestCreation() {
+    appStore.clearProjectAssistantFocus(focusOwner)
+    appStore.requestProjectAssistant(
+      i18nStore.t('dashboard.hrAdvisor.prompts.create', {
+        projectId,
+      }),
+    )
   }
 </script>
 
@@ -187,86 +47,35 @@
       </h3>
       <Badge variant="outline" class="text-[10px]">
         {i18nStore.t('dashboard.hrAdvisor.summary.labels.workflows', {
-          count: advisorState.summary.workflow_count,
+          count: advisor.summary.workflow_count,
         })}
       </Badge>
     </div>
-    {#if visibleRecommendations.length > 0}
-      <span class="text-muted-foreground text-xs">
-        {i18nStore.t('dashboard.hrAdvisor.messages.readyToActivate', {
-          count: visibleRecommendations.filter((r) => r.activation_ready).length,
-        })}
-      </span>
-    {/if}
+    <span class="text-muted-foreground text-xs">
+      {i18nStore.t('dashboard.hrAdvisor.messages.aiMode')}
+    </span>
   </div>
 
-  <div class="space-y-2 px-4 pb-4">
-    {#if visibleRecommendations.length > 0}
-      {#each visibleRecommendations as recommendation (recommendationKey(recommendation))}
-        {@const key = recommendationKey(recommendation)}
-        <HRAdvisorRecommendationCard
-          {recommendation}
-          priorityDotClass={priorityDotClass[toPrioritySectionKey(recommendation.priority)]}
-          activationStatus={activationStatusText(recommendation)}
-          activationError={activationErrors[key]}
-          activating={activatingRecommendationKey === key}
-          onViewHarness={() => void openHarnessDialog(recommendation)}
-          onActivate={() => void activateRecommendation(recommendation)}
-          onDefer={() => deferRecommendation(recommendation)}
-        />
-      {/each}
-    {:else if deferredRecommendations.length > 0}
-      <p class="text-muted-foreground py-4 text-center text-xs">
-        {i18nStore.t('dashboard.hrAdvisor.messages.allDeferred')}
-      </p>
-    {:else}
-      <p class="text-muted-foreground py-4 text-center text-xs">
-        {i18nStore.t('dashboard.hrAdvisor.messages.noRecommendations')}
-      </p>
-    {/if}
+  <div class="space-y-4 px-4 pb-4">
+    <p class="text-muted-foreground text-xs leading-5">
+      {i18nStore.t('dashboard.hrAdvisor.messages.description')}
+    </p>
 
-    {#if deferredRecommendations.length > 0}
-      <button
-        type="button"
-        class="text-muted-foreground hover:text-foreground flex w-full items-center gap-1.5 pt-1 text-xs transition-colors"
-        onclick={() => (showDeferred = !showDeferred)}
-      >
-        {#if showDeferred}
-          <ChevronDown class="size-3" />
-        {:else}
-          <ChevronRight class="size-3" />
-        {/if}
-        {i18nStore.t('dashboard.hrAdvisor.actions.deferredCount', {
-          count: deferredRecommendations.length,
-        })}
-      </button>
+    <HRAdvisorSummaryGrid summary={advisor.summary} />
 
-      {#if showDeferred}
-        <div class="space-y-2">
-          {#each deferredRecommendations as recommendation (recommendationKey(recommendation))}
-            {@const key = recommendationKey(recommendation)}
-            <HRAdvisorRecommendationCard
-              {recommendation}
-              priorityDotClass={priorityDotClass[toPrioritySectionKey(recommendation.priority)]}
-              activationStatus={activationStatusText(recommendation)}
-              activationError={activationErrors[key]}
-              activating={activatingRecommendationKey === key}
-              deferred
-              onViewHarness={() => void openHarnessDialog(recommendation)}
-              onActivate={() => void activateRecommendation(recommendation)}
-              onRestore={() => restoreRecommendation(recommendation)}
-            />
-          {/each}
-        </div>
-      {/if}
-    {/if}
+    <div class="grid gap-2 sm:grid-cols-2">
+      <Button variant="outline" class="justify-start" onclick={requestAdvice}>
+        <WandSparkles class="mr-2 size-4" />
+        {i18nStore.t('dashboard.hrAdvisor.actions.askProjectAI')}
+      </Button>
+      <Button class="justify-start" onclick={requestCreation}>
+        <MessageSquarePlus class="mr-2 size-4" />
+        {i18nStore.t('dashboard.hrAdvisor.actions.askProjectAICreate')}
+      </Button>
+    </div>
+
+    <div class="bg-muted/40 text-muted-foreground rounded-lg border px-3 py-3 text-xs leading-5">
+      {i18nStore.t('dashboard.hrAdvisor.messages.contextHint')}
+    </div>
   </div>
 </div>
-
-<HRAdvisorHarnessDialog
-  bind:open={harnessDialogOpen}
-  harness={selectedHarness}
-  roleName={selectedHarnessRoleName}
-  loading={harnessLoading}
-  error={harnessError}
-/>

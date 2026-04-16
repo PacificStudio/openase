@@ -4,6 +4,7 @@
   import { formatMachineRelativeTime } from '../machine-i18n'
   import { RefreshCw } from '@lucide/svelte'
   import {
+    detectedPlatformFromSnapshot,
     machineDetectedArchLabel,
     machineDetectedOSLabel,
     machineDetectionBadgeClass,
@@ -29,6 +30,7 @@
   } = $props()
 
   const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
+  const detectedPlatform = $derived(detectedPlatformFromSnapshot(snapshot))
 </script>
 
 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -55,8 +57,12 @@
         <Badge variant="outline">{machineReachabilityLabel(machine.reachability_mode)}</Badge>
         <Badge variant="outline">{setupGuide.runtimeLabel}</Badge>
         <Badge variant="outline">{setupGuide.helperLabel}</Badge>
-        <Badge variant="secondary">{machineDetectedOSLabel(machine.detected_os)}</Badge>
-        <Badge variant="secondary">{machineDetectedArchLabel(machine.detected_arch)}</Badge>
+        <Badge variant="secondary"
+          >{machineDetectedOSLabel(machine.detected_os ?? detectedPlatform.os)}</Badge
+        >
+        <Badge variant="secondary"
+          >{machineDetectedArchLabel(machine.detected_arch ?? detectedPlatform.arch)}</Badge
+        >
         <Badge variant="outline" class={machineDetectionBadgeClass(machine.detection_status)}>
           {machineDetectionStatusLabel(machine.detection_status)}
         </Badge>

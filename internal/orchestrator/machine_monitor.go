@@ -159,6 +159,7 @@ type monitoredMachine struct {
 	AdvertisedEndpoint *string
 	WorkspaceRoot      *string
 	AgentCLIPath       *string
+	AgentCLIPaths      domain.MachineAgentCLIPaths
 	EnvVars            []string
 	DaemonStatus       domain.MachineDaemonStatus
 	Status             entmachine.Status
@@ -183,6 +184,7 @@ func (m monitoredMachine) toDomain() domain.Machine {
 		AdvertisedEndpoint: m.AdvertisedEndpoint,
 		WorkspaceRoot:      m.WorkspaceRoot,
 		AgentCLIPath:       m.AgentCLIPath,
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(m.AgentCLIPaths),
 		EnvVars:            append([]string(nil), m.EnvVars...),
 		DaemonStatus:       m.DaemonStatus,
 		Labels:             append([]string(nil), m.Labels...),
@@ -300,17 +302,71 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	}
 
 	if (level2Due || level3Due || level4Due || level5Due) && !softReachabilityFailure && !hardReachabilityFailure && isWebsocketMachine {
-		if level2Due {
+		if level2Due && domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener {
 			report.L2Checks++
+			systemResources, err := m.collector.CollectSystemResources(ctx, domainMachine)
+			if err != nil {
+				systemProbeFailure = true
+				setMachineMonitorError(resources, "l2", err.Error())
+				logger.Warn("machine monitor l2 system probe failed", "error", err)
+			} else {
+				updateL2Resources(resources, systemResources)
+				clearMachineMonitorError(resources, "l2")
+				logger.Info("machine monitor l2 system probe completed",
+					"collected_at", formatMachineMonitorTime(systemResources.CollectedAt),
+					"cpu_cores", systemResources.CPUCores,
+					"cpu_usage_percent", systemResources.CPUUsagePercent,
+					"memory_available_gb", systemResources.MemoryAvailableGB,
+					"memory_available_percent", systemResources.MemoryAvailablePercent,
+					"disk_available_gb", systemResources.DiskAvailableGB,
+					"disk_available_percent", systemResources.DiskAvailablePercent,
+				)
+			}
 		}
 		if level3Due {
 			report.L3Checks++
 		}
 		if level4Due {
 			report.L4Checks++
+			if domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener {
+				agentEnvironment, err := m.collector.CollectAgentEnvironment(ctx, domainMachine)
+				if err != nil {
+					level4ProbeFailure = true
+					setMachineMonitorError(resources, "l4", err.Error())
+					logger.Warn("machine monitor l4 agent environment probe failed", "error", err)
+				} else {
+					updateL4Resources(resources, agentEnvironment)
+					clearMachineMonitorError(resources, "l4")
+					logger.Info("machine monitor l4 agent environment probe completed",
+						"collected_at", formatMachineMonitorTime(agentEnvironment.CollectedAt),
+						"dispatchable", agentEnvironment.Dispatchable,
+						"cli_count", len(agentEnvironment.CLIs),
+					)
+				}
+			}
 		}
 		if level5Due {
 			report.L5Checks++
+			if domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener {
+				fullAudit, err := m.collector.CollectFullAudit(ctx, domainMachine)
+				if err != nil {
+					level5ProbeFailure = true
+					setMachineMonitorError(resources, "l5", err.Error())
+					logger.Warn("machine monitor l5 full audit failed", "error", err)
+				} else {
+					updateL5Resources(resources, fullAudit)
+					clearMachineMonitorError(resources, "l5")
+					logger.Info("machine monitor l5 full audit completed",
+						"collected_at", formatMachineMonitorTime(fullAudit.CollectedAt),
+						"git_installed", fullAudit.Git.Installed,
+						"github_cli_installed", fullAudit.GitHubCLI.Installed,
+						"github_cli_auth_status", string(fullAudit.GitHubCLI.AuthStatus),
+						"github_reachable", fullAudit.Network.GitHubReachable,
+						"pypi_reachable", fullAudit.Network.PyPIReachable,
+						"npm_reachable", fullAudit.Network.NPMReachable,
+					)
+				}
+			}
 		}
 		websocketHealth, err := m.collector.CollectWebsocketHealth(ctx, domainMachine)
 		if err != nil {
@@ -326,6 +382,12 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 			)
 		}
 		resources["websocket_health"] = domain.StoreWebsocketMachineHealth(websocketHealth)
+		if detectedOS, ok := websocketHealth.L5.Details["detected_os"].(string); ok && strings.TrimSpace(detectedOS) != "" {
+			resources["detected_os"] = strings.TrimSpace(detectedOS)
+		}
+		if detectedArch, ok := websocketHealth.L5.Details["detected_arch"].(string); ok && strings.TrimSpace(detectedArch) != "" {
+			resources["detected_arch"] = strings.TrimSpace(detectedArch)
+		}
 		websocketLayerFailure = domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L2) ||
 			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L3) ||
 			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L4) ||
@@ -414,6 +476,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		AdvertisedEndpoint: cloneMachineString(machine.AdvertisedEndpoint),
 		WorkspaceRoot:      cloneMachineString(machine.WorkspaceRoot),
 		AgentCLIPath:       cloneMachineString(machine.AgentCLIPath),
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(machine.AgentCLIPaths),
 		DaemonStatus:       machine.DaemonStatus,
 		Status:             status,
 		Labels:             append([]string(nil), machine.Labels...),
@@ -617,6 +680,7 @@ func mapMonitoredAgentProvider(item *ent.AgentProvider, machine monitoredMachine
 		MachineSSHUser:       cloneMachineString(machine.SSHUser),
 		MachineWorkspaceRoot: cloneMachineString(machine.WorkspaceRoot),
 		MachineAgentCLIPath:  cloneMachineString(machine.AgentCLIPath),
+		MachineAgentCLIPaths: domain.CloneMachineAgentCLIPaths(machine.AgentCLIPaths),
 		MachineResources:     cloneResourceMap(machine.Resources),
 		Name:                 item.Name,
 		AdapterType:          domain.AgentProviderAdapterType(item.AdapterType.String()),
@@ -667,6 +731,7 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		AdvertisedEndpoint: optionalMachineString(item.AdvertisedEndpoint),
 		WorkspaceRoot:      optionalMachineString(item.WorkspaceRoot),
 		AgentCLIPath:       optionalMachineString(item.AgentCliPath),
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(domain.MachineAgentCLIPathsFromRaw(item.AgentCliPaths)),
 		EnvVars:            append([]string(nil), item.EnvVars...),
 		DaemonStatus: domain.MachineDaemonStatus{
 			Registered:       item.DaemonRegistered,

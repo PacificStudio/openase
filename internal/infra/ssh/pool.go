@@ -181,10 +181,23 @@ func (p *Pool) Close() error {
 }
 
 func (p *Pool) resolveKeyPath(raw string) string {
-	if filepath.IsAbs(raw) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return filepath.Clean(raw)
 	}
-	return filepath.Join(p.openASEHomeDir, raw)
+	if filepath.IsAbs(trimmed) {
+		return filepath.Clean(trimmed)
+	}
+	if strings.HasPrefix(trimmed, "~/") || trimmed == "~" {
+		homeDir, err := os.UserHomeDir()
+		if err == nil && strings.TrimSpace(homeDir) != "" {
+			if trimmed == "~" {
+				return filepath.Clean(homeDir)
+			}
+			return filepath.Join(homeDir, strings.TrimPrefix(trimmed, "~/"))
+		}
+	}
+	return filepath.Join(p.openASEHomeDir, trimmed)
 }
 
 type Tester struct {

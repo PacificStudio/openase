@@ -40,6 +40,7 @@ type Machine struct {
 	Status                MachineStatus
 	WorkspaceRoot         *string
 	AgentCLIPath          *string
+	AgentCLIPaths         MachineAgentCLIPaths
 	EnvVars               []string
 	LastHeartbeatAt       *time.Time
 	Resources             map[string]any
@@ -74,6 +75,7 @@ type MachineInput struct {
 	Status             string                         `json:"status"`
 	WorkspaceRoot      *string                        `json:"workspace_root"`
 	AgentCLIPath       *string                        `json:"agent_cli_path"`
+	AgentCLIPaths      map[string]string              `json:"agent_cli_paths"`
 	EnvVars            []string                       `json:"env_vars"`
 }
 
@@ -99,6 +101,7 @@ type CreateMachine struct {
 	Status                MachineStatus
 	WorkspaceRoot         *string
 	AgentCLIPath          *string
+	AgentCLIPaths         MachineAgentCLIPaths
 	EnvVars               []string
 }
 
@@ -125,6 +128,7 @@ type UpdateMachine struct {
 	Status                MachineStatus
 	WorkspaceRoot         *string
 	AgentCLIPath          *string
+	AgentCLIPaths         MachineAgentCLIPaths
 	EnvVars               []string
 }
 
@@ -223,6 +227,10 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 	if err != nil {
 		return CreateMachine{}, err
 	}
+	agentCLIPaths, err := parseMachineAgentCLIPaths(raw.AgentCLIPaths)
+	if err != nil {
+		return CreateMachine{}, err
+	}
 
 	return CreateMachine{
 		OrganizationID:        organizationID,
@@ -246,6 +254,7 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 		Status:                status,
 		WorkspaceRoot:         workspaceRoot,
 		AgentCLIPath:          parseOptionalText(raw.AgentCLIPath),
+		AgentCLIPaths:         agentCLIPaths,
 		EnvVars:               envVars,
 	}, nil
 }
@@ -279,6 +288,7 @@ func ParseUpdateMachine(id uuid.UUID, organizationID uuid.UUID, raw MachineInput
 		Status:                input.Status,
 		WorkspaceRoot:         input.WorkspaceRoot,
 		AgentCLIPath:          input.AgentCLIPath,
+		AgentCLIPaths:         input.AgentCLIPaths,
 		EnvVars:               input.EnvVars,
 	}, nil
 }

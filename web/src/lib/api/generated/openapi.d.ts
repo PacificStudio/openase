@@ -967,6 +967,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/machines/{machineId}/ssh-bootstrap': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Run the SSH bootstrap helper in-process on the server */
+    post: operations['sshBootstrapMachine']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/machines/{machineId}/test': {
     parameters: {
       query?: never
@@ -8780,6 +8797,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -8879,6 +8899,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -8986,6 +9009,10 @@ export interface operations {
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks. */
+          agent_cli_paths?: {
+            [key: string]: string
+          } | null
           /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
           channel_credential?: {
             /** @description Opaque certificate identifier reserved for machine channel registration. */
@@ -9050,6 +9077,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -9161,6 +9191,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -9335,6 +9368,126 @@ export interface operations {
       }
     }
   }
+  sshBootstrapMachine: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    /** @description Run the SSH bootstrap helper in-process on the server request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional control-plane base URL override written into the remote environment file. Defaults to the incoming request URL. */
+          control_plane_url?: string
+          /** @description Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837. */
+          listener_address?: string
+          /** @description Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present. */
+          listener_bearer_token?: string
+          /** @description Remote websocket listener HTTP path when installing the remote-listener topology. Defaults to /openase/runtime. */
+          listener_path?: string
+          /** @description Optional TTL in seconds for the freshly issued machine channel token. Defaults to 24 hours. */
+          token_ttl_seconds?: number
+          /** @description Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology. */
+          topology?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Run the SSH bootstrap helper in-process on the server response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            result?: {
+              commands?: string[]
+              connection_target?: string
+              environment_file?: string
+              machine_id?: string
+              machine_name?: string
+              remote_binary_path?: string
+              remote_home?: string
+              retry_advice?: string[]
+              rollback_advice?: string[]
+              service_file?: string
+              service_manager?: string
+              service_name?: string
+              service_status?: string
+              summary?: string
+              token_id?: string
+              topology?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   testMachineConnection: {
     parameters: {
       query?: never
@@ -9357,6 +9510,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -10911,6 +11067,9 @@ export interface operations {
             machines?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -11006,6 +11165,10 @@ export interface operations {
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks. */
+          agent_cli_paths?: {
+            [key: string]: string
+          }
           /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
           channel_credential?: {
             /** @description Opaque certificate identifier reserved for machine channel registration. */
@@ -11070,6 +11233,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string

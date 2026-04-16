@@ -61,6 +61,7 @@ func (Machine) Fields() []ent.Field {
 			Default("maintenance"),
 		field.String("workspace_root").Optional(),
 		field.String("agent_cli_path").Optional(),
+		field.JSON("agent_cli_paths", map[string]string{}).Optional(),
 		textArrayField("env_vars"),
 		field.Time("last_heartbeat_at").Optional().Nillable(),
 		field.JSON("resources", map[string]any{}).Default(emptyMap),

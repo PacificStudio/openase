@@ -18,6 +18,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
 	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -465,7 +466,7 @@ func (s *runtimeProtocolServer) handleProbe(ctx context.Context, envelope runtim
 	return s.sendResponse(ctx, envelope, runtimecontract.ProbeResponse{
 		CheckedAt:       now.Format(time.RFC3339),
 		Output:          strings.TrimSpace(output),
-		Resources:       buildRuntimeProbeResources(now, output),
+		Resources:       buildRuntimeProbeResources(ctx, now, output),
 		DetectedOS:      detectedOS.String(),
 		DetectedArch:    detectedArch.String(),
 		DetectionStatus: detectionStatus.String(),
@@ -970,7 +971,7 @@ func runtimeErrorPayload(
 	}
 }
 
-func buildRuntimeProbeResources(checkedAt time.Time, output string) map[string]any {
+func buildRuntimeProbeResources(ctx context.Context, checkedAt time.Time, output string) map[string]any {
 	detectedOS, detectedArch, detectionStatus := machineprobe.DetectPlatformFromProbeOutput(output)
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	resources := map[string]any{
@@ -990,6 +991,64 @@ func buildRuntimeProbeResources(checkedAt time.Time, output string) map[string]a
 		resources["kernel"] = strings.TrimSpace(lines[2])
 	}
 	resources["platform_family"] = runtime.GOOS
+
+	collector := sshinfra.NewMonitorCollector(nil)
+	localMachine := domain.Machine{Host: domain.LocalMachineHost, Name: domain.LocalMachineName}
+	if system, err := collector.CollectSystemResources(ctx, localMachine); err == nil {
+		resources["cpu_cores"] = system.CPUCores
+		resources["cpu_usage_percent"] = system.CPUUsagePercent
+		resources["memory_total_gb"] = system.MemoryTotalGB
+		resources["memory_used_gb"] = system.MemoryUsedGB
+		resources["memory_available_gb"] = system.MemoryAvailableGB
+		resources["disk_total_gb"] = system.DiskTotalGB
+		resources["disk_available_gb"] = system.DiskAvailableGB
+	}
+	if agentEnvironment, err := collector.CollectAgentEnvironment(ctx, localMachine); err == nil {
+		resources["agent_dispatchable"] = agentEnvironment.Dispatchable
+		resources["agent_environment_checked_at"] = agentEnvironment.CollectedAt.UTC().Format(time.RFC3339)
+		environmentSummary := make(map[string]any, len(agentEnvironment.CLIs))
+		for _, cli := range agentEnvironment.CLIs {
+			environmentSummary[cli.Name] = map[string]any{
+				"installed":   cli.Installed,
+				"version":     cli.Version,
+				"auth_status": string(cli.AuthStatus),
+				"auth_mode":   string(cli.AuthMode),
+				"ready":       cli.Ready,
+			}
+		}
+		resources["agent_environment"] = environmentSummary
+	}
+	if fullAudit, err := collector.CollectFullAudit(ctx, localMachine); err == nil {
+		fullAuditSummary := map[string]any{
+			"checked_at": fullAudit.CollectedAt.UTC().Format(time.RFC3339),
+			"git": map[string]any{
+				"installed":  fullAudit.Git.Installed,
+				"user_name":  fullAudit.Git.UserName,
+				"user_email": fullAudit.Git.UserEmail,
+			},
+			"gh_cli": map[string]any{
+				"installed":   fullAudit.GitHubCLI.Installed,
+				"auth_status": string(fullAudit.GitHubCLI.AuthStatus),
+			},
+			"github_token_probe": map[string]any{
+				"state":       string(fullAudit.GitHubTokenProbe.State),
+				"configured":  fullAudit.GitHubTokenProbe.Configured,
+				"valid":       fullAudit.GitHubTokenProbe.Valid,
+				"permissions": append([]string(nil), fullAudit.GitHubTokenProbe.Permissions...),
+				"repo_access": string(fullAudit.GitHubTokenProbe.RepoAccess),
+				"last_error":  fullAudit.GitHubTokenProbe.LastError,
+			},
+			"network": map[string]any{
+				"github_reachable": fullAudit.Network.GitHubReachable,
+				"pypi_reachable":   fullAudit.Network.PyPIReachable,
+				"npm_reachable":    fullAudit.Network.NPMReachable,
+			},
+		}
+		if fullAudit.GitHubTokenProbe.CheckedAt != nil {
+			fullAuditSummary["github_token_probe"].(map[string]any)["checked_at"] = fullAudit.GitHubTokenProbe.CheckedAt.UTC().Format(time.RFC3339)
+		}
+		resources["full_audit"] = fullAuditSummary
+	}
 	return resources
 }
 

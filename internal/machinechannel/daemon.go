@@ -262,6 +262,7 @@ func (d *Daemon) systemInfo(config domain.DaemonConfig) domain.SystemInfo {
 		Arch:              runtime.GOARCH,
 		OpenASEBinaryPath: openaseBinaryPath,
 		AgentCLIPath:      strings.TrimSpace(config.AgentCLIPath),
+		AgentCLIPaths:     cloneDaemonCLIPaths(config.AgentCLIPaths),
 	}
 }
 
@@ -272,9 +273,9 @@ func (d *Daemon) toolInventory(config domain.DaemonConfig) []domain.ToolInfo {
 	}
 
 	specs := []toolSpec{
-		{name: "claude_code", command: "claude"},
-		{name: "codex", command: firstNonEmptyString(strings.TrimSpace(config.AgentCLIPath), "codex")},
-		{name: "gemini", command: "gemini"},
+		{name: "claude_code", command: daemonToolCommand(config, "claude-code-cli", "claude")},
+		{name: "codex", command: daemonToolCommand(config, "codex-app-server", "codex")},
+		{name: "gemini", command: daemonToolCommand(config, "gemini-cli", "gemini")},
 	}
 
 	tools := make([]domain.ToolInfo, 0, len(specs))
@@ -300,6 +301,33 @@ func (d *Daemon) toolInventory(config domain.DaemonConfig) []domain.ToolInfo {
 		tools = append(tools, info)
 	}
 	return tools
+}
+
+func daemonToolCommand(config domain.DaemonConfig, adapterKey string, fallback string) string {
+	if len(config.AgentCLIPaths) > 0 {
+		return firstNonEmptyString(strings.TrimSpace(config.AgentCLIPaths[adapterKey]), fallback)
+	}
+	return firstNonEmptyString(strings.TrimSpace(config.AgentCLIPath), fallback)
+}
+
+func cloneDaemonCLIPaths(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]string, len(input))
+	for key, value := range input {
+		trimmedKey := strings.TrimSpace(key)
+		trimmedValue := strings.TrimSpace(value)
+		if trimmedKey == "" || trimmedValue == "" {
+			continue
+		}
+		cloned[trimmedKey] = trimmedValue
+	}
+	if len(cloned) == 0 {
+		return nil
+	}
+	return cloned
 }
 
 func (d *Daemon) websocketHealth(

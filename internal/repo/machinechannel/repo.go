@@ -290,6 +290,7 @@ func mergeMachineResources(
 		"arch":                strings.TrimSpace(systemInfo.Arch),
 		"openase_binary_path": strings.TrimSpace(systemInfo.OpenASEBinaryPath),
 		"agent_cli_path":      strings.TrimSpace(systemInfo.AgentCLIPath),
+		"agent_cli_paths":     cloneStringMap(systemInfo.AgentCLIPaths),
 		"checked_at":          checkedAt,
 	}
 	storeWebsocketHealth(resources, collectedAt, toolInventory, websocketHealth)
@@ -554,6 +555,18 @@ func cloneMap(raw map[string]any) map[string]any {
 			cloned[key] = cloneMap(nested)
 			continue
 		}
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneStringMap(raw map[string]string) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]string, len(raw))
+	for key, value := range raw {
 		cloned[key] = value
 	}
 	return cloned

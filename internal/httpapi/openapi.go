@@ -123,6 +123,7 @@ type OpenAPIMachine struct {
 	Status                string                          `json:"status"`
 	WorkspaceRoot         *string                         `json:"workspace_root,omitempty"`
 	AgentCLIPath          *string                         `json:"agent_cli_path,omitempty"`
+	AgentCLIPaths         map[string]string               `json:"agent_cli_paths,omitempty"`
 	EnvVars               []string                        `json:"env_vars,omitempty"`
 	LastHeartbeatAt       *string                         `json:"last_heartbeat_at,omitempty"`
 	Resources             map[string]any                  `json:"resources"`
@@ -1511,6 +1512,38 @@ type OpenAPIMachineHealthRefreshResponse struct {
 	Machine OpenAPIMachine `json:"machine"`
 }
 
+type OpenAPIMachineSSHBootstrapRequest struct {
+	Topology            string `json:"topology,omitempty"`
+	ListenerAddress     string `json:"listener_address,omitempty"`
+	ListenerPath        string `json:"listener_path,omitempty"`
+	ListenerBearerToken string `json:"listener_bearer_token,omitempty"`
+	ControlPlaneURL     string `json:"control_plane_url,omitempty"`
+	TokenTTLSeconds     int    `json:"token_ttl_seconds,omitempty"`
+}
+
+type OpenAPIMachineSSHBootstrapResult struct {
+	MachineID        string   `json:"machine_id"`
+	MachineName      string   `json:"machine_name"`
+	Topology         string   `json:"topology"`
+	ServiceManager   string   `json:"service_manager"`
+	ServiceName      string   `json:"service_name"`
+	ServiceStatus    string   `json:"service_status"`
+	ConnectionTarget string   `json:"connection_target"`
+	RemoteHome       string   `json:"remote_home"`
+	RemoteBinaryPath string   `json:"remote_binary_path"`
+	EnvironmentFile  string   `json:"environment_file"`
+	ServiceFile      string   `json:"service_file"`
+	TokenID          string   `json:"token_id,omitempty"`
+	Commands         []string `json:"commands"`
+	RetryAdvice      []string `json:"retry_advice,omitempty"`
+	RollbackAdvice   []string `json:"rollback_advice,omitempty"`
+	Summary          string   `json:"summary"`
+}
+
+type OpenAPIMachineSSHBootstrapResponse struct {
+	Result OpenAPIMachineSSHBootstrapResult `json:"result"`
+}
+
 type OpenAPIMachineResourcesResponse struct {
 	MachineID               string                                `json:"machine_id"`
 	Status                  string                                `json:"status"`
@@ -2584,6 +2617,15 @@ var (
 		"config":     "Channel-specific configuration object submitted for this notification channel.",
 		"is_enabled": "Whether the channel is enabled for delivery.",
 	}
+	// #nosec G101 -- OpenAPI request field descriptions mention token names but do not embed secrets.
+	openAPIMachineSSHBootstrapRequestDescriptions = map[string]string{
+		"topology":              "Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology.",
+		"listener_address":      "Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837.",
+		"listener_path":         "Remote websocket listener HTTP path when installing the remote-listener topology. Defaults to /openase/runtime.",
+		"listener_bearer_token": "Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present.",
+		"control_plane_url":     "Optional control-plane base URL override written into the remote environment file. Defaults to the incoming request URL.",
+		"token_ttl_seconds":     "Optional TTL in seconds for the freshly issued machine channel token. Defaults to 24 hours.",
+	}
 	openAPIMachineRequestDescriptions = map[string]string{
 		"name":                              "Human-readable machine name.",
 		"host":                              "Hostname or address used to reach the machine.",
@@ -2613,6 +2655,7 @@ var (
 		"status":                            "Machine lifecycle status value.",
 		"workspace_root":                    "Filesystem root directory where ticket workspaces are created on the machine.",
 		"agent_cli_path":                    "Absolute path to the agent CLI executable on the machine.",
+		"agent_cli_paths":                   "Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks.",
 		"env_vars":                          "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
 	}
 	openAPIProjectRequestDescriptions = map[string]string{
@@ -3037,6 +3080,7 @@ var (
 		"PATCH /api/v1/channels/{channelId}":                                                           openAPIChannelRequestDescriptions,
 		"POST /api/v1/orgs/{orgId}/machines":                                                           openAPIMachineRequestDescriptions,
 		"PATCH /api/v1/machines/{machineId}":                                                           openAPIMachineRequestDescriptions,
+		"POST /api/v1/machines/{machineId}/ssh-bootstrap":                                              openAPIMachineSSHBootstrapRequestDescriptions,
 		"POST /api/v1/orgs/{orgId}/projects":                                                           openAPIProjectRequestDescriptions,
 		"PATCH /api/v1/projects/{projectId}":                                                           openAPIProjectRequestDescriptions,
 		"POST /api/v1/orgs/{orgId}/providers":                                                          openAPIProviderRequestDescriptions,
@@ -4074,6 +4118,25 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	machineHealthRefresh.AddParameter(uuidPathParameter("machineId", "Machine ID."))
 	b.doc.AddOperation("/api/v1/machines/{machineId}/refresh-health", http.MethodPost, machineHealthRefresh)
+
+	machineSSHBootstrap, err := b.jsonOperation(
+		"sshBootstrapMachine",
+		"Run the SSH bootstrap helper in-process on the server",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIMachineSSHBootstrapResponse{},
+		OpenAPIMachineSSHBootstrapRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	machineSSHBootstrap.AddParameter(uuidPathParameter("machineId", "Machine ID."))
+	b.doc.AddOperation("/api/v1/machines/{machineId}/ssh-bootstrap", http.MethodPost, machineSSHBootstrap)
 
 	machineResources, err := b.jsonOperation(
 		"getMachineResources",

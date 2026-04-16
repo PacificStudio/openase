@@ -16,7 +16,6 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
-	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/google/uuid"
 )
@@ -734,24 +733,13 @@ func (s *ProjectConversationService) runProjectConversationShellCommand(
 		}
 		return output, nil
 	}
-	if s == nil || s.core.sshPool == nil {
-		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
-	}
-	client, err := s.core.sshPool.Get(ctx, machine)
-	if err != nil {
-		return nil, err
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("open ssh session for workspace browser: %w", err)
-	}
-	defer func() { _ = session.Close() }()
-
-	output, err := session.CombinedOutput("sh -lc " + sshinfra.ShellQuote(script))
-	if err != nil && (!allowExitCodeOne || !strings.Contains(err.Error(), "exit status 1")) {
-		return output, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
-	}
-	return output, nil
+	return s.runProjectConversationRemoteCommand(
+		ctx,
+		machine,
+		"sh -lc "+projectConversationShellQuote(script),
+		allowExitCodeOne,
+		"workspace browser",
+	)
 }
 
 func (s *ProjectConversationService) readConversationWorkspaceFilePreview(

@@ -26,6 +26,7 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
+	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
@@ -334,6 +335,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithConversationTerminalService(conversationTerminalSvc),
 		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
 		httpapi.WithReverseRuntimeRelay(a.reverseRuntimeRelay),
+		httpapi.WithSSHBootstrapper(machinesetup.NewBootstrapper(sshPool, machineChannelSvc)),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	}
 	if humanAuthSvc != nil && humanAuthorizer != nil {

@@ -25295,6 +25295,7 @@ type MachineMutation struct {
 	status                    *machine.Status
 	workspace_root            *string
 	agent_cli_path            *string
+	agent_cli_paths           *map[string]string
 	env_vars                  *pgarray.StringArray
 	last_heartbeat_at         *time.Time
 	resources                 *map[string]interface{}
@@ -26557,6 +26558,55 @@ func (m *MachineMutation) ResetAgentCliPath() {
 	delete(m.clearedFields, machine.FieldAgentCliPath)
 }
 
+// SetAgentCliPaths sets the "agent_cli_paths" field.
+func (m *MachineMutation) SetAgentCliPaths(value map[string]string) {
+	m.agent_cli_paths = &value
+}
+
+// AgentCliPaths returns the value of the "agent_cli_paths" field in the mutation.
+func (m *MachineMutation) AgentCliPaths() (r map[string]string, exists bool) {
+	v := m.agent_cli_paths
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentCliPaths returns the old "agent_cli_paths" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldAgentCliPaths(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentCliPaths is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentCliPaths requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentCliPaths: %w", err)
+	}
+	return oldValue.AgentCliPaths, nil
+}
+
+// ClearAgentCliPaths clears the value of the "agent_cli_paths" field.
+func (m *MachineMutation) ClearAgentCliPaths() {
+	m.agent_cli_paths = nil
+	m.clearedFields[machine.FieldAgentCliPaths] = struct{}{}
+}
+
+// AgentCliPathsCleared returns if the "agent_cli_paths" field was cleared in this mutation.
+func (m *MachineMutation) AgentCliPathsCleared() bool {
+	_, ok := m.clearedFields[machine.FieldAgentCliPaths]
+	return ok
+}
+
+// ResetAgentCliPaths resets all changes to the "agent_cli_paths" field.
+func (m *MachineMutation) ResetAgentCliPaths() {
+	m.agent_cli_paths = nil
+	delete(m.clearedFields, machine.FieldAgentCliPaths)
+}
+
 // SetEnvVars sets the "env_vars" field.
 func (m *MachineMutation) SetEnvVars(pa pgarray.StringArray) {
 	m.env_vars = &pa
@@ -26914,7 +26964,7 @@ func (m *MachineMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MachineMutation) Fields() []string {
-	fields := make([]string, 0, 29)
+	fields := make([]string, 0, 30)
 	if m.organization != nil {
 		fields = append(fields, machine.FieldOrganizationID)
 	}
@@ -26993,6 +27043,9 @@ func (m *MachineMutation) Fields() []string {
 	if m.agent_cli_path != nil {
 		fields = append(fields, machine.FieldAgentCliPath)
 	}
+	if m.agent_cli_paths != nil {
+		fields = append(fields, machine.FieldAgentCliPaths)
+	}
 	if m.env_vars != nil {
 		fields = append(fields, machine.FieldEnvVars)
 	}
@@ -27062,6 +27115,8 @@ func (m *MachineMutation) Field(name string) (ent.Value, bool) {
 		return m.WorkspaceRoot()
 	case machine.FieldAgentCliPath:
 		return m.AgentCliPath()
+	case machine.FieldAgentCliPaths:
+		return m.AgentCliPaths()
 	case machine.FieldEnvVars:
 		return m.EnvVars()
 	case machine.FieldLastHeartbeatAt:
@@ -27129,6 +27184,8 @@ func (m *MachineMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldWorkspaceRoot(ctx)
 	case machine.FieldAgentCliPath:
 		return m.OldAgentCliPath(ctx)
+	case machine.FieldAgentCliPaths:
+		return m.OldAgentCliPaths(ctx)
 	case machine.FieldEnvVars:
 		return m.OldEnvVars(ctx)
 	case machine.FieldLastHeartbeatAt:
@@ -27326,6 +27383,13 @@ func (m *MachineMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAgentCliPath(v)
 		return nil
+	case machine.FieldAgentCliPaths:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentCliPaths(v)
+		return nil
 	case machine.FieldEnvVars:
 		v, ok := value.(pgarray.StringArray)
 		if !ok {
@@ -27434,6 +27498,9 @@ func (m *MachineMutation) ClearedFields() []string {
 	if m.FieldCleared(machine.FieldAgentCliPath) {
 		fields = append(fields, machine.FieldAgentCliPath)
 	}
+	if m.FieldCleared(machine.FieldAgentCliPaths) {
+		fields = append(fields, machine.FieldAgentCliPaths)
+	}
 	if m.FieldCleared(machine.FieldEnvVars) {
 		fields = append(fields, machine.FieldEnvVars)
 	}
@@ -27495,6 +27562,9 @@ func (m *MachineMutation) ClearField(name string) error {
 		return nil
 	case machine.FieldAgentCliPath:
 		m.ClearAgentCliPath()
+		return nil
+	case machine.FieldAgentCliPaths:
+		m.ClearAgentCliPaths()
 		return nil
 	case machine.FieldEnvVars:
 		m.ClearEnvVars()
@@ -27587,6 +27657,9 @@ func (m *MachineMutation) ResetField(name string) error {
 		return nil
 	case machine.FieldAgentCliPath:
 		m.ResetAgentCliPath()
+		return nil
+	case machine.FieldAgentCliPaths:
+		m.ResetAgentCliPaths()
 		return nil
 	case machine.FieldEnvVars:
 		m.ResetEnvVars()

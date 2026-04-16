@@ -1,4 +1,7 @@
-import { subscribeProjectEvents } from '$lib/features/project-events'
+import {
+  createProjectReconnectRecoveryTask,
+  subscribeProjectEvents,
+} from '$lib/features/project-events'
 import type { BoardData } from '$lib/features/board'
 
 type BoardSnapshot = BoardData & {
@@ -103,11 +106,11 @@ function getRuntime(projectId: string) {
       }
     },
     {
-      onReconnect: () => {
+      onReconnectRecovery: createProjectReconnectRecoveryTask(() => {
         if (created.snapshot) {
           created.dirty = true
         }
-      },
+      }),
     },
   )
   runtimes.set(projectId, created)

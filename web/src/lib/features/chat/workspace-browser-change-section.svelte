@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ProjectConversationWorkspaceDiffFile } from '$lib/api/chat'
   import { cn } from '$lib/utils'
-  import { chatT } from './i18n'
+  import { chatT, chatWorkspaceStatusT } from './i18n'
   import { ChevronRight, Minus, Plus, Undo2 } from '@lucide/svelte'
   import { fileIcon, formatTotals } from './project-conversation-workspace-browser-helpers'
   import {
@@ -68,7 +68,7 @@
       />
       {title}
       {#if mode === 'staged'}
-        <span class="sr-only">{count} staged</span>
+        <span class="sr-only">{chatT('chat.workspace.changes.stagedCount', { count })}</span>
       {/if}
       <span
         class="text-muted-foreground/50 ml-auto text-[9px] font-normal tracking-normal normal-case"
@@ -102,7 +102,7 @@
           class="flex min-w-0 flex-1 items-center gap-1.5 text-left"
           title={chatT('chat.workspace.changeSummary', {
             path: file.path,
-            status: file.status,
+            status: chatWorkspaceStatusT(file.status),
             added: file.added,
             removed: file.removed,
           })}

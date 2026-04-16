@@ -4,6 +4,7 @@
   import { Skeleton } from '$ui/skeleton'
   import { Search, Server } from '@lucide/svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import MachineCreateWizard from './machine-create-wizard.svelte'
   import MachineEditorSheet from './machine-editor-sheet.svelte'
   import MachineRowCard from './machine-row-card.svelte'
   import { machineToDraft } from '../model'
@@ -35,10 +36,12 @@
     deletingMachineId = '',
     editorOpen = $bindable(false),
     stateMessage = '',
+    organizationId = null,
     onSearchChange,
     onSelectMachine,
     onDraftChange,
     onCreate,
+    onWizardCreated,
     onRetry,
     onRefreshHealth,
     onSave,
@@ -63,10 +66,12 @@
     deletingMachineId?: string
     editorOpen?: boolean
     stateMessage?: string
+    organizationId?: string | null
     onSearchChange?: (value: string) => void
     onSelectMachine?: (machineId: string) => void
     onDraftChange?: (field: MachineDraftField, value: string) => void
     onCreate?: () => void
+    onWizardCreated?: (machine: MachineItem) => void
     onRetry?: () => void
     onRefreshHealth?: (machineId: string) => void
     onSave?: () => void
@@ -218,17 +223,21 @@
   {/if}
 </div>
 
-<MachineEditorSheet
-  bind:open={editorOpen}
-  {mode}
-  machine={selectedMachine}
-  {draft}
-  {snapshot}
-  {probe}
-  {loadingHealth}
-  refreshingHealth={selectedMachine ? refreshingHealthMachineId === selectedMachine.id : false}
-  {saving}
-  {onDraftChange}
-  onRefreshHealth={selectedMachine ? () => onRefreshHealth?.(selectedMachine.id) : undefined}
-  {onSave}
-/>
+{#if mode === 'create'}
+  <MachineCreateWizard bind:open={editorOpen} {organizationId} onCreated={onWizardCreated} />
+{:else}
+  <MachineEditorSheet
+    bind:open={editorOpen}
+    {mode}
+    machine={selectedMachine}
+    {draft}
+    {snapshot}
+    {probe}
+    {loadingHealth}
+    refreshingHealth={selectedMachine ? refreshingHealthMachineId === selectedMachine.id : false}
+    {saving}
+    {onDraftChange}
+    onRefreshHealth={selectedMachine ? () => onRefreshHealth?.(selectedMachine.id) : undefined}
+    {onSave}
+  />
+{/if}

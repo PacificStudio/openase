@@ -71,6 +71,7 @@ type machineResponse struct {
 	Status                string                           `json:"status"`
 	WorkspaceRoot         *string                          `json:"workspace_root,omitempty"`
 	AgentCLIPath          *string                          `json:"agent_cli_path,omitempty"`
+	AgentCLIPaths         map[string]string                `json:"agent_cli_paths,omitempty"`
 	EnvVars               []string                         `json:"env_vars"`
 	LastHeartbeatAt       *string                          `json:"last_heartbeat_at,omitempty"`
 	Resources             map[string]any                   `json:"resources"`
@@ -364,6 +365,7 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 		Status:                item.Status.String(),
 		WorkspaceRoot:         item.WorkspaceRoot,
 		AgentCLIPath:          item.AgentCLIPath,
+		AgentCLIPaths:         item.AgentCLIPaths.ToRawMap(),
 		EnvVars:               domain.MaskMachineEnvVars(item.EnvVars),
 		LastHeartbeatAt:       timeToStringPointer(item.LastHeartbeatAt),
 		Resources:             cloneMap(item.Resources),

@@ -16,11 +16,30 @@ func (s *ProjectConversationService) normalizeConversationUser(
 	ctx context.Context,
 	conversation domain.Conversation,
 	userID UserID,
-) (domain.Conversation, error) {
-	if !isStableLocalProjectConversationUser(userID) || conversation.UserID == userID.String() {
-		return conversation, nil
+) (domain.Conversation, bool, error) {
+	access := resolveProjectConversationOwnerAccess(
+		userID,
+		conversation.UserID,
+		projectConversationAccessHintFromContext(ctx),
+	)
+	if !access.allowed {
+		return domain.Conversation{}, false, nil
 	}
-	return s.core.conversations.UpdateConversationUser(ctx, conversation.ID, userID.String())
+	if !access.needsMigration {
+		if conversation.UserID != access.normalizedUser.String() {
+			conversation.UserID = access.normalizedUser.String()
+		}
+		return conversation, true, nil
+	}
+	normalized, err := s.core.conversations.UpdateConversationUser(
+		ctx,
+		conversation.ID,
+		access.normalizedUser.String(),
+	)
+	if err != nil {
+		return domain.Conversation{}, false, err
+	}
+	return normalized, true, nil
 }
 
 func (s *ProjectConversationService) CreateConversation(
@@ -40,10 +59,11 @@ func (s *ProjectConversationService) CreateConversation(
 	if providerItem.OrganizationID != project.OrganizationID {
 		return domain.Conversation{}, fmt.Errorf("%w: provider is outside the project organization", ErrConversationConflict)
 	}
+	ownerUserID := normalizeProjectConversationOwnerForCreate(userID)
 
 	return s.core.conversations.CreateConversation(ctx, domain.CreateConversation{
 		ProjectID:  projectID,
-		UserID:     userID.String(),
+		UserID:     ownerUserID.String(),
 		Source:     domain.SourceProjectSidebar,
 		ProviderID: providerID,
 	})
@@ -58,28 +78,27 @@ func (s *ProjectConversationService) ListConversations(
 	source := domain.SourceProjectSidebar
 	filter := domain.ListConversationsFilter{
 		ProjectID:  projectID,
-		UserID:     userID.String(),
+		UserID:     "",
 		Source:     &source,
 		ProviderID: providerID,
-	}
-	if isStableLocalProjectConversationUser(userID) {
-		filter.UserID = ""
 	}
 	conversations, err := s.core.conversations.ListConversations(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
-	if !isStableLocalProjectConversationUser(userID) {
-		return conversations, nil
-	}
+	visible := make([]domain.Conversation, 0, len(conversations))
 	for index, conversation := range conversations {
-		normalized, normalizeErr := s.normalizeConversationUser(ctx, conversation, userID)
+		normalized, allowed, normalizeErr := s.normalizeConversationUser(ctx, conversation, userID)
 		if normalizeErr != nil {
 			return nil, normalizeErr
 		}
+		if !allowed {
+			continue
+		}
+		visible = append(visible, normalized)
 		conversations[index] = normalized
 	}
-	return conversations, nil
+	return visible, nil
 }
 
 func (s *ProjectConversationService) GetConversation(ctx context.Context, userID UserID, conversationID uuid.UUID) (domain.Conversation, error) {
@@ -87,10 +106,14 @@ func (s *ProjectConversationService) GetConversation(ctx context.Context, userID
 	if err != nil {
 		return domain.Conversation{}, err
 	}
-	if conversation.UserID != userID.String() && !isStableLocalProjectConversationUser(userID) {
+	normalized, allowed, err := s.normalizeConversationUser(ctx, conversation, userID)
+	if err != nil {
+		return domain.Conversation{}, err
+	}
+	if !allowed {
 		return domain.Conversation{}, ErrConversationNotFound
 	}
-	return s.normalizeConversationUser(ctx, conversation, userID)
+	return normalized, nil
 }
 
 func (s *ProjectConversationService) GetPrincipal(ctx context.Context, userID UserID, conversationID uuid.UUID) (domain.ProjectConversationPrincipal, error) {

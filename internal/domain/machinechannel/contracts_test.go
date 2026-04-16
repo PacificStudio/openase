@@ -20,6 +20,10 @@ func TestParseDaemonConfig(t *testing.T) {
 		5*time.Second,
 		" /usr/local/bin/openase ",
 		" /usr/local/bin/codex ",
+		map[string]string{
+			"codex-app-server": " /opt/codex/bin/codex ",
+			"gemini-cli":       " /opt/gemini/bin/gemini ",
+		},
 	)
 	if err != nil {
 		t.Fatalf("ParseDaemonConfig returned error: %v", err)
@@ -33,6 +37,12 @@ func TestParseDaemonConfig(t *testing.T) {
 	if config.OpenASEBinaryPath != "/usr/local/bin/openase" || config.AgentCLIPath != "/usr/local/bin/codex" {
 		t.Fatalf("expected trimmed binary paths, got %+v", config)
 	}
+	if got := config.AgentCLIPaths["codex-app-server"]; got != "/opt/codex/bin/codex" {
+		t.Fatalf("expected trimmed codex scoped path, got %+v", config.AgentCLIPaths)
+	}
+	if got := config.AgentCLIPaths["gemini-cli"]; got != "/opt/gemini/bin/gemini" {
+		t.Fatalf("expected trimmed gemini scoped path, got %+v", config.AgentCLIPaths)
+	}
 
 	tests := []struct {
 		name string
@@ -41,35 +51,35 @@ func TestParseDaemonConfig(t *testing.T) {
 		{
 			name: "invalid machine id",
 			fn: func() error {
-				_, err := ParseDaemonConfig("bad", TokenPrefix+"abc123", "http://127.0.0.1:19836", time.Second, time.Second, "", "")
+				_, err := ParseDaemonConfig("bad", TokenPrefix+"abc123", "http://127.0.0.1:19836", time.Second, time.Second, "", "", nil)
 				return err
 			},
 		},
 		{
 			name: "invalid token",
 			fn: func() error {
-				_, err := ParseDaemonConfig(machineID.String(), "bad", "http://127.0.0.1:19836", time.Second, time.Second, "", "")
+				_, err := ParseDaemonConfig(machineID.String(), "bad", "http://127.0.0.1:19836", time.Second, time.Second, "", "", nil)
 				return err
 			},
 		},
 		{
 			name: "empty url",
 			fn: func() error {
-				_, err := ParseDaemonConfig(machineID.String(), TokenPrefix+"abc123", " ", time.Second, time.Second, "", "")
+				_, err := ParseDaemonConfig(machineID.String(), TokenPrefix+"abc123", " ", time.Second, time.Second, "", "", nil)
 				return err
 			},
 		},
 		{
 			name: "nonpositive heartbeat",
 			fn: func() error {
-				_, err := ParseDaemonConfig(machineID.String(), TokenPrefix+"abc123", "http://127.0.0.1:19836", 0, time.Second, "", "")
+				_, err := ParseDaemonConfig(machineID.String(), TokenPrefix+"abc123", "http://127.0.0.1:19836", 0, time.Second, "", "", nil)
 				return err
 			},
 		},
 		{
 			name: "nonpositive reconnect backoff",
 			fn: func() error {
-				_, err := ParseDaemonConfig(machineID.String(), TokenPrefix+"abc123", "http://127.0.0.1:19836", time.Second, 0, "", "")
+				_, err := ParseDaemonConfig(machineID.String(), TokenPrefix+"abc123", "http://127.0.0.1:19836", time.Second, 0, "", "", nil)
 				return err
 			},
 		},
@@ -80,6 +90,32 @@ func TestParseDaemonConfig(t *testing.T) {
 				t.Fatalf("%s expected error", tt.name)
 			}
 		})
+	}
+}
+
+func TestParseDaemonAgentCLIPathsJSON(t *testing.T) {
+	t.Parallel()
+
+	parsed, err := ParseDaemonAgentCLIPathsJSON(`{"codex-app-server":" /opt/codex/bin/codex ","gemini-cli":" /opt/gemini/bin/gemini "}`)
+	if err != nil {
+		t.Fatalf("ParseDaemonAgentCLIPathsJSON() error = %v", err)
+	}
+	if parsed["codex-app-server"] != "/opt/codex/bin/codex" || parsed["gemini-cli"] != "/opt/gemini/bin/gemini" {
+		t.Fatalf("ParseDaemonAgentCLIPathsJSON() = %+v", parsed)
+	}
+	if parsed, err := ParseDaemonAgentCLIPathsJSON(""); err != nil || parsed != nil {
+		t.Fatalf("ParseDaemonAgentCLIPathsJSON(empty) = %+v, %v", parsed, err)
+	}
+	if parsed, err := ParseDaemonAgentCLIPathsJSON(`{"codex-app-server":" /opt/codex/bin/codex "," ":" /ignored ","gemini-cli":"   "}`); err != nil {
+		t.Fatalf("ParseDaemonAgentCLIPathsJSON(filtered) error = %v", err)
+	} else if len(parsed) != 1 || parsed["codex-app-server"] != "/opt/codex/bin/codex" {
+		t.Fatalf("ParseDaemonAgentCLIPathsJSON(filtered) = %+v", parsed)
+	}
+	if cloned := cloneTrimmedStringMap(map[string]string{"   ": "/ignored", "gemini-cli": "   "}); cloned != nil {
+		t.Fatalf("cloneTrimmedStringMap(all blank) = %+v, want nil", cloned)
+	}
+	if _, err := ParseDaemonAgentCLIPathsJSON("{"); err == nil {
+		t.Fatal("ParseDaemonAgentCLIPathsJSON(invalid) expected error")
 	}
 }
 

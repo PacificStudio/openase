@@ -1222,12 +1222,47 @@ func (f *fakeCatalogService) ListAgents(_ context.Context, projectID uuid.UUID) 
 }
 
 func (f *fakeCatalogService) ListAgentRuns(_ context.Context, projectID uuid.UUID) ([]domain.AgentRun, error) {
+	if f.listAgentRunsErr != nil {
+		return nil, f.listAgentRunsErr
+	}
 	if _, ok := f.projects[projectID]; !ok {
 		return nil, catalogservice.ErrNotFound
 	}
 
 	items := make([]domain.AgentRun, 0)
 	for _, item := range f.agentRuns {
+		agentItem, ok := f.agents[item.AgentID]
+		if ok && agentItem.ProjectID == projectID {
+			items = append(items, item)
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() > items[j].ID.String()
+		}
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+
+	return items, nil
+}
+
+func (f *fakeCatalogService) ListTicketRuns(_ context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.AgentRun, error) {
+	if f.listTicketRunsErr != nil {
+		return nil, f.listTicketRunsErr
+	}
+	if _, ok := f.projects[projectID]; !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+	ticketItem, ok := f.tickets[ticketID]
+	if !ok || ticketItem.ProjectID != projectID {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentRun, 0)
+	for _, item := range f.agentRuns {
+		if item.TicketID != ticketID {
+			continue
+		}
 		agentItem, ok := f.agents[item.AgentID]
 		if ok && agentItem.ProjectID == projectID {
 			items = append(items, item)

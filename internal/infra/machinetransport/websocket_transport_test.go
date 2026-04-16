@@ -54,6 +54,18 @@ func TestWebsocketListenerTransportProbeAndReachability(t *testing.T) {
 	if got := probe.Resources["detected_arch"]; got != expectedArch.String() {
 		t.Fatalf("Probe().Resources[detected_arch] = %v", got)
 	}
+	if got := probe.Resources["cpu_cores"]; got == nil {
+		t.Fatalf("Probe().Resources[cpu_cores] = nil, want system snapshot")
+	}
+	if got := probe.Resources["disk_available_gb"]; got == nil {
+		t.Fatalf("Probe().Resources[disk_available_gb] = nil, want system snapshot")
+	}
+	if got := probe.Resources["agent_environment"]; got == nil {
+		t.Fatalf("Probe().Resources[agent_environment] = nil, want runtime environment snapshot")
+	}
+	if got := probe.Resources["full_audit"]; got == nil {
+		t.Fatalf("Probe().Resources[full_audit] = nil, want audit snapshot")
+	}
 
 	collector := NewMonitorCollector(NewResolver(nil, nil), nil)
 	reachability, err := collector.CollectReachability(context.Background(), machine)

@@ -151,6 +151,7 @@ export function makePageData(agent: AgentInstance): AgentsPageData {
         status: 'online',
         workspace_root: '/workspace',
         agent_cli_path: null,
+        agent_cli_paths: {},
         env_vars: [],
         last_heartbeat_at: null,
         resources: {},

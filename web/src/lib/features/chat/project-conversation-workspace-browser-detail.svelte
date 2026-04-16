@@ -21,6 +21,7 @@
     computePatchLineDiff,
     isWorkspaceFileLineDiffEmpty,
   } from './project-conversation-workspace-line-diff'
+  import { chatT } from './i18n'
 
   let {
     browser,
@@ -127,7 +128,7 @@
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-      Select a repo to browse its files.
+      {chatT('chat.selectRepoHelp')}
     </div>
   {:else if browser.openTabs.length === 0}
     <div
@@ -135,7 +136,7 @@
     >
       <div class="space-y-2">
         <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
-        <p>Select a file to view its contents</p>
+        <p>{chatT('chat.selectFileHelp')}</p>
       </div>
     </div>
   {:else}
@@ -157,8 +158,7 @@
           <div
             class="bg-muted/40 text-muted-foreground border-border border-b px-3 py-1.5 text-[11px]"
           >
-            Project AI can keep updating this workspace during active turns. Your local draft stays
-            preserved.
+            {chatT('chat.workspaceLiveUpdateNotice')}
           </div>
         {/if}
 
@@ -171,14 +171,13 @@
             class="flex flex-wrap items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm"
           >
             <span class="text-amber-900">
-              {activeEditorState.errorMessage ||
-                'This file changed in the workspace while your draft was open.'}
+              {activeEditorState.errorMessage || chatT('chat.fileChangedWhileEditing')}
             </span>
             <Button size="sm" variant="ghost" onclick={() => browser.reloadSelectedSavedVersion()}>
-              Reload saved version
+              {chatT('chat.reloadSavedVersion')}
             </Button>
             <Button size="sm" variant="ghost" onclick={() => browser.keepSelectedDraft()}>
-              Keep my draft
+              {chatT('chat.keepMyDraft')}
             </Button>
           </div>
         {:else if activeEditorState?.errorMessage}
@@ -190,17 +189,17 @@
         {#if pendingPatch}
           <div class="border-border bg-muted/20 space-y-3 border-b px-3 py-3">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="text-sm font-medium">Project AI patch proposal</span>
+              <span class="text-sm font-medium">{chatT('chat.patchProposalTitle')}</span>
               <div class="ml-auto flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant="secondary"
                   onclick={() => browser.discardSelectedPendingPatch()}
                 >
-                  Discard patch
+                  {chatT('chat.discardPatch')}
                 </Button>
                 <Button size="sm" onclick={() => browser.applySelectedPendingPatch()}>
-                  Apply patch to editor
+                  {chatT('chat.applyPatchToEditor')}
                 </Button>
               </div>
             </div>
@@ -211,7 +210,7 @@
         <div class="min-h-0 flex-1 overflow-hidden" data-testid="workspace-browser-detail-content">
           {#if activePreview?.previewKind === 'binary'}
             <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-              <div class="mx-auto max-w-md">Binary file — not rendered inline.</div>
+              <div class="mx-auto max-w-md">{chatT('chat.binaryFileReadOnly')}</div>
             </div>
           {:else if activeEditorState && activePreview}
             <div
@@ -245,11 +244,11 @@
             </div>
           {:else if activeFileLoading}
             <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-              Loading…
+              {chatT('chat.loadingEllipsis')}
             </div>
           {:else}
             <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-              Select a file to view its contents.
+              {chatT('chat.selectFileHelp')}
             </div>
           {/if}
         </div>
@@ -282,18 +281,20 @@
 >
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Save changes?</Dialog.Title>
+      <Dialog.Title>{chatT('chat.saveChangesTitle')}</Dialog.Title>
       <Dialog.Description>
-        {pendingCloseFilename()} has unsaved changes. Save them before closing the tab?
+        {chatT('chat.saveChangesDescription', { fileName: pendingCloseFilename() })}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer>
-      <Button variant="ghost" onclick={dismissDialog} disabled={saving}>Cancel</Button>
+      <Button variant="ghost" onclick={dismissDialog} disabled={saving}>
+        {chatT('chat.tabs.confirmClose.actions.cancel')}
+      </Button>
       <Button variant="ghost" onclick={confirmDiscardAndClose} disabled={saving}>
-        Don&apos;t save
+        {chatT('chat.dontSave')}
       </Button>
       <Button onclick={confirmSaveAndClose} disabled={saving}>
-        {saving ? 'Saving…' : 'Save'}
+        {saving ? chatT('chat.saving') : chatT('chat.save')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
