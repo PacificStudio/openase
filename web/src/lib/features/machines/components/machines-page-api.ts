@@ -5,9 +5,11 @@ import {
   getMachineResources,
   listMachines,
   refreshMachineHealth,
+  sshBootstrapMachine,
   testMachineConnection,
   updateMachine,
 } from '$lib/api/openase'
+import type { MachineSSHBootstrapRequest, MachineSSHBootstrapResult } from '$lib/api/contracts'
 import { parseMachineSnapshot } from '../model'
 import type {
   MachineItem,
@@ -71,6 +73,14 @@ export async function runMachineHealthRefresh(machineId: string): Promise<{
 
 export async function removeMachine(machineId: string): Promise<void> {
   await deleteMachine(machineId)
+}
+
+export async function runMachineSSHBootstrap(
+  machineId: string,
+  body: MachineSSHBootstrapRequest = {},
+): Promise<MachineSSHBootstrapResult> {
+  const payload = await sshBootstrapMachine(machineId, body)
+  return payload.result
 }
 
 export function machineErrorMessage(caughtError: unknown, fallback: string): string {

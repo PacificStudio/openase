@@ -137,10 +137,10 @@ export function createMachinesPageController() {
         orgId,
         nextMachines: cachedPage.snapshot.machines,
         nextListError: null,
-        selectedId: cachedPage.snapshot.selectedId,
+        selectedId: '',
         searchQuery: cachedPage.snapshot.searchQuery,
       })
-      editorOpen = nextState.selectedMachineId !== null
+      editorOpen = false
       applyViewState(nextState.viewState)
       if (nextState.selectedMachineId) {
         const cachedSnapshot = readMachineSnapshotCache(orgId, nextState.selectedMachineId)
@@ -235,6 +235,15 @@ export function createMachinesPageController() {
     }
   }
 
+  function handleWizardCreated(machine: MachineItem) {
+    // The wizard owns the create + bootstrap call; we just sync the list cache
+    // so the new row appears immediately and the user can open it for edit.
+    machines = [machine, ...machines.filter((item) => item.id !== machine.id)]
+    if (routeOrgId) {
+      persistMachinesPageCache(routeOrgId)
+    }
+  }
+
   $effect(() => {
     if (routeOrgId) {
       persistMachinesPageCache(routeOrgId)
@@ -257,7 +266,11 @@ export function createMachinesPageController() {
 
   function persistMachinesPageCache(orgId: string) {
     if (!orgId) return
-    writeMachinesPageCache(orgId, { machines, selectedId, searchQuery })
+    writeMachinesPageCache(orgId, {
+      machines,
+      selectedId: editorOpen ? selectedId : '',
+      searchQuery,
+    })
   }
 
   return createMachinesPageControllerView({
@@ -286,6 +299,7 @@ export function createMachinesPageController() {
     setSearchQuery: (value) => (searchQuery = value),
     handleRefresh,
     startCreate: () => startMachineCreate(controllerState),
+    handleWizardCreated,
     openMachine,
     handleRefreshHealth: (machineId) => handleMachineHealthRefresh(controllerState, machineId),
     handleSave,

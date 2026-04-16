@@ -28,6 +28,7 @@
   bind:editorOpen={controller.editorOpen}
   onRefresh={() => void controller.handleRefresh()}
   onCreate={controller.startCreate}
+  onWizardCreated={controller.handleWizardCreated}
   onSearchChange={(value) => (controller.searchQuery = value)}
   onSelectMachine={(machineId) => {
     const nextMachine = controller.machines.find((machine) => machine.id === machineId)

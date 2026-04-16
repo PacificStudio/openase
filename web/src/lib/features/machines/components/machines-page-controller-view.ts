@@ -33,6 +33,7 @@ type MachinesPageControllerViewInput = {
   setSearchQuery: (value: string) => void
   handleRefresh: () => Promise<void>
   startCreate: () => void
+  handleWizardCreated: (machine: MachineItem) => void
   openMachine: (machine: MachineItem, openEditorState?: boolean) => Promise<void>
   handleRefreshHealth: (machineId: string) => Promise<void>
   handleSave: () => Promise<void>
@@ -116,6 +117,7 @@ export function createMachinesPageControllerView(
     },
     handleRefresh: input.handleRefresh,
     startCreate: input.startCreate,
+    handleWizardCreated: input.handleWizardCreated,
     openMachine: input.openMachine,
     handleRefreshHealth: input.handleRefreshHealth,
     handleSave: input.handleSave,

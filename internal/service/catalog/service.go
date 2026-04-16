@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
+	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -370,6 +372,61 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 
 	if !softReachabilityFailure && !hardReachabilityFailure {
 		if isWebsocketMachine {
+			if machine.ConnectionMode == domain.MachineConnectionModeWSListener {
+				systemResources, err := s.machineHealthCollector.CollectSystemResources(ctx, machine)
+				if err != nil {
+					systemProbeFailure = true
+					setMachineMonitorError(resources, "l2", err.Error())
+					logger.Warn("machine health l2 system probe failed", "error", err)
+				} else {
+					updateMonitorL2Resources(resources, systemResources)
+					clearMachineMonitorError(resources, "l2")
+					logger.Info("machine health l2 system probe completed",
+						"collected_at", systemResources.CollectedAt.UTC().Format(time.RFC3339),
+						"cpu_cores", systemResources.CPUCores,
+						"cpu_usage_percent", systemResources.CPUUsagePercent,
+						"memory_available_gb", systemResources.MemoryAvailableGB,
+						"memory_available_percent", systemResources.MemoryAvailablePercent,
+						"disk_available_gb", systemResources.DiskAvailableGB,
+						"disk_available_percent", systemResources.DiskAvailablePercent,
+					)
+				}
+
+				agentEnvironment, err := s.machineHealthCollector.CollectAgentEnvironment(ctx, machine)
+				if err != nil {
+					level4ProbeFailure = true
+					setMachineMonitorError(resources, "l4", err.Error())
+					logger.Warn("machine health l4 agent environment probe failed", "error", err)
+				} else {
+					updateMonitorL4Resources(resources, agentEnvironment)
+					clearMachineMonitorError(resources, "l4")
+					logger.Info("machine health l4 agent environment probe completed",
+						"collected_at", agentEnvironment.CollectedAt.UTC().Format(time.RFC3339),
+						"dispatchable", agentEnvironment.Dispatchable,
+						"cli_count", len(agentEnvironment.CLIs),
+					)
+				}
+
+				fullAudit, err := s.machineHealthCollector.CollectFullAudit(ctx, machine)
+				if err != nil {
+					level5ProbeFailure = true
+					setMachineMonitorError(resources, "l5", err.Error())
+					logger.Warn("machine health l5 full audit failed", "error", err)
+				} else {
+					updateMonitorL5Resources(resources, fullAudit)
+					clearMachineMonitorError(resources, "l5")
+					logger.Info("machine health l5 full audit completed",
+						"collected_at", fullAudit.CollectedAt.UTC().Format(time.RFC3339),
+						"git_installed", fullAudit.Git.Installed,
+						"github_cli_installed", fullAudit.GitHubCLI.Installed,
+						"github_cli_auth_status", string(fullAudit.GitHubCLI.AuthStatus),
+						"github_reachable", fullAudit.Network.GitHubReachable,
+						"pypi_reachable", fullAudit.Network.PyPIReachable,
+						"npm_reachable", fullAudit.Network.NPMReachable,
+					)
+				}
+			}
+
 			websocketHealth, err := s.machineHealthCollector.CollectWebsocketHealth(ctx, machine)
 			if err != nil {
 				logger.Warn("machine health websocket layered probe failed", "error", err)
@@ -384,6 +441,12 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 				)
 			}
 			resources["websocket_health"] = domain.StoreWebsocketMachineHealth(websocketHealth)
+			if detectedOS, ok := websocketHealth.L5.Details["detected_os"].(string); ok && strings.TrimSpace(detectedOS) != "" {
+				resources["detected_os"] = strings.TrimSpace(detectedOS)
+			}
+			if detectedArch, ok := websocketHealth.L5.Details["detected_arch"].(string); ok && strings.TrimSpace(detectedArch) != "" {
+				resources["detected_arch"] = strings.TrimSpace(detectedArch)
+			}
 			websocketLayerFailure = domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L2) ||
 				domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L3) ||
 				domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L4) ||
@@ -480,6 +543,9 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 		Status:          status,
 		LastHeartbeatAt: checkedAt,
 		Resources:       resources,
+		DetectedOS:      refreshMachineHealthDetectedOS(machine, resources),
+		DetectedArch:    refreshMachineHealthDetectedArch(machine, resources),
+		DetectionStatus: refreshMachineHealthDetectionStatus(machine, resources),
 	}); err != nil {
 		return domain.Machine{}, err
 	}
@@ -767,6 +833,87 @@ func mergeMachineProbeResources(
 	merged["connection_test"] = connectionTest
 
 	return merged
+}
+
+func refreshMachineHealthDetectedOS(machine domain.Machine, resources map[string]any) domain.MachineDetectedOS {
+	detectedOS, _, _ := refreshMachineHealthDetection(machine, resources)
+	return detectedOS
+}
+
+func refreshMachineHealthDetectedArch(machine domain.Machine, resources map[string]any) domain.MachineDetectedArch {
+	_, detectedArch, _ := refreshMachineHealthDetection(machine, resources)
+	return detectedArch
+}
+
+func refreshMachineHealthDetectionStatus(machine domain.Machine, resources map[string]any) domain.MachineDetectionStatus {
+	_, _, detectionStatus := refreshMachineHealthDetection(machine, resources)
+	return detectionStatus
+}
+
+func refreshMachineHealthDetection(
+	machine domain.Machine,
+	resources map[string]any,
+) (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
+	if machine.Host == domain.LocalMachineHost {
+		return machineprobe.NormalizePlatform(runtime.GOOS, runtime.GOARCH)
+	}
+
+	resourceOS, resourceArch := machineDetectionFromResources(resources)
+	if resourceOS != domain.MachineDetectedOSUnknown || resourceArch != domain.MachineDetectedArchUnknown {
+		_, _, detectionStatus := machineprobe.NormalizePlatform(resourceOS.String(), resourceArch.String())
+		return resourceOS, resourceArch, detectionStatus
+	}
+
+	if machine.DetectedOS != domain.MachineDetectedOSUnknown || machine.DetectedArch != domain.MachineDetectedArchUnknown {
+		_, _, detectionStatus := machineprobe.NormalizePlatform(
+			machine.DetectedOS.String(),
+			machine.DetectedArch.String(),
+		)
+		return machine.DetectedOS, machine.DetectedArch, detectionStatus
+	}
+
+	return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown, domain.MachineDetectionStatusUnknown
+}
+
+func machineDetectionFromResources(resources map[string]any) (domain.MachineDetectedOS, domain.MachineDetectedArch) {
+	rawOS, _ := parseMachineDetectionField(resources["detected_os"], domain.ParseStoredMachineDetectedOS)
+	rawArch, _ := parseMachineDetectionField(resources["detected_arch"], domain.ParseStoredMachineDetectedArch)
+	if rawOS != domain.MachineDetectedOSUnknown || rawArch != domain.MachineDetectedArchUnknown {
+		return rawOS, rawArch
+	}
+
+	websocketHealth, ok := nestedMap(resources, "websocket_health")
+	if !ok {
+		return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown
+	}
+	l5, ok := nestedMap(websocketHealth, "l5")
+	if !ok {
+		return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown
+	}
+	details, ok := nestedMap(l5, "details")
+	if !ok {
+		return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown
+	}
+
+	detectedOS, _ := parseMachineDetectionField(details["detected_os"], domain.ParseStoredMachineDetectedOS)
+	detectedArch, _ := parseMachineDetectionField(details["detected_arch"], domain.ParseStoredMachineDetectedArch)
+	return detectedOS, detectedArch
+}
+
+func parseMachineDetectionField[T any](
+	value any,
+	parse func(string) (T, error),
+) (T, bool) {
+	var zero T
+	raw, ok := value.(string)
+	if !ok {
+		return zero, false
+	}
+	parsed, err := parse(raw)
+	if err != nil {
+		return zero, false
+	}
+	return parsed, true
 }
 
 const (

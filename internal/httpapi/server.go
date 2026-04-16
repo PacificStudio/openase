@@ -22,6 +22,7 @@ import (
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
+	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -77,6 +78,7 @@ type Server struct {
 	machineChannel              *machinechannelservice.Service
 	machineSessions             *machinechannelservice.SessionRegistry
 	reverseRuntimeRelay         *machinetransport.ReverseRuntimeRelayRegistry
+	sshBootstrapper             machinesetup.Bootstrapper
 	shutdownCtx                 context.Context
 	shutdownCancel              context.CancelFunc
 	shutdownOnce                sync.Once
@@ -215,6 +217,12 @@ func WithMachineChannel(service *machinechannelservice.Service, sessions *machin
 func WithReverseRuntimeRelay(relay *machinetransport.ReverseRuntimeRelayRegistry) ServerOption {
 	return func(server *Server) {
 		server.reverseRuntimeRelay = relay
+	}
+}
+
+func WithSSHBootstrapper(bootstrapper machinesetup.Bootstrapper) ServerOption {
+	return func(server *Server) {
+		server.sshBootstrapper = bootstrapper
 	}
 }
 

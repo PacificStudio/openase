@@ -243,6 +243,7 @@ when you can still reach the machine over SSH.
 		},
 	}
 
+	markCLICommandAPICoverage(command, "POST", "/api/v1/machines/{machineId}/ssh-bootstrap")
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
 	applyCLICommandFlagNormalization(command)
 	bindAPICommandFlags(command.Flags(), &apiOptions)
@@ -410,7 +411,14 @@ func buildMachineSSHBootstrapPlan(
 				envMachineListenerPath,
 				envMachineListenerBearerToken,
 			}),
-			CommandArgs:      []string{"machine-agent", "listen"},
+			CommandArgs: []string{
+				"machine-agent",
+				"listen",
+				"--listen-address",
+				listenerAddress,
+				"--path",
+				listenerPath,
+			},
 			ConnectionTarget: firstNonEmpty(strings.TrimSpace(pointerString(input.Machine.AdvertisedEndpoint)), listenerAddress+listenerPath),
 			RetryAdvice: []string{
 				"Confirm the advertised websocket endpoint and any firewall or proxy rules before rerunning bootstrap.",
@@ -974,7 +982,7 @@ func buildMachineSSHServiceFile(
 		target := buildLaunchdBootstrapTarget(platform.UID)
 		return servicePath, buildMachineAgentLaunchdPlist("com."+input.ServiceName, input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nlaunchctl bootout "+sshinfra.ShellQuote(target)+" >/dev/null 2>&1 || true\nlaunchctl bootstrap "+sshinfra.ShellQuote(target)+" "+sshinfra.ShellQuote(servicePath)+"\nlaunchctl enable "+sshinfra.ShellQuote(target+"/com."+input.ServiceName)+" >/dev/null 2>&1 || true\nlaunchctl kickstart -k "+sshinfra.ShellQuote(target+"/com."+input.ServiceName)+"\nlaunchctl print "+sshinfra.ShellQuote(target+"/com."+input.ServiceName))
 	default:
-		return layout.ServiceFile, buildMachineAgentSystemdUnit(input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nsystemctl --user daemon-reload\nsystemctl --user enable "+sshinfra.ShellQuote(input.ServiceName+".service")+" >/dev/null\nsystemctl --user restart "+sshinfra.ShellQuote(input.ServiceName+".service")+"\nsystemctl --user is-active "+sshinfra.ShellQuote(input.ServiceName+".service"))
+		return layout.ServiceFile, buildMachineAgentSystemdUnit(input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nmkdir -p "+sshinfra.ShellQuote(filepath.Dir(input.StdoutPath))+" "+sshinfra.ShellQuote(filepath.Dir(input.StderrPath))+"\nsystemctl --user daemon-reload\nsystemctl --user enable "+sshinfra.ShellQuote(input.ServiceName+".service")+" >/dev/null\nsystemctl --user restart "+sshinfra.ShellQuote(input.ServiceName+".service")+"\nsystemctl --user is-active "+sshinfra.ShellQuote(input.ServiceName+".service"))
 	}
 }
 

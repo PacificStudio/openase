@@ -175,6 +175,7 @@ export type MachinesPageControllerView = {
   searchQuery: string
   handleRefresh(): Promise<void>
   startCreate(): void
+  handleWizardCreated(machine: MachineItem): void
   openMachine(machine: MachineItem, openEditorState?: boolean): Promise<void>
   handleRefreshHealth(machineId: string): Promise<void>
   handleSave(): Promise<void>

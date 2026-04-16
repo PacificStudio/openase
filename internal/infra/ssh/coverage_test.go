@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -116,6 +118,13 @@ func TestSSHHelperAndRemoteProcessCoverage(t *testing.T) {
 	}
 	if got := pool.resolveKeyPath("keys/id_ed25519"); got != "/tmp/openase/keys/id_ed25519" {
 		t.Fatalf("resolveKeyPath(rel) = %q", got)
+	}
+	homeDir, err := os.UserHomeDir()
+	if err == nil && strings.TrimSpace(homeDir) != "" {
+		want := filepath.Join(homeDir, ".ssh", "id_ed25519")
+		if got := pool.resolveKeyPath("~/.ssh/id_ed25519"); got != want {
+			t.Fatalf("resolveKeyPath(tilde) = %q, want %q", got, want)
+		}
 	}
 
 	if err := joinErrors(); err != nil {
