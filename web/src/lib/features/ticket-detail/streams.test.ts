@@ -97,9 +97,7 @@ describe('connectTicketDetailStreams', () => {
   )
 
   it('passes shared reconnect recovery notifications through to the drawer handlers', () => {
-    let reconnectRecovery:
-      | ((recovery: { sequence: number }) => void)
-      | undefined
+    let reconnectRecovery: ((recovery: { sequence: number }) => void) | undefined
 
     subscribeProjectEvents.mockImplementation((_projectId, _listener, options) => {
       reconnectRecovery = options?.onReconnectRecovery

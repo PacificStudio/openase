@@ -106,8 +106,9 @@ describe('ProjectUpdatesPage cache behavior', () => {
     expect(await view.findByText('Sprint 2 rollout')).toBeTruthy()
 
     for (const [, , options] of subscribeProjectEvents.mock.calls) {
-      ;(options as { onReconnectRecovery?: (recovery: { sequence: number }) => void } | undefined)
-        ?.onReconnectRecovery?.({ sequence: 1 })
+      ;(
+        options as { onReconnectRecovery?: (recovery: { sequence: number }) => void } | undefined
+      )?.onReconnectRecovery?.({ sequence: 1 })
     }
 
     await waitFor(() => {
