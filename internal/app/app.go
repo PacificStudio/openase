@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
 	codex "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
@@ -601,13 +601,26 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 }
 
 func (a *App) agentPlatformAPIURL() string {
-	host := strings.TrimSpace(a.config.Server.Host)
-	switch host {
-	case "", "0.0.0.0", "::":
-		host = "127.0.0.1"
+	controlPlaneURL, err := controlplaneurl.ResolveControlPlaneURL("", a.config.Server.Host, a.config.Server.Port)
+	if err != nil {
+		host := strings.TrimSpace(a.config.Server.Host)
+		switch host {
+		case "", "0.0.0.0", "::":
+			host = "127.0.0.1"
+		}
+		return "http://" + host + ":" + strconv.Itoa(a.config.Server.Port) + "/api/v1/platform"
 	}
 
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(a.config.Server.Port)) + "/api/v1/platform"
+	apiURL, err := controlplaneurl.APIBaseURLFromControlPlaneURL(controlPlaneURL, true)
+	if err != nil {
+		host := strings.TrimSpace(a.config.Server.Host)
+		switch host {
+		case "", "0.0.0.0", "::":
+			host = "127.0.0.1"
+		}
+		return "http://" + host + ":" + strconv.Itoa(a.config.Server.Port) + "/api/v1/platform"
+	}
+	return apiURL
 }
 
 func sumSkipCounts(values map[string]int) int {

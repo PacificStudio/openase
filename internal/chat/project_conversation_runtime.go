@@ -104,6 +104,7 @@ func (s *ProjectConversationService) startTurn(
 				ctx,
 				conversation,
 				project,
+				live.machine,
 				providerItem,
 				live.workspace,
 				resumePrompt,
@@ -200,7 +201,7 @@ func (s *ProjectConversationService) startTurn(
 		live.principal = principal
 	}
 
-	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, promptFocus)
+	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, live.machine, providerItem, promptFocus)
 	if err != nil {
 		return domain.Turn{}, err
 	}
@@ -324,6 +325,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 				ctx,
 				conversation,
 				project,
+				live.machine,
 				providerItem,
 				live.workspace,
 				systemPrompt,
@@ -349,7 +351,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
-	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, storedFocus)
+	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, live.machine, providerItem, storedFocus)
 	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
@@ -438,6 +440,7 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 	ctx context.Context,
 	conversation domain.Conversation,
 	project catalogdomain.Project,
+	machine catalogdomain.Machine,
 	providerItem catalogdomain.AgentProvider,
 	workspace provider.AbsolutePath,
 	systemPrompt string,
@@ -445,7 +448,7 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 	resumeTurnID string,
 	focus *ProjectConversationFocus,
 ) (RuntimeTurnInput, error) {
-	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, focus)
+	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, machine, providerItem, focus)
 	if err != nil {
 		return RuntimeTurnInput{}, err
 	}
@@ -819,6 +822,7 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 	ctx context.Context,
 	conversation domain.Conversation,
 	project catalogdomain.Project,
+	machine catalogdomain.Machine,
 	providerItem catalogdomain.AgentProvider,
 	focus *ProjectConversationFocus,
 ) ([]string, error) {
@@ -827,6 +831,8 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		if executable, err := os.Executable(); err == nil && strings.TrimSpace(executable) != "" {
 			environment = append(environment, "OPENASE_REAL_BIN="+executable)
 		}
+	} else if resolved := catalogdomain.ResolveMachineOpenASEBinaryPath(machine); resolved != nil {
+		environment = catalogdomain.UpsertMachineEnvironmentValue(environment, "OPENASE_REAL_BIN", *resolved)
 	}
 
 	if s != nil && s.core.agentPlatform != nil && s.core.catalog != nil && strings.TrimSpace(s.core.platformAPIURL) != "" {

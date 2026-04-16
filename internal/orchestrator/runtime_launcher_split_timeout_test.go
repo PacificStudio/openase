@@ -186,3 +186,30 @@ func (runtimeImmediateAgentAdapter) Start(context.Context, agentSessionStartSpec
 func (runtimeImmediateAgentAdapter) Resume(context.Context, agentSessionResumeSpec) (agentSession, error) {
 	return runtimeStaticAgentSession{sessionID: uuid.NewString()}, nil
 }
+
+func TestRuntimeLauncherStartAgentSessionWithTimeoutDoesNotCancelSuccessfulSessionContext(t *testing.T) {
+	t.Parallel()
+
+	launcher := NewRuntimeLauncher(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.agentSessionStartTimeout = 100 * time.Millisecond
+
+	var startCtx context.Context
+	session, err := launcher.startAgentSessionWithTimeout(context.Background(), func(ctx context.Context) (agentSession, error) {
+		startCtx = ctx
+		return runtimeStaticAgentSession{sessionID: uuid.NewString()}, nil
+	})
+	if err != nil {
+		t.Fatalf("startAgentSessionWithTimeout() error = %v", err)
+	}
+	if session == nil {
+		t.Fatal("expected session")
+	}
+	if startCtx == nil {
+		t.Fatal("expected start context")
+	}
+	select {
+	case <-startCtx.Done():
+		t.Fatal("expected successful session start context to remain active")
+	default:
+	}
+}

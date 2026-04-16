@@ -500,6 +500,13 @@ func (s *machineSSHTestSession) Start(cmd string) error {
 	return nil
 }
 
+func (s *machineSSHTestSession) StartPTY(cmd string, _ int, _ int) error {
+	s.startCommand = cmd
+	return nil
+}
+
+func (s *machineSSHTestSession) Resize(int, int) error { return nil }
+
 func (s *machineSSHTestSession) Signal(string) error { return nil }
 
 func (s *machineSSHTestSession) Wait() error { return nil }
@@ -511,3 +518,33 @@ type nopWriteCloser struct {
 }
 
 func (nopWriteCloser) Close() error { return nil }
+
+func TestInferMachineListenerAddressFromAdvertisedEndpoint(t *testing.T) {
+	t.Parallel()
+
+	endpoint := "ws://143.198.200.192:19837/openase/runtime"
+	got := inferMachineListenerAddress(catalogdomain.Machine{AdvertisedEndpoint: &endpoint}, "")
+	if got != "0.0.0.0:19837" {
+		t.Fatalf("inferMachineListenerAddress(ipv4) = %q, want %q", got, "0.0.0.0:19837")
+	}
+}
+
+func TestInferMachineListenerAddressKeepsLoopbackAdvertisedEndpoint(t *testing.T) {
+	t.Parallel()
+
+	endpoint := "ws://127.0.0.1:19837/openase/runtime"
+	got := inferMachineListenerAddress(catalogdomain.Machine{AdvertisedEndpoint: &endpoint}, "")
+	if got != "127.0.0.1:19837" {
+		t.Fatalf("inferMachineListenerAddress(loopback) = %q, want %q", got, "127.0.0.1:19837")
+	}
+}
+
+func TestInferMachineListenerAddressUsesExplicitOverride(t *testing.T) {
+	t.Parallel()
+
+	endpoint := "ws://143.198.200.192:19837/openase/runtime"
+	got := inferMachineListenerAddress(catalogdomain.Machine{AdvertisedEndpoint: &endpoint}, "192.0.2.10:19837")
+	if got != "192.0.2.10:19837" {
+		t.Fatalf("inferMachineListenerAddress(explicit) = %q, want %q", got, "192.0.2.10:19837")
+	}
+}

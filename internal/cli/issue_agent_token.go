@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	"github.com/google/uuid"
@@ -157,21 +156,11 @@ func parseUUIDFlag(name string, raw string) (uuid.UUID, error) {
 }
 
 func resolveAgentPlatformAPIURL(cfg config.Config, explicit string) (string, error) {
-	trimmed := strings.TrimSpace(explicit)
-	if trimmed != "" {
-		if _, err := url.ParseRequestURI(trimmed); err != nil {
-			return "", fmt.Errorf("parse api-url: %w", err)
-		}
-		return strings.TrimRight(trimmed, "/"), nil
+	controlPlaneURL, err := controlplaneurl.ResolveControlPlaneURL(explicit, cfg.Server.Host, cfg.Server.Port)
+	if err != nil {
+		return "", err
 	}
-
-	host := strings.TrimSpace(cfg.Server.Host)
-	switch host {
-	case "", "0.0.0.0", "::", "[::]":
-		host = "127.0.0.1"
-	}
-
-	return "http://" + net.JoinHostPort(host, fmt.Sprintf("%d", cfg.Server.Port)) + "/api/v1/platform", nil
+	return controlplaneurl.APIBaseURLFromControlPlaneURL(controlPlaneURL, true)
 }
 
 func buildIssueAgentTokenEnvironment(apiURL string, token string, projectID uuid.UUID, ticketID uuid.UUID, expiresAt time.Time) map[string]string {

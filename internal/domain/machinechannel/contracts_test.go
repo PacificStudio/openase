@@ -111,6 +111,9 @@ func TestParseDaemonAgentCLIPathsJSON(t *testing.T) {
 	} else if len(parsed) != 1 || parsed["codex-app-server"] != "/opt/codex/bin/codex" {
 		t.Fatalf("ParseDaemonAgentCLIPathsJSON(filtered) = %+v", parsed)
 	}
+	if cloned := cloneTrimmedStringMap(nil); cloned != nil {
+		t.Fatalf("cloneTrimmedStringMap(nil) = %+v, want nil", cloned)
+	}
 	if cloned := cloneTrimmedStringMap(map[string]string{"   ": "/ignored", "gemini-cli": "   "}); cloned != nil {
 		t.Fatalf("cloneTrimmedStringMap(all blank) = %+v, want nil", cloned)
 	}

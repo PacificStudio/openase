@@ -31,6 +31,8 @@ type CommandSession interface {
 	StdoutPipe() (io.Reader, error)
 	StderrPipe() (io.Reader, error)
 	Start(cmd string) error
+	StartPTY(cmd string, cols int, rows int) error
+	Resize(cols int, rows int) error
 	Signal(signal string) error
 	Wait() error
 	Close() error

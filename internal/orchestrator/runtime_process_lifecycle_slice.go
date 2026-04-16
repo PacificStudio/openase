@@ -190,7 +190,6 @@ func (s runtimeProcessLifecycleSlice) startAgentSessionWithTimeout(
 	}
 
 	startCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	type startResult struct {
 		session agentSession
@@ -522,12 +521,9 @@ func (s runtimeProcessLifecycleSlice) startRuntimeSessionOnMachine(
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 	}
 	environment = append(environment, githubEnvironment...)
-	if !remote {
-		launcherEnvironment, err := buildLocalOpenASEEnvironment()
-		if err != nil {
-			return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
-		}
-		environment = append(environment, launcherEnvironment...)
+	environment, err = buildMachineOpenASEEnvironment(machine, remote, environment)
+	if err != nil {
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 	}
 	if requiresMachineCodexReady(command, environment) {
 		if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {

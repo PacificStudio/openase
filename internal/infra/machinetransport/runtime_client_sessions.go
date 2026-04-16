@@ -339,6 +339,43 @@ func (s *runtimeCommandSession) Start(cmd string) error {
 	return nil
 }
 
+func (s *runtimeCommandSession) StartPTY(cmd string, cols int, rows int) error {
+	if s == nil || s.remote == nil || s.remote.client == nil {
+		return fmt.Errorf("runtime command session unavailable")
+	}
+	envelope, err := s.remote.client.request(s.remote.ctx, runtimecontract.OperationCommandOpen, runtimecontract.CommandOpenRequest{
+		Command: cmd,
+		PTY:     true,
+		Cols:    cols,
+		Rows:    rows,
+	})
+	if err != nil {
+		return err
+	}
+	payload, err := runtimecontract.DecodePayload[runtimecontract.SessionResponse](envelope)
+	if err != nil {
+		return err
+	}
+	s.remote.setSessionID(payload.SessionID)
+	s.remote.client.registerSession(payload.SessionID, s.remote)
+	return nil
+}
+
+func (s *runtimeCommandSession) Resize(cols int, rows int) error {
+	if s == nil || s.remote == nil || s.remote.client == nil {
+		return fmt.Errorf("runtime command session unavailable")
+	}
+	if cols <= 0 || rows <= 0 {
+		return fmt.Errorf("pty size must use positive cols and rows")
+	}
+	_, err := s.remote.client.request(s.remote.ctx, runtimecontract.OperationSessionResize, runtimecontract.SessionResizeRequest{
+		SessionID: s.remote.currentSessionID(),
+		Cols:      cols,
+		Rows:      rows,
+	})
+	return err
+}
+
 func (s *runtimeCommandSession) Signal(signal string) error { return s.remote.Signal(signal) }
 func (s *runtimeCommandSession) Wait() error                { return s.remote.Wait() }
 func (s *runtimeCommandSession) Close() error               { return s.remote.Close() }

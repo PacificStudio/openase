@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
 	machinechanneldomain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
@@ -35,7 +35,7 @@ const (
 	envMachineListenerAddress     = "OPENASE_MACHINE_LISTENER_ADDRESS"
 	envMachineListenerPath        = "OPENASE_MACHINE_LISTENER_PATH"
 	envMachineListenerBearerToken = "OPENASE_MACHINE_LISTENER_BEARER_TOKEN"
-	defaultMachineListenerAddress = "127.0.0.1:19837"
+	defaultMachineListenerAddress = "0.0.0.0:19837"
 	defaultMachineListenerPath    = "/openase/runtime"
 )
 
@@ -173,6 +173,12 @@ contract and optionally protects the endpoint with a static bearer token.
   openase machine-agent listen
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			relayManager := machinetransport.NewRuntimeLocalRelayManagerForCLI()
+			if _, relayURL, err := machinetransport.StartRuntimeLocalRelayServerForCLI(cmd.Context(), relayManager, os.Getenv(machinechanneldomain.EnvMachineLocalRelayAddress)); err != nil {
+				return err
+			} else {
+				_ = relayURL
+			}
 			resolvedAddress := firstNonEmpty(listenAddress, os.Getenv(envMachineListenerAddress))
 			if strings.TrimSpace(resolvedAddress) == "" {
 				resolvedAddress = defaultMachineListenerAddress
@@ -189,6 +195,7 @@ contract and optionally protects the endpoint with a static bearer token.
 			mux := http.NewServeMux()
 			mux.Handle(resolvedPath, machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{
 				BearerToken: resolvedToken,
+				APIRelay:    relayManager,
 			}))
 			server := &http.Server{
 				Addr:              resolvedAddress,
@@ -373,21 +380,7 @@ correct machine-bound reverse websocket credential is revoked.
 }
 
 func resolveControlPlaneURL(cfg config.Config, explicit string) (string, error) {
-	trimmed := strings.TrimSpace(explicit)
-	if trimmed != "" {
-		if _, err := url.ParseRequestURI(trimmed); err != nil {
-			return "", fmt.Errorf("parse control-plane-url: %w", err)
-		}
-		return strings.TrimRight(trimmed, "/"), nil
-	}
-
-	host := strings.TrimSpace(cfg.Server.Host)
-	switch host {
-	case "", "0.0.0.0", "::", "[::]":
-		host = "127.0.0.1"
-	}
-
-	return "http://" + net.JoinHostPort(host, fmt.Sprintf("%d", cfg.Server.Port)), nil
+	return controlplaneurl.ResolveControlPlaneURL(explicit, cfg.Server.Host, cfg.Server.Port)
 }
 
 func parseEnvDuration(key string) time.Duration {

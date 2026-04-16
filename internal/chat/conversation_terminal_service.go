@@ -682,12 +682,7 @@ func (p *remoteConversationTerminalProcess) Close() error {
 }
 
 func (p *remoteConversationTerminalProcess) Resize(cols int, rows int) error {
-	size, err := conversationTerminalPTYSize(cols, rows)
-	if err != nil {
-		return err
-	}
-	_ = size
-	return nil
+	return p.session.Resize(cols, rows)
 }
 
 func (p *remoteConversationTerminalProcess) Wait() error {
@@ -741,7 +736,7 @@ func (s *ConversationTerminalService) startRemoteProcess(
 		done:    make(chan struct{}),
 	}
 
-	if err := session.Start(buildRemoteConversationTerminalCommand(spec)); err != nil {
+	if err := session.StartPTY(buildRemoteConversationTerminalCommand(spec), spec.Cols, spec.Rows); err != nil {
 		_ = stdin.Close()
 		_ = session.Close()
 		_ = writer.CloseWithError(err)

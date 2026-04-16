@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	"github.com/labstack/echo/v4"
 )
@@ -59,6 +61,18 @@ func (s *Server) sshBootstrapMachine(c echo.Context) error {
 		)
 		return c.JSON(http.StatusBadGateway, errorResponse(fmt.Sprintf("ssh bootstrap failed: %v", err)))
 	}
+	if remoteBinaryPath := strings.TrimSpace(result.RemoteBinaryPath); remoteBinaryPath != "" {
+		envVars := domain.UpsertMachineEnvironmentValue(machine.EnvVars, "OPENASE_REAL_BIN", remoteBinaryPath)
+		updateInput, err := parseMachinePatchRequest(machineID, machine, machinePatchRequest{EnvVars: &envVars})
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
+		}
+		updatedMachine, err := s.catalog.UpdateMachine(c.Request().Context(), updateInput)
+		if err != nil {
+			return writeCatalogError(c, err)
+		}
+		machine = updatedMachine
+	}
 
 	s.logger.Info("ssh bootstrap completed",
 		"machine_id", machineID.String(),
@@ -75,19 +89,18 @@ func (s *Server) sshBootstrapMachine(c echo.Context) error {
 // caller hit round-trips correctly, falling back to the configured host and
 // port for bare localhost use.
 func (s *Server) resolveControlPlaneURL(c echo.Context) string {
-	if forwarded := strings.TrimSpace(c.Request().Header.Get("X-Forwarded-Host")); forwarded != "" {
-		scheme := strings.TrimSpace(c.Request().Header.Get("X-Forwarded-Proto"))
-		if scheme == "" {
-			scheme = "https"
+	if resolved, err := controlplaneurl.ResolveControlPlaneURL("", s.cfg.Host, s.cfg.Port); err == nil {
+		configured := strings.TrimSpace(resolved)
+		if configured != "" && !strings.Contains(configured, "://127.0.0.1") && !strings.Contains(configured, "://localhost") {
+			return configured
 		}
-		return fmt.Sprintf("%s://%s", scheme, forwarded)
 	}
-	if host := strings.TrimSpace(c.Request().Host); host != "" {
-		scheme := "http"
-		if c.IsTLS() {
-			scheme = "https"
-		}
-		return fmt.Sprintf("%s://%s", scheme, host)
+	if external := strings.TrimSpace(requestExternalBaseURL(c.Request())); external != "" {
+		return external
+	}
+	resolved, err := controlplaneurl.ResolveControlPlaneURL("", s.cfg.Host, s.cfg.Port)
+	if err == nil {
+		return resolved
 	}
 	host := strings.TrimSpace(s.cfg.Host)
 	if host == "" || host == "0.0.0.0" {

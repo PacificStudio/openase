@@ -50,13 +50,20 @@ func (d *Daemon) Run(ctx context.Context, config domain.DaemonConfig) error {
 		return fmt.Errorf("machine daemon unavailable")
 	}
 
+	relayManager := newAPIRelayManager()
+	_, relayURL, err := startDaemonLocalRelayServer(ctx, relayManager, os.Getenv(domain.EnvMachineLocalRelayAddress))
+	if err != nil {
+		return err
+	}
+	d.logger.Info("machine local api relay ready", "relay_url", relayURL)
+
 	backoff := config.ReconnectBackoff
 	if backoff <= 0 {
 		backoff = DefaultReconnectBackoff
 	}
 
 	for {
-		err := d.runSession(ctx, config)
+		err := d.runSession(ctx, config, relayManager)
 		if err == nil || errors.Is(err, context.Canceled) {
 			return nil
 		}
@@ -79,7 +86,7 @@ func (d *Daemon) Run(ctx context.Context, config domain.DaemonConfig) error {
 	}
 }
 
-func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) error {
+func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig, relayManager *apiRelayManager) error {
 	connectURL, err := machineConnectURL(config.ControlPlaneURL)
 	if err != nil {
 		return err
@@ -173,6 +180,21 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 	})
 	defer runtimeServer.Close()
 
+	apiRelaySession := newAPIRelaySession(registered.SessionID, func(ctx context.Context, request domain.APIRelayRequest) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return writeJSONEnvelope(conn, domain.Envelope{
+			Version:   domain.ProtocolVersion,
+			Type:      domain.MessageTypeAPIRequest,
+			SessionID: registered.SessionID,
+			Payload:   mustMarshalJSON(request),
+		})
+	})
+	if relayManager != nil {
+		relayManager.SetSession(apiRelaySession)
+		defer relayManager.ClearSession(apiRelaySession, context.Canceled)
+	}
+
 	incomingCh := make(chan domain.Envelope, 1)
 	readErrCh := make(chan error, 1)
 	go func() {
@@ -213,6 +235,14 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 					return fmt.Errorf("decode runtime envelope: %w", err)
 				}
 				if err := runtimeServer.HandleEnvelope(ctx, runtimeEnvelope); err != nil {
+					return err
+				}
+			case domain.MessageTypeAPIResponse:
+				response, err := domain.DecodePayload[domain.APIRelayResponse](incoming)
+				if err != nil {
+					return fmt.Errorf("decode api relay response: %w", err)
+				}
+				if err := apiRelaySession.HandleResponse(response); err != nil {
 					return err
 				}
 			}
