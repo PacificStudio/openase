@@ -113,6 +113,12 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/lib/testing/**/*.{js,ts,mjs,cjs}'],
+    rules: {
+      'max-lines': maxLinesRule(fileBudgetLimits.testingSupportModule.hard),
+    },
+  },
+  {
     files: ['src/lib/components/layout/**/*.svelte'],
     rules: {
       'max-lines': maxLinesRule(fileBudgetLimits.layoutComponent.hard),

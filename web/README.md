@@ -95,6 +95,7 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | `lib/features/**/*.svelte.{ts,js}`  | 250        | 500                  |
 | `lib/features/**/*.svelte`          | 200        | 350                  |
 | `lib/features/**/*.{ts,js}`         | 200        | 325                  |
+| `lib/testing/**/*.{ts,js}`          | 350        | 650                  |
 | `lib/components/layout/**/*.svelte` | 200        | 300                  |
 | `lib/components/ui/**/*.svelte`     | 150        | 250                  |
 | single function                     | 40 target  | 60 warning threshold |
@@ -117,7 +118,7 @@ pnpm run ci
 - `pnpm run lint`: ESLint with complexity, file-size, and cycle checks.
 - `pnpm run lint:i18n`: fails on newly introduced hardcoded user-visible strings that do not go through the shared i18n layer.
 - `pnpm run lint:mobile`: validates that every project route declares a mobile support policy and that responsive routes wire into the mobile regression templates.
-- `pnpm run lint:structure`: custom file budget enforcement with first-class categories for routes, feature tests, state modules, and UI layers.
+- `pnpm run lint:structure`: custom file budget enforcement with first-class categories for routes, feature tests, testing support modules, state modules, and UI layers.
 - `pnpm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes`.
 - `pnpm run check`: `svelte-check` type validation.
 - `pnpm run ci`: unified local and CI entrypoint for the frontend gate.
