@@ -217,9 +217,7 @@ describe('Security settings', () => {
         ],
       })
     })
-    expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual([
-      'projects.update',
-    ])
+    expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual(['projects.update'])
   })
 
   it('keeps project ai access explicitly empty after clearing all scopes', async () => {
