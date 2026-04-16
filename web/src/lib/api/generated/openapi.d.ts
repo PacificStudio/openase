@@ -9366,11 +9366,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Optional control-plane base URL override written into the remote environment file. Defaults to the incoming request URL. */
           control_plane_url?: string
+          /** @description Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837. */
           listener_address?: string
+          /** @description Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present. */
           listener_bearer_token?: string
+          /** @description Remote websocket listener HTTP path when installing the remote-listener topology. Defaults to /openase/runtime. */
           listener_path?: string
+          /** @description Optional TTL in seconds for the freshly issued machine channel token. Defaults to 24 hours. */
           token_ttl_seconds?: number
+          /** @description Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology. */
           topology?: string
         }
       }
