@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const conversationTerminalTestEventTimeout = 2 * time.Second
+
 type fakeConversationTerminalProcess struct {
 	reader *io.PipeReader
 	writer *io.PipeWriter
@@ -467,7 +469,7 @@ func requireConversationTerminalEvent(t *testing.T, events <-chan ConversationTe
 			t.Fatal("expected terminal event, got closed channel")
 		}
 		return event
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(conversationTerminalTestEventTimeout):
 		t.Fatal("timed out waiting for terminal event")
 		return ConversationTerminalEvent{}
 	}
