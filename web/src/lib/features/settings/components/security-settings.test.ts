@@ -153,12 +153,12 @@ describe('Security settings', () => {
 
     const { findByText } = render(SecuritySettings)
 
-    expect(await findByText('Scoped secrets')).toBeTruthy()
+    expect(await findByText('Overview')).toBeTruthy()
     expect(await findByText('Inherited organization defaults')).toBeTruthy()
-    expect(await findByText('GitHub outbound credentials')).toBeTruthy()
-    expect(await findByText('Runtime secret bindings')).toBeTruthy()
+    expect(await findByText('Outbound')).toBeTruthy()
+    expect(await findByText('Secret Bindings')).toBeTruthy()
     expect(await findByText('User API keys')).toBeTruthy()
-    expect(await findByText('Project AI platform access')).toBeTruthy()
+    expect(await findByText('Project AI Platform')).toBeTruthy()
     expect(await findByText('Fullstack Developer Workflow')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
   })
@@ -174,7 +174,7 @@ describe('Security settings', () => {
 
     const { findByPlaceholderText, findAllByRole } = render(SecuritySettings)
 
-    const input = await findByPlaceholderText('ghu_xxx or github_pat_xxx')
+    const input = await findByPlaceholderText('Token')
     await fireEvent.input(input, { target: { value: 'ghu_project_override' } })
 
     const saveButtons = await findAllByRole('button', { name: 'Save' })
@@ -201,18 +201,25 @@ describe('Security settings', () => {
       },
     })
 
-    const { findByRole, findByText } = render(SecuritySettings)
+    const { findAllByRole, findByText } = render(SecuritySettings)
 
     await fireEvent.click(await findByText('projects'))
     await fireEvent.click(await findByText('add_repo'))
-    await fireEvent.click(await findByRole('button', { name: 'Save Project AI access' }))
+    const saveButtons = await findAllByRole('button', { name: 'Save' })
+    await fireEvent.click(saveButtons[saveButtons.length - 1])
 
     await waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
-        project_ai_platform_access_allowed: ['projects.update'],
+        project_ai_platform_access_allowed: [
+          'project_updates.read',
+          'project_updates.write',
+          'projects.update',
+        ],
       })
     })
-    expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual(['projects.update'])
+    expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual([
+      'projects.update',
+    ])
   })
 
   it('keeps project ai access explicitly empty after clearing all scopes', async () => {
@@ -229,16 +236,17 @@ describe('Security settings', () => {
       },
     })
 
-    const { findByRole, findByText } = render(SecuritySettings)
+    const { findAllByRole, findByText } = render(SecuritySettings)
 
     await fireEvent.click(await findByText('projects'))
     await fireEvent.click(await findByText('update'))
     await fireEvent.click(await findByText('add_repo'))
-    await fireEvent.click(await findByRole('button', { name: 'Save Project AI access' }))
+    const saveButtons = await findAllByRole('button', { name: 'Save' })
+    await fireEvent.click(saveButtons[saveButtons.length - 1])
 
     await waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
-        project_ai_platform_access_allowed: [],
+        project_ai_platform_access_allowed: ['project_updates.read', 'project_updates.write'],
       })
     })
     expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual([])
@@ -306,7 +314,7 @@ describe('Security settings', () => {
 
     const { findByText, queryByText } = render(SecuritySettings)
 
-    expect(await findByText('GitHub outbound credentials')).toBeTruthy()
+    expect(await findByText('Outbound')).toBeTruthy()
     expect(await findByText('ghu_test...1234')).toBeTruthy()
     expect(queryByText('No scopes reported')).toBeNull()
   })
@@ -329,14 +337,14 @@ describe('Security settings', () => {
     const bindButtons = await findAllByRole('button', { name: 'Bind secret' })
     await fireEvent.click(bindButtons[bindButtons.length - 1])
 
-    await fireEvent.input(await findByLabelText('Binding key'), {
+    await fireEvent.input(await findByLabelText('Binding Key'), {
       target: { value: 'openai_api_key' },
     })
-    const workflowTrigger = await findByText('Select workflow...')
+    const workflowTrigger = await findByText('Enter select workflow target...')
     workflowTrigger.focus()
     await fireEvent.keyDown(workflowTrigger, { key: 'ArrowDown' })
     await fireEvent.keyDown(workflowTrigger, { key: 'Enter' })
-    const secretTrigger = await findByText('Select secret...')
+    const secretTrigger = await findByText('Enter select secret...')
     secretTrigger.focus()
     await fireEvent.keyDown(secretTrigger, { key: 'ArrowDown' })
     await fireEvent.keyDown(secretTrigger, { key: 'Enter' })
@@ -397,13 +405,14 @@ describe('Security settings', () => {
       plain_text_token: 'ase_pat_plain_text_token',
     })
 
-    const { findByLabelText, findByRole, findByText, queryByText } = render(SecuritySettings)
+    const { findByLabelText, findAllByRole, findByText, queryByText } = render(SecuritySettings)
 
-    await fireEvent.click(await findByRole('button', { name: 'Create key' }))
+    const createButtons = await findAllByRole('button', { name: 'Create key' })
+    await fireEvent.click(createButtons[0])
     await fireEvent.input(await findByLabelText('Name'), { target: { value: 'Buildkite' } })
     await fireEvent.click(await findByText('tickets'))
     await fireEvent.click(await findByText('list'))
-    await fireEvent.click(await findByRole('button', { name: 'Create key' }))
+    await fireEvent.click((await findAllByRole('button', { name: 'Create key' }))[1])
 
     await waitFor(() => {
       expect(createProjectUserAPIKey).toHaveBeenCalledWith(appStore.currentProject?.id, {
@@ -415,7 +424,7 @@ describe('Security settings', () => {
 
     expect(await findByText('Copy this API key now')).toBeTruthy()
     expect(await findByText('ase_pat_plain_text_token')).toBeTruthy()
-    await fireEvent.click(await findByRole('button', { name: 'Done' }))
+    await fireEvent.click((await findAllByRole('button', { name: 'Done' }))[0])
     await waitFor(() => {
       expect(queryByText('ase_pat_plain_text_token')).toBeNull()
     })
