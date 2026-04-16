@@ -20,6 +20,7 @@
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type Security = SecuritySettingsResponse['security']
   type PlainTextResult =
@@ -68,7 +69,9 @@
   })
 
   function formatError(caughtError: unknown): string {
-    return caughtError instanceof ApiError ? caughtError.detail : 'Request failed'
+    return caughtError instanceof ApiError
+      ? caughtError.detail
+      : i18nStore.t('settings.security.userApiKeys.errors.requestFailed')
   }
 
   function resetDraft() {
@@ -103,7 +106,7 @@
       })
       items = [payload.api_key, ...items]
       showPlainTextToken(payload)
-      toastStore.success('API key created')
+      toastStore.success(i18nStore.t('settings.security.userApiKeys.notifications.created'))
       createOpen = false
       resetDraft()
     } catch (caughtError) {
@@ -127,7 +130,7 @@
       const payload = await rotateProjectUserAPIKey(projectId, item.id)
       items = items.map((candidate) => (candidate.id === item.id ? payload.api_key : candidate))
       showPlainTextToken(payload)
-      toastStore.success('API key rotated')
+      toastStore.success(i18nStore.t('settings.security.userApiKeys.notifications.rotated'))
     } catch (caughtError) {
       toastStore.error(formatError(caughtError))
     } finally {
@@ -145,7 +148,7 @@
         item.id,
       )
       items = items.map((candidate) => (candidate.id === item.id ? payload.api_key : candidate))
-      toastStore.success('API key disabled')
+      toastStore.success(i18nStore.t('settings.security.userApiKeys.notifications.disabled'))
     } catch (caughtError) {
       toastStore.error(formatError(caughtError))
     } finally {
@@ -160,7 +163,7 @@
     try {
       await deleteProjectUserAPIKey(projectId, item.id)
       items = items.filter((candidate) => candidate.id !== item.id)
-      toastStore.success('API key deleted')
+      toastStore.success(i18nStore.t('settings.security.userApiKeys.notifications.deleted'))
     } catch (caughtError) {
       toastStore.error(formatError(caughtError))
     } finally {
@@ -171,9 +174,9 @@
   async function copyToken() {
     try {
       await navigator.clipboard.writeText(currentToken)
-      toastStore.success('Token copied')
+      toastStore.success(i18nStore.t('settings.security.userApiKeys.notifications.copied'))
     } catch {
-      toastStore.error('Copy failed')
+      toastStore.error(i18nStore.t('settings.security.userApiKeys.errors.copyFailed'))
     }
   }
 </script>
@@ -181,28 +184,31 @@
 <div class="space-y-4">
   <div class="flex items-start justify-between gap-3">
     <div>
-      <h3 class="text-sm font-semibold">User API keys</h3>
+      <h3 class="text-sm font-semibold">{i18nStore.t('settings.security.userApiKeys.heading')}</h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Create project-scoped API keys for external automation. Plaintext tokens are only shown
-        once.
+        {i18nStore.t('settings.security.userApiKeys.description')}
       </p>
     </div>
     <Dialog.Root bind:open={createOpen}>
       <Dialog.Trigger>
         {#snippet child({ props })}
-          <Button size="sm" {...props}>Create key</Button>
+          <Button size="sm" {...props}
+            >{i18nStore.t('settings.security.userApiKeys.buttons.create')}</Button
+          >
         {/snippet}
       </Dialog.Trigger>
       <Dialog.Content class="sm:max-w-2xl">
         <Dialog.Header>
-          <Dialog.Title>Create project API key</Dialog.Title>
+          <Dialog.Title>{i18nStore.t('settings.security.userApiKeys.dialog.title')}</Dialog.Title>
           <Dialog.Description>
-            Choose a name, an optional expiry, and the scopes this key should carry.
+            {i18nStore.t('settings.security.userApiKeys.dialog.description')}
           </Dialog.Description>
         </Dialog.Header>
         <Dialog.Body class="space-y-4">
           <div class="space-y-2">
-            <Label for="api-key-name">Name</Label>
+            <Label for="api-key-name"
+              >{i18nStore.t('settings.security.userApiKeys.labels.name')}</Label
+            >
             <Input
               id="api-key-name"
               value={name}
@@ -210,7 +216,9 @@
             />
           </div>
           <div class="space-y-2">
-            <Label for="api-key-expires">Expires at</Label>
+            <Label for="api-key-expires"
+              >{i18nStore.t('settings.security.userApiKeys.labels.expiresAt')}</Label
+            >
             <Input
               id="api-key-expires"
               type="datetime-local"
@@ -220,7 +228,7 @@
             />
           </div>
           <div class="space-y-2">
-            <Label>Allowed scopes</Label>
+            <Label>{i18nStore.t('settings.security.userApiKeys.labels.allowedScopes')}</Label>
             <ScopeGroupPicker
               groups={scopeGroups}
               selected={selectedScopes}
@@ -229,7 +237,7 @@
             />
             {#if scopeGroups.length === 0}
               <p class="text-muted-foreground text-xs">
-                No mintable scopes are available for your current project permissions.
+                {i18nStore.t('settings.security.userApiKeys.messages.noAllowedScopes')}
               </p>
             {/if}
           </div>
@@ -237,13 +245,15 @@
         <Dialog.Footer>
           <Dialog.Close>
             {#snippet child({ props })}
-              <Button variant="outline" {...props}>Cancel</Button>
+              <Button variant="outline" {...props}
+                >{i18nStore.t('settings.security.userApiKeys.buttons.cancel')}</Button
+              >
             {/snippet}
           </Dialog.Close>
           <Button
             onclick={handleCreate}
             disabled={mutationKey === 'create' || !name.trim() || selectedScopes.length === 0}
-            >Create key</Button
+            >{i18nStore.t('settings.security.userApiKeys.buttons.create')}</Button
           >
         </Dialog.Footer>
       </Dialog.Content>
@@ -251,12 +261,14 @@
   </div>
 
   {#if loading}
-    <div class="text-muted-foreground text-sm">Loading API keys...</div>
+    <div class="text-muted-foreground text-sm">
+      {i18nStore.t('settings.security.userApiKeys.messages.loading')}
+    </div>
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else if items.length === 0}
     <div class="bg-muted/30 text-muted-foreground rounded-lg px-4 py-3 text-sm">
-      No project API keys yet.
+      {i18nStore.t('settings.security.userApiKeys.messages.empty')}
     </div>
   {:else}
     <div class="space-y-3">
@@ -273,8 +285,11 @@
               </div>
               <div class="text-muted-foreground font-mono text-xs">{item.token_hint}</div>
               <div class="text-muted-foreground text-xs">
-                Created {formatTime(item.created_at)} · Last used {formatTime(item.last_used_at)} · Expires
-                {formatTime(item.expires_at)}
+                {i18nStore.t('settings.security.userApiKeys.messages.metadata', {
+                  created: formatTime(item.created_at),
+                  lastUsed: formatTime(item.last_used_at),
+                  expires: formatTime(item.expires_at),
+                })}
               </div>
             </div>
             <div class="flex gap-2">
@@ -282,19 +297,22 @@
                 size="sm"
                 variant="outline"
                 onclick={() => handleRotate(item)}
-                disabled={mutationKey !== ''}>Rotate</Button
+                disabled={mutationKey !== ''}
+                >{i18nStore.t('settings.security.userApiKeys.buttons.rotate')}</Button
               >
               <Button
                 size="sm"
                 variant="outline"
                 onclick={() => handleDisable(item)}
-                disabled={mutationKey !== '' || item.status !== 'active'}>Disable</Button
+                disabled={mutationKey !== '' || item.status !== 'active'}
+                >{i18nStore.t('settings.security.userApiKeys.buttons.disable')}</Button
               >
               <Button
                 size="sm"
                 variant="destructive"
                 onclick={() => handleDelete(item)}
-                disabled={mutationKey !== ''}>Delete</Button
+                disabled={mutationKey !== ''}
+                >{i18nStore.t('settings.security.userApiKeys.buttons.delete')}</Button
               >
             </div>
           </div>
@@ -312,23 +330,26 @@
 <Dialog.Root bind:open={revealOpen}>
   <Dialog.Content class="sm:max-w-xl">
     <Dialog.Header>
-      <Dialog.Title>Copy this API key now</Dialog.Title>
+      <Dialog.Title>{i18nStore.t('settings.security.userApiKeys.reveal.title')}</Dialog.Title>
       <Dialog.Description>
-        {currentTokenName} was created successfully. This plaintext token is only shown once.
+        {i18nStore.t('settings.security.userApiKeys.reveal.description', {
+          name: currentTokenName,
+        })}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Body class="space-y-3">
       <div class="bg-muted rounded-lg p-3 font-mono text-xs break-all">{currentToken}</div>
       <p class="text-muted-foreground text-xs">
-        Store it in your secret manager before closing this dialog. OpenASE only keeps a hashed
-        preview.
+        {i18nStore.t('settings.security.userApiKeys.reveal.warning')}
       </p>
     </Dialog.Body>
     <Dialog.Footer>
-      <Button variant="outline" onclick={copyToken}>Copy token</Button>
+      <Button variant="outline" onclick={copyToken}
+        >{i18nStore.t('settings.security.userApiKeys.buttons.copyToken')}</Button
+      >
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button {...props}>Done</Button>
+          <Button {...props}>{i18nStore.t('settings.security.userApiKeys.buttons.done')}</Button>
         {/snippet}
       </Dialog.Close>
     </Dialog.Footer>
