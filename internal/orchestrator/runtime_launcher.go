@@ -525,12 +525,7 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 		)
 	}
 
-	commandString := launchContext.agent.Edges.Provider.CliCommand
-	if machine.AgentCLIPath != nil {
-		commandString = *machine.AgentCLIPath
-	}
-
-	command, err := provider.ParseAgentCLICommand(commandString)
+	command, err := provider.ParseAgentCLICommand(launchContext.agent.Edges.Provider.CliCommand)
 	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageProcessStart, fmt.Errorf("parse agent cli command: %w", err))
 	}
@@ -604,7 +599,14 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 				return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageRuntimeSnapshot, fmt.Errorf("materialize runtime snapshot: %w", err))
 			}
 		}
-		if err := l.runRemoteRuntimePreflight(sessionCtx, machine, remote, workingDirectoryValue, command.String(), environment); err != nil {
+		preflightCommand := strings.TrimSpace(launchContext.agent.Edges.Provider.CliCommand)
+		if resolved := catalogdomain.ResolveMachineAgentCLIPath(
+			machine,
+			catalogdomain.AgentProviderAdapterType(launchContext.agent.Edges.Provider.AdapterType),
+		); resolved != nil {
+			preflightCommand = *resolved
+		}
+		if err := l.runRemoteRuntimePreflight(sessionCtx, machine, remote, workingDirectoryValue, preflightCommand, environment); err != nil {
 			return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, classifyRuntimeLaunchPreflightStage(err), err)
 		}
 		workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
@@ -1046,6 +1048,7 @@ func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {
 		AdvertisedEndpoint: optionalRuntimeString(item.AdvertisedEndpoint),
 		WorkspaceRoot:      optionalRuntimeString(item.WorkspaceRoot),
 		AgentCLIPath:       optionalRuntimeString(item.AgentCliPath),
+		AgentCLIPaths:      catalogdomain.CloneMachineAgentCLIPaths(catalogdomain.MachineAgentCLIPathsFromRaw(item.AgentCliPaths)),
 		EnvVars:            append([]string(nil), item.EnvVars...),
 		Resources:          cloneResourceMap(item.Resources),
 		DaemonStatus: catalogdomain.MachineDaemonStatus{

@@ -3604,7 +3604,9 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 		SetName("listener-02").
 		SetHost("listener.example.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsListener).
 		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
 		SetStatus(entmachine.StatusOnline).
@@ -3626,6 +3628,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(remoteMachine.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf direct-repo-workspace"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
@@ -3765,7 +3768,9 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync
 		SetName("listener-01").
 		SetHost("listener.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsListener).
 		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
 		SetStatus(entmachine.StatusOnline).
@@ -3787,6 +3792,7 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync
 	}
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(remoteMachine.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf websocket-runtime"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind listener provider: %v", err)
@@ -3959,7 +3965,9 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithMultiRepoInstruction
 		SetName("listener-multi-01").
 		SetHost("listener.multi.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsListener).
 		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
 		SetStatus(entmachine.StatusOnline).
@@ -3981,6 +3989,7 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithMultiRepoInstruction
 	}
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(remoteMachine.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf websocket-multi"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind listener provider: %v", err)
@@ -4139,7 +4148,9 @@ func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(
 		SetName("reverse-01").
 		SetHost("reverse.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsReverse).
 		SetStatus(entmachine.StatusOffline).
 		SetEnvVars([]string{
@@ -4164,6 +4175,7 @@ func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(
 		25*time.Millisecond,
 		filepath.Join(fakeOpenASEBinDir, "openase"),
 		"/bin/sh",
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("parse daemon config: %v", err)
@@ -4179,6 +4191,7 @@ func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(
 
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(machineItem.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf reverse-runtime"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind reverse provider: %v", err)

@@ -716,7 +716,7 @@ func init() {
 	// machine.DefaultDaemonRegistered holds the default value on creation for the daemon_registered field.
 	machine.DefaultDaemonRegistered = machineDescDaemonRegistered.Default.(bool)
 	// machineDescResources is the schema descriptor for resources field.
-	machineDescResources := machineFields[29].Descriptor()
+	machineDescResources := machineFields[30].Descriptor()
 	// machine.DefaultResources holds the default value on creation for the resources field.
 	machine.DefaultResources = machineDescResources.Default.(func() map[string]interface{})
 	// machineDescID is the schema descriptor for id field.

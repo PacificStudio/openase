@@ -159,6 +159,7 @@ type monitoredMachine struct {
 	AdvertisedEndpoint *string
 	WorkspaceRoot      *string
 	AgentCLIPath       *string
+	AgentCLIPaths      domain.MachineAgentCLIPaths
 	EnvVars            []string
 	DaemonStatus       domain.MachineDaemonStatus
 	Status             entmachine.Status
@@ -183,6 +184,7 @@ func (m monitoredMachine) toDomain() domain.Machine {
 		AdvertisedEndpoint: m.AdvertisedEndpoint,
 		WorkspaceRoot:      m.WorkspaceRoot,
 		AgentCLIPath:       m.AgentCLIPath,
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(m.AgentCLIPaths),
 		EnvVars:            append([]string(nil), m.EnvVars...),
 		DaemonStatus:       m.DaemonStatus,
 		Labels:             append([]string(nil), m.Labels...),
@@ -474,6 +476,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		AdvertisedEndpoint: cloneMachineString(machine.AdvertisedEndpoint),
 		WorkspaceRoot:      cloneMachineString(machine.WorkspaceRoot),
 		AgentCLIPath:       cloneMachineString(machine.AgentCLIPath),
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(machine.AgentCLIPaths),
 		DaemonStatus:       machine.DaemonStatus,
 		Status:             status,
 		Labels:             append([]string(nil), machine.Labels...),
@@ -677,6 +680,7 @@ func mapMonitoredAgentProvider(item *ent.AgentProvider, machine monitoredMachine
 		MachineSSHUser:       cloneMachineString(machine.SSHUser),
 		MachineWorkspaceRoot: cloneMachineString(machine.WorkspaceRoot),
 		MachineAgentCLIPath:  cloneMachineString(machine.AgentCLIPath),
+		MachineAgentCLIPaths: domain.CloneMachineAgentCLIPaths(machine.AgentCLIPaths),
 		MachineResources:     cloneResourceMap(machine.Resources),
 		Name:                 item.Name,
 		AdapterType:          domain.AgentProviderAdapterType(item.AdapterType.String()),
@@ -727,6 +731,7 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		AdvertisedEndpoint: optionalMachineString(item.AdvertisedEndpoint),
 		WorkspaceRoot:      optionalMachineString(item.WorkspaceRoot),
 		AgentCLIPath:       optionalMachineString(item.AgentCliPath),
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(domain.MachineAgentCLIPathsFromRaw(item.AgentCliPaths)),
 		EnvVars:            append([]string(nil), item.EnvVars...),
 		DaemonStatus: domain.MachineDaemonStatus{
 			Registered:       item.DaemonRegistered,

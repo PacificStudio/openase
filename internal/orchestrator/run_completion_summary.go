@@ -423,9 +423,6 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 	}
 
 	commandString := strings.TrimSpace(summaryCtx.provider.CliCommand)
-	if summaryCtx.machine.AgentCLIPath != nil && strings.TrimSpace(*summaryCtx.machine.AgentCLIPath) != "" {
-		commandString = strings.TrimSpace(*summaryCtx.machine.AgentCLIPath)
-	}
 	command, err := provider.ParseAgentCLICommand(commandString)
 	if err != nil {
 		return fmt.Errorf("parse summary provider command: %w", err)

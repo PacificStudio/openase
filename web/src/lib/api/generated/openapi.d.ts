@@ -8797,6 +8797,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -8896,6 +8899,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -9003,6 +9009,10 @@ export interface operations {
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks. */
+          agent_cli_paths?: {
+            [key: string]: string
+          } | null
           /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
           channel_credential?: {
             /** @description Opaque certificate identifier reserved for machine channel registration. */
@@ -9067,6 +9077,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -9178,6 +9191,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -9494,6 +9510,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -11048,6 +11067,9 @@ export interface operations {
             machines?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -11143,6 +11165,10 @@ export interface operations {
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks. */
+          agent_cli_paths?: {
+            [key: string]: string
+          }
           /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
           channel_credential?: {
             /** @description Opaque certificate identifier reserved for machine channel registration. */
@@ -11207,6 +11233,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string

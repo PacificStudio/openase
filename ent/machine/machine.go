@@ -67,6 +67,8 @@ const (
 	FieldWorkspaceRoot = "workspace_root"
 	// FieldAgentCliPath holds the string denoting the agent_cli_path field in the database.
 	FieldAgentCliPath = "agent_cli_path"
+	// FieldAgentCliPaths holds the string denoting the agent_cli_paths field in the database.
+	FieldAgentCliPaths = "agent_cli_paths"
 	// FieldEnvVars holds the string denoting the env_vars field in the database.
 	FieldEnvVars = "env_vars"
 	// FieldLastHeartbeatAt holds the string denoting the last_heartbeat_at field in the database.
@@ -142,6 +144,7 @@ var Columns = []string{
 	FieldStatus,
 	FieldWorkspaceRoot,
 	FieldAgentCliPath,
+	FieldAgentCliPaths,
 	FieldEnvVars,
 	FieldLastHeartbeatAt,
 	FieldResources,

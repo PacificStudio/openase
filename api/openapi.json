@@ -10468,6 +10468,12 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
                         "channel_credential": {
                           "properties": {
                             "certificate_id": {
@@ -10701,6 +10707,12 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
                         "channel_credential": {
                           "properties": {
                             "certificate_id": {
@@ -10915,6 +10927,14 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "agent_cli_paths": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks.",
+                    "nullable": true,
+                    "type": "object"
+                  },
                   "channel_credential": {
                     "description": "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
                     "nullable": true,
@@ -11066,6 +11086,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {
@@ -11301,6 +11327,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {
@@ -11928,6 +11960,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {
@@ -14758,6 +14796,12 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "agent_cli_paths": {
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "type": "object"
+                          },
                           "channel_credential": {
                             "properties": {
                               "certificate_id": {
@@ -14974,6 +15018,13 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "agent_cli_paths": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks.",
+                    "type": "object"
+                  },
                   "channel_credential": {
                     "description": "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
                     "nullable": true,
@@ -15113,6 +15164,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {

@@ -155,6 +155,7 @@ func mapTicketHookMachine(item *ent.Machine) catalogdomain.Machine {
 		AdvertisedEndpoint: cloneOptionalText(item.AdvertisedEndpoint),
 		WorkspaceRoot:      cloneOptionalText(item.WorkspaceRoot),
 		AgentCLIPath:       cloneOptionalText(item.AgentCliPath),
+		AgentCLIPaths:      catalogdomain.MachineAgentCLIPathsFromRaw(item.AgentCliPaths),
 		EnvVars:            slices.Clone(item.EnvVars),
 		Resources:          cloneMap(item.Resources),
 		DaemonStatus: catalogdomain.MachineDaemonStatus{
@@ -428,6 +429,7 @@ func (r *RuntimeRepository) loadWorkflowDiagnosisProvider(
 		MachineSSHUser:       optionalStringPointer(machineItem.SSHUser),
 		MachineWorkspaceRoot: optionalStringPointer(machineItem.WorkspaceRoot),
 		MachineAgentCLIPath:  optionalStringPointer(machineItem.AgentCliPath),
+		MachineAgentCLIPaths: catalogdomain.MachineAgentCLIPathsFromRaw(machineItem.AgentCliPaths),
 		MachineResources:     cloneAnyMap(machineItem.Resources),
 		Name:                 providerItem.Name,
 		AdapterType:          catalogdomain.AgentProviderAdapterType(providerItem.AdapterType),

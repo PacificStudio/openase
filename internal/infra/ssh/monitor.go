@@ -109,6 +109,14 @@ sanitize_field() {
   printf '%s' "$1" | tr '\t\r\n' '   '
 }
 
+claude_cmd=''
+claude_path=__CLAUDE_PATH__
+if [ -n "$claude_path" ] && [ -x "$claude_path" ]; then
+  claude_cmd="$claude_path"
+elif command -v claude >/dev/null 2>&1; then
+  claude_cmd=$(command -v claude)
+fi
+
 codex_cmd=''
 codex_path=__CODEX_PATH__
 if [ -n "$codex_path" ] && [ -x "$codex_path" ]; then
@@ -117,13 +125,21 @@ elif command -v codex >/dev/null 2>&1; then
   codex_cmd=$(command -v codex)
 fi
 
-if command -v claude >/dev/null 2>&1; then
-  claude_version=$(sanitize_field "$(claude --version 2>/dev/null || echo unknown)")
+gemini_cmd=''
+gemini_path=__GEMINI_PATH__
+if [ -n "$gemini_path" ] && [ -x "$gemini_path" ]; then
+  gemini_cmd="$gemini_path"
+elif command -v gemini >/dev/null 2>&1; then
+  gemini_cmd=$(command -v gemini)
+fi
+
+if [ -n "$claude_cmd" ]; then
+  claude_version=$(sanitize_field "$("$claude_cmd" --version 2>/dev/null || echo unknown)")
   claude_auth=not_logged_in
-  claude_status_json=$(claude auth status --json 2>/dev/null || true)
+  claude_status_json=$("$claude_cmd" auth status --json 2>/dev/null || true)
   if printf '%s' "$claude_status_json" | grep -Eq '"loggedIn"[[:space:]]*:[[:space:]]*true'; then
     claude_auth=logged_in
-  elif claude auth status --text 2>/dev/null | grep -Eq 'Logged in|Login method:'; then
+  elif "$claude_cmd" auth status --text 2>/dev/null | grep -Eq 'Logged in|Login method:'; then
     claude_auth=logged_in
   fi
   printf 'claude_code\ttrue\t%s\t%s\tlogin\n' "$claude_version" "$claude_auth"
@@ -149,8 +165,8 @@ else
   printf 'codex\tfalse\t\tunknown\tunknown\n'
 fi
 
-if command -v gemini >/dev/null 2>&1; then
-  gemini_version=$(sanitize_field "$(gemini --version 2>/dev/null || echo unknown)")
+if [ -n "$gemini_cmd" ]; then
+  gemini_version=$(sanitize_field "$("$gemini_cmd" --version 2>/dev/null || echo unknown)")
   gemini_auth=not_logged_in
   gemini_auth_mode=unknown
   if [ -n "${GEMINI_API_KEY:-}" ] || [ -n "${GOOGLE_API_KEY:-}" ] || { [ -n "${GOOGLE_CLOUD_PROJECT:-}" ] && [ -n "${GOOGLE_CLOUD_LOCATION:-}" ]; }; then
@@ -408,12 +424,20 @@ func shellQuote(raw string) string {
 }
 
 func buildAgentEnvironmentScript(machine domain.Machine) string {
-	codexPath := ""
-	if machine.AgentCLIPath != nil {
-		codexPath = strings.TrimSpace(*machine.AgentCLIPath)
-	}
+	replacer := strings.NewReplacer(
+		"__CLAUDE_PATH__", shellQuote(resolveAgentEnvironmentCLIPath(machine, domain.AgentProviderAdapterTypeClaudeCodeCLI)),
+		"__CODEX_PATH__", shellQuote(resolveAgentEnvironmentCLIPath(machine, domain.AgentProviderAdapterTypeCodexAppServer)),
+		"__GEMINI_PATH__", shellQuote(resolveAgentEnvironmentCLIPath(machine, domain.AgentProviderAdapterTypeGeminiCLI)),
+	)
+	return replacer.Replace(agentEnvironmentScriptTemplate)
+}
 
-	return strings.Replace(agentEnvironmentScriptTemplate, "__CODEX_PATH__", shellQuote(codexPath), 1)
+func resolveAgentEnvironmentCLIPath(machine domain.Machine, adapterType domain.AgentProviderAdapterType) string {
+	resolved := domain.ResolveMachineAgentCLIPath(machine, adapterType)
+	if resolved == nil {
+		return ""
+	}
+	return strings.TrimSpace(*resolved)
 }
 
 func prefixEnvironmentScript(environment []string, script string) string {

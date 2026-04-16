@@ -223,6 +223,71 @@ func TestRunMachineSSHBootstrapInstallsRemoteListenerTopology(t *testing.T) {
 	}
 }
 
+func TestRunMachineSSHBootstrapWritesScopedAgentCLIPathsEnv(t *testing.T) {
+	ctx := context.Background()
+	machineID := uuid.New()
+
+	platformSession := &machineSSHTestSession{
+		combinedOutput: "Linux\n/home/remote\nsystemd\n1000\n",
+	}
+	binaryUploadSession := &machineSSHTestSession{}
+	envUploadSession := &machineSSHTestSession{}
+	serviceUploadSession := &machineSSHTestSession{}
+	restartSession := &machineSSHTestSession{combinedOutput: "active\n"}
+	client := &machineSSHTestClient{sessions: []sshinfra.Session{
+		platformSession,
+		binaryUploadSession,
+		envUploadSession,
+		serviceUploadSession,
+		restartSession,
+	}}
+
+	_, err := runMachineSSHBootstrap(ctx, machineSSHBootstrapDeps{
+		getClient: func(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
+			return client, nil
+		},
+		issueToken: func(context.Context, uuid.UUID, time.Duration, string, string) (machineChannelTokenResponse, error) {
+			return machineChannelTokenResponse{
+				Token:           "ase_machine_test",
+				TokenID:         "token-1",
+				MachineID:       machineID.String(),
+				ControlPlaneURL: "https://openase.example.com",
+			}, nil
+		},
+		readLocalFile: func(string) ([]byte, error) { return []byte("openase-binary"), nil },
+		resolveExecutable: func() (string, error) {
+			return "/usr/local/bin/openase", nil
+		},
+	}, machineSSHBootstrapInput{
+		Machine: catalogdomain.Machine{
+			ID:               machineID,
+			Name:             "reverse-01",
+			Host:             "10.0.1.11",
+			ReachabilityMode: catalogdomain.MachineReachabilityModeReverseConnect,
+			ExecutionMode:    catalogdomain.MachineExecutionModeWebsocket,
+			ConnectionMode:   catalogdomain.MachineConnectionModeWSReverse,
+			AgentCLIPaths: catalogdomain.MachineAgentCLIPaths{
+				catalogdomain.AgentProviderAdapterTypeCodexAppServer: "/opt/codex/bin/codex",
+				catalogdomain.AgentProviderAdapterTypeGeminiCLI:      "/opt/gemini/bin/gemini",
+			},
+		},
+		Topology: catalogdomain.MachineWebsocketTopologyReverseConnect,
+		TokenTTL: 24 * time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("runMachineSSHBootstrap() error = %v", err)
+	}
+
+	envBody := envUploadSession.stdin.String()
+	if !strings.Contains(envBody, `OPENASE_MACHINE_AGENT_CLI_PATHS_JSON="{\"codex-app-server\":\"/opt/codex/bin/codex\",\"gemini-cli\":\"/opt/gemini/bin/gemini\"}"`) {
+		t.Fatalf("env upload missing scoped agent cli paths: %q", envBody)
+	}
+	serviceBody := serviceUploadSession.stdin.String()
+	if strings.Contains(serviceBody, "--agent-cli-path") {
+		t.Fatalf("service upload should rely on scoped env paths instead of legacy flag: %q", serviceBody)
+	}
+}
+
 func TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues(t *testing.T) {
 	ctx := context.Background()
 	machineID := uuid.New()
@@ -330,6 +395,58 @@ func TestRunMachineSSHDiagnosticsReportsListenerEndpointIssue(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected listener_endpoint_unreachable in %+v", result.Issues)
+	}
+}
+
+func TestRunMachineSSHDiagnosticsChecksScopedAgentCLIPaths(t *testing.T) {
+	ctx := context.Background()
+	machineID := uuid.New()
+	sshUser := "openase"
+
+	client := &machineSSHTestClient{sessions: []sshinfra.Session{
+		&machineSSHTestSession{combinedOutput: "Linux\n/home/remote\nsystemd\n1000\n"},
+		&machineSSHTestSession{},
+		&machineSSHTestSession{},
+		&machineSSHTestSession{combinedOutput: "active\n"},
+		&machineSSHTestSession{combinedOutput: ""},
+		&machineSSHTestSession{combinedOutput: ""},
+	}}
+
+	result, err := runMachineSSHDiagnostics(ctx, machineSSHDiagnosticDeps{
+		getClient: func(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
+			return client, nil
+		},
+	}, catalogdomain.Machine{
+		ID:               machineID,
+		Name:             "reverse-02",
+		Host:             "10.0.1.12",
+		ReachabilityMode: catalogdomain.MachineReachabilityModeReverseConnect,
+		ExecutionMode:    catalogdomain.MachineExecutionModeWebsocket,
+		ConnectionMode:   catalogdomain.MachineConnectionModeWSReverse,
+		SSHUser:          &sshUser,
+		AgentCLIPath:     stringPtr("/usr/local/bin/legacy"),
+		AgentCLIPaths: catalogdomain.MachineAgentCLIPaths{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer: "/opt/codex/bin/codex",
+			catalogdomain.AgentProviderAdapterTypeGeminiCLI:      "/opt/gemini/bin/gemini",
+		},
+		DaemonStatus: catalogdomain.MachineDaemonStatus{
+			Registered: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("runMachineSSHDiagnostics() error = %v", err)
+	}
+
+	checkNames := make([]string, 0, len(result.Checks))
+	for _, check := range result.Checks {
+		checkNames = append(checkNames, check.Name)
+	}
+	joined := strings.Join(checkNames, ",")
+	if !strings.Contains(joined, "agent_cli_path_codex_app_server") || !strings.Contains(joined, "agent_cli_path_gemini_cli") {
+		t.Fatalf("expected scoped agent cli checks, got %+v", result.Checks)
+	}
+	if strings.Contains(joined, "agent_cli_path,") || joined == "agent_cli_path" {
+		t.Fatalf("expected scoped checks to suppress legacy fallback when agent_cli_paths are present, got %+v", result.Checks)
 	}
 }
 

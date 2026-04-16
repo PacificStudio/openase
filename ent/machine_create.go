@@ -350,6 +350,12 @@ func (_c *MachineCreate) SetNillableAgentCliPath(v *string) *MachineCreate {
 	return _c
 }
 
+// SetAgentCliPaths sets the "agent_cli_paths" field.
+func (_c *MachineCreate) SetAgentCliPaths(v map[string]string) *MachineCreate {
+	_c.mutation.SetAgentCliPaths(v)
+	return _c
+}
+
 // SetEnvVars sets the "env_vars" field.
 func (_c *MachineCreate) SetEnvVars(v pgarray.StringArray) *MachineCreate {
 	_c.mutation.SetEnvVars(v)
@@ -754,6 +760,10 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AgentCliPath(); ok {
 		_spec.SetField(machine.FieldAgentCliPath, field.TypeString, value)
 		_node.AgentCliPath = value
+	}
+	if value, ok := _c.mutation.AgentCliPaths(); ok {
+		_spec.SetField(machine.FieldAgentCliPaths, field.TypeJSON, value)
+		_node.AgentCliPaths = value
 	}
 	if value, ok := _c.mutation.EnvVars(); ok {
 		_spec.SetField(machine.FieldEnvVars, field.TypeOther, value)
