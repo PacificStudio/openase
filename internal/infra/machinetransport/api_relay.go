@@ -15,10 +15,13 @@ import (
 
 	machinechanneldomain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/google/uuid"
 )
 
 const localRelayPath = "/__openase_cli_relay"
+
+var _ = logging.DeclareComponent("machine-transport-runtime-api-relay")
 
 var errRuntimeAPIRelayUnavailable = errors.New("runtime api relay is not connected")
 
