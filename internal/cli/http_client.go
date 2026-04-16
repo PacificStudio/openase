@@ -55,7 +55,7 @@ func (d machineRelayHTTPDoer) Do(request *http.Request) (*http.Response, error) 
 	localRequest.Header.Set("Content-Type", "application/json")
 	client := d.client
 	if client == nil {
-		client = http.DefaultClient
+		client = defaultCLIHTTPDoer()
 	}
 	localResponse, err := client.Do(localRequest)
 	if err != nil {
@@ -90,7 +90,7 @@ func (d machineRelayHTTPDoer) Do(request *http.Request) (*http.Response, error) 
 	return &http.Response{
 		StatusCode:    statusCode,
 		Status:        status,
-		Header:        http.Header(cloneRelayHeaders(relayResponse.Headers)),
+		Header:        http.Header(cloneRelayHeaderMap(relayResponse.Headers)),
 		Body:          io.NopCloser(bytes.NewReader(relayResponse.Body)),
 		ContentLength: int64(len(relayResponse.Body)),
 		Request:       request,
@@ -111,6 +111,21 @@ func cloneRelayHeaders(headers map[string][]string) map[string][]string {
 	}
 	if len(cloned) == 0 {
 		return nil
+	}
+	return cloned
+}
+
+func cloneRelayHeaderMap(headers map[string][]string) map[string][]string {
+	if len(headers) == 0 {
+		return nil
+	}
+	cloned := make(map[string][]string, len(headers))
+	for key, values := range headers {
+		copied := make([]string, 0, len(values))
+		for _, value := range values {
+			copied = append(copied, value)
+		}
+		cloned[key] = copied
 	}
 	return cloned
 }
