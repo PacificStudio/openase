@@ -8,6 +8,12 @@ const lockfile = readFileSync(lockfilePath, 'utf8')
 
 const bannedEntries = [
   {
+    packageName: 'dompurify',
+    version: '3.3.3',
+    reason:
+      'GHSA-39q2-94rc-95cp allows ADD_TAGS function handling to bypass FORBID_TAGS enforcement; keep the lockfile on 3.4.0 or newer.',
+  },
+  {
     packageName: 'picomatch',
     version: '4.0.3',
     reason:
