@@ -168,12 +168,17 @@ func ensureRemoteOpenASEBinary(
 
 	targetName := filepath.Base(trimmedPath)
 	localCopyPath := filepath.Join(tempRoot, targetName)
+	// #nosec G304 -- localExecutable comes from os.Executable for the current process.
 	content, err := os.ReadFile(localExecutable)
 	if err != nil {
 		return fmt.Errorf("read local openase executable for remote repair: %w", err)
 	}
-	if err := os.WriteFile(localCopyPath, content, 0o755); err != nil {
+	// #nosec G306,G703 -- localCopyPath stays under the temp repair root and is chmodded next.
+	if err := os.WriteFile(localCopyPath, content, 0o600); err != nil {
 		return fmt.Errorf("stage local openase executable for remote repair: %w", err)
+	}
+	if err := os.Chmod(localCopyPath, 0o755); err != nil { //nolint:gosec // temp repair binary must remain executable for artifact sync.
+		return fmt.Errorf("chmod staged openase executable for remote repair: %w", err)
 	}
 	if err := artifactSync.SyncArtifacts(ctx, machine, SyncArtifactsRequest{
 		LocalRoot:  tempRoot,
