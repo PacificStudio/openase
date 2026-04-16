@@ -110,6 +110,12 @@ func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testin
 
 	if !containsAll(
 		prompt,
+		"## Project AI Operating Guidance",
+		"clarify the user's requirements",
+		"improve workflows and harnesses",
+		"create or update agents/workflows/tickets",
+		"prefer shaping the work for the asynchronous ticket/agent pipeline",
+		"Only take on substantial coding, large refactors, or broad repo changes inside Project AI when the user explicitly asks for it",
 		"## OpenASE Platform Capability Contract",
 		"Current principal: `project_conversation`",
 		"`OPENASE_AGENT_TOKEN`",
@@ -181,6 +187,9 @@ func TestProjectConversationPromptIncludesCurrentFocus(t *testing.T) {
 
 	if !containsAll(
 		prompt,
+		"## Project AI Operating Guidance",
+		"clarify the user's requirements",
+		"create or update agents/workflows/tickets",
 		"## OpenASE Platform Capability Contract",
 		"Current principal: `project_conversation`",
 		"`OPENASE_AGENT_TOKEN`",
@@ -319,6 +328,8 @@ func TestProjectConversationPromptIncludesTicketCapsule(t *testing.T) {
 
 	if !containsAll(
 		prompt,
+		"## Project AI Operating Guidance",
+		"prefer shaping the work for the asynchronous ticket/agent pipeline",
 		"## OpenASE Platform Capability Contract",
 		"Current principal: `project_conversation`",
 		"`OPENASE_TICKET_ID`",

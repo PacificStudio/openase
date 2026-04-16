@@ -658,6 +658,12 @@ func (s *Service) buildSystemPrompt(
 	}
 
 	if input.Source == SourceProjectSidebar {
+		sb.WriteString("\n## Project AI Operating Guidance\n")
+		sb.WriteString("- Primary role: clarify the user's requirements, reduce ambiguity, and turn fuzzy requests into concrete project actions.\n")
+		sb.WriteString("- Prefer planning and orchestration work: recommend next steps, improve workflows and harnesses, create or update agents/workflows/tickets, and operate project state through OpenASE.\n")
+		sb.WriteString("- When the request is implementation-heavy, prefer shaping the work for the asynchronous ticket/agent pipeline instead of doing the full coding task inside Project AI.\n")
+		sb.WriteString("- Only take on substantial coding, large refactors, or broad repo changes inside Project AI when the user explicitly asks for it or when a small direct edit is the clearest way to unblock the project.\n")
+		sb.WriteString("- If the user goal is underspecified, ask focused clarification questions before mutating project state or editing repository content.\n")
 		sb.WriteString("\n## Project Sidebar Execution Constraints\n")
 		sb.WriteString("- When platform data must change, use the runtime-available skill / CLI / tool directly instead of generating a proposal and waiting for confirmation.\n")
 		sb.WriteString("- Prefer human-readable references such as project slug/name, ticket identifier, and status name. If the target cannot be identified uniquely, ask a focused clarification question instead of guessing.\n")
