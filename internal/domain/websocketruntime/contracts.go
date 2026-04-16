@@ -48,6 +48,7 @@ const (
 	OperationSessionClose     Operation = "session_close"
 	OperationProcessStart     Operation = "process_start"
 	OperationProcessStatus    Operation = "process_status"
+	OperationAPIRelay         Operation = "api_relay"
 	OperationSessionOutput    Operation = "session_output"
 	OperationSessionExit      Operation = "session_exit"
 )
@@ -66,6 +67,7 @@ func (o Operation) IsValid() bool {
 		OperationSessionClose,
 		OperationProcessStart,
 		OperationProcessStatus,
+		OperationAPIRelay,
 		OperationSessionOutput,
 		OperationSessionExit:
 		return true
@@ -305,6 +307,21 @@ type ProcessStatusResponse struct {
 	SessionID string `json:"session_id"`
 	Running   bool   `json:"running"`
 	ExitCode  *int   `json:"exit_code,omitempty"`
+}
+
+// APIRelayRequest forwards JSON-oriented OpenASE CLI requests over the websocket runtime channel.
+type APIRelayRequest struct {
+	Method  string              `json:"method"`
+	URL     string              `json:"url"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    []byte              `json:"body,omitempty"`
+}
+
+type APIRelayResponse struct {
+	StatusCode int                 `json:"status_code"`
+	Status     string              `json:"status"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       []byte              `json:"body,omitempty"`
 }
 
 type SessionOutputEvent struct {

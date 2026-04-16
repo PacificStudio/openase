@@ -173,6 +173,12 @@ contract and optionally protects the endpoint with a static bearer token.
   openase machine-agent listen
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			relayManager := machinetransport.NewRuntimeLocalRelayManagerForCLI()
+			if _, relayURL, err := machinetransport.StartRuntimeLocalRelayServerForCLI(cmd.Context(), relayManager, os.Getenv(machinechanneldomain.EnvMachineLocalRelayAddress)); err != nil {
+				return err
+			} else {
+				_ = relayURL
+			}
 			resolvedAddress := firstNonEmpty(listenAddress, os.Getenv(envMachineListenerAddress))
 			if strings.TrimSpace(resolvedAddress) == "" {
 				resolvedAddress = defaultMachineListenerAddress
@@ -189,6 +195,7 @@ contract and optionally protects the endpoint with a static bearer token.
 			mux := http.NewServeMux()
 			mux.Handle(resolvedPath, machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{
 				BearerToken: resolvedToken,
+				APIRelay:    relayManager,
 			}))
 			server := &http.Server{
 				Addr:              resolvedAddress,

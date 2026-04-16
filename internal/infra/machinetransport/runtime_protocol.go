@@ -1,12 +1,14 @@
 package machinetransport
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -54,7 +56,8 @@ func marshalRuntimePayload(value any) (json.RawMessage, error) {
 }
 
 type runtimeProtocolClient struct {
-	send runtimeEnvelopeSender
+	send     runtimeEnvelopeSender
+	apiRelay func(context.Context, runtimecontract.APIRelayRequest) (runtimecontract.APIRelayResponse, error)
 
 	requestMu sync.Mutex
 	requests  map[string]chan runtimecontract.Envelope
@@ -75,6 +78,7 @@ type runtimeProtocolClient struct {
 func newRuntimeProtocolClient(send runtimeEnvelopeSender) *runtimeProtocolClient {
 	return &runtimeProtocolClient{
 		send:     send,
+		apiRelay: defaultRuntimeAPIRelayHandler,
 		requests: map[string]chan runtimecontract.Envelope{},
 		sessions: map[string]*runtimeManagedClientSession{},
 		pending:  map[string][]runtimecontract.Envelope{},
@@ -123,6 +127,8 @@ func (c *runtimeProtocolClient) HandleEnvelope(envelope runtimecontract.Envelope
 		default:
 		}
 		return nil
+	case runtimecontract.MessageTypeRequest:
+		return c.handleIncomingRequest(envelope)
 	case runtimecontract.MessageTypeEvent:
 		switch envelope.Operation {
 		case runtimecontract.OperationSessionOutput:
@@ -168,6 +174,7 @@ func (c *runtimeProtocolClient) ensureHello(ctx context.Context) error {
 			runtimecontract.OperationSessionClose,
 			runtimecontract.OperationProcessStart,
 			runtimecontract.OperationProcessStatus,
+			runtimecontract.OperationAPIRelay,
 		},
 	})
 	if err != nil {
@@ -258,6 +265,87 @@ func (c *runtimeProtocolClient) request(ctx context.Context, operation runtimeco
 		return runtimecontract.Envelope{}, err
 	}
 	return c.sendRequest(ctx, runtimecontract.MessageTypeRequest, operation, payload)
+}
+
+func (c *runtimeProtocolClient) handleIncomingRequest(envelope runtimecontract.Envelope) error {
+	if c == nil || c.send == nil {
+		return fmt.Errorf("runtime protocol client unavailable")
+	}
+	if envelope.Operation != runtimecontract.OperationAPIRelay {
+		return fmt.Errorf("runtime client request %q is not supported", envelope.Operation)
+	}
+	request, err := runtimecontract.DecodePayload[runtimecontract.APIRelayRequest](envelope)
+	if err != nil {
+		return c.send(context.Background(), runtimecontract.Envelope{
+			Version:   runtimecontract.ProtocolVersion,
+			Type:      runtimecontract.MessageTypeResponse,
+			RequestID: envelope.RequestID,
+			Operation: envelope.Operation,
+			Error: &runtimecontract.ErrorPayload{
+				Code:      runtimecontract.ErrorCodeInvalidRequest,
+				Class:     runtimecontract.ErrorClassMisconfiguration,
+				Message:   err.Error(),
+				Retryable: false,
+			},
+		})
+	}
+	handler := c.apiRelay
+	if handler == nil {
+		handler = defaultRuntimeAPIRelayHandler
+	}
+	response, err := handler(context.Background(), request)
+	if err != nil {
+		return c.send(context.Background(), runtimecontract.Envelope{
+			Version:   runtimecontract.ProtocolVersion,
+			Type:      runtimecontract.MessageTypeResponse,
+			RequestID: envelope.RequestID,
+			Operation: envelope.Operation,
+			Error: &runtimecontract.ErrorPayload{
+				Code:      runtimecontract.ErrorCodeTransportUnavailable,
+				Class:     runtimecontract.ErrorClassTransient,
+				Message:   err.Error(),
+				Retryable: true,
+			},
+		})
+	}
+	payload, err := marshalRuntimePayload(response)
+	if err != nil {
+		return err
+	}
+	return c.send(context.Background(), runtimecontract.Envelope{
+		Version:   runtimecontract.ProtocolVersion,
+		Type:      runtimecontract.MessageTypeResponse,
+		RequestID: envelope.RequestID,
+		Operation: envelope.Operation,
+		Payload:   payload,
+	})
+}
+
+func defaultRuntimeAPIRelayHandler(ctx context.Context, request runtimecontract.APIRelayRequest) (runtimecontract.APIRelayResponse, error) {
+	httpRequest, err := http.NewRequestWithContext(ctx, strings.ToUpper(strings.TrimSpace(request.Method)), strings.TrimSpace(request.URL), bytes.NewReader(request.Body))
+	if err != nil {
+		return runtimecontract.APIRelayResponse{}, fmt.Errorf("build runtime api relay request: %w", err)
+	}
+	for key, values := range request.Headers {
+		for _, value := range values {
+			httpRequest.Header.Add(key, value)
+		}
+	}
+	response, err := http.DefaultClient.Do(httpRequest)
+	if err != nil {
+		return runtimecontract.APIRelayResponse{}, fmt.Errorf("perform runtime api relay request: %w", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return runtimecontract.APIRelayResponse{}, fmt.Errorf("read runtime api relay response: %w", err)
+	}
+	return runtimecontract.APIRelayResponse{
+		StatusCode: response.StatusCode,
+		Status:     response.Status,
+		Headers:    map[string][]string(response.Header.Clone()),
+		Body:       body,
+	}, nil
 }
 
 func (c *runtimeProtocolClient) registerSession(sessionID string, session *runtimeManagedClientSession) {
@@ -745,8 +833,11 @@ func (s shellCommandSpec) start(ctx context.Context, sessionID string, send runt
 	}
 	shell, args := listenerShellCommand(command)
 	cmd := exec.CommandContext(ctx, shell, args...) // #nosec G204 -- runtime contract intentionally runs orchestrator-provided shell commands.
-	cmd.SysProcAttr = runtimeProcessSysProcAttr()
 	if s.pty {
+		// Let creack/pty own Setsid/Setctty for terminal shells. Reusing the
+		// non-PTY Setpgid path can make fork/exec fail with EPERM on listener
+		// hosts even though PTYs are otherwise available.
+		cmd.SysProcAttr = nil
 		size, err := runtimePTYSize(s.cols, s.rows)
 		if err != nil {
 			return nil, nil, nil, err
@@ -759,6 +850,7 @@ func (s shellCommandSpec) start(ctx context.Context, sessionID string, send runt
 		go runtimeCopyPTYOutput(ctx, sessionID, ptmx, send)
 		return cmd, ptmx, ptmx, nil
 	}
+	cmd.SysProcAttr = runtimeProcessSysProcAttr()
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, nil, nil, err

@@ -108,11 +108,13 @@ func dialWebsocketRuntimeClient(
 
 type ListenerHandlerOptions struct {
 	BearerToken string
+	APIRelay    *runtimeAPIRelayManager
 }
 
 func NewWebsocketListenerHandler(options ListenerHandlerOptions) http.Handler {
 	return &websocketListenerHandler{
 		bearerToken: strings.TrimSpace(options.BearerToken),
+		apiRelay:    options.APIRelay,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(*http.Request) bool { return true },
 		},
@@ -121,6 +123,7 @@ func NewWebsocketListenerHandler(options ListenerHandlerOptions) http.Handler {
 
 type websocketListenerHandler struct {
 	bearerToken string
+	apiRelay    *runtimeAPIRelayManager
 	upgrader    websocket.Upgrader
 }
 
@@ -147,23 +150,46 @@ func (h *websocketListenerHandler) ServeHTTP(writer http.ResponseWriter, request
 	}
 	defer func() { _ = conn.Close() }()
 
-	runWebsocketListenerSession(request.Context(), conn)
+	runWebsocketListenerSession(request.Context(), conn, h.apiRelay)
 }
 
-func runWebsocketListenerSession(parent context.Context, conn *websocket.Conn) {
+func runWebsocketListenerSession(parent context.Context, conn *websocket.Conn, relay *runtimeAPIRelayManager) {
 	var writeMu sync.Mutex
-	server := newRuntimeProtocolServer(func(ctx context.Context, envelope runtimecontract.Envelope) error {
+	sendEnvelope := func(ctx context.Context, envelope runtimecontract.Envelope) error {
 		writeMu.Lock()
 		defer writeMu.Unlock()
 		_ = conn.SetWriteDeadline(time.Now().Add(websocketWriteTimeout))
 		return conn.WriteJSON(envelope)
-	})
+	}
+	server := newRuntimeProtocolServer(sendEnvelope)
 	defer server.Close()
+	var relaySession *runtimeAPIRelaySession
+	if relay != nil {
+		relaySession = newRuntimeAPIRelaySession(func(ctx context.Context, requestID string, request runtimecontract.APIRelayRequest) error {
+			payload, err := marshalRuntimePayload(request)
+			if err != nil {
+				return err
+			}
+			return sendEnvelope(ctx, runtimecontract.Envelope{Version: runtimecontract.ProtocolVersion, Type: runtimecontract.MessageTypeRequest, RequestID: requestID, Operation: runtimecontract.OperationAPIRelay, Payload: payload})
+		})
+		relay.SetSession(relaySession)
+		defer relay.ClearSession(relaySession, context.Canceled)
+	}
 
 	for {
 		var envelope runtimecontract.Envelope
 		if err := conn.ReadJSON(&envelope); err != nil {
 			return
+		}
+		if relaySession != nil && envelope.Type == runtimecontract.MessageTypeResponse && envelope.Operation == runtimecontract.OperationAPIRelay {
+			response, err := runtimecontract.DecodePayload[runtimecontract.APIRelayResponse](envelope)
+			if err != nil {
+				return
+			}
+			if err := relaySession.HandleResponse(envelope.RequestID, response); err != nil {
+				return
+			}
+			continue
 		}
 		if err := server.HandleEnvelope(parent, envelope); err != nil {
 			return
