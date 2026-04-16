@@ -45,7 +45,7 @@
     return i18nStore.t(key, params)
   }
 
-  function handleAskAiReview() {
+  function requestWorkflowAI(promptKey: TranslationKey) {
     if (!selectedWorkflow) return
     const projectId = appStore.currentProject?.id
     if (projectId) {
@@ -65,10 +65,18 @@
       )
     }
     appStore.requestProjectAssistant(
-      t('workflows.editor.toolbar.actions.askAiReview.prompt', {
+      t(promptKey, {
         name: selectedWorkflow.name,
       }),
     )
+  }
+
+  function handleAskAiReview() {
+    requestWorkflowAI('workflows.editor.toolbar.actions.askAiReview.prompt')
+  }
+
+  function handleAskAiSuggest() {
+    requestWorkflowAI('workflows.editor.toolbar.actions.askAiSuggest.prompt')
   }
 </script>
 
@@ -110,6 +118,15 @@
 
   <div class="ml-auto flex shrink-0 items-center gap-1.5">
     {#if hasHarness && selectedWorkflow}
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={handleAskAiSuggest}
+        data-tour="workflow-editor-ask-ai-suggest"
+      >
+        <Sparkles class="size-3.5" />
+        {t('workflows.editor.toolbar.actions.askAiSuggest.label')}
+      </Button>
       <Button
         variant="outline"
         size="sm"
