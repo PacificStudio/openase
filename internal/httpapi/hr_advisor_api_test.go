@@ -24,7 +24,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
+func TestHRAdvisorRouteReturnsProjectSnapshotAndNoHeuristicRecommendations(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
@@ -188,35 +188,15 @@ func TestHRAdvisorRouteReturnsRecommendationsAndActivationState(t *testing.T) {
 	if resp.ProjectID != project.ID.String() {
 		t.Fatalf("expected project id %s, got %s", project.ID, resp.ProjectID)
 	}
-	if resp.Summary.OpenTickets != 4 || resp.Summary.CodingTickets != 4 || resp.Summary.ActiveAgents != 1 {
+	if resp.Summary.OpenTickets != 4 || resp.Summary.CodingTickets != 0 || resp.Summary.ActiveAgents != 1 {
 		t.Fatalf("unexpected summary: %+v", resp.Summary)
 	}
-	if len(resp.Recommendations) == 0 {
-		t.Fatalf("expected at least one recommendation, got %+v", resp)
-	}
-
-	var qaRecommendation *hrAdvisorRecommendationResponse
-	for index := range resp.Recommendations {
-		recommendation := &resp.Recommendations[index]
-		if recommendation.RoleSlug == "qa-engineer" {
-			qaRecommendation = recommendation
-		}
-		if recommendation.RoleSlug == "fullstack-developer" {
-			t.Fatalf("did not expect fullstack recommendation when role workflow and agent are active: %+v", resp.Recommendations)
-		}
-	}
-	if qaRecommendation == nil {
-		t.Fatalf("expected qa-engineer recommendation, got %+v", resp.Recommendations)
-	}
-	if qaRecommendation.Priority != "high" || !qaRecommendation.ActivationReady {
-		t.Fatalf("unexpected qa recommendation payload: %+v", qaRecommendation)
-	}
-	if qaRecommendation.RoleName != "QA Engineer" || qaRecommendation.HarnessPath == "" || qaRecommendation.SuggestedWorkflowName == "" {
-		t.Fatalf("expected builtin qa role metadata, got %+v", qaRecommendation)
+	if len(resp.Recommendations) != 0 {
+		t.Fatalf("expected no heuristic recommendations, got %+v", resp.Recommendations)
 	}
 }
 
-func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T) {
+func TestHRAdvisorRouteReturnsEmptyRecommendationsForFreshProject(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
@@ -282,15 +262,15 @@ func TestHRAdvisorRouteReturnsDefaultRecommendationsForFreshProject(t *testing.T
 	if len(resp.Summary.ActiveWorkflowFamilies) != 0 {
 		t.Fatalf("expected non-nil empty active workflow families, got %+v", resp.Summary.ActiveWorkflowFamilies)
 	}
-	if len(resp.Recommendations) == 0 {
-		t.Fatalf("expected non-nil recommendations slice, got %+v", resp.Recommendations)
+	if resp.Recommendations == nil {
+		t.Fatalf("expected non-nil recommendations slice, got nil")
 	}
-	if resp.Recommendations[0].Evidence == nil {
-		t.Fatalf("expected recommendation evidence to be an array, got %+v", resp.Recommendations[0])
+	if len(resp.Recommendations) != 0 {
+		t.Fatalf("expected no heuristic recommendations, got %+v", resp.Recommendations)
 	}
 }
 
-func TestHRAdvisorRouteIncludesDocumentationDriftTrendEvidence(t *testing.T) {
+func TestHRAdvisorRoutePreservesRecentActivityWithoutRecommendations(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
@@ -365,24 +345,15 @@ func TestHRAdvisorRouteIncludesDocumentationDriftTrendEvidence(t *testing.T) {
 		t.Fatalf("expected recent activity count 4, got %+v", resp.Summary)
 	}
 
-	var writerRecommendation *hrAdvisorRecommendationResponse
-	for index := range resp.Recommendations {
-		recommendation := &resp.Recommendations[index]
-		if recommendation.RoleSlug == "technical-writer" {
-			writerRecommendation = recommendation
-			break
-		}
+	if resp.Recommendations == nil {
+		t.Fatalf("expected non-nil recommendations slice, got nil")
 	}
-	if writerRecommendation == nil {
-		t.Fatalf("expected technical writer recommendation, got %+v", resp.Recommendations)
-	}
-	evidence := strings.Join(writerRecommendation.Evidence, " ")
-	if !strings.Contains(evidence, "merge-like activity events: 4") || !strings.Contains(evidence, "documentation update events: 0") {
-		t.Fatalf("expected documentation drift evidence, got %+v", writerRecommendation.Evidence)
+	if len(resp.Recommendations) != 0 {
+		t.Fatalf("expected no heuristic recommendations, got %+v", resp.Recommendations)
 	}
 }
 
-func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *testing.T) {
+func TestHRAdvisorRouteTracksBacklogWithoutRecommendations(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)
 
@@ -504,6 +475,7 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 	}
 
 	resp := struct {
+		Summary         hrAdvisorSummaryResponse          `json:"summary"`
 		Recommendations []hrAdvisorRecommendationResponse `json:"recommendations"`
 	}{}
 	executeJSON(
@@ -516,25 +488,14 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 		&resp,
 	)
 
-	var dispatcherRecommendation *hrAdvisorRecommendationResponse
-	for index := range resp.Recommendations {
-		recommendation := &resp.Recommendations[index]
-		if recommendation.RoleSlug == "dispatcher" {
-			dispatcherRecommendation = recommendation
-			break
-		}
+	if resp.Recommendations == nil {
+		t.Fatalf("expected non-nil recommendations slice, got nil")
 	}
-	if dispatcherRecommendation == nil {
-		t.Fatalf("expected dispatcher recommendation, got %+v", resp.Recommendations)
+	if len(resp.Recommendations) != 0 {
+		t.Fatalf("expected no heuristic recommendations, got %+v", resp.Recommendations)
 	}
-	if dispatcherRecommendation.SuggestedWorkflowName != "Dispatcher" {
-		t.Fatalf("expected dispatcher workflow suggestion, got %+v", dispatcherRecommendation)
-	}
-	if !strings.Contains(dispatcherRecommendation.Reason, "Backlog") {
-		t.Fatalf("expected backlog-specific reason, got %+v", dispatcherRecommendation)
-	}
-	if !strings.Contains(strings.Join(dispatcherRecommendation.Evidence, " "), "pick up Backlog and finish into downstream non-backlog work statuses") {
-		t.Fatalf("expected backlog lane evidence, got %+v", dispatcherRecommendation.Evidence)
+	if resp.Summary.OpenTickets != 11 {
+		t.Fatalf("expected backlog tickets to contribute to summary, got %+v", resp.Summary)
 	}
 }
 

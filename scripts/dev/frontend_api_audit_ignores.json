@@ -221,6 +221,14 @@
         },
         {
             "method": "post",
+            "path": "/api/v1/projects/{projectId}/hr-advisor/activate",
+            "categories": [
+                "contract_only"
+            ],
+            "reason": "HR Adviser activation remains available for platform or future AI-driven flows, but the dashboard now routes users into Project AI instead of invoking the mutation directly from the frontend."
+        },
+        {
+            "method": "post",
             "path": "/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify",
             "categories": [
                 "wrapped_but_unused"
