@@ -18,7 +18,7 @@ func ResolveMachineOpenASEBinaryPath(machine Machine) *string {
 		}
 	}
 
-	if telemetry := strings.TrimSpace(machineChannelString(machine.Resources, "openase_binary_path")); telemetry != "" {
+	if telemetry := strings.TrimSpace(machineChannelOpenASEBinaryPath(machine.Resources)); telemetry != "" {
 		return &telemetry
 	}
 
@@ -75,7 +75,7 @@ func lookupMachineEnvironmentValue(environment []string, key string) (string, bo
 	return "", false
 }
 
-func machineChannelString(resources map[string]any, key string) string {
+func machineChannelOpenASEBinaryPath(resources map[string]any) string {
 	if len(resources) == 0 {
 		return ""
 	}
@@ -87,6 +87,6 @@ func machineChannelString(resources map[string]any, key string) string {
 	if !ok {
 		return ""
 	}
-	value, _ := channel[key].(string)
+	value, _ := channel["openase_binary_path"].(string)
 	return value
 }

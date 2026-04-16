@@ -206,7 +206,7 @@ func startRuntimeLocalRelayServer(ctx context.Context, relay *runtimeAPIRelayMan
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	go func() {
 		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		_ = server.Shutdown(shutdownCtx)
 	}()
@@ -225,8 +225,12 @@ func cloneStringHeaders(headers map[string][]string) map[string][]string {
 	return cloned
 }
 
-func NewRuntimeLocalRelayManagerForCLI() *runtimeAPIRelayManager { return newRuntimeAPIRelayManager() }
+type RuntimeLocalRelayManager = runtimeAPIRelayManager
 
-func StartRuntimeLocalRelayServerForCLI(ctx context.Context, relay *runtimeAPIRelayManager, address string) (*http.Server, string, error) {
+func NewRuntimeLocalRelayManagerForCLI() *RuntimeLocalRelayManager {
+	return newRuntimeAPIRelayManager()
+}
+
+func StartRuntimeLocalRelayServerForCLI(ctx context.Context, relay *RuntimeLocalRelayManager, address string) (*http.Server, string, error) {
 	return startRuntimeLocalRelayServer(ctx, relay, address)
 }

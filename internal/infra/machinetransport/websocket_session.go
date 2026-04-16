@@ -155,7 +155,7 @@ func (h *websocketListenerHandler) ServeHTTP(writer http.ResponseWriter, request
 
 func runWebsocketListenerSession(parent context.Context, conn *websocket.Conn, relay *runtimeAPIRelayManager) {
 	var writeMu sync.Mutex
-	sendEnvelope := func(ctx context.Context, envelope runtimecontract.Envelope) error {
+	sendEnvelope := func(_ context.Context, envelope runtimecontract.Envelope) error {
 		writeMu.Lock()
 		defer writeMu.Unlock()
 		_ = conn.SetWriteDeadline(time.Now().Add(websocketWriteTimeout))

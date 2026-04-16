@@ -82,13 +82,13 @@ func TestUpsertMachineEnvironmentValue(t *testing.T) {
 		t.Fatalf("lookupMachineEnvironmentValue(missing) = %q, %t", value, ok)
 	}
 
-	if got := machineChannelString(map[string]any{}, "openase_binary_path"); got != "" {
-		t.Fatalf("machineChannelString(empty) = %q", got)
+	if got := machineChannelOpenASEBinaryPath(map[string]any{}); got != "" {
+		t.Fatalf("machineChannelOpenASEBinaryPath(empty) = %q", got)
 	}
-	if got := machineChannelString(map[string]any{"other": "value"}, "openase_binary_path"); got != "" {
-		t.Fatalf("machineChannelString(missing channel) = %q", got)
+	if got := machineChannelOpenASEBinaryPath(map[string]any{"other": "value"}); got != "" {
+		t.Fatalf("machineChannelOpenASEBinaryPath(missing channel) = %q", got)
 	}
-	if got := machineChannelString(map[string]any{"machine_channel": map[string]any{}}, "openase_binary_path"); got != "" {
-		t.Fatalf("machineChannelString(missing field) = %q", got)
+	if got := machineChannelOpenASEBinaryPath(map[string]any{"machine_channel": map[string]any{}}); got != "" {
+		t.Fatalf("machineChannelOpenASEBinaryPath(missing field) = %q", got)
 	}
 }
