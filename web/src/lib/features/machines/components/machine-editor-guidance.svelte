@@ -126,6 +126,9 @@
   const flowComplete = $derived(locationAnswer === 'local' || wsStrategy !== null)
   const detectionStatusLabel = $derived(machineDetectionStatusLabel(machine?.detection_status))
   const detectionBadgeClass = $derived(machineDetectionBadgeClass(machine?.detection_status))
+  const detectedPlatform = $derived(
+    detectedPlatformFromSnapshot(parseMachineSnapshot(machine?.resources)),
+  )
   const detectedOSLabel = $derived(
     machineDetectedOSLabel(machine?.detected_os ?? detectedPlatform.os),
   )
@@ -134,9 +137,6 @@
   )
   const detectionSummary = $derived(machineDetectionMessage(machine, draft))
   const setupGuide = $derived(buildMachineSetupGuide({ machine, draft }))
-  const detectedPlatform = $derived(
-    detectedPlatformFromSnapshot(parseMachineSnapshot(machine?.resources)),
-  )
 
   const allCommands = $derived(setupGuide.commands)
 
