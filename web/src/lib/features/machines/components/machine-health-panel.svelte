@@ -1,5 +1,5 @@
-<!-- eslint-disable max-lines -->
 <script lang="ts">
+  /* eslint-disable max-lines */
   import {
     CircleCheck,
     CircleX,

@@ -1,5 +1,5 @@
-<!-- eslint-disable max-lines -->
 <script lang="ts">
+  /* eslint-disable max-lines */
   import * as Dialog from '$ui/dialog'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
