@@ -1204,9 +1204,10 @@ func TestCatalogMachineParsers(t *testing.T) {
 		t.Fatal("parseMachineAgentCLIPaths() expected empty path validation error")
 	}
 	if _, err := ParseCreateMachine(orgID, MachineInput{
-		Name:          "Builder 02",
-		Host:          "10.0.1.9",
-		AgentCLIPaths: map[string]string{"bad-adapter": "/bin/sh"},
+		Name:               "Builder 02",
+		Host:               "10.0.1.9",
+		AdvertisedEndpoint: stringPtr("wss://builder-02.example/ws"),
+		AgentCLIPaths:      map[string]string{"bad-adapter": "/bin/sh"},
 	}); err == nil {
 		t.Fatal("ParseCreateMachine() expected agent_cli_paths validation error")
 	}
@@ -1591,6 +1592,38 @@ func TestCatalogMachineTransportHelpers(t *testing.T) {
 		Status: "online",
 	}); err != nil || createMachine.ConnectionMode != MachineConnectionModeLocal {
 		t.Fatalf("ParseCreateMachine(local default) = %+v, %v", createMachine, err)
+	}
+	if createMachine, err := ParseCreateMachine(uuid.New(), MachineInput{
+		Name:               "builder",
+		Host:               "10.0.0.20",
+		Port:               intPtr(2222),
+		ReachabilityMode:   "direct_connect",
+		ExecutionMode:      "websocket",
+		AdvertisedEndpoint: stringPtr("wss://builder.example/ws"),
+		SSHUser:            &sshUser,
+		SSHKeyPath:         &sshKeyPath,
+		Description:        "  Remote builder  ",
+		WorkspaceRoot:      stringPtr("/srv/openase"),
+		AgentCLIPath:       stringPtr(" /opt/openase/bin/codex "),
+		AgentCLIPaths:      map[string]string{" codex-app-server ": " /opt/openase/bin/codex "},
+	}); err != nil {
+		t.Fatalf("ParseCreateMachine(remote default) error = %v", err)
+	} else {
+		if createMachine.ConnectionMode != MachineConnectionModeWSListener {
+			t.Fatalf("ParseCreateMachine(remote default) connection mode = %q, want %q", createMachine.ConnectionMode, MachineConnectionModeWSListener)
+		}
+		if createMachine.Description != "Remote builder" {
+			t.Fatalf("ParseCreateMachine(remote default) description = %q", createMachine.Description)
+		}
+		if createMachine.SSHUser == nil || *createMachine.SSHUser != sshUser {
+			t.Fatalf("ParseCreateMachine(remote default) ssh user = %v", createMachine.SSHUser)
+		}
+		if createMachine.AgentCLIPath == nil || *createMachine.AgentCLIPath != "/opt/openase/bin/codex" {
+			t.Fatalf("ParseCreateMachine(remote default) agent_cli_path = %v", createMachine.AgentCLIPath)
+		}
+		if got := createMachine.AgentCLIPaths["codex-app-server"]; got != "/opt/openase/bin/codex" {
+			t.Fatalf("ParseCreateMachine(remote default) agent_cli_paths codex-app-server = %q", got)
+		}
 	}
 }
 

@@ -117,6 +117,12 @@ func TestParseDaemonAgentCLIPathsJSON(t *testing.T) {
 	if cloned := cloneTrimmedStringMap(map[string]string{"   ": "/ignored", "gemini-cli": "   "}); cloned != nil {
 		t.Fatalf("cloneTrimmedStringMap(all blank) = %+v, want nil", cloned)
 	}
+	if cloned := cloneTrimmedStringMap(map[string]string{}); cloned != nil {
+		t.Fatalf("cloneTrimmedStringMap(empty) = %+v, want nil", cloned)
+	}
+	if cloned := cloneTrimmedStringMap(map[string]string{" codex ": " /opt/codex ", "gemini": "/opt/gemini"}); len(cloned) != 2 || cloned["codex"] != "/opt/codex" || cloned["gemini"] != "/opt/gemini" {
+		t.Fatalf("cloneTrimmedStringMap(trimmed) = %+v", cloned)
+	}
 	if _, err := ParseDaemonAgentCLIPathsJSON("{"); err == nil {
 		t.Fatal("ParseDaemonAgentCLIPathsJSON(invalid) expected error")
 	}

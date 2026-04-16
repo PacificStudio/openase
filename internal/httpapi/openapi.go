@@ -2923,6 +2923,11 @@ var (
 		"branch_name":      "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 	}
+	openAPIProjectUserAPIKeyCreateDescriptions = map[string]string{
+		"name":       "Human-readable label for the project-scoped user API key.",
+		"scopes":     "Explicit OpenASE platform API scopes granted to the key. Scopes must be supported for user API keys and allowed by the caller's current project permissions.",
+		"expires_at": "Optional RFC3339 timestamp after which the API key automatically expires.",
+	}
 	openAPIRepoScopePatchDescriptions = map[string]string{
 		"branch_name":      "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
@@ -3170,6 +3175,7 @@ var (
 		"POST /api/v1/projects/{projectId}/notification-rules":                                         openAPINotificationRuleDescriptions,
 		"PATCH /api/v1/notification-rules/{ruleId}":                                                    openAPINotificationRuleDescriptions,
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/api-keys":                                   openAPIProjectUserAPIKeyCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
 		"POST /api/v1/chat":               openAPIChatRequestDescriptions,

@@ -24704,13 +24704,16 @@
               "schema": {
                 "properties": {
                   "expires_at": {
+                    "description": "Optional RFC3339 timestamp after which the API key automatically expires.",
                     "nullable": true,
                     "type": "string"
                   },
                   "name": {
+                    "description": "Human-readable label for the project-scoped user API key.",
                     "type": "string"
                   },
                   "scopes": {
+                    "description": "Explicit OpenASE platform API scopes granted to the key. Scopes must be supported for user API keys and allowed by the caller's current project permissions.",
                     "items": {
                       "type": "string"
                     },

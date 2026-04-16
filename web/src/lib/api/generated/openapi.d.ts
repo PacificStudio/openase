@@ -16130,8 +16130,11 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Optional RFC3339 timestamp after which the API key automatically expires. */
           expires_at?: string | null
+          /** @description Human-readable label for the project-scoped user API key. */
           name?: string
+          /** @description Explicit OpenASE platform API scopes granted to the key. Scopes must be supported for user API keys and allowed by the caller's current project permissions. */
           scopes?: string[]
         }
       }

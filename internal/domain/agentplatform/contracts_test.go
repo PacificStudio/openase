@@ -58,6 +58,18 @@ func TestClaimsHelpers(t *testing.T) {
 			t.Fatalf("CreatedBy() = %q", got)
 		}
 	})
+
+	t.Run("user api key claims", func(t *testing.T) {
+		principalID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+		claims := Claims{
+			PrincipalKind: PrincipalKindUserAPIKey,
+			PrincipalID:   principalID,
+			PrincipalName: "  ci-integration  ",
+		}
+		if got := claims.CreatedBy(); got != "user:"+principalID.String()+" via user-api-key:ci-integration" {
+			t.Fatalf("CreatedBy() = %q", got)
+		}
+	})
 }
 
 func TestBuildEnvironment(t *testing.T) {
@@ -327,6 +339,12 @@ func TestPrincipalKindScopeHelpers(t *testing.T) {
 		}
 	})
 
+	t.Run("user api key defaults to explicit selection only", func(t *testing.T) {
+		if got := DefaultScopesForPrincipalKind(PrincipalKindUserAPIKey); got != nil {
+			t.Fatalf("DefaultScopesForPrincipalKind(user api key) = %#v, want nil", got)
+		}
+	})
+
 	t.Run("project conversation supported scopes exclude ticket-runtime-only ticket scopes", func(t *testing.T) {
 		got := SupportedScopesForPrincipalKind(PrincipalKindProjectConversation)
 		if slices.Contains(got, string(ScopeTicketsUpdateSelf)) {
@@ -345,6 +363,24 @@ func TestPrincipalKindScopeHelpers(t *testing.T) {
 		want := SupportedAgentScopes()
 		if !slices.Equal(got, want) {
 			t.Fatalf("SupportedScopesForPrincipalKind(ticket agent) = %#v, want %#v", got, want)
+		}
+	})
+
+	t.Run("user api key supported scopes stay on the allowlist", func(t *testing.T) {
+		got := SupportedScopesForPrincipalKind(PrincipalKindUserAPIKey)
+		want := []string{
+			string(ScopeActivityRead),
+			string(ScopeProjectUpdatesRead),
+			string(ScopeProjectUpdatesWrite),
+			string(ScopeReposRead),
+			string(ScopeStatusesList),
+			string(ScopeTicketsCreate),
+			string(ScopeTicketsList),
+			string(ScopeTicketsUpdate),
+			string(ScopeWorkflowsRead),
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("SupportedScopesForPrincipalKind(user api key) = %#v, want %#v", got, want)
 		}
 	})
 }
