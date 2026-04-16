@@ -153,7 +153,7 @@ function resolveMachineConnectionMode(reachabilityMode: string, _executionMode: 
   return 'ws_listener'
 }
 
-function executionCapabilitiesForConnectionMode(connectionMode: string) {
+function executionCapabilitiesForConnectionMode(_connectionMode: string) {
   return ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming']
 }
 
