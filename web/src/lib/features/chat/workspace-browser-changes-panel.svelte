@@ -44,6 +44,12 @@
     stagedFileCount > 0 && commitMessage.trim().length > 0 && !commitPending,
   )
 
+  function fileCountLabel(count: number) {
+    return count === 1
+      ? chatT('chat.workspace.changes.fileCountOne')
+      : chatT('chat.workspace.changes.fileCountOther', { count })
+  }
+
   function formatError(error: unknown, fallback: string) {
     return error instanceof ApiError
       ? error.detail
@@ -59,7 +65,7 @@
     try {
       await onStageFile(path)
     } catch (error) {
-      actionError = formatError(error, 'Failed to stage the file.')
+      actionError = formatError(error, chatT('chat.workspace.errors.stageFile'))
     } finally {
       actionPendingPath = ''
     }
@@ -72,7 +78,7 @@
     try {
       await onStageAll()
     } catch (error) {
-      actionError = formatError(error, 'Failed to stage all files.')
+      actionError = formatError(error, chatT('chat.workspace.errors.stageAll'))
     } finally {
       actionPendingPath = ''
     }
@@ -85,7 +91,7 @@
     try {
       await onUnstage(path || undefined)
     } catch (error) {
-      actionError = formatError(error, 'Failed to unstage changes.')
+      actionError = formatError(error, chatT('chat.workspace.errors.unstage'))
     } finally {
       actionPendingPath = ''
     }
@@ -98,7 +104,7 @@
     try {
       await onDiscardFile(path)
     } catch (error) {
-      actionError = formatError(error, 'Failed to discard the file changes.')
+      actionError = formatError(error, chatT('chat.workspace.errors.discard'))
     } finally {
       actionPendingPath = ''
     }
@@ -112,7 +118,7 @@
       await onCommitRepo(commitMessage.trim())
       commitMessage = ''
     } catch (error) {
-      actionError = formatError(error, 'Failed to create the commit.')
+      actionError = formatError(error, chatT('chat.workspace.errors.commit'))
     } finally {
       commitPending = false
     }
@@ -131,7 +137,7 @@
     {#if hasDiff}
       <span class="text-muted-foreground/50 shrink-0">·</span>
       <span class="shrink-0 text-[10px] font-medium">
-        {selectedRepoDiff?.filesChanged} file{selectedRepoDiff?.filesChanged === 1 ? '' : 's'}
+        {fileCountLabel(selectedRepoDiff?.filesChanged ?? 0)}
       </span>
       {#if stagedFileCount > 0}
         <span class="shrink-0 text-[9px] text-emerald-600">{stagedFileCount}✓</span>
@@ -179,7 +185,9 @@
           disabled={!canCommit}
           onclick={() => void handleCommit()}
         >
-          {commitPending ? 'Committing...' : 'Commit'}
+          {commitPending
+            ? chatT('chat.workspace.actions.committing')
+            : chatT('chat.workspace.actions.commit')}
         </button>
       </div>
 
@@ -198,7 +206,7 @@
           mode="staged"
           {actionPendingPath}
           {commitPending}
-          headerActionTitle="Unstage all"
+          headerActionTitle={chatT('chat.workspace.actions.unstageAll')}
           headerActionTestId="workspace-branch-unstage-all"
           onHeaderAction={() => handleUnstage()}
           {onSelectFile}
@@ -215,7 +223,7 @@
           mode="unstaged"
           {actionPendingPath}
           {commitPending}
-          headerActionTitle="Stage all"
+          headerActionTitle={chatT('chat.workspace.actions.stageAll')}
           headerActionTestId="workspace-branch-stage-all"
           onHeaderAction={handleStageAll}
           {onSelectFile}

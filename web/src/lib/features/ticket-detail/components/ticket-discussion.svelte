@@ -122,7 +122,7 @@
 
   <section class="space-y-3">
     <div class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-      Comments
+      {i18nStore.t('ticketDetail.discussion.commentsHeading')}
     </div>
 
     {#if comments.length === 0}
@@ -206,5 +206,9 @@
     {/each}
   </section>
 
-  <TicketActivityList {activities} label="System Activity" emptyText="No system activity yet" />
+  <TicketActivityList
+    {activities}
+    label={i18nStore.t('ticketDetail.discussion.systemActivityLabel')}
+    emptyText={i18nStore.t('ticketDetail.discussion.systemActivityEmpty')}
+  />
 </div>

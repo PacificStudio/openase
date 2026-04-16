@@ -114,7 +114,10 @@
           return
         }
 
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load search data.'
+        error =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : i18nStore.t('search.globalDialog.loadError')
       } finally {
         if (!cancelled) {
           loading = false
@@ -161,14 +164,14 @@
   bind:open
   bind:value={commandValue}
   title={i18nStore.t('search.globalDialog.title')}
-  description="Search pages, tickets, workflows, agents, projects, and commands."
+  description={i18nStore.t('search.globalDialog.description')}
   class="mx-2 max-w-3xl border border-white/10 shadow-2xl sm:mx-auto"
 >
   <Command.Input placeholder={i18nStore.t('search.globalDialog.searchPlaceholder')} />
   <Command.List class="max-h-[60dvh] sm:max-h-[26rem]">
     <Command.Empty>
       <div class="text-muted-foreground px-4 py-8 text-center text-sm">
-        No search results found.
+        {i18nStore.t('search.globalDialog.empty')}
       </div>
     </Command.Empty>
 

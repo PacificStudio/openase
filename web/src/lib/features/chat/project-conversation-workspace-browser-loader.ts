@@ -3,6 +3,7 @@ import {
   type ProjectConversationWorkspaceMetadata,
   type ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
+import { chatT } from './i18n'
 import type { WorkspaceTab } from './project-conversation-workspace-browser-state-helpers'
 
 export async function refreshWorkspaceBrowserState(input: {
@@ -101,7 +102,7 @@ export async function refreshWorkspaceBrowserState(input: {
     input.closeAllTabs()
     input.clearGitContext()
     input.setMetadataError(
-      error instanceof Error ? error.message : 'Failed to load the Project AI workspace.',
+      error instanceof Error ? error.message : chatT('chat.workspace.errors.load'),
     )
   } finally {
     if (

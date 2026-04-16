@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FileCode2, X } from '@lucide/svelte'
   import { cn } from '$lib/utils'
+  import { chatT } from './i18n'
   import {
     workspaceTabKey,
     type WorkspaceTab,
@@ -47,7 +48,7 @@
       {#if dirty}
         <span
           class="size-1.5 shrink-0 rounded-full bg-orange-500"
-          aria-label="Unsaved changes"
+          aria-label={chatT('chat.unsavedChanges')}
           data-testid="workspace-browser-detail-tab-dirty-dot"
         ></span>
       {:else}
@@ -58,7 +59,7 @@
         role="button"
         tabindex="0"
         class="hover:bg-muted/80 ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors"
-        aria-label={`Close ${tabName}`}
+        aria-label={`${chatT('chat.closeTab')} ${tabName}`}
         onclick={(event) => onRequestCloseTab(event, tab.repoPath, tab.filePath)}
         onkeydown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
