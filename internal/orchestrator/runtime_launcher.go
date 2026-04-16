@@ -412,7 +412,6 @@ func (l *RuntimeLauncher) startAgentSessionWithTimeout(
 	}
 
 	startCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	type startResult struct {
 		session agentSession
@@ -556,12 +555,9 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 	}
 	environment = append(environment, githubEnvironment...)
-	if !remote {
-		launcherEnvironment, err := buildLocalOpenASEEnvironment()
-		if err != nil {
-			return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
-		}
-		environment = append(environment, launcherEnvironment...)
+	environment, err = buildMachineOpenASEEnvironment(machine, remote, environment)
+	if err != nil {
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 	}
 	if requiresMachineCodexReady(command, environment) {
 		if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
@@ -699,6 +695,22 @@ func buildLocalOpenASEEnvironment() ([]string, error) {
 	}
 
 	return []string{"OPENASE_REAL_BIN=" + executable}, nil
+}
+
+func buildMachineOpenASEEnvironment(machine catalogdomain.Machine, remote bool, environment []string) ([]string, error) {
+	if !remote {
+		launcherEnvironment, err := buildLocalOpenASEEnvironment()
+		if err != nil {
+			return nil, err
+		}
+		return append(environment, launcherEnvironment...), nil
+	}
+
+	resolved := catalogdomain.ResolveMachineOpenASEBinaryPath(machine)
+	if resolved == nil || strings.TrimSpace(*resolved) == "" {
+		return environment, nil
+	}
+	return catalogdomain.UpsertMachineEnvironmentValue(environment, "OPENASE_REAL_BIN", *resolved), nil
 }
 
 func uuidPointer(id uuid.UUID) *uuid.UUID {

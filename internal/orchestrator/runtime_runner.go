@@ -1457,7 +1457,12 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 	l.deleteSession(runID)
 	l.runtime.delete(runID)
 
-	suppressFailure, err := l.shouldSuppressExecutionFailure(ctx, runID, ticketID)
+	persistCtx := context.Background()
+	if ctx != nil {
+		persistCtx = context.WithoutCancel(ctx)
+	}
+
+	suppressFailure, err := l.shouldSuppressExecutionFailure(persistCtx, runID, ticketID)
 	if err != nil {
 		l.logger.Warn("check execution failure suppression", "run_id", runID, "ticket_id", ticketID, "error", err)
 	} else if suppressFailure {
@@ -1470,16 +1475,16 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 		SetStatus(entagentrun.StatusErrored).
 		SetTerminalAt(now).
 		SetLastError(strings.TrimSpace(failure.Error())).
-		Save(ctx); err == nil {
-		_ = catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, now)
-		l.tickets.RunLifecycleHookBestEffort(ctx, ticketservice.RunLifecycleHookInput{
+		Save(persistCtx); err == nil {
+		_ = catalogrepo.MaterializeAgentRunDailyUsage(persistCtx, l.client, runID, now)
+		l.tickets.RunLifecycleHookBestEffort(persistCtx, ticketservice.RunLifecycleHookInput{
 			TicketID: ticketID,
 			RunID:    runID,
 			HookName: infrahook.TicketHookOnError,
 		})
-		if failedAgent, err := loadAgentLifecycleState(ctx, l.client, agentID, &runID); err == nil {
+		if failedAgent, err := loadAgentLifecycleState(persistCtx, l.client, agentID, &runID); err == nil {
 			l.publishLifecycleEvent(
-				ctx,
+				persistCtx,
 				agentFailedType,
 				failedAgent,
 				lifecycleMessage(agentFailedType, failedAgent.agent.Name),
@@ -1487,8 +1492,10 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 				now,
 			)
 		}
+	} else {
+		l.logger.Warn("persist execution failure state", "run_id", runID, "agent_id", agentID, "ticket_id", ticketID, "error", err)
 	}
-	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
+	l.prepareRunCompletionSummaryBestEffort(persistCtx, runID)
 	l.scheduleRunCompletionSummary(runID)
 
 	retrySvc := NewRetryService(l.client, l.logger, l.events)

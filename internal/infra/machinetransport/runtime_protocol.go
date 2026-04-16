@@ -22,6 +22,7 @@ import (
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	"github.com/creack/pty"
 	"github.com/google/uuid"
 )
 
@@ -436,6 +437,8 @@ func (s *runtimeProtocolServer) handleRequest(ctx context.Context, envelope runt
 		return s.handleArtifactSync(ctx, envelope)
 	case runtimecontract.OperationCommandOpen:
 		return s.handleCommandOpen(ctx, envelope)
+	case runtimecontract.OperationSessionResize:
+		return s.handleSessionResize(ctx, envelope)
 	case runtimecontract.OperationProcessStart:
 		return s.handleProcessStart(ctx, envelope)
 	case runtimecontract.OperationSessionInput:
@@ -586,7 +589,13 @@ func (s *runtimeProtocolServer) handleCommandOpen(ctx context.Context, envelope 
 	if err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeInvalidRequest, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
-	sessionID, err := s.startSession(shellCommandSpec(payload.Command), "")
+	commandSpec := shellCommandSpec{
+		command: payload.Command,
+		pty:     payload.PTY,
+		cols:    payload.Cols,
+		rows:    payload.Rows,
+	}
+	sessionID, err := s.startSession(commandSpec, "")
 	if err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeProcessStart, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
@@ -622,6 +631,21 @@ func (s *runtimeProtocolServer) handleSessionInput(ctx context.Context, envelope
 	}
 	if err := session.writeInput(payload); err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeSessionNotFound, runtimecontract.ErrorClassTransient, err, true, nil))
+	}
+	return s.sendResponse(ctx, envelope, map[string]any{"ok": true})
+}
+
+func (s *runtimeProtocolServer) handleSessionResize(ctx context.Context, envelope runtimecontract.Envelope) error {
+	payload, err := runtimecontract.DecodePayload[runtimecontract.SessionResizeRequest](envelope)
+	if err != nil {
+		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeInvalidRequest, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
+	}
+	session, ok := s.session(payload.SessionID)
+	if !ok {
+		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeSessionNotFound, runtimecontract.ErrorClassMisconfiguration, fmt.Errorf("runtime session %s is not active", payload.SessionID), false, nil))
+	}
+	if err := session.resize(payload.Cols, payload.Rows); err != nil {
+		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeProcessSignal, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
 	return s.sendResponse(ctx, envelope, map[string]any{"ok": true})
 }
@@ -704,29 +728,46 @@ func (s *runtimeProtocolServer) deleteSession(sessionID string) {
 }
 
 type commandSpec interface {
-	start(context.Context, string, runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, error)
+	start(context.Context, string, runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, *os.File, error)
 }
 
-type shellCommandSpec string
+type shellCommandSpec struct {
+	command string
+	pty     bool
+	cols    int
+	rows    int
+}
 
-func (s shellCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, error) {
-	command := strings.TrimSpace(string(s))
+func (s shellCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, *os.File, error) {
+	command := strings.TrimSpace(s.command)
 	if command == "" {
-		return nil, nil, fmt.Errorf("remote command must not be empty")
+		return nil, nil, nil, fmt.Errorf("remote command must not be empty")
 	}
 	shell, args := listenerShellCommand(command)
 	cmd := exec.CommandContext(ctx, shell, args...) // #nosec G204 -- runtime contract intentionally runs orchestrator-provided shell commands.
 	cmd.SysProcAttr = runtimeProcessSysProcAttr()
+	if s.pty {
+		size, err := runtimePTYSize(s.cols, s.rows)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		ptmx, err := pty.StartWithSize(cmd, size)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		go runtimeCopyPTYOutput(sessionID, ptmx, send)
+		return cmd, ptmx, ptmx, nil
+	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	cmd.Stdout = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stdout", send: send}
 	cmd.Stderr = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stderr", send: send}
 	if err := cmd.Start(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return cmd, stdin, nil
+	return cmd, stdin, nil, nil
 }
 
 type processCommandSpec struct {
@@ -736,10 +777,10 @@ type processCommandSpec struct {
 	cwd     string
 }
 
-func (s processCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, error) {
+func (s processCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, *os.File, error) {
 	command := strings.TrimSpace(s.command)
 	if command == "" {
-		return nil, nil, fmt.Errorf("agent cli command must not be empty")
+		return nil, nil, nil, fmt.Errorf("agent cli command must not be empty")
 	}
 	cmd := exec.CommandContext(ctx, command, append([]string(nil), s.args...)...) // #nosec G204 -- runtime contract intentionally runs orchestrator-provided processes.
 	cmd.SysProcAttr = runtimeProcessSysProcAttr()
@@ -751,20 +792,20 @@ func (s processCommandSpec) start(ctx context.Context, sessionID string, send ru
 	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	cmd.Stdout = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stdout", send: send}
 	cmd.Stderr = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stderr", send: send}
 	if err := cmd.Start(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return cmd, stdin, nil
+	return cmd, stdin, nil, nil
 }
 
 func (s *runtimeProtocolServer) startSession(spec commandSpec, workingDirectory string) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	sessionID := uuid.NewString()
-	cmd, stdin, err := spec.start(ctx, sessionID, s.send)
+	cmd, stdin, ptyFile, err := spec.start(ctx, sessionID, s.send)
 	if err != nil {
 		cancel()
 		return "", err
@@ -773,6 +814,7 @@ func (s *runtimeProtocolServer) startSession(spec commandSpec, workingDirectory 
 		id:       sessionID,
 		cmd:      cmd,
 		stdin:    stdin,
+		ptyFile:  ptyFile,
 		cancel:   cancel,
 		send:     s.send,
 		onFinish: s.deleteSession,
@@ -790,6 +832,7 @@ type runtimeProcessSession struct {
 
 	cmd      *exec.Cmd
 	stdin    io.WriteCloser
+	ptyFile  *os.File
 	cancel   context.CancelFunc
 	send     runtimeEnvelopeSender
 	onFinish func(string)
@@ -862,6 +905,17 @@ func (s *runtimeProcessSession) writeInput(payload runtimecontract.SessionInputR
 	return err
 }
 
+func (s *runtimeProcessSession) resize(cols int, rows int) error {
+	if s.ptyFile == nil {
+		return fmt.Errorf("runtime session does not support pty resize")
+	}
+	size, err := runtimePTYSize(cols, rows)
+	if err != nil {
+		return err
+	}
+	return pty.Setsize(s.ptyFile, size)
+}
+
 func (s *runtimeProcessSession) signal(raw string) error {
 	if s.cmd == nil || s.cmd.Process == nil {
 		return fmt.Errorf("runtime session process is not running")
@@ -895,12 +949,47 @@ func (s *runtimeProcessSession) stop() {
 	if s.stdin != nil {
 		_ = s.stdin.Close()
 	}
+	if s.ptyFile != nil {
+		_ = s.ptyFile.Close()
+	}
 	if s.cmd != nil && s.cmd.Process != nil {
 		if runtime.GOOS == "windows" {
 			_ = s.cmd.Process.Kill()
 			return
 		}
 		_ = syscall.Kill(-s.cmd.Process.Pid, syscall.SIGKILL)
+	}
+}
+
+func runtimePTYSize(cols int, rows int) (*pty.Winsize, error) {
+	if cols <= 0 || rows <= 0 {
+		return nil, fmt.Errorf("pty size must use positive cols and rows")
+	}
+	return &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}, nil
+}
+
+func runtimeCopyPTYOutput(sessionID string, ptmx *os.File, send runtimeEnvelopeSender) {
+	if ptmx == nil || send == nil {
+		return
+	}
+	buffer := make([]byte, 4096)
+	for {
+		count, err := ptmx.Read(buffer)
+		if count > 0 {
+			_ = send(context.Background(), runtimecontract.Envelope{
+				Version:   runtimecontract.ProtocolVersion,
+				Type:      runtimecontract.MessageTypeEvent,
+				Operation: runtimecontract.OperationSessionOutput,
+				Payload: mustRuntimePayload(runtimecontract.SessionOutputEvent{
+					SessionID:  sessionID,
+					Stream:     "stdout",
+					DataBase64: base64.StdEncoding.EncodeToString(append([]byte(nil), buffer[:count]...)),
+				}),
+			})
+		}
+		if err != nil {
+			return
+		}
 	}
 }
 

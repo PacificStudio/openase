@@ -415,9 +415,13 @@ func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 	if resolved := catalogdomain.ResolveMachineAgentCLIPath(machine, providerItem.AdapterType); resolved != nil {
 		command = *resolved
 	}
+	environment := append([]string(nil), machine.EnvVars...)
+	if resolved := catalogdomain.ResolveMachineOpenASEBinaryPath(machine); resolved != nil {
+		environment = catalogdomain.UpsertMachineEnvironmentValue(environment, "OPENASE_REAL_BIN", *resolved)
+	}
 	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.CommandSessionExecutor(), machine, machinetransport.RuntimePreflightSpec{
 		WorkingDirectory: workspacePath,
 		AgentCommand:     command,
-		Environment:      append([]string(nil), machine.EnvVars...),
+		Environment:      environment,
 	})
 }

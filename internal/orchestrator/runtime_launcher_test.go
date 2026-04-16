@@ -1588,6 +1588,60 @@ func TestRuntimeLauncherHandleExecutionFailureIgnoresTerminalRun(t *testing.T) {
 	}
 }
 
+func TestRuntimeLauncherHandleExecutionFailurePersistsAfterContextCancellation(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 22, 10, 35, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-cancelled-01", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-91C").
+		SetTitle("Persist failure after cancellation").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.now = func() time.Time { return now }
+
+	failureCtx, cancel := context.WithCancel(ctx)
+	cancel()
+	launcher.handleExecutionFailure(failureCtx, runItem.ID, agentItem.ID, ticketItem.ID, fmt.Errorf("context-canceled failure"))
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run after canceled context, got %+v", runAfter)
+	}
+	if strings.TrimSpace(runAfter.LastError) != "context-canceled failure" {
+		t.Fatalf("expected persisted last_error, got %q", runAfter.LastError)
+	}
+	if runAfter.TerminalAt == nil || !runAfter.TerminalAt.Equal(now) {
+		t.Fatalf("expected persisted terminal_at %v, got %+v", now, runAfter.TerminalAt)
+	}
+}
+
 func TestRuntimeLauncherFinishResolvedExecutionRequiresExplicitFinishChoiceWhenMultipleAllowed(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)

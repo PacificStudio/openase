@@ -439,6 +439,9 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 	if err != nil {
 		return err
 	}
+	if resolved := catalogdomain.ResolveMachineOpenASEBinaryPath(summaryCtx.machine); resolved != nil {
+		environment = catalogdomain.UpsertMachineEnvironmentValue(environment, "OPENASE_REAL_BIN", *resolved)
+	}
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
 		append([]string(nil), summaryCtx.provider.CliArgs...),

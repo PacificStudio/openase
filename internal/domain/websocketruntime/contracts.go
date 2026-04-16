@@ -43,6 +43,7 @@ const (
 	OperationArtifactSync     Operation = "artifact_sync"
 	OperationCommandOpen      Operation = "command_open"
 	OperationSessionInput     Operation = "session_input"
+	OperationSessionResize    Operation = "session_resize"
 	OperationSessionSignal    Operation = "session_signal"
 	OperationSessionClose     Operation = "session_close"
 	OperationProcessStart     Operation = "process_start"
@@ -60,6 +61,7 @@ func (o Operation) IsValid() bool {
 		OperationArtifactSync,
 		OperationCommandOpen,
 		OperationSessionInput,
+		OperationSessionResize,
 		OperationSessionSignal,
 		OperationSessionClose,
 		OperationProcessStart,
@@ -258,6 +260,9 @@ type ArtifactSyncRequest struct {
 
 type CommandOpenRequest struct {
 	Command string `json:"command"`
+	PTY     bool   `json:"pty,omitempty"`
+	Cols    int    `json:"cols,omitempty"`
+	Rows    int    `json:"rows,omitempty"`
 }
 
 type ProcessStartRequest struct {
@@ -280,6 +285,12 @@ type SessionInputRequest struct {
 type SessionSignalRequest struct {
 	SessionID string `json:"session_id"`
 	Signal    string `json:"signal,omitempty"`
+}
+
+type SessionResizeRequest struct {
+	SessionID string `json:"session_id"`
+	Cols      int    `json:"cols"`
+	Rows      int    `json:"rows"`
 }
 
 type SessionCloseRequest struct {

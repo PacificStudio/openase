@@ -29,6 +29,8 @@ type Session interface {
 	StdoutPipe() (io.Reader, error)
 	StderrPipe() (io.Reader, error)
 	Start(cmd string) error
+	StartPTY(cmd string, cols int, rows int) error
+	Resize(cols int, rows int) error
 	Signal(signal string) error
 	Wait() error
 	Close() error
@@ -383,6 +385,23 @@ func (s *realSession) StderrPipe() (io.Reader, error) {
 
 func (s *realSession) Start(cmd string) error {
 	return s.session.Start(cmd)
+}
+
+func (s *realSession) StartPTY(cmd string, cols int, rows int) error {
+	if cols <= 0 || rows <= 0 {
+		return fmt.Errorf("pty size must use positive cols and rows")
+	}
+	if err := s.session.RequestPty("xterm-256color", rows, cols, gossh.TerminalModes{}); err != nil {
+		return err
+	}
+	return s.session.Start(cmd)
+}
+
+func (s *realSession) Resize(cols int, rows int) error {
+	if cols <= 0 || rows <= 0 {
+		return fmt.Errorf("pty size must use positive cols and rows")
+	}
+	return s.session.WindowChange(rows, cols)
 }
 
 func (s *realSession) Signal(signal string) error {

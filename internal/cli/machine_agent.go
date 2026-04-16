@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
 	machinechanneldomain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
@@ -373,21 +374,7 @@ correct machine-bound reverse websocket credential is revoked.
 }
 
 func resolveControlPlaneURL(cfg config.Config, explicit string) (string, error) {
-	trimmed := strings.TrimSpace(explicit)
-	if trimmed != "" {
-		if _, err := url.ParseRequestURI(trimmed); err != nil {
-			return "", fmt.Errorf("parse control-plane-url: %w", err)
-		}
-		return strings.TrimRight(trimmed, "/"), nil
-	}
-
-	host := strings.TrimSpace(cfg.Server.Host)
-	switch host {
-	case "", "0.0.0.0", "::", "[::]":
-		host = "127.0.0.1"
-	}
-
-	return "http://" + net.JoinHostPort(host, fmt.Sprintf("%d", cfg.Server.Port)), nil
+	return controlplaneurl.ResolveControlPlaneURL(explicit, cfg.Server.Host, cfg.Server.Port)
 }
 
 func parseEnvDuration(key string) time.Duration {
