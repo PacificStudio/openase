@@ -289,6 +289,12 @@ func optionalChatSessionIDString(value *chatservice.SessionID) string {
 }
 
 func (s *Server) currentProjectConversationUserID(c echo.Context) (chatservice.UserID, error) {
+	if c != nil {
+		c.SetRequest(c.Request().WithContext(chatservice.WithProjectConversationAccessHint(
+			c.Request().Context(),
+			projectConversationAccessHint(c),
+		)))
+	}
 	if actor := strings.TrimSpace(actorFromHumanPrincipal(c)); actor != "" {
 		return chatservice.ParseUserID(actor)
 	}

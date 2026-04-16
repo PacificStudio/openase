@@ -250,5 +250,5 @@ func projectConversationTurnLockKey(conversation domain.Conversation) UserID {
 }
 
 func isStableLocalProjectConversationUser(userID UserID) bool {
-	return strings.TrimSpace(userID.String()) == strings.TrimSpace(LocalProjectConversationUserID.String())
+	return strings.TrimSpace(userID.String()) == strings.TrimSpace(InstanceAdminProjectConversationUserID.String())
 }

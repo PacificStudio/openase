@@ -14,6 +14,7 @@ import {
 export type FetchedConversationsResult = {
   allConversations: ProjectConversation[]
   currentProjectConversationIds: Set<string>
+  failedProjectIds: Set<string>
 }
 
 export async function fetchCrossProjectConversations(
@@ -27,17 +28,21 @@ export async function fetchCrossProjectConversations(
 
   const allConversations: ProjectConversation[] = []
   const currentProjectConversationIds = new Set<string>()
+  const failedProjectIds = new Set<string>()
   const fetchResults = await Promise.all(
     [...projectIdsToFetch].map(async (pid) => {
       try {
         const payload = await listProjectConversations({ projectId: pid })
-        return { pid, conversations: payload.conversations }
+        return { pid, conversations: payload.conversations, ok: true }
       } catch {
-        return { pid, conversations: [] as ProjectConversation[] }
+        return { pid, conversations: [] as ProjectConversation[], ok: false }
       }
     }),
   )
   for (const result of fetchResults) {
+    if (!result.ok) {
+      failedProjectIds.add(result.pid)
+    }
     for (const conversation of result.conversations) {
       allConversations.push(conversation)
       if (result.pid === currentProjectId) {
@@ -46,7 +51,7 @@ export async function fetchCrossProjectConversations(
     }
   }
 
-  return { allConversations, currentProjectConversationIds }
+  return { allConversations, currentProjectConversationIds, failedProjectIds }
 }
 
 export type RestoredTabItem = {
@@ -58,6 +63,7 @@ export type RestoredTabItem = {
 export function mapPersistedToRestoredTabs(
   persistedTabs: PersistedProjectConversationTab[],
   conversationsByID: Map<string, ProjectConversation>,
+  failedProjectIds: Set<string>,
   newTabState: (
     providerId?: string,
     restored?: boolean,
@@ -80,6 +86,22 @@ export function mapPersistedToRestoredTabs(
         )
         tab.draft = persistedTab.draft
         return { tab, conversationId: conversation.id, restored: true }
+      }
+      if (
+        persistedTab.conversationId.trim() &&
+        persistedTab.projectId &&
+        failedProjectIds.has(persistedTab.projectId)
+      ) {
+        const tab = newTabState(
+          persistedTab.providerId || fallbackProviderId,
+          true,
+          persistedTab.projectId,
+          persistedTab.projectName,
+        )
+        tab.conversationId = persistedTab.conversationId.trim()
+        tab.needsHydration = true
+        tab.draft = persistedTab.draft
+        return { tab, conversationId: tab.conversationId, restored: true }
       }
       if (persistedTab.conversationId.trim()) {
         return null
@@ -146,7 +168,7 @@ export async function restoreProjectConversationController(
     migrateLegacyProjectConversationTabs(projectId)
     const persisted = readProjectConversationTabs()
 
-    const { allConversations, currentProjectConversationIds } =
+    const { allConversations, currentProjectConversationIds, failedProjectIds } =
       await fetchCrossProjectConversations(projectId, persisted.tabs)
     if (currentRestoreID !== input.getRestoreOperationID()) return
 
@@ -162,6 +184,7 @@ export async function restoreProjectConversationController(
     const restoredTabs = mapPersistedToRestoredTabs(
       persisted.tabs,
       conversationsByID,
+      failedProjectIds,
       input.newTabState,
       input.getPreferredProviderId(),
     )
@@ -219,16 +242,21 @@ export async function restoreProjectConversationController(
       const conversation = input
         .getConversations()
         .find((item) => item.id === restored.conversationId)
-      if (!tab || !conversation) {
+      if (!tab) {
         continue
       }
 
       if (tab.id === preferredActiveTabId) {
-        if (
-          await input.runtime.loadTabConversation(tab, restored.conversationId, restored.restored)
-        ) {
+        if (await input.runtime.loadTabConversation(tab, restored.conversationId, restored.restored)) {
+          loadedTabIDs.add(tab.id)
+        } else {
           loadedTabIDs.add(tab.id)
         }
+        continue
+      }
+
+      if (!conversation) {
+        loadedTabIDs.add(tab.id)
         continue
       }
 
