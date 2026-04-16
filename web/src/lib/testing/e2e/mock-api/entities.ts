@@ -154,9 +154,6 @@ function resolveMachineConnectionMode(reachabilityMode: string, _executionMode: 
 }
 
 function executionCapabilitiesForConnectionMode(connectionMode: string) {
-  if (connectionMode === 'ws_reverse') {
-    return []
-  }
   return ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming']
 }
 

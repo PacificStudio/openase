@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -347,6 +348,115 @@ func TestConversationTerminalServiceCloseTriggersCleanup(t *testing.T) {
 		t.Fatal("expected process close to be called")
 	}
 	awaitConversationTerminalCleanup(t, service, fixture.conversation.ID, session.ID)
+}
+
+func TestConversationTerminalServiceSupportsWebsocketRuntime(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceWebsocketFixture(t, []projectConversationWorkspaceRepoFixture{{
+		name: "backend",
+		files: map[string]string{
+			"src/main.go": "package main\n",
+		},
+	}})
+	service := NewConversationTerminalService(nil, fixture.service)
+
+	repoPath := "backend"
+	cwdPath := "src"
+	input, err := chatdomain.ParseOpenTerminalSessionInput(chatdomain.OpenTerminalSessionRawInput{
+		Mode:     "shell",
+		RepoPath: &repoPath,
+		CWDPath:  &cwdPath,
+	})
+	if err != nil {
+		t.Fatalf("ParseOpenTerminalSessionInput() error = %v", err)
+	}
+
+	session, err := service.CreateSession(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID, input)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+	if session.CWD != filepath.Join(fixture.repoPaths["backend"], "src") {
+		t.Fatalf("session cwd = %q", session.CWD)
+	}
+
+	attachment, err := service.AttachSession(
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		session.ID,
+		session.AttachToken,
+	)
+	if err != nil {
+		t.Fatalf("AttachSession() error = %v", err)
+	}
+	if ready := requireConversationTerminalEvent(t, attachment.Events); ready.Type != "ready" {
+		t.Fatalf("ready event = %+v", ready)
+	}
+
+	if err := attachment.Resize(120, 40); err != nil {
+		t.Fatalf("Resize() error = %v", err)
+	}
+	if err := attachment.WriteInput([]byte("printf 'REMOTE_OK\\n'; exit\n")); err != nil {
+		t.Fatalf("WriteInput() error = %v", err)
+	}
+
+	output := collectConversationTerminalOutput(t, attachment.Events, "REMOTE_OK")
+	if !strings.Contains(output, "REMOTE_OK") {
+		t.Fatalf("unexpected websocket terminal output %q", output)
+	}
+
+	exit := awaitConversationTerminalExit(t, attachment.Events)
+	if exit.Type != "exit" || exit.ExitCode != 0 {
+		t.Fatalf("exit event = %+v", exit)
+	}
+	awaitConversationTerminalCleanup(t, service, fixture.conversation.ID, session.ID)
+}
+
+func collectConversationTerminalOutput(
+	t *testing.T,
+	events <-chan ConversationTerminalEvent,
+	want string,
+) string {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var builder strings.Builder
+	for time.Now().Before(deadline) {
+		event := requireConversationTerminalEvent(t, events)
+		switch event.Type {
+		case "output":
+			builder.Write(event.Data)
+			if strings.Contains(builder.String(), want) {
+				return builder.String()
+			}
+		case "error":
+			t.Fatalf("unexpected terminal error event: %+v", event)
+		case "exit":
+			t.Fatalf("terminal exited before output %q arrived: %+v", want, event)
+		}
+	}
+	t.Fatalf("timed out waiting for terminal output %q", want)
+	return ""
+}
+
+func awaitConversationTerminalExit(
+	t *testing.T,
+	events <-chan ConversationTerminalEvent,
+) ConversationTerminalEvent {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		event := requireConversationTerminalEvent(t, events)
+		switch event.Type {
+		case "exit":
+			return event
+		case "output":
+			continue
+		case "error":
+			t.Fatalf("unexpected terminal error event: %+v", event)
+		}
+	}
+	t.Fatal("timed out waiting for terminal exit")
+	return ConversationTerminalEvent{}
 }
 
 func requireConversationTerminalEvent(t *testing.T, events <-chan ConversationTerminalEvent) ConversationTerminalEvent {

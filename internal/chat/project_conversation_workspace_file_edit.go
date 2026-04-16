@@ -475,32 +475,25 @@ func (s *ProjectConversationService) writeRemoteConversationWorkspaceFile(
 	if encoding != WorkspaceEncodingUTF8 {
 		return "", 0, fmt.Errorf("workspace encoding %s is unsupported", encoding)
 	}
-	if s == nil || s.core.sshPool == nil {
-		return "", 0, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
-	}
-	client, err := s.core.sshPool.Get(ctx, machine)
+	session, err := s.openProjectConversationCommandSession(ctx, machine, "workspace file save")
 	if err != nil {
 		return "", 0, err
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return "", 0, fmt.Errorf("open ssh session for workspace file save: %w", err)
 	}
 	defer func() { _ = session.Close() }()
 
 	stdin, err := session.StdinPipe()
 	if err != nil {
-		return "", 0, fmt.Errorf("open ssh stdin for workspace file save: %w", err)
+		return "", 0, fmt.Errorf("open remote stdin for workspace file save: %w", err)
 	}
 	stdout, err := session.StdoutPipe()
 	if err != nil {
 		_ = stdin.Close()
-		return "", 0, fmt.Errorf("open ssh stdout for workspace file save: %w", err)
+		return "", 0, fmt.Errorf("open remote stdout for workspace file save: %w", err)
 	}
 	stderr, err := session.StderrPipe()
 	if err != nil {
 		_ = stdin.Close()
-		return "", 0, fmt.Errorf("open ssh stderr for workspace file save: %w", err)
+		return "", 0, fmt.Errorf("open remote stderr for workspace file save: %w", err)
 	}
 
 	var stdoutBuffer bytes.Buffer
@@ -521,7 +514,7 @@ func (s *ProjectConversationService) writeRemoteConversationWorkspaceFile(
 		_ = stdin.Close()
 		<-stdoutDone
 		<-stderrDone
-		return "", 0, fmt.Errorf("start ssh workspace file save: %w", err)
+		return "", 0, fmt.Errorf("start remote workspace file save: %w", err)
 	}
 	_, writeErr := stdin.Write(content)
 	stdinCloseErr := stdin.Close()
