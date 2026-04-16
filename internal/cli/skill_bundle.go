@@ -83,7 +83,7 @@ openase skill import $OPENASE_PROJECT_ID ./skills/deploy-openase --enable
 			if err != nil {
 				return err
 			}
-			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiRequest{
 				Method: http.MethodPost,
 				Path:   "projects/" + urlPathEscape(projectID) + "/skills/import",
 				Body:   body,

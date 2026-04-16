@@ -13,13 +13,13 @@ import (
 const (
 	TokenPrefix = "ase_machine_"
 
-	EnvMachineID                = "OPENASE_MACHINE_ID"
-	EnvMachineChannelToken      = "OPENASE_MACHINE_CHANNEL_TOKEN" // #nosec G101 -- environment variable key name, not a credential
-	EnvMachineControlPlaneURL   = "OPENASE_MACHINE_CONTROL_PLANE_URL"
-	EnvMachineHeartbeatInterval = "OPENASE_MACHINE_HEARTBEAT_INTERVAL"
-	EnvMachineAgentCLIPathsJSON = "OPENASE_MACHINE_AGENT_CLI_PATHS_JSON"
-	EnvMachineLocalRelayURL    = "OPENASE_MACHINE_LOCAL_RELAY_URL"
-	EnvMachineLocalRelayAddress = "OPENASE_MACHINE_LOCAL_RELAY_ADDRESS"
+	EnvMachineID                    = "OPENASE_MACHINE_ID"
+	EnvMachineChannelToken          = "OPENASE_MACHINE_CHANNEL_TOKEN" // #nosec G101 -- environment variable key name, not a credential
+	EnvMachineControlPlaneURL       = "OPENASE_MACHINE_CONTROL_PLANE_URL"
+	EnvMachineHeartbeatInterval     = "OPENASE_MACHINE_HEARTBEAT_INTERVAL"
+	EnvMachineAgentCLIPathsJSON     = "OPENASE_MACHINE_AGENT_CLI_PATHS_JSON"
+	EnvMachineLocalRelayURL         = "OPENASE_MACHINE_LOCAL_RELAY_URL"
+	EnvMachineLocalRelayAddress     = "OPENASE_MACHINE_LOCAL_RELAY_ADDRESS"
 	DefaultMachineLocalRelayAddress = "127.0.0.1:19839"
 )
 

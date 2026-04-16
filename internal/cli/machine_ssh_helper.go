@@ -808,7 +808,7 @@ func checkMachineSSHAgentCLIPath(
 }
 
 func fetchCLIMachine(ctx context.Context, apiContext apiCommandContext, machineID string) (catalogdomain.Machine, error) {
-	response, err := apiContext.do(ctx, apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+	response, err := apiContext.do(ctx, apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiRequest{
 		Method: http.MethodGet,
 		Path:   "machines/" + urlPathEscape(strings.TrimSpace(machineID)),
 	})

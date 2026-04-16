@@ -90,7 +90,7 @@ var (
 )
 
 func newAPICommand() *cobra.Command {
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	var options apiCommandOptions
 	var output apiOutputOptions
 	var headers []string
@@ -308,7 +308,7 @@ func newAuthCommand(options *rootOptions) *cobra.Command {
 }
 
 func newAuthLogoutCommand() *cobra.Command {
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	var output apiOutputOptions
 	command := &cobra.Command{
 		Use:   "logout",
@@ -1168,7 +1168,7 @@ machine inspection with ` + "`openase machine list --project-id $OPENASE_PROJECT
 				return fmt.Errorf("project id is required via --project-id or OPENASE_PROJECT_ID")
 			}
 
-			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiRequest{
 				Method: http.MethodGet,
 				Path:   "projects/" + urlPathEscape(resolvedProjectID),
 			})
@@ -1230,7 +1230,7 @@ When project context is used, the CLI fetches the project first and derives orga
 
 			resolvedOrgID, err := resolveOrganizationIDForMachineCommand(
 				cmd.Context(),
-				apiCommandDeps{httpClient: http.DefaultClient},
+				apiCommandDeps{httpClient: defaultCLIHTTPDoer()},
 				apiContext,
 				firstNonEmpty(firstArg(args), orgID, os.Getenv("OPENASE_ORG_ID")),
 				firstNonEmpty(projectID, os.Getenv("OPENASE_PROJECT_ID")),
@@ -1239,7 +1239,7 @@ When project context is used, the CLI fetches the project first and derives orga
 				return err
 			}
 
-			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiRequest{
 				Method: http.MethodGet,
 				Path:   "orgs/" + urlPathEscape(resolvedOrgID) + "/machines",
 			})
@@ -1296,7 +1296,7 @@ Use Ctrl-C to stop the stream when running interactively.
 
 			resolvedOrgID, err := resolveOrganizationIDForMachineCommand(
 				cmd.Context(),
-				apiCommandDeps{httpClient: http.DefaultClient},
+				apiCommandDeps{httpClient: defaultCLIHTTPDoer()},
 				apiContext,
 				firstNonEmpty(firstArg(args), orgID, os.Getenv("OPENASE_ORG_ID")),
 				firstNonEmpty(projectID, os.Getenv("OPENASE_PROJECT_ID")),
@@ -1305,7 +1305,7 @@ Use Ctrl-C to stop the stream when running interactively.
 				return err
 			}
 
-			return apiContext.stream(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiStreamRequest{
+			return apiContext.stream(cmd.Context(), apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiStreamRequest{
 				Method: http.MethodGet,
 				Path:   "orgs/" + urlPathEscape(resolvedOrgID) + "/machines/stream",
 			}, cmd.OutOrStdout())
@@ -1535,7 +1535,7 @@ func newStreamNamespaceCommand(use string, short string) *cobra.Command {
 
 func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	command := &cobra.Command{
 		Use:     spec.Use,
 		Short:   contract.summary,
@@ -1554,7 +1554,7 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 
 func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	var fields []string
 	var inputPath string
 	command := &cobra.Command{
@@ -1622,7 +1622,7 @@ func buildOpenAPIOperationHelp(spec openAPICommandSpec, summary string) string {
 
 func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	command := &cobra.Command{
 		Use:     spec.Use,
 		Short:   contract.summary,

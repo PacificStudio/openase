@@ -500,6 +500,13 @@ func (s *machineSSHTestSession) Start(cmd string) error {
 	return nil
 }
 
+func (s *machineSSHTestSession) StartPTY(cmd string, _ int, _ int) error {
+	s.startCommand = cmd
+	return nil
+}
+
+func (s *machineSSHTestSession) Resize(int, int) error { return nil }
+
 func (s *machineSSHTestSession) Signal(string) error { return nil }
 
 func (s *machineSSHTestSession) Wait() error { return nil }

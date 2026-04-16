@@ -489,3 +489,68 @@ func dialMachineWebsocket(t *testing.T, serverURL string) *websocket.Conn {
 	}
 	return conn
 }
+
+func TestMachineConnectWebsocketRelaysAPIRequests(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	machineID := createReverseWebsocketMachine(t, client)
+	service := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
+	issued, err := service.IssueToken(ctx, domain.IssueInput{MachineID: machineID, TTL: time.Hour})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithMachineChannel(service, machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)),
+	)
+	httpServer := httptest.NewServer(server.Handler())
+	defer httpServer.Close()
+
+	conn := dialMachineWebsocket(t, httpServer.URL)
+	defer func() { _ = conn.Close() }()
+	authenticateMachineWebsocket(t, conn, issued.Token, machineID)
+	registeredEnvelope, err := readMachineEnvelope(conn)
+	if err != nil {
+		t.Fatalf("read registered envelope: %v", err)
+	}
+	if registeredEnvelope.Type != domain.MessageTypeRegistered {
+		t.Fatalf("expected registered envelope, got %+v", registeredEnvelope)
+	}
+
+	if err := writeMachineEnvelope(conn, domain.MessageTypeAPIRequest, registeredEnvelope.SessionID, domain.APIRelayRequest{
+		RequestID: "req-1",
+		Method:    http.MethodGet,
+		URL:       httpServer.URL + "/api/v1/healthz",
+	}); err != nil {
+		t.Fatalf("write api relay request: %v", err)
+	}
+	responseEnvelope, err := readMachineEnvelope(conn)
+	if err != nil {
+		t.Fatalf("read api relay response: %v", err)
+	}
+	if responseEnvelope.Type != domain.MessageTypeAPIResponse {
+		t.Fatalf("expected api relay response envelope, got %+v", responseEnvelope)
+	}
+	responsePayload, err := domain.DecodePayload[domain.APIRelayResponse](responseEnvelope)
+	if err != nil {
+		t.Fatalf("decode api relay response: %v", err)
+	}
+	if responsePayload.RequestID != "req-1" {
+		t.Fatalf("response request_id = %q", responsePayload.RequestID)
+	}
+	if responsePayload.StatusCode != http.StatusOK {
+		t.Fatalf("response status code = %d, want %d", responsePayload.StatusCode, http.StatusOK)
+	}
+	if !strings.Contains(string(responsePayload.Body), `"service":"openase"`) {
+		t.Fatalf("unexpected relay body: %s", string(responsePayload.Body))
+	}
+}
