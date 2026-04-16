@@ -3,6 +3,7 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { ProjectUpdateMarkdownContent } from '$lib/features/project-updates'
 import { TicketMarkdownContent } from '$lib/features/ticket-detail'
 import { Streamdown } from 'streamdown-svelte'
+import type { DiagramPlugin, MermaidInstance } from 'streamdown-svelte'
 import MarkdownContent from './markdown-content.svelte'
 
 class MockIntersectionObserver implements IntersectionObserver {
@@ -38,12 +39,15 @@ class MockIntersectionObserver implements IntersectionObserver {
   unobserve(): void {}
 }
 
-function createAdvisoryMermaidPlugin() {
+function createAdvisoryMermaidPlugin(): DiagramPlugin {
   return {
+    language: 'mermaid',
+    name: 'mermaid',
+    type: 'diagram',
     getMermaid() {
-      return {
+      const mermaid: MermaidInstance = {
         initialize() {},
-        async render() {
+        async render(_id: string, _source: string) {
           const { default: createDOMPurify } =
             await import('../../../../node_modules/.pnpm/dompurify@3.4.0/node_modules/dompurify/dist/purify.es.mjs')
           const domPurify = createDOMPurify(window)
@@ -68,32 +72,32 @@ function createAdvisoryMermaidPlugin() {
           return { svg }
         },
       }
+
+      return mermaid
     },
   }
 }
 
 const originalIntersectionObserver = globalThis.IntersectionObserver
-const originalGetBBox = globalThis.SVGElement?.prototype.getBBox
+type SVGElementWithBBox = SVGElement & { getBBox: () => DOMRect }
+
+const svgElementPrototype = globalThis.SVGElement?.prototype as SVGElementWithBBox | undefined
+const originalGetBBox = svgElementPrototype?.getBBox
 
 globalThis.IntersectionObserver = MockIntersectionObserver
 
-if (globalThis.SVGElement && typeof globalThis.SVGElement.prototype.getBBox !== 'function') {
-  globalThis.SVGElement.prototype.getBBox = () => ({
-    x: 0,
-    y: 0,
-    width: 120,
-    height: 24,
-  })
+if (svgElementPrototype && typeof svgElementPrototype.getBBox !== 'function') {
+  svgElementPrototype.getBBox = () => DOMRect.fromRect({ x: 0, y: 0, width: 120, height: 24 })
 }
 
 afterAll(() => {
   globalThis.IntersectionObserver = originalIntersectionObserver
 
-  if (globalThis.SVGElement) {
+  if (svgElementPrototype) {
     if (originalGetBBox) {
-      globalThis.SVGElement.prototype.getBBox = originalGetBBox
+      svgElementPrototype.getBBox = originalGetBBox
     } else {
-      delete globalThis.SVGElement.prototype.getBBox
+      delete (svgElementPrototype as Partial<SVGElementWithBBox>).getBBox
     }
   }
 })
