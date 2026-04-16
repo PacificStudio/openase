@@ -3175,7 +3175,7 @@ var (
 		"POST /api/v1/projects/{projectId}/notification-rules":                                         openAPINotificationRuleDescriptions,
 		"PATCH /api/v1/notification-rules/{ruleId}":                                                    openAPINotificationRuleDescriptions,
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
-		"POST /api/v1/projects/{projectId}/security-settings/api-keys":                                   openAPIProjectUserAPIKeyCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/api-keys":                                 openAPIProjectUserAPIKeyCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
 		"POST /api/v1/chat":               openAPIChatRequestDescriptions,
