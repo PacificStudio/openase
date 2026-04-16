@@ -19,15 +19,8 @@
   import { i18nStore } from '$lib/i18n/store.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import type { TranslationKey } from '$lib/i18n'
-  import type {
-    Machine,
-    MachineSSHBootstrapResult,
-  } from '$lib/api/contracts'
-  import {
-    machineErrorMessage,
-    runMachineSSHBootstrap,
-    saveMachine,
-  } from './machines-page-api'
+  import type { Machine, MachineSSHBootstrapResult } from '$lib/api/contracts'
+  import { machineErrorMessage, runMachineSSHBootstrap, saveMachine } from './machines-page-api'
   import type { MachineMutationInput } from '../types'
 
   type Strategy = 'direct-open' | 'ssh-install-listener' | 'reverse'
@@ -84,18 +77,13 @@
     }
   })
 
-  const strategyNeedsSSH = $derived(
-    strategy === 'ssh-install-listener' || strategy === 'reverse',
-  )
+  const strategyNeedsSSH = $derived(strategy === 'ssh-install-listener' || strategy === 'reverse')
   const stepOrder = $derived(computeStepOrder(location, strategy))
   const currentStepIndex = $derived(Math.max(0, stepOrder.indexOf(step)))
   const totalSteps = $derived(stepOrder.length)
   const isLastStep = $derived(step === 'review')
 
-  function computeStepOrder(
-    loc: LocationAnswer | null,
-    strat: Strategy | null,
-  ): Step[] {
+  function computeStepOrder(loc: LocationAnswer | null, strat: Strategy | null): Step[] {
     if (loc === 'local') return ['location', 'identity', 'review']
     const order: Step[] = ['location', 'identity', 'strategy']
     if (strat === 'direct-open') order.push('advertised-endpoint')
@@ -374,9 +362,7 @@
                 data-testid={`machine-wizard-location-${option.value}`}
               >
                 <div class="flex items-center gap-2">
-                  <Icon
-                    class={cn('size-4', selected ? 'text-primary' : 'text-muted-foreground')}
-                  />
+                  <Icon class={cn('size-4', selected ? 'text-primary' : 'text-muted-foreground')} />
                   <span class="text-foreground text-sm font-medium">
                     {i18nStore.t(option.titleKey)}
                   </span>
@@ -620,7 +606,9 @@
           {/if}
 
           {#if saving || bootstrapping}
-            <div class="border-primary/30 bg-primary/5 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs">
+            <div
+              class="border-primary/30 bg-primary/5 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs"
+            >
               <Loader2 class="text-primary size-3.5 animate-spin" />
               <span class="text-foreground">
                 {bootstrapping
