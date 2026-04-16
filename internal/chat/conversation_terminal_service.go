@@ -19,6 +19,7 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	"github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/creack/pty"
 	"github.com/google/uuid"
 )
@@ -120,7 +121,7 @@ func (s *ConversationTerminalService) CreateSession(
 	if s == nil || s.conversations == nil {
 		return ConversationTerminalSession{}, fmt.Errorf("conversation terminal service unavailable")
 	}
-	cwd, err := s.resolveConversationTerminalCWD(ctx, userID, conversationID, input)
+	machine, cwd, err := s.resolveConversationTerminalTarget(ctx, userID, conversationID, input)
 	if err != nil {
 		return ConversationTerminalSession{}, err
 	}
@@ -130,7 +131,7 @@ func (s *ConversationTerminalService) CreateSession(
 	}
 	createdAt := s.now()
 	sessionCtx, cancel := context.WithCancel(context.Background())
-	process, err := s.launch(sessionCtx, conversationTerminalLaunchSpec{
+	process, err := s.startSessionProcess(sessionCtx, machine, conversationTerminalLaunchSpec{
 		CWD:         cwd,
 		Cols:        input.Cols,
 		Rows:        input.Rows,
@@ -138,7 +139,7 @@ func (s *ConversationTerminalService) CreateSession(
 	})
 	if err != nil {
 		cancel()
-		return ConversationTerminalSession{}, fmt.Errorf("start local terminal session: %w", err)
+		return ConversationTerminalSession{}, err
 	}
 
 	session := &conversationTerminalManagedSession{
@@ -183,14 +184,33 @@ func (s *ConversationTerminalService) CloseSession(conversationID uuid.UUID, ses
 	return session.close()
 }
 
-func (s *ConversationTerminalService) resolveConversationTerminalCWD(
+func (s *ConversationTerminalService) startSessionProcess(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	spec conversationTerminalLaunchSpec,
+) (conversationTerminalProcess, error) {
+	if machine.Host == catalogdomain.LocalMachineHost {
+		process, err := s.launch(ctx, spec)
+		if err != nil {
+			return nil, fmt.Errorf("start local terminal session: %w", err)
+		}
+		return process, nil
+	}
+	process, err := s.startRemoteProcess(ctx, machine, spec)
+	if err != nil {
+		return nil, fmt.Errorf("start remote terminal session: %w", err)
+	}
+	return process, nil
+}
+
+func (s *ConversationTerminalService) resolveConversationTerminalTarget(
 	ctx context.Context,
 	userID UserID,
 	conversationID uuid.UUID,
 	input chatdomain.OpenTerminalSessionInput,
-) (string, error) {
+) (catalogdomain.Machine, string, error) {
 	if s.conversations == nil {
-		return "", fmt.Errorf("project conversation service unavailable")
+		return catalogdomain.Machine{}, "", fmt.Errorf("project conversation service unavailable")
 	}
 	if input.RepoPath != nil {
 		resolved, relativePath, err := s.conversations.resolveConversationWorkspaceRepoPath(
@@ -202,26 +222,38 @@ func (s *ConversationTerminalService) resolveConversationTerminalCWD(
 			true,
 		)
 		if err != nil {
-			return "", err
+			return catalogdomain.Machine{}, "", err
 		}
-		if resolved.machine.Host != catalogdomain.LocalMachineHost {
-			return "", ErrConversationTerminalUnsupported
+		cwd := resolved.repo.repoPath
+		if resolved.machine.Host == catalogdomain.LocalMachineHost {
+			cwd, err = resolveLocalProjectConversationWorkspaceDirectory(resolved.repo.repoPath, relativePath)
+			if err != nil {
+				return catalogdomain.Machine{}, "", err
+			}
+		} else if relativePath != "" {
+			cwd = filepath.Join(resolved.repo.repoPath, filepath.FromSlash(relativePath))
 		}
-		return resolveLocalProjectConversationWorkspaceDirectory(resolved.repo.repoPath, relativePath)
+		return resolved.machine, cwd, nil
 	}
 
 	_, location, err := s.conversations.resolveConversationWorkspace(ctx, userID, conversationID)
 	if err != nil {
-		return "", err
-	}
-	if location.machine.Host != catalogdomain.LocalMachineHost {
-		return "", ErrConversationTerminalUnsupported
+		return catalogdomain.Machine{}, "", err
 	}
 	relativePath, err := parseProjectConversationWorkspaceRelativePath(valueOrEmpty(input.CWDPath), true)
 	if err != nil {
-		return "", err
+		return catalogdomain.Machine{}, "", err
 	}
-	return resolveLocalProjectConversationWorkspaceDirectory(location.workspacePath, relativePath)
+	cwd := location.workspacePath
+	if location.machine.Host == catalogdomain.LocalMachineHost {
+		cwd, err = resolveLocalProjectConversationWorkspaceDirectory(location.workspacePath, relativePath)
+		if err != nil {
+			return catalogdomain.Machine{}, "", err
+		}
+	} else if relativePath != "" {
+		cwd = filepath.Join(location.workspacePath, filepath.FromSlash(relativePath))
+	}
+	return location.machine, cwd, nil
 }
 
 type conversationTerminalRegistry struct {
@@ -266,6 +298,7 @@ type conversationTerminalManagedSession struct {
 
 	mu                 sync.Mutex
 	client             *conversationTerminalAttachedClient
+	clientReady        bool
 	pendingOutput      [][]byte
 	pendingOutputBytes int
 	closing            bool
@@ -326,6 +359,7 @@ func (s *conversationTerminalManagedSession) attach(
 	s.pendingOutputBytes = 0
 	client := newConversationTerminalAttachedClient(len(pendingOutput) + 1)
 	s.client = client
+	s.clientReady = false
 	s.meta.LastAttachedAt = &attachedAt
 	meta := s.meta
 	s.mu.Unlock()
@@ -411,7 +445,7 @@ func (s *conversationTerminalManagedSession) emitOutput(chunk []byte) {
 	copied := append([]byte(nil), chunk...)
 	s.mu.Lock()
 	client := s.client
-	if client == nil {
+	if client == nil || !s.clientReady {
 		s.queuePendingOutputLocked(copied)
 		s.mu.Unlock()
 		return
@@ -459,10 +493,27 @@ func (s *conversationTerminalManagedSession) flushPendingOutput(
 	if !s.sendEvent(client, ConversationTerminalEvent{Type: "ready"}) {
 		return
 	}
-	for _, chunk := range pendingOutput {
-		if !s.sendEvent(client, ConversationTerminalEvent{Type: "output", Data: append([]byte(nil), chunk...)}) {
+	queued := pendingOutput
+	for {
+		for _, chunk := range queued {
+			if !s.sendEvent(client, ConversationTerminalEvent{Type: "output", Data: append([]byte(nil), chunk...)}) {
+				return
+			}
+		}
+		s.mu.Lock()
+		if s.client != client {
+			s.mu.Unlock()
 			return
 		}
+		if len(s.pendingOutput) == 0 {
+			s.clientReady = true
+			s.mu.Unlock()
+			return
+		}
+		queued = append([][]byte(nil), s.pendingOutput...)
+		s.pendingOutput = nil
+		s.pendingOutputBytes = 0
+		s.mu.Unlock()
 	}
 }
 
@@ -512,6 +563,10 @@ func conversationTerminalExitFromError(err error) conversationTerminalExit {
 			exit.Signal = status.Signal().String()
 		}
 		return exit
+	}
+	var runtimeExit machinetransport.ProcessExitError
+	if errors.As(err, &runtimeExit) {
+		return conversationTerminalExit{Code: runtimeExit.ExitStatus()}
 	}
 	if errors.Is(err, context.Canceled) {
 		return conversationTerminalExit{Code: 0}
@@ -592,6 +647,153 @@ func (p *localConversationTerminalProcess) Resize(cols int, rows int) error {
 
 func (p *localConversationTerminalProcess) Wait() error {
 	return p.cmd.Wait()
+}
+
+type remoteConversationTerminalProcess struct {
+	session machinetransport.CommandSession
+	stdin   io.WriteCloser
+	merged  *io.PipeReader
+	writer  *io.PipeWriter
+	writeMu sync.Mutex
+	done    chan struct{}
+	waitErr error
+	once    sync.Once
+}
+
+func (p *remoteConversationTerminalProcess) Read(buffer []byte) (int, error) {
+	return p.merged.Read(buffer)
+}
+
+func (p *remoteConversationTerminalProcess) Write(buffer []byte) (int, error) {
+	return p.stdin.Write(buffer)
+}
+
+func (p *remoteConversationTerminalProcess) Close() error {
+	closeErr := error(nil)
+	p.once.Do(func() {
+		if p.stdin != nil {
+			_ = p.stdin.Close()
+		}
+		if p.session != nil {
+			closeErr = p.session.Close()
+		}
+	})
+	return closeErr
+}
+
+func (p *remoteConversationTerminalProcess) Resize(cols int, rows int) error {
+	size, err := conversationTerminalPTYSize(cols, rows)
+	if err != nil {
+		return err
+	}
+	_ = size
+	return nil
+}
+
+func (p *remoteConversationTerminalProcess) Wait() error {
+	if p == nil {
+		return fmt.Errorf("remote terminal session unavailable")
+	}
+	<-p.done
+	return p.waitErr
+}
+
+func (s *ConversationTerminalService) startRemoteProcess(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	spec conversationTerminalLaunchSpec,
+) (conversationTerminalProcess, error) {
+	if s == nil || s.conversations == nil {
+		return nil, ErrConversationTerminalUnsupported
+	}
+	session, err := s.conversations.openProjectConversationCommandSession(ctx, machine, "terminal")
+	if err != nil {
+		if errors.Is(err, machinetransport.ErrTransportUnavailable) {
+			return nil, ErrConversationTerminalUnsupported
+		}
+		return nil, err
+	}
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		_ = session.Close()
+		return nil, fmt.Errorf("open remote terminal stdin: %w", err)
+	}
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		_ = stdin.Close()
+		_ = session.Close()
+		return nil, fmt.Errorf("open remote terminal stdout: %w", err)
+	}
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		_ = stdin.Close()
+		_ = session.Close()
+		return nil, fmt.Errorf("open remote terminal stderr: %w", err)
+	}
+
+	reader, writer := io.Pipe()
+	process := &remoteConversationTerminalProcess{
+		session: session,
+		stdin:   stdin,
+		merged:  reader,
+		writer:  writer,
+		done:    make(chan struct{}),
+	}
+
+	if err := session.Start(buildRemoteConversationTerminalCommand(spec)); err != nil {
+		_ = stdin.Close()
+		_ = session.Close()
+		_ = writer.CloseWithError(err)
+		return nil, fmt.Errorf("start remote terminal shell: %w", err)
+	}
+	go process.copyOutput(stdout)
+	go process.copyOutput(stderr)
+	go process.waitLoop()
+	return process, nil
+}
+
+func (p *remoteConversationTerminalProcess) copyOutput(reader io.Reader) {
+	if reader == nil || p == nil || p.writer == nil {
+		return
+	}
+	buffer := make([]byte, 4096)
+	for {
+		count, err := reader.Read(buffer)
+		if count > 0 {
+			p.writeMu.Lock()
+			_, _ = p.writer.Write(buffer[:count])
+			p.writeMu.Unlock()
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+func (p *remoteConversationTerminalProcess) waitLoop() {
+	if p == nil {
+		return
+	}
+	p.waitErr = p.session.Wait()
+	_ = p.writer.Close()
+	close(p.done)
+}
+
+func buildRemoteConversationTerminalCommand(spec conversationTerminalLaunchSpec) string {
+	cwd := strings.TrimSpace(spec.CWD)
+	command := []string{}
+	if cwd != "" {
+		command = append(command, "cd "+projectConversationShellQuote(cwd))
+	}
+	command = append(command,
+		`if [ -n "${SHELL:-}" ] && command -v "$SHELL" >/dev/null 2>&1; then shell="$SHELL"; `+
+			`elif command -v bash >/dev/null 2>&1; then shell="$(command -v bash)"; `+
+			`elif command -v zsh >/dev/null 2>&1; then shell="$(command -v zsh)"; `+
+			`else shell="$(command -v sh)"; fi`,
+		`exec env TERM=xterm-256color "$shell" -i`,
+	)
+	return "sh -lc " + projectConversationShellQuote(strings.Join(command, " && "))
 }
 
 func resolveLocalConversationTerminalShellArgs() ([]string, error) {

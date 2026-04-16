@@ -8,6 +8,7 @@ import {
   updateProject,
 } from '$lib/api/openase'
 import {
+  createProjectReconnectRecoveryTask,
   isProjectDashboardRefreshEvent,
   readProjectDashboardRefreshSections,
   subscribeProjectEvents,
@@ -269,11 +270,26 @@ export function createOrgDashboardController() {
       true,
     )
 
-    const unsubscribeDashboard = subscribeProjectEvents(projectId, (event) => {
-      if (!isProjectDashboardRefreshEvent(event)) return
-      const sections = readProjectDashboardRefreshSections(event)
-      if (sections.length > 0) queueLoad(sections)
-    })
+    const unsubscribeDashboard = subscribeProjectEvents(
+      projectId,
+      (event) => {
+        if (!isProjectDashboardRefreshEvent(event)) return
+        const sections = readProjectDashboardRefreshSections(event)
+        if (sections.length > 0) queueLoad(sections)
+      },
+      {
+        onReconnectRecovery: createProjectReconnectRecoveryTask(() => {
+          queueLoad([
+            'agents',
+            'tickets',
+            'activity',
+            'memory',
+            'hr_advisor',
+            'organization_summary',
+          ])
+        }),
+      },
+    )
 
     const memoryInterval = window.setInterval(() => {
       queueLoad(['memory'])

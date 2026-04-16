@@ -1,6 +1,10 @@
 import { ApiError } from '$lib/api/client'
 import { listProjectUpdates } from '$lib/api/openase'
-import { isProjectUpdateEvent, subscribeProjectEvents } from '$lib/features/project-events'
+import {
+  createProjectReconnectRecoveryTask,
+  isProjectUpdateEvent,
+  subscribeProjectEvents,
+} from '$lib/features/project-events'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { mergeProjectUpdateThreads, parseProjectUpdatePage } from './model'
 import {
@@ -71,13 +75,22 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
       void refreshLatestThreads(projectId, { showLoading: true })
     }
 
-    return subscribeProjectEvents(projectId, (event) => {
-      if (!isProjectUpdateEvent(event)) {
-        return
-      }
-      markProjectUpdatesCacheDirty(projectId)
-      requestReload(projectId)
-    })
+    return subscribeProjectEvents(
+      projectId,
+      (event) => {
+        if (!isProjectUpdateEvent(event)) {
+          return
+        }
+        markProjectUpdatesCacheDirty(projectId)
+        requestReload(projectId)
+      },
+      {
+        onReconnectRecovery: createProjectReconnectRecoveryTask(() => {
+          markProjectUpdatesCacheDirty(projectId)
+          requestReload(projectId)
+        }),
+      },
+    )
   })
 
   async function refreshLatestThreads(projectId: string, options: LoadProjectUpdatesOptions = {}) {
