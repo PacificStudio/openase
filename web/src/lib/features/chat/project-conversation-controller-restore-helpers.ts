@@ -247,7 +247,9 @@ export async function restoreProjectConversationController(
       }
 
       if (tab.id === preferredActiveTabId) {
-        if (await input.runtime.loadTabConversation(tab, restored.conversationId, restored.restored)) {
+        if (
+          await input.runtime.loadTabConversation(tab, restored.conversationId, restored.restored)
+        ) {
           loadedTabIDs.add(tab.id)
         } else {
           loadedTabIDs.add(tab.id)
