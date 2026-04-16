@@ -101,7 +101,8 @@ type PrincipalKind string
 const (
 	PrincipalKindTicketAgent         PrincipalKind = "ticket_agent"
 	PrincipalKindProjectConversation PrincipalKind = "project_conversation"
-	PrincipalKindUserAPIKey          PrincipalKind = "user_api_key"
+	// #nosec G101 -- principal kind label, not a credential.
+	PrincipalKindUserAPIKey PrincipalKind = "user_api_key"
 )
 
 type ScopeSet []Scope
