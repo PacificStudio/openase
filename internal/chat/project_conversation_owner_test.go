@@ -74,9 +74,9 @@ func TestResolveProjectConversationOwnerAccess(t *testing.T) {
 	otherHuman := "user:" + uuid.MustParse("bf356dd8-aed8-4582-9278-69e72d68df79").String()
 
 	tests := []struct {
-		name string
-		hint ProjectConversationAccessHint
-		want projectConversationOwnerAccess
+		name   string
+		hint   ProjectConversationAccessHint
+		want   projectConversationOwnerAccess
 		stored string
 	}{
 		{
