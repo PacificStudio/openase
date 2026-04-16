@@ -159,6 +159,7 @@ type monitoredMachine struct {
 	AdvertisedEndpoint *string
 	WorkspaceRoot      *string
 	AgentCLIPath       *string
+	EnvVars            []string
 	DaemonStatus       domain.MachineDaemonStatus
 	Status             entmachine.Status
 	Labels             []string
@@ -182,6 +183,7 @@ func (m monitoredMachine) toDomain() domain.Machine {
 		AdvertisedEndpoint: m.AdvertisedEndpoint,
 		WorkspaceRoot:      m.WorkspaceRoot,
 		AgentCLIPath:       m.AgentCLIPath,
+		EnvVars:            append([]string(nil), m.EnvVars...),
 		DaemonStatus:       m.DaemonStatus,
 		Labels:             append([]string(nil), m.Labels...),
 	}
@@ -665,6 +667,7 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		AdvertisedEndpoint: optionalMachineString(item.AdvertisedEndpoint),
 		WorkspaceRoot:      optionalMachineString(item.WorkspaceRoot),
 		AgentCLIPath:       optionalMachineString(item.AgentCliPath),
+		EnvVars:            append([]string(nil), item.EnvVars...),
 		DaemonStatus: domain.MachineDaemonStatus{
 			Registered:       item.DaemonRegistered,
 			LastRegisteredAt: cloneTimePointer(item.DaemonLastRegisteredAt),

@@ -18,6 +18,36 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestMachineMonitorRunTickProjectsMachineEnvVarsIntoAgentEnvironmentChecks(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	if _, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName(domain.LocalMachineName).
+		SetHost(domain.LocalMachineHost).
+		SetPort(22).
+		SetEnvVars([]string{"PATH=/opt/codex/bin:/usr/bin", "OPENAI_API_KEY=sk-test"}).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{}).
+		Save(ctx); err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 14, 5, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{now: func() time.Time { return now }}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	if _, err := monitor.RunTick(ctx); err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if got := collector.lastAgentEnvMachine.EnvVars; len(got) != 2 || got[0] != "PATH=/opt/codex/bin:/usr/bin" || got[1] != "OPENAI_API_KEY=sk-test" {
+		t.Fatalf("expected agent environment collector to receive machine env vars, got %+v", got)
+	}
+}
+
 func TestMachineMonitorRunTickCollectsSingleLocalMachine(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -558,25 +588,26 @@ func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Clie
 }
 
 type fakeMachineMonitorCollector struct {
-	now                func() time.Time
-	reachabilityError  error
-	systemError        error
-	gpuError           error
-	agentEnvError      error
-	fullAuditError     error
-	websocketHealth    domain.WebsocketMachineHealth
-	websocketHealthErr error
-	systemResources    domain.MachineSystemResources
-	gpuResources       domain.MachineGPUResources
-	agentEnvironment   domain.MachineAgentEnvironment
-	fullAudit          domain.MachineFullAudit
-	reachabilityCalls  int
-	systemCalls        int
-	gpuCalls           int
-	agentEnvCalls      int
-	fullAuditCalls     int
-	websocketCalls     int
-	lastMachine        domain.Machine
+	now                 func() time.Time
+	reachabilityError   error
+	systemError         error
+	gpuError            error
+	agentEnvError       error
+	fullAuditError      error
+	websocketHealth     domain.WebsocketMachineHealth
+	websocketHealthErr  error
+	systemResources     domain.MachineSystemResources
+	gpuResources        domain.MachineGPUResources
+	agentEnvironment    domain.MachineAgentEnvironment
+	fullAudit           domain.MachineFullAudit
+	reachabilityCalls   int
+	systemCalls         int
+	gpuCalls            int
+	agentEnvCalls       int
+	fullAuditCalls      int
+	websocketCalls      int
+	lastMachine         domain.Machine
+	lastAgentEnvMachine domain.Machine
 }
 
 func (f *fakeMachineMonitorCollector) CollectReachability(_ context.Context, machine domain.Machine) (domain.MachineReachability, error) {
@@ -683,7 +714,8 @@ func (f *fakeMachineMonitorCollector) CollectGPUResources(context.Context, domai
 	return f.gpuResources, nil
 }
 
-func (f *fakeMachineMonitorCollector) CollectAgentEnvironment(context.Context, domain.Machine) (domain.MachineAgentEnvironment, error) {
+func (f *fakeMachineMonitorCollector) CollectAgentEnvironment(_ context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error) {
+	f.lastAgentEnvMachine = machine
 	f.agentEnvCalls++
 	if f.agentEnvError != nil {
 		return domain.MachineAgentEnvironment{}, f.agentEnvError

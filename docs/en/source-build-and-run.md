@@ -44,6 +44,8 @@ Build the embedded frontend and Go binary together from the repo root:
 make build-web
 ```
 
+For fresh cloud hosts, treat frontend compilation as the memory-hungry step. A machine with 8 GB RAM is the smoother path; on a 4 GB droplet, add swap before running `make build-web` if you want the first build to complete reliably.
+
 The equivalent explicit commands are:
 
 ```bash
@@ -200,16 +202,13 @@ Launch the interactive terminal setup:
 ./bin/openase setup
 ```
 
-The default flow stays inside the terminal and does not open a browser. It walks through:
+The default flow stays inside the terminal and does not open a browser during setup itself. It walks through:
 
 - choosing a database source:
-  - start a local Docker PostgreSQL automatically
+  - start a local Docker PostgreSQL automatically when Docker is already installed and your user can access the daemon
   - enter an existing PostgreSQL connection manually by supplying host, port, database, user, password, and `sslmode`
 - validating the chosen database connection inside setup
 - checking local CLI availability and version probes for `git`, `codex`, `claude`, and other built-in provider CLIs
-- choosing the browser auth mode:
-  - `disabled`
-  - `oidc`, with in-flow prompts for issuer URL, client ID, client secret, redirect URL, scopes, and bootstrap admins
 - choosing how OpenASE should run after setup:
   - config-only
   - install/update the current-user managed service: `systemd --user` on Linux, `launchd` on macOS
@@ -227,7 +226,7 @@ Successful setup does all of the following:
 - does not require a repo path, repo URL, default branch, or mode selection
 - does not scaffold repo-local `.openase/` assets during setup
 - can install the managed OpenASE service directly when the local platform supports `systemd --user` or `launchd`
-- can write runnable OIDC browser-login settings directly into the generated config
+- leaves browser sign-in in local bootstrap mode after setup; enable OIDC later through the runtime security settings when you are ready
 
 When you choose Docker-backed PostgreSQL, setup uses predictable defaults:
 
@@ -241,11 +240,7 @@ Setup generates the PostgreSQL password automatically, validates the container-b
 
 If Docker is unavailable to your user account, setup does not fall back to another local database mode. In that case, bring your own PostgreSQL first and choose the manual connection path.
 
-If you choose OIDC mode during setup, the flow points to the dual-mode IAM
-contract ([`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md))
-and the OIDC setup guide ([`docs/en/human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)).
-The runtime is intended for standard OIDC providers such as Auth0 or Azure
-Entra ID.
+After setup, browser sign-in uses a local bootstrap link by default. If you later want managed browser login, enable OIDC from the running instance and then follow the dual-mode IAM contract ([`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)) and the OIDC setup guide ([`docs/en/human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)). The runtime is intended for standard OIDC providers such as Auth0 or Azure Entra ID.
 
 ## 5. Start OpenASE
 
@@ -410,7 +405,9 @@ curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
 # Enable corepack for pnpm
-corepack enable
+# On Ubuntu/Debian package-manager installs, this commonly needs sudo because
+# the Node.js install lives under a root-owned prefix.
+sudo corepack enable
 
 # Verify
 node --version   # v22.x.x

@@ -190,7 +190,7 @@ For fresh Linux or macOS machines:
 curl -fsSL https://raw.githubusercontent.com/pacificstudio/openase/main/scripts/install.sh | sh
 ```
 
-The installer detects OS/arch/package managers, downloads and verifies the matching GitHub release, offers PostgreSQL bootstrap (system package or Docker), and writes a runnable `~/.openase/config.yaml` and `~/.openase/.env`.
+The installer detects OS/arch/package managers, downloads and verifies the matching GitHub release, offers PostgreSQL bootstrap, and writes a runnable `~/.openase/config.yaml` and `~/.openase/.env`. Docker-backed PostgreSQL is only offered when Docker is already installed and the current user can reach the Docker daemon; otherwise the installer shows the system-package path when available, plus `skip`.
 
 To pin a specific version:
 
@@ -207,6 +207,8 @@ make build-web              # build frontend + Go binary
 ./bin/openase setup         # interactive first-run setup
 ./bin/openase all-in-one --config ~/.openase/config.yaml
 ```
+
+On fresh cloud VMs, budget enough memory for the frontend build. In practice `make build-web` is much more reliable on machines with at least 8 GB RAM, or on a 4 GB droplet after adding swap first.
 
 The control plane is then available at `http://127.0.0.1:19836`.
 
