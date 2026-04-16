@@ -267,6 +267,9 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if _, err := repo.ListAgentRuns(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ListAgentRuns(missing project) error = %v, want %v", err, ErrNotFound)
 	}
+	if _, err := repo.ListTicketRuns(ctx, uuid.New(), uuid.New()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ListTicketRuns(missing ticket) error = %v, want %v", err, ErrNotFound)
+	}
 
 	orgB, err := repo.CreateOrganization(ctx, domain.CreateOrganization{
 		Name: "GrandCX",
@@ -397,6 +400,20 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agent run: %v", err)
 	}
+	otherRunCreatedAt := runCreatedAt.Add(10 * time.Minute)
+	otherAgentRun, err := client.AgentRun.Create().
+		SetAgentID(createdAgent.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(otherTicketItem.ID).
+		SetProviderID(agentProvider.ID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetSessionID("session-279").
+		SetTerminalAt(otherRunCreatedAt.Add(2 * time.Minute)).
+		SetCreatedAt(otherRunCreatedAt).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create secondary agent run: %v", err)
+	}
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetCurrentRunID(agentRun.ID).Save(ctx); err != nil {
 		t.Fatalf("bind current run: %v", err)
 	}
@@ -441,8 +458,15 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAgentRuns() error = %v", err)
 	}
-	if len(agentRuns) != 1 || agentRuns[0].ID != agentRun.ID {
+	if len(agentRuns) != 2 || agentRuns[0].ID != otherAgentRun.ID || agentRuns[1].ID != agentRun.ID {
 		t.Fatalf("ListAgentRuns() = %+v", agentRuns)
+	}
+	ticketRuns, err := repo.ListTicketRuns(ctx, project.ID, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("ListTicketRuns() error = %v", err)
+	}
+	if len(ticketRuns) != 1 || ticketRuns[0].ID != agentRun.ID {
+		t.Fatalf("ListTicketRuns() = %+v", ticketRuns)
 	}
 
 	gotRun, err := repo.GetAgentRun(ctx, agentRun.ID)
@@ -637,6 +661,9 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	}
 	if err := client.AgentRun.DeleteOneID(agentRun.ID).Exec(ctx); err != nil {
 		t.Fatalf("delete agent run: %v", err)
+	}
+	if err := client.AgentRun.DeleteOneID(otherAgentRun.ID).Exec(ctx); err != nil {
+		t.Fatalf("delete secondary agent run: %v", err)
 	}
 
 	deletedAgent, err := repo.DeleteAgent(ctx, createdAgent.ID)

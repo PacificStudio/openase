@@ -1196,6 +1196,16 @@ func (r *stubRepository) ListAgentRuns(context.Context, uuid.UUID) ([]domain.Age
 	return append([]domain.AgentRun(nil), r.agentRuns...), nil
 }
 
+func (r *stubRepository) ListTicketRuns(_ context.Context, _ uuid.UUID, ticketID uuid.UUID) ([]domain.AgentRun, error) {
+	items := make([]domain.AgentRun, 0)
+	for _, item := range r.agentRuns {
+		if item.TicketID == ticketID {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
 func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivityEvents) (domain.ActivityEventPage, error) {
 	return domain.ActivityEventPage{}, nil
 }

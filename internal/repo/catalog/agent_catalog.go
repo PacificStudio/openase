@@ -182,6 +182,34 @@ func (r *EntRepository) ListAgentRuns(ctx context.Context, projectID uuid.UUID) 
 	return mapAgentRuns(items), nil
 }
 
+func (r *EntRepository) ListTicketRuns(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.AgentRun, error) {
+	exists, err := r.client.Ticket.Query().
+		Where(
+			entticket.ID(ticketID),
+			entticket.ProjectIDEQ(projectID),
+		).
+		Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check ticket before listing agent runs: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	items, err := r.client.AgentRun.Query().
+		Where(
+			entagentrun.TicketIDEQ(ticketID),
+			entagentrun.HasTicketWith(entticket.ProjectIDEQ(projectID)),
+		).
+		Order(ent.Desc(entagentrun.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket agent runs: %w", err)
+	}
+
+	return mapAgentRuns(items), nil
+}
+
 func (r *EntRepository) CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	project, err := r.client.Project.Get(ctx, input.ProjectID)
 	if err != nil {
