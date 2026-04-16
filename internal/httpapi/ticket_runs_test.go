@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -378,6 +379,124 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	}
 	if len(detailPayload.StepEntries) != 2 || detailPayload.StepEntries[1].StepStatus != "running_tests" {
 		t.Fatalf("expected run-scoped step entries, got %+v", detailPayload.StepEntries)
+	}
+}
+
+func TestTicketRunRoutesUseTicketScopedRunQuery(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme-scoped").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-scoped").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+
+	targetTicket, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetStatusID(backlogID).
+		SetIdentifier("ASE-243").
+		SetTitle("Fix ticket runs overfetch").
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create target ticket: %v", err)
+	}
+	otherTicket, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetStatusID(backlogID).
+		SetIdentifier("ASE-244").
+		SetTitle("Another ticket").
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create other ticket: %v", err)
+	}
+
+	catalog := newFakeCatalogService()
+	catalog.organizations[org.ID] = domain.Organization{ID: org.ID, Name: org.Name, Slug: org.Slug}
+	catalog.projects[project.ID] = domain.Project{ID: project.ID, OrganizationID: org.ID, Name: project.Name, Slug: project.Slug}
+	catalog.tickets[targetTicket.ID] = fakeCatalogTicket{ID: targetTicket.ID, ProjectID: project.ID}
+	catalog.tickets[otherTicket.ID] = fakeCatalogTicket{ID: otherTicket.ID, ProjectID: project.ID}
+	catalog.listAgentRunsErr = errors.New("unexpected project-wide run query")
+
+	providerID := uuid.New()
+	agentID := uuid.New()
+	targetRunID := uuid.New()
+	otherRunID := uuid.New()
+	catalog.providers[providerID] = domain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: org.ID,
+		Name:           "Codex",
+		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
+		ModelName:      "gpt-5.4",
+	}
+	catalog.agents[agentID] = domain.Agent{ID: agentID, ProjectID: project.ID, ProviderID: providerID, Name: "Ticket Runner"}
+
+	now := time.Date(2026, 4, 16, 9, 0, 0, 0, time.UTC)
+	catalog.agentRuns[targetRunID] = domain.AgentRun{
+		ID:         targetRunID,
+		AgentID:    agentID,
+		TicketID:   targetTicket.ID,
+		ProviderID: providerID,
+		WorkflowID: uuid.New(),
+		Status:     domain.AgentRunStatusCompleted,
+		CreatedAt:  now,
+	}
+	catalog.agentRuns[otherRunID] = domain.AgentRun{
+		ID:         otherRunID,
+		AgentID:    agentID,
+		TicketID:   otherTicket.ID,
+		ProviderID: providerID,
+		WorkflowID: uuid.New(),
+		Status:     domain.AgentRunStatusCompleted,
+		CreatedAt:  now.Add(time.Minute),
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		catalog,
+		nil,
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+targetTicket.ID.String()+"/runs",
+		"",
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ticket runs 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Runs []ticketRunResponse `json:"runs"`
+	}
+	decodeResponse(t, rec, &payload)
+	if len(payload.Runs) != 1 || payload.Runs[0].ID != targetRunID.String() {
+		t.Fatalf("expected only target ticket runs, got %+v", payload.Runs)
 	}
 }
 

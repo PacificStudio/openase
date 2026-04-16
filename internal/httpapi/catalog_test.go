@@ -51,6 +51,8 @@ type fakeCatalogService struct {
 	rawEvents            []domain.AgentRawEventEntry
 	activityInstances    []domain.AgentActivityInstance
 	transcriptEntries    []domain.AgentTranscriptEntry
+	listAgentRunsErr     error
+	listTicketRunsErr    error
 }
 
 type fakeCatalogTicket struct {

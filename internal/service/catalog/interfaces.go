@@ -77,6 +77,7 @@ type AgentService interface {
 
 type AgentRunQueryService interface {
 	ListAgentRuns(ctx context.Context, projectID uuid.UUID) ([]domain.AgentRun, error)
+	ListTicketRuns(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.AgentRun, error)
 	GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error)
 	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
 	ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error)
@@ -221,6 +222,7 @@ type AgentRepository interface {
 
 type AgentRunQueryRepository interface {
 	ListAgentRuns(ctx context.Context, projectID uuid.UUID) ([]domain.AgentRun, error)
+	ListTicketRuns(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.AgentRun, error)
 	GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRun, error)
 	ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error)
 	ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error)
