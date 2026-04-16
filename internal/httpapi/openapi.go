@@ -2616,6 +2616,7 @@ var (
 		"config":     "Channel-specific configuration object submitted for this notification channel.",
 		"is_enabled": "Whether the channel is enabled for delivery.",
 	}
+	// #nosec G101 -- OpenAPI request field descriptions mention token names but do not embed secrets.
 	openAPIMachineSSHBootstrapRequestDescriptions = map[string]string{
 		"topology":              "Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology.",
 		"listener_address":      "Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837.",
