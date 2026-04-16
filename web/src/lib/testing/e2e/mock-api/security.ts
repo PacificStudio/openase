@@ -99,7 +99,7 @@ export function createDefaultSecuritySettings(projectId: string): MockSecuritySe
       environment_variable: 'OPENASE_AGENT_TOKEN',
       token_prefix: 'ase_agent_',
       default_scopes: ['tickets.create', 'tickets.list'],
-      supported_project_scopes: ['projects.update', 'projects.add_repo'],
+      supported_project_scopes: ['project_updates.read', 'project_updates.write', 'projects.update', 'projects.add_repo'],
     },
     github: {
       effective: clone(organization),

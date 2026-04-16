@@ -9,7 +9,7 @@ export function currentProject() {
     /* i18n-exempt */ description: '',
     /* i18n-exempt */ status: 'active',
     default_agent_provider_id: null,
-    project_ai_platform_access_allowed: ['projects.update', 'projects.add_repo'],
+    project_ai_platform_access_allowed: ['project_updates.read', 'project_updates.write', 'projects.update', 'projects.add_repo'],
     accessible_machine_ids: [],
     max_concurrent_agents: 4,
   }
@@ -108,11 +108,11 @@ export function configuredSecurity() {
       environment_variable: 'OPENASE_AGENT_TOKEN',
       token_prefix: 'ase_agent_',
       default_scopes: ['tickets.create', 'tickets.list'],
-      supported_project_scopes: ['projects.update', 'projects.add_repo'],
+      supported_project_scopes: ['project_updates.read', 'project_updates.write', 'projects.update', 'projects.add_repo'],
       supported_scope_groups: [
         {
           category: 'projects',
-          scopes: ['projects.update', 'projects.add_repo'],
+          scopes: ['project_updates.read', 'project_updates.write', 'projects.update', 'projects.add_repo'],
         },
       ],
     },

@@ -251,6 +251,8 @@ func TestSupportedAgentScopes(t *testing.T) {
 		string(ScopeNotificationRulesDelete),
 		string(ScopeNotificationRulesList),
 		string(ScopeNotificationRulesUpdate),
+		string(ScopeProjectUpdatesRead),
+		string(ScopeProjectUpdatesWrite),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),
 		string(ScopeReposCreate),

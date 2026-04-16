@@ -1023,8 +1023,19 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 		ProjectID: projectID,
 		TicketID:  currentTicketID,
 		Scopes: []string{
-			string(agentplatform.ScopeProjectsUpdate),
-			string(agentplatform.ScopeTicketsList),
+			string(agentplatform.ScopeProjectUpdatesWrite),
+			string(agentplatform.ScopeTicketsUpdateSelf),
+		},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+	readerToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		Scopes: []string{
+			string(agentplatform.ScopeProjectUpdatesRead),
 			string(agentplatform.ScopeTicketsUpdateSelf),
 		},
 	})
@@ -1064,7 +1075,7 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 		http.MethodGet,
 		fmt.Sprintf("/api/v1/platform/projects/%s/updates", projectID),
 		nil,
-		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + readerToken.Token},
 		http.StatusOK,
 		&listResp,
 	)
@@ -1094,6 +1105,23 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 	}
 	if updateThreadResp.Thread.Title != "One queue is backing up on the A100 pool." {
 		t.Fatalf("unexpected updated derived thread title payload: %+v", updateThreadResp.Thread)
+	}
+
+	threadRevisionsResp := struct {
+		Revisions []projectUpdateThreadRevisionResponse `json:"revisions"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates/%s/revisions", projectID, createThreadResp.Thread.ID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + readerToken.Token},
+		http.StatusOK,
+		&threadRevisionsResp,
+	)
+	if len(threadRevisionsResp.Revisions) != 2 || threadRevisionsResp.Revisions[len(threadRevisionsResp.Revisions)-1].Status != "at_risk" {
+		t.Fatalf("unexpected thread revisions payload: %+v", threadRevisionsResp.Revisions)
 	}
 
 	createCommentResp := struct {
@@ -1138,6 +1166,28 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 	)
 	if updateCommentResp.Comment.LastEditedBy == nil || *updateCommentResp.Comment.LastEditedBy != "agent:coding-01" {
 		t.Fatalf("unexpected updated comment payload: %+v", updateCommentResp.Comment)
+	}
+
+	commentRevisionsResp := struct {
+		Revisions []projectUpdateCommentRevisionResponse `json:"revisions"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf(
+			"/api/v1/platform/projects/%s/updates/%s/comments/%s/revisions",
+			projectID,
+			createThreadResp.Thread.ID,
+			createCommentResp.Comment.ID,
+		),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + readerToken.Token},
+		http.StatusOK,
+		&commentRevisionsResp,
+	)
+	if len(commentRevisionsResp.Revisions) != 2 || commentRevisionsResp.Revisions[len(commentRevisionsResp.Revisions)-1].CommentID != createCommentResp.Comment.ID {
+		t.Fatalf("unexpected comment revisions payload: %+v", commentRevisionsResp.Revisions)
 	}
 
 	deleteCommentResp := struct {
@@ -1189,6 +1239,18 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 	)
 	if forbiddenCreateRec.Code != http.StatusForbidden {
 		t.Fatalf("expected update create without scope to return 403, got %d: %s", forbiddenCreateRec.Code, forbiddenCreateRec.Body.String())
+	}
+
+	forbiddenListRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/updates", projectID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+	)
+	if forbiddenListRec.Code != http.StatusForbidden {
+		t.Fatalf("expected update list without scope to return 403, got %d: %s", forbiddenListRec.Code, forbiddenListRec.Body.String())
 	}
 }
 
@@ -2108,6 +2170,8 @@ func projectConversationScopeContracts(fixture *agentPlatformExpandedFixture) []
 		{scope: agentplatform.ScopeNotificationRulesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/notification-rules/%s", fixture.notificationDeleteID), wantStatus: http.StatusOK, wantBody: fixture.notificationDeleteID.String()},
 		{scope: agentplatform.ScopeNotificationRulesList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/notification-rules", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"rules":[`},
 		{scope: agentplatform.ScopeNotificationRulesUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/notification-rules/%s", fixture.notificationRuleID), body: map[string]any{"name": "Platform Updated Rule", "is_enabled": false}, wantStatus: http.StatusOK, wantBody: `"name":"Platform Updated Rule"`},
+		{scope: agentplatform.ScopeProjectUpdatesRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/updates", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"threads":[`},
+		{scope: agentplatform.ScopeProjectUpdatesWrite, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/updates", fixture.projectID), body: map[string]any{"status": "on_track", "body": "Project AI published a scoped update."}, wantStatus: http.StatusCreated, wantBody: `"status":"on_track"`},
 		{scope: agentplatform.ScopeProjectsAddRepo, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/github/namespaces", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"login":"octocat"`},
 		{scope: agentplatform.ScopeProjectsUpdate, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/orgs/%s/projects", fixture.organizationID), wantStatus: http.StatusOK, wantBody: `"projects":[`},
 		{scope: agentplatform.ScopeReposCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos", fixture.projectID), body: map[string]any{"name": "worker-tools", "repository_url": "file:///srv/git/worker-tools.git", "default_branch": "main"}, wantStatus: http.StatusCreated, wantBody: `"name":"worker-tools"`},

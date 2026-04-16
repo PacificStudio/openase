@@ -32,6 +32,8 @@ const (
 	ScopeTicketsUpdate                 = domain.ScopeTicketsUpdate
 	ScopeTicketsReportUsage            = domain.ScopeTicketsReportUsage
 	ScopeTicketsUpdateSelf             = domain.ScopeTicketsUpdateSelf
+	ScopeProjectUpdatesRead            = domain.ScopeProjectUpdatesRead
+	ScopeProjectUpdatesWrite           = domain.ScopeProjectUpdatesWrite
 	ScopeProjectsUpdate                = domain.ScopeProjectsUpdate
 	ScopeProjectsAddRepo               = domain.ScopeProjectsAddRepo
 	ScopeActivityRead                  = domain.ScopeActivityRead
@@ -114,6 +116,8 @@ var (
 		ScopeNotificationRulesDelete,
 		ScopeNotificationRulesList,
 		ScopeNotificationRulesUpdate,
+		ScopeProjectUpdatesRead,
+		ScopeProjectUpdatesWrite,
 		ScopeProjectsAddRepo,
 		ScopeProjectsUpdate,
 		ScopeReposCreate,

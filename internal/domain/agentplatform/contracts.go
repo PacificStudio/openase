@@ -39,6 +39,8 @@ const (
 	ScopeTicketsUpdate                 Scope = "tickets.update"
 	ScopeTicketsReportUsage            Scope = "tickets.report_usage"
 	ScopeTicketsUpdateSelf             Scope = "tickets.update.self"
+	ScopeProjectUpdatesRead            Scope = "project_updates.read"
+	ScopeProjectUpdatesWrite           Scope = "project_updates.write"
 	ScopeProjectsUpdate                Scope = "projects.update"
 	ScopeProjectsAddRepo               Scope = "projects.add_repo"
 	ScopeActivityRead                  Scope = "activity.read"
@@ -137,6 +139,8 @@ func SupportedAgentScopes() []string {
 		string(ScopeNotificationRulesDelete),
 		string(ScopeNotificationRulesList),
 		string(ScopeNotificationRulesUpdate),
+		string(ScopeProjectUpdatesRead),
+		string(ScopeProjectUpdatesWrite),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),
 		string(ScopeReposCreate),
