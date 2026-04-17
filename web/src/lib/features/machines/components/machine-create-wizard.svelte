@@ -1,37 +1,23 @@
 <script lang="ts">
-  /* eslint-disable max-lines */
   import * as Dialog from '$ui/dialog'
-  import { Button } from '$ui/button'
-  import { Input } from '$ui/input'
-  import { Label } from '$ui/label'
   import { cn } from '$lib/utils'
-  import { fly } from 'svelte/transition'
-  import {
-    ArrowLeftRight,
-    ArrowRight,
-    ArrowLeft,
-    Check,
-    Loader2,
-    Monitor,
-    Radio,
-    Sparkles,
-  } from '@lucide/svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import type { TranslationKey } from '$lib/i18n'
   import type { Machine, MachineSSHBootstrapResult } from '$lib/api/contracts'
+  import MachineCreateWizardFooter from './machine-create-wizard-footer.svelte'
+  import {
+    machineWizardLocationOptions,
+    machineWizardStrategyOptions,
+  } from './machine-create-wizard-options'
+  import MachineCreateWizardReview from './machine-create-wizard-review.svelte'
   import { machineErrorMessage, runMachineSSHBootstrap, saveMachine } from './machines-page-api'
+  import MachineCreateWizardSteps from './machine-create-wizard-steps.svelte'
   import type { MachineMutationInput } from '../types'
-
-  type Strategy = 'direct-open' | 'ssh-install-listener' | 'reverse'
-  type LocationAnswer = 'local' | 'remote'
-  type Step =
-    | 'location'
-    | 'identity'
-    | 'strategy'
-    | 'credentials'
-    | 'advertised-endpoint'
-    | 'review'
+  import type {
+    MachineWizardLocationAnswer,
+    MachineWizardStep,
+    MachineWizardStrategy,
+  } from './machine-create-wizard-types'
 
   let {
     open = $bindable(false),
@@ -43,13 +29,11 @@
     onCreated?: (machine: Machine) => void
   } = $props()
 
-  // Wizard state — only the fields the user can actually answer. Ports, topology
-  // envs, and binary paths fall back to sensible server defaults.
-  let step = $state<Step>('location')
-  let location = $state<LocationAnswer | null>(null)
+  let step = $state<MachineWizardStep>('location')
+  let location = $state<MachineWizardLocationAnswer | null>(null)
   let name = $state('')
   let host = $state('')
-  let strategy = $state<Strategy | null>(null)
+  let strategy = $state<MachineWizardStrategy | null>(null)
   let sshUser = $state('')
   let sshKeyPath = $state('~/.ssh/id_ed25519')
   let advertisedEndpoint = $state('')
@@ -59,7 +43,6 @@
   let bootstrapResult = $state<MachineSSHBootstrapResult | null>(null)
   let errorMessage = $state('')
 
-  // Reset wizard every time the dialog opens.
   $effect(() => {
     if (open) {
       step = 'location'
@@ -83,9 +66,12 @@
   const totalSteps = $derived(stepOrder.length)
   const isLastStep = $derived(step === 'review')
 
-  function computeStepOrder(loc: LocationAnswer | null, strat: Strategy | null): Step[] {
+  function computeStepOrder(
+    loc: MachineWizardLocationAnswer | null,
+    strat: MachineWizardStrategy | null,
+  ): MachineWizardStep[] {
     if (loc === 'local') return ['location', 'identity', 'review']
-    const order: Step[] = ['location', 'identity', 'strategy']
+    const order: MachineWizardStep[] = ['location', 'identity', 'strategy']
     if (strat === 'direct-open') order.push('advertised-endpoint')
     if (strat === 'ssh-install-listener' || strat === 'reverse') {
       order.push('credentials')
@@ -127,7 +113,7 @@
     }
   }
 
-  function pickLocation(value: LocationAnswer) {
+  function pickLocation(value: MachineWizardLocationAnswer) {
     location = value
     if (value === 'local') {
       strategy = null
@@ -135,11 +121,10 @@
     } else if (!strategy) {
       strategy = 'ssh-install-listener'
     }
-    // Auto-advance for a snappy feel.
     setTimeout(() => goNext(), 120)
   }
 
-  function pickStrategy(value: Strategy) {
+  function pickStrategy(value: MachineWizardStrategy) {
     strategy = value
     setTimeout(() => goNext(), 120)
   }
@@ -163,6 +148,7 @@
         env_vars: [],
       }
     }
+
     const hostValue = host.trim()
     if (strategy === 'reverse') {
       return {
@@ -182,7 +168,7 @@
         env_vars: [],
       }
     }
-    // direct-open and ssh-install-listener both target direct_connect / ws_listener.
+
     const endpoint =
       strategy === 'direct-open'
         ? advertisedEndpoint.trim()
@@ -210,6 +196,7 @@
       toastStore.error(i18nStore.t('machines.machineCreateWizard.errors.noOrg'))
       return
     }
+
     errorMessage = ''
     saving = true
     try {
@@ -217,9 +204,6 @@
       const created = await saveMachine(organizationId, null, 'create', mutation)
       onCreated?.(created.machine)
 
-      // Auto-bootstrap when the strategy maps to a CLI topology the backend
-      // can drive in-process. direct-open skips this because the user manages
-      // the listener themselves.
       if (strategy === 'ssh-install-listener' || strategy === 'reverse') {
         bootstrapping = true
         try {
@@ -246,7 +230,7 @@
       } else {
         toastStore.success(i18nStore.t('machines.machineCreateWizard.successes.created'))
       }
-      // Keep the dialog open only when the user can read the bootstrap result.
+
       if (!bootstrapResult && !errorMessage) {
         open = false
       }
@@ -264,63 +248,17 @@
   function closeWizard() {
     open = false
   }
-
-  type OptionCard<T> = {
-    value: T
-    icon: typeof Monitor
-    titleKey: TranslationKey
-    descKey: TranslationKey
-  }
-
-  const locationOptions: OptionCard<LocationAnswer>[] = [
-    {
-      value: 'local',
-      icon: Monitor,
-      titleKey: 'machines.machineCreateWizard.location.local.title',
-      descKey: 'machines.machineCreateWizard.location.local.desc',
-    },
-    {
-      value: 'remote',
-      icon: ArrowRight,
-      titleKey: 'machines.machineCreateWizard.location.remote.title',
-      descKey: 'machines.machineCreateWizard.location.remote.desc',
-    },
-  ]
-
-  const strategyOptions: OptionCard<Strategy>[] = [
-    {
-      value: 'ssh-install-listener',
-      icon: Sparkles,
-      titleKey: 'machines.machineCreateWizard.strategy.sshInstall.title',
-      descKey: 'machines.machineCreateWizard.strategy.sshInstall.desc',
-    },
-    {
-      value: 'reverse',
-      icon: ArrowLeftRight,
-      titleKey: 'machines.machineCreateWizard.strategy.reverse.title',
-      descKey: 'machines.machineCreateWizard.strategy.reverse.desc',
-    },
-    {
-      value: 'direct-open',
-      icon: Radio,
-      titleKey: 'machines.machineCreateWizard.strategy.directOpen.title',
-      descKey: 'machines.machineCreateWizard.strategy.directOpen.desc',
-    },
-  ]
 </script>
 
 <Dialog.Root bind:open>
   <Dialog.Content class="sm:max-w-lg" data-testid="machine-create-wizard">
     <Dialog.Header>
-      <Dialog.Title>
-        {i18nStore.t('machines.machineCreateWizard.title')}
-      </Dialog.Title>
+      <Dialog.Title>{i18nStore.t('machines.machineCreateWizard.title')}</Dialog.Title>
       <Dialog.Description class="text-xs">
         {i18nStore.t('machines.machineCreateWizard.description')}
       </Dialog.Description>
     </Dialog.Header>
 
-    <!-- Progress bar: simple dots, no chapter labels so it stays out of the way. -->
     <div class="flex items-center justify-between gap-1 px-1 pt-1">
       <div class="flex flex-1 gap-1">
         {#each Array(totalSteps) as _, idx (idx)}
@@ -338,366 +276,51 @@
     </div>
 
     <Dialog.Body class="min-h-[220px] py-4">
-      {#if step === 'location'}
-        <div class="space-y-3" in:fly={{ y: 6, duration: 180 }}>
-          <div class="space-y-1">
-            <p class="text-foreground text-sm font-medium">
-              {i18nStore.t('machines.machineCreateWizard.location.question')}
-            </p>
-            <p class="text-muted-foreground text-xs">
-              {i18nStore.t('machines.machineCreateWizard.location.helper')}
-            </p>
-          </div>
-          <div class="grid gap-2 sm:grid-cols-2">
-            {#each locationOptions as option (option.value)}
-              {@const Icon = option.icon}
-              {@const selected = location === option.value}
-              <button
-                type="button"
-                class={cn(
-                  'border-border bg-card hover:bg-muted/50 rounded-lg border px-3 py-3 text-left transition-all',
-                  selected && 'border-primary bg-primary/5 ring-primary/20 ring-1',
-                )}
-                onclick={() => pickLocation(option.value)}
-                data-testid={`machine-wizard-location-${option.value}`}
-              >
-                <div class="flex items-center gap-2">
-                  <Icon class={cn('size-4', selected ? 'text-primary' : 'text-muted-foreground')} />
-                  <span class="text-foreground text-sm font-medium">
-                    {i18nStore.t(option.titleKey)}
-                  </span>
-                  {#if selected}
-                    <Check class="text-primary ml-auto size-3.5" />
-                  {/if}
-                </div>
-                <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-                  {i18nStore.t(option.descKey)}
-                </p>
-              </button>
-            {/each}
-          </div>
-        </div>
-      {:else if step === 'identity'}
-        <div class="space-y-4" in:fly={{ y: 6, duration: 180 }}>
-          <div class="space-y-1">
-            <p class="text-foreground text-sm font-medium">
-              {i18nStore.t('machines.machineCreateWizard.identity.question')}
-            </p>
-            <p class="text-muted-foreground text-xs">
-              {i18nStore.t('machines.machineCreateWizard.identity.helper')}
-            </p>
-          </div>
-          <div class="space-y-3">
-            <div class="space-y-1.5">
-              <Label for="wizard-name" class="text-xs">
-                {i18nStore.t('machines.machineCreateWizard.identity.nameLabel')}
-              </Label>
-              <Input
-                id="wizard-name"
-                bind:value={name}
-                placeholder={i18nStore.t('machines.machineCreateWizard.identity.namePlaceholder')}
-                autocomplete="off"
-                data-testid="machine-wizard-name"
-              />
-            </div>
-            {#if location === 'remote'}
-              <div class="space-y-1.5">
-                <Label for="wizard-host" class="text-xs">
-                  {i18nStore.t('machines.machineCreateWizard.identity.hostLabel')}
-                </Label>
-                <Input
-                  id="wizard-host"
-                  bind:value={host}
-                  placeholder={i18nStore.t('machines.machineCreateWizard.identity.hostPlaceholder')}
-                  autocomplete="off"
-                  data-testid="machine-wizard-host"
-                />
-                <p class="text-muted-foreground text-[11px] leading-relaxed">
-                  {i18nStore.t('machines.machineCreateWizard.identity.hostHint')}
-                </p>
-              </div>
-            {/if}
-          </div>
-        </div>
-      {:else if step === 'strategy'}
-        <div class="space-y-3" in:fly={{ y: 6, duration: 180 }}>
-          <div class="space-y-1">
-            <p class="text-foreground text-sm font-medium">
-              {i18nStore.t('machines.machineCreateWizard.strategy.question')}
-            </p>
-            <p class="text-muted-foreground text-xs">
-              {i18nStore.t('machines.machineCreateWizard.strategy.helper')}
-            </p>
-          </div>
-          <div class="grid gap-2">
-            {#each strategyOptions as option (option.value)}
-              {@const Icon = option.icon}
-              {@const selected = strategy === option.value}
-              <button
-                type="button"
-                class={cn(
-                  'border-border bg-card hover:bg-muted/50 rounded-lg border px-3 py-3 text-left transition-all',
-                  selected && 'border-primary bg-primary/5 ring-primary/20 ring-1',
-                )}
-                onclick={() => pickStrategy(option.value)}
-                data-testid={`machine-wizard-strategy-${option.value}`}
-              >
-                <div class="flex items-start gap-2.5">
-                  <div
-                    class={cn(
-                      'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md',
-                      selected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-                    )}
-                  >
-                    <Icon class="size-3.5" />
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
-                      <span class="text-foreground text-sm font-medium">
-                        {i18nStore.t(option.titleKey)}
-                      </span>
-                      {#if option.value === 'ssh-install-listener'}
-                        <span
-                          class="bg-primary/10 text-primary rounded-full px-1.5 py-px text-[10px] font-medium"
-                        >
-                          {i18nStore.t('machines.machineCreateWizard.strategy.recommendedBadge')}
-                        </span>
-                      {/if}
-                      {#if selected}
-                        <Check class="text-primary ml-auto size-3.5" />
-                      {/if}
-                    </div>
-                    <p class="text-muted-foreground mt-1 text-[11px] leading-relaxed">
-                      {i18nStore.t(option.descKey)}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            {/each}
-          </div>
-        </div>
-      {:else if step === 'credentials'}
-        <div class="space-y-4" in:fly={{ y: 6, duration: 180 }}>
-          <div class="space-y-1">
-            <p class="text-foreground text-sm font-medium">
-              {i18nStore.t('machines.machineCreateWizard.credentials.question')}
-            </p>
-            <p class="text-muted-foreground text-xs leading-relaxed">
-              {i18nStore.t('machines.machineCreateWizard.credentials.helper')}
-            </p>
-          </div>
-          <div class="space-y-3">
-            <div class="space-y-1.5">
-              <Label for="wizard-ssh-user" class="text-xs">
-                {i18nStore.t('machines.machineCreateWizard.credentials.userLabel')}
-              </Label>
-              <Input
-                id="wizard-ssh-user"
-                bind:value={sshUser}
-                placeholder={i18nStore.t(
-                  'machines.machineCreateWizard.credentials.userPlaceholder',
-                )}
-                autocomplete="off"
-                data-testid="machine-wizard-ssh-user"
-              />
-            </div>
-            <div class="space-y-1.5">
-              <Label for="wizard-ssh-key" class="text-xs">
-                {i18nStore.t('machines.machineCreateWizard.credentials.keyLabel')}
-              </Label>
-              <Input
-                id="wizard-ssh-key"
-                bind:value={sshKeyPath}
-                placeholder={i18nStore.t('machines.machineCreateWizard.credentials.keyPlaceholder')}
-                autocomplete="off"
-                data-testid="machine-wizard-ssh-key"
-              />
-              <p class="text-muted-foreground text-[11px] leading-relaxed">
-                {i18nStore.t('machines.machineCreateWizard.credentials.keyHint')}
-              </p>
-            </div>
-          </div>
-        </div>
-      {:else if step === 'advertised-endpoint'}
-        <div class="space-y-4" in:fly={{ y: 6, duration: 180 }}>
-          <div class="space-y-1">
-            <p class="text-foreground text-sm font-medium">
-              {i18nStore.t('machines.machineCreateWizard.endpoint.question')}
-            </p>
-            <p class="text-muted-foreground text-xs leading-relaxed">
-              {i18nStore.t('machines.machineCreateWizard.endpoint.helper')}
-            </p>
-          </div>
-          <div class="space-y-1.5">
-            <Label for="wizard-endpoint" class="text-xs">
-              {i18nStore.t('machines.machineCreateWizard.endpoint.label')}
-            </Label>
-            <Input
-              id="wizard-endpoint"
-              bind:value={advertisedEndpoint}
-              placeholder="wss://machine.example.com/openase/runtime"
-              autocomplete="off"
-              data-testid="machine-wizard-endpoint"
-            />
-          </div>
-        </div>
-      {:else if step === 'review'}
-        <div class="space-y-3" in:fly={{ y: 6, duration: 180 }}>
-          <div class="space-y-1">
-            <p class="text-foreground text-sm font-medium">
-              {i18nStore.t('machines.machineCreateWizard.review.question')}
-            </p>
-            <p class="text-muted-foreground text-xs">
-              {i18nStore.t('machines.machineCreateWizard.review.helper')}
-            </p>
-          </div>
-
-          {#if !bootstrapResult && !errorMessage}
-            <dl class="border-border bg-card divide-border divide-y rounded-lg border text-xs">
-              <div class="flex items-center justify-between gap-3 px-3 py-2">
-                <dt class="text-muted-foreground">
-                  {i18nStore.t('machines.machineCreateWizard.review.nameLabel')}
-                </dt>
-                <dd class="text-foreground font-medium">{name || '—'}</dd>
-              </div>
-              {#if location === 'remote'}
-                <div class="flex items-center justify-between gap-3 px-3 py-2">
-                  <dt class="text-muted-foreground">
-                    {i18nStore.t('machines.machineCreateWizard.review.hostLabel')}
-                  </dt>
-                  <dd class="text-foreground font-medium">{host || '—'}</dd>
-                </div>
-                <div class="flex items-center justify-between gap-3 px-3 py-2">
-                  <dt class="text-muted-foreground">
-                    {i18nStore.t('machines.machineCreateWizard.review.strategyLabel')}
-                  </dt>
-                  <dd class="text-foreground font-medium">
-                    {#if strategy === 'ssh-install-listener'}
-                      {i18nStore.t('machines.machineCreateWizard.strategy.sshInstall.title')}
-                    {:else if strategy === 'reverse'}
-                      {i18nStore.t('machines.machineCreateWizard.strategy.reverse.title')}
-                    {:else if strategy === 'direct-open'}
-                      {i18nStore.t('machines.machineCreateWizard.strategy.directOpen.title')}
-                    {/if}
-                  </dd>
-                </div>
-                {#if strategyNeedsSSH}
-                  <div class="flex items-center justify-between gap-3 px-3 py-2">
-                    <dt class="text-muted-foreground">
-                      {i18nStore.t('machines.machineCreateWizard.review.sshLabel')}
-                    </dt>
-                    <dd class="text-foreground font-medium">
-                      {sshUser || '—'}@{host || '—'}
-                    </dd>
-                  </div>
-                {/if}
-                {#if strategy === 'direct-open'}
-                  <div class="flex items-center justify-between gap-3 px-3 py-2">
-                    <dt class="text-muted-foreground">
-                      {i18nStore.t('machines.machineCreateWizard.review.endpointLabel')}
-                    </dt>
-                    <dd class="text-foreground font-medium break-all">
-                      {advertisedEndpoint || '—'}
-                    </dd>
-                  </div>
-                {/if}
-              {/if}
-            </dl>
-          {/if}
-
-          {#if saving || bootstrapping}
-            <div
-              class="border-primary/30 bg-primary/5 flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs"
-            >
-              <Loader2 class="text-primary size-3.5 animate-spin" />
-              <span class="text-foreground">
-                {bootstrapping
-                  ? i18nStore.t('machines.machineCreateWizard.review.bootstrapProgress')
-                  : i18nStore.t('machines.machineCreateWizard.review.saveProgress')}
-              </span>
-            </div>
-          {/if}
-
-          {#if bootstrapResult}
-            <div
-              class="border-primary/30 bg-primary/5 space-y-1 rounded-lg border px-3 py-2.5 text-[11px]"
-            >
-              <p class="text-foreground text-xs font-medium">
-                {i18nStore.t('machines.machineCreateWizard.review.bootstrapDone')}
-              </p>
-              <p class="text-muted-foreground">
-                {bootstrapResult.summary}
-              </p>
-              <div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                <span>
-                  <span class="text-muted-foreground">
-                    {i18nStore.t('machines.machineCreateWizard.review.serviceStatus')}
-                  </span>
-                  <span class="text-foreground ml-1">{bootstrapResult.service_status}</span>
-                </span>
-                <span>
-                  <span class="text-muted-foreground">
-                    {i18nStore.t('machines.machineCreateWizard.review.connectionTarget')}
-                  </span>
-                  <span class="text-foreground ml-1 break-all"
-                    >{bootstrapResult.connection_target}</span
-                  >
-                </span>
-              </div>
-            </div>
-          {/if}
-
-          {#if errorMessage}
-            <div
-              class="border-destructive/40 bg-destructive/10 rounded-lg border px-3 py-2.5 text-xs"
-            >
-              <p class="text-destructive">{errorMessage}</p>
-            </div>
-          {/if}
-        </div>
+      {#if step === 'review'}
+        <MachineCreateWizardReview
+          {location}
+          {name}
+          {host}
+          {strategy}
+          {sshUser}
+          {advertisedEndpoint}
+          {strategyNeedsSSH}
+          {saving}
+          {bootstrapping}
+          {bootstrapResult}
+          {errorMessage}
+          onClose={closeWizard}
+        />
+      {:else}
+        <MachineCreateWizardSteps
+          {step}
+          {location}
+          bind:name
+          bind:host
+          {strategy}
+          bind:sshUser
+          bind:sshKeyPath
+          bind:advertisedEndpoint
+          locationOptions={machineWizardLocationOptions}
+          strategyOptions={machineWizardStrategyOptions}
+          onPickLocation={pickLocation}
+          onPickStrategy={pickStrategy}
+        />
       {/if}
     </Dialog.Body>
 
-    <Dialog.Footer class="flex items-center justify-between gap-2">
-      <Button
-        variant="ghost"
-        size="sm"
-        onclick={goBack}
-        disabled={currentStepIndex === 0 || saving || bootstrapping}
-        data-testid="machine-wizard-back"
-      >
-        <ArrowLeft class="size-3.5" />
-        {i18nStore.t('machines.machineCreateWizard.actions.back')}
-      </Button>
-
-      {#if isLastStep}
-        {#if bootstrapResult || (!saving && !bootstrapping && errorMessage)}
-          <Button size="sm" onclick={closeWizard} data-testid="machine-wizard-done">
-            {i18nStore.t('machines.machineCreateWizard.actions.done')}
-          </Button>
-        {:else}
-          <Button
-            size="sm"
-            onclick={handleCreate}
-            disabled={saving || bootstrapping}
-            data-testid="machine-wizard-create"
-          >
-            {saving || bootstrapping
-              ? i18nStore.t('machines.machineCreateWizard.actions.creating')
-              : i18nStore.t('machines.machineCreateWizard.actions.create')}
-          </Button>
-        {/if}
-      {:else}
-        <Button
-          size="sm"
-          onclick={goNext}
-          disabled={!canAdvance()}
-          data-testid="machine-wizard-next"
-        >
-          {i18nStore.t('machines.machineCreateWizard.actions.next')}
-          <ArrowRight class="size-3.5" />
-        </Button>
-      {/if}
+    <Dialog.Footer>
+      <MachineCreateWizardFooter
+        {currentStepIndex}
+        canAdvance={canAdvance()}
+        {isLastStep}
+        {saving}
+        {bootstrapping}
+        hasTerminalState={Boolean(bootstrapResult || (!saving && !bootstrapping && errorMessage))}
+        onBack={goBack}
+        onNext={goNext}
+        onCreate={handleCreate}
+      />
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
