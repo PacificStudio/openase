@@ -785,6 +785,7 @@
   "chat.workspaceLabel": "工作区",
   "chat.workspaceLiveUpdateNotice": "代理运行期间，工作区可能持续变化；你的本地草稿会保留。",
   "chat.workspaceLoading": "正在加载工作区",
+  "chat.workspacePreparing": "正在准备工作区并克隆仓库…",
   "chat.workspaceProvisionNotice": "工作区正在准备中，稍后可查看文件。",
   "chat.workspaceSyncDescriptionBindingChanged": "仓库绑定已变更，请同步工作区后继续。",
   "chat.workspaceSyncDescriptionMissingRepos": "当前缺少仓库绑定，请先同步工作区。",

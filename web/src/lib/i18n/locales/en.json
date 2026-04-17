@@ -785,6 +785,7 @@
   "chat.workspaceLabel": "Workspace",
   "chat.workspaceLiveUpdateNotice": "Workspace Live Update Notice",
   "chat.workspaceLoading": "Chat Workspace Loading",
+  "chat.workspacePreparing": "Preparing workspace and cloning repositories...",
   "chat.workspaceProvisionNotice": "Workspace Provision Notice",
   "chat.workspaceSyncDescriptionBindingChanged": "Workspace Sync Description Binding Changed",
   "chat.workspaceSyncDescriptionMissingRepos": "Workspace Sync Description Missing Repos",
