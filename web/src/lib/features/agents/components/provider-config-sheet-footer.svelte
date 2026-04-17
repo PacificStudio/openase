@@ -20,12 +20,16 @@
 
 <SheetFooter class="border-border border-t px-6 py-4">
   <Button variant="outline" onclick={onDelete} disabled={saving || deleting}>
-    {deleting ? 'Deleting…' : 'Delete provider'}
+    {deleting
+      ? i18nStore.t('agents.providerConfig.actions.deleting')
+      : i18nStore.t('agents.providerConfig.actions.delete')}
   </Button>
   <Button variant="outline" onclick={onCancel} disabled={saving || deleting}>
     {i18nStore.t('common.cancel')}
   </Button>
   <Button onclick={onSave} disabled={saving || deleting}>
-    {saving ? 'Saving…' : 'Save changes'}
+    {saving
+      ? i18nStore.t('agents.providerConfig.actions.saving')
+      : i18nStore.t('agents.providerConfig.actions.save')}
   </Button>
 </SheetFooter>

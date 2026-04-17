@@ -107,11 +107,13 @@
 <Dialog.Root bind:open={deleteDialogOpen}>
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Delete provider?</Dialog.Title>
+      <Dialog.Title>{i18nStore.t('agents.providerConfig.deleteDialog.title')}</Dialog.Title>
       <Dialog.Description>
         {provider
-          ? `This permanently deletes ${provider.name}. Deletion is blocked if the provider is still referenced by defaults, agents, or runtime resources.`
-          : 'This permanently deletes the selected provider.'}
+          ? i18nStore.t('agents.providerConfig.deleteDialog.description', {
+              provider: provider.name,
+            })
+          : i18nStore.t('agents.providerConfig.deleteDialog.fallbackDescription')}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
@@ -123,7 +125,9 @@
         {/snippet}
       </Dialog.Close>
       <Button variant="destructive" onclick={() => onDelete?.()} disabled={deleting}>
-        {deleting ? 'Deleting…' : 'Delete provider'}
+        {deleting
+          ? i18nStore.t('agents.providerConfig.actions.deleting')
+          : i18nStore.t('agents.providerConfig.actions.delete')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
