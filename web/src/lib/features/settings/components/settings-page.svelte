@@ -2,11 +2,10 @@
   import { onMount } from 'svelte'
   import { PageScaffold } from '$lib/components/layout'
   import { i18nStore } from '$lib/i18n/store.svelte'
-  import { currentHashSelection, writeHashSelection } from '$lib/utils/hash-state'
+  import { writeHashSelection } from '$lib/utils/hash-state'
   import type { SettingsSection } from '../types'
-  import { settingsSections } from '../types'
+  import { resolveSettingsSectionHash } from '../types'
   import AgentSettings from './agent-settings.svelte'
-  import AccessSettings from './access-settings.svelte'
   import ArchivedTicketsSettings from './archived-tickets-settings.svelte'
   import SettingsNav from './settings-nav.svelte'
   import GeneralSettings from './general-settings.svelte'
@@ -23,7 +22,7 @@
   }
 
   function syncSectionFromHash() {
-    activeSection = currentHashSelection(settingsSections, 'general')
+    activeSection = resolveSettingsSectionHash(window.location.hash, 'general')
   }
 
   onMount(() => {
@@ -65,8 +64,6 @@
         <AgentSettings />
       {:else if activeSection === 'notifications'}
         <NotificationSettings />
-      {:else if activeSection === 'access'}
-        <AccessSettings />
       {:else if activeSection === 'security'}
         <SecuritySettings />
       {:else if activeSection === 'archived'}
