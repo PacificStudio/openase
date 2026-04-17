@@ -655,6 +655,7 @@ type remoteConversationTerminalProcess struct {
 	merged  *io.PipeReader
 	writer  *io.PipeWriter
 	writeMu sync.Mutex
+	copyWG  sync.WaitGroup
 	done    chan struct{}
 	waitErr error
 	once    sync.Once
@@ -742,6 +743,7 @@ func (s *ConversationTerminalService) startRemoteProcess(
 		_ = writer.CloseWithError(err)
 		return nil, fmt.Errorf("start remote terminal shell: %w", err)
 	}
+	process.copyWG.Add(2)
 	go process.copyOutput(stdout)
 	go process.copyOutput(stderr)
 	go process.waitLoop()
@@ -749,6 +751,7 @@ func (s *ConversationTerminalService) startRemoteProcess(
 }
 
 func (p *remoteConversationTerminalProcess) copyOutput(reader io.Reader) {
+	defer p.copyWG.Done()
 	if reader == nil || p == nil || p.writer == nil {
 		return
 	}
@@ -771,6 +774,7 @@ func (p *remoteConversationTerminalProcess) waitLoop() {
 		return
 	}
 	p.waitErr = p.session.Wait()
+	p.copyWG.Wait()
 	_ = p.writer.Close()
 	close(p.done)
 }
