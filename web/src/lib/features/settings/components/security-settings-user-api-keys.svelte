@@ -22,6 +22,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import SecuritySettingsUserAPIKeyRevealDialog from './security-settings-user-api-key-reveal-dialog.svelte'
   import { formatUserAPIKeyTime, toRFC3339Local } from './security-settings-user-api-keys.model'
 
   type Security = SecuritySettingsResponse['security']
@@ -89,7 +90,6 @@
       ? caughtError.detail
       : i18nStore.t('settings.security.userApiKeys.errors.requestFailed')
   }
-
   function resetDraft() {
     name = ''
     expiresAtLocal = ''
@@ -198,9 +198,9 @@
       <Dialog.Content class="sm:max-w-2xl">
         <Dialog.Header>
           <Dialog.Title>{i18nStore.t('settings.security.userApiKeys.dialog.title')}</Dialog.Title>
-          <Dialog.Description>
-            {i18nStore.t('settings.security.userApiKeys.dialog.description')}
-          </Dialog.Description>
+          <Dialog.Description
+            >{i18nStore.t('settings.security.userApiKeys.dialog.description')}</Dialog.Description
+          >
         </Dialog.Header>
         <Dialog.Body class="space-y-4">
           <div class="space-y-2">
@@ -329,31 +329,9 @@
   {/if}
 </div>
 
-<Dialog.Root bind:open={revealOpen}>
-  <Dialog.Content class="sm:max-w-xl">
-    <Dialog.Header>
-      <Dialog.Title>{i18nStore.t('settings.security.userApiKeys.reveal.title')}</Dialog.Title>
-      <Dialog.Description>
-        {i18nStore.t('settings.security.userApiKeys.reveal.description', {
-          name: currentTokenName,
-        })}
-      </Dialog.Description>
-    </Dialog.Header>
-    <Dialog.Body class="space-y-3">
-      <div class="bg-muted rounded-lg p-3 font-mono text-xs break-all">{currentToken}</div>
-      <p class="text-muted-foreground text-xs">
-        {i18nStore.t('settings.security.userApiKeys.reveal.warning')}
-      </p>
-    </Dialog.Body>
-    <Dialog.Footer>
-      <Button variant="outline" onclick={copyToken}
-        >{i18nStore.t('settings.security.userApiKeys.buttons.copyToken')}</Button
-      >
-      <Dialog.Close>
-        {#snippet child({ props })}
-          <Button {...props}>{i18nStore.t('settings.security.userApiKeys.buttons.done')}</Button>
-        {/snippet}
-      </Dialog.Close>
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+<SecuritySettingsUserAPIKeyRevealDialog
+  bind:open={revealOpen}
+  token={currentToken}
+  name={currentTokenName}
+  onCopy={copyToken}
+/>
