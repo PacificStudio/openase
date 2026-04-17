@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.7.0](https://github.com/PacificStudio/openase/compare/v0.6.0...v0.7.0) (2026-04-16)
+
+
+### Features
+
+* **chat:** add project ai permission guidance ([382a4d8](https://github.com/PacificStudio/openase/commit/382a4d84ea694a6a94f744e45069955db5773270))
+* **chat:** align remote workspace capabilities ([e09784c](https://github.com/PacificStudio/openase/commit/e09784c2e863404136fe872435b9cec4929a3209))
+* **chat:** refocus project ai prompt on planning ([dd9c7dc](https://github.com/PacificStudio/openase/commit/dd9c7dcc5119721461dc79d6b77e6209a6abe125))
+* **machines:** add SSH bootstrap and improve machine UX ([#739](https://github.com/PacificStudio/openase/issues/739)) ([e8aa2b3](https://github.com/PacificStudio/openase/commit/e8aa2b3d8477a3ab89d7b33af9514830f06251eb))
+* **platform:** add scoped project updates access ([6ec2455](https://github.com/PacificStudio/openase/commit/6ec245547c1fa972dc39272016bfc7113564914e))
+* route HR adviser workflow suggestions through Project AI ([#744](https://github.com/PacificStudio/openase/issues/744)) ([cfedaf4](https://github.com/PacificStudio/openase/commit/cfedaf401746975c7d863eb5b88e39c5adc84a69))
+
+
+### Bug Fixes
+
+* **chat:** format restore helper updates ([585c2e2](https://github.com/PacificStudio/openase/commit/585c2e2bfc8210dcd27a1013cfd396ec7a04e002))
+* **chat:** preserve terminal ready event ordering ([afae599](https://github.com/PacificStudio/openase/commit/afae599d1e26c0cf1f63b758fcbeb54282c7424c))
+* **chat:** satisfy project conversation owner lint ([efc8a8e](https://github.com/PacificStudio/openase/commit/efc8a8e9cd2f5ed0166bcb47241d840f2502e515))
+* **chat:** stabilize project conversation owners ([249621e](https://github.com/PacificStudio/openase/commit/249621ecce997a7ecf57dd16ef04f4ed1d95011d))
+* **desktop:** patch follow-redirects resolution ([0210692](https://github.com/PacificStudio/openase/commit/0210692f16c9923f810ecdcdce324bd79b48c257))
+* **machine-runtime:** scope agent cli paths by adaptor ([d53f5e2](https://github.com/PacificStudio/openase/commit/d53f5e2e7bb65e4855d313c57b579e2e5ad027ae))
+* **onboarding:** localize GitHub connect copy ([3f5c74c](https://github.com/PacificStudio/openase/commit/3f5c74ca79c4fc28538957f550547dcffd78a1a0))
+* scope machine agent CLI paths by adaptor ([f5faeb2](https://github.com/PacificStudio/openase/commit/f5faeb2134d5f7650d9a6a942b4c70c87ec61d4b))
+* stabilize Project AI conversation owners ([f222f6e](https://github.com/PacificStudio/openase/commit/f222f6e6f7adbc1d574551b78ffb169d169de711))
+* **ticket-runs:** scope list queries to the current ticket ([#737](https://github.com/PacificStudio/openase/issues/737)) ([34682c4](https://github.com/PacificStudio/openase/commit/34682c4b6abe32f362bbec74e90ddfe4dc75da33))
+* **web:** format dompurify regression test ([320fb77](https://github.com/PacificStudio/openase/commit/320fb77ac3cadbbfff18cf6b6eef5adee708ce62))
+* **web:** pin dompurify security upgrade ([8424605](https://github.com/PacificStudio/openase/commit/8424605ffb627f0aeed5708bf5a19842a77a3887))
+* **web:** pin dompurify security upgrade ([1444e0a](https://github.com/PacificStudio/openase/commit/1444e0a1027515979716415c21aebeeb44be93d0))
+* **web:** recover project views after reconnect ([f702903](https://github.com/PacificStudio/openase/commit/f7029036245b89a95931350c67026536daadb335))
+* **web:** recover stale project views after reconnect ([13bd77b](https://github.com/PacificStudio/openase/commit/13bd77b6f807a6bed43e5c71751ef7e2999f8c9e))
+* **web:** satisfy remote capability lint ([db4b5ae](https://github.com/PacificStudio/openase/commit/db4b5ae94afc20026be2d6c01d6fa5a98e91ecf4))
+
 ## [0.6.0](https://github.com/PacificStudio/openase/compare/v0.5.0...v0.6.0) (2026-04-15)
 
 
