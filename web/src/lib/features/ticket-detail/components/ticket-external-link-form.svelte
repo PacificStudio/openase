@@ -78,7 +78,7 @@
   }
 
   const defaultStatusLabelKey: TranslationKey = 'ticketDetail.externalLink.status.none'
-  const statusLabel = $derived(() => {
+  const statusLabel = $derived.by(() => {
     const option = statusOptions.find((o) => o.value === draft.status)
     return i18nStore.t(option?.labelKey ?? defaultStatusLabelKey)
   })
