@@ -9,11 +9,15 @@ describe('TicketExternalLinkForm', () => {
   })
 
   it('renders type as optional text input and omits relation controls', () => {
-    const { getByLabelText, getByPlaceholderText, queryByText } = render(TicketExternalLinkForm)
+    const { container, getByLabelText, getByPlaceholderText, queryByText } = render(
+      TicketExternalLinkForm,
+    )
 
     expect(getByLabelText(/Type/)).toBeTruthy()
-    expect(getByPlaceholderText('github_pr, jira_ticket, doc, spec')).toBeTruthy()
+    expect(getByPlaceholderText('Type')).toBeTruthy()
     expect(queryByText('Relation')).toBeNull()
+    expect(container.textContent).toContain('None')
+    expect(container.textContent).not.toContain('=>')
   })
 
   it('submits url and external id without requiring a type', async () => {
@@ -28,7 +32,7 @@ describe('TicketExternalLinkForm', () => {
     await fireEvent.input(getByLabelText(/External ID/), {
       target: { value: 'SPEC-1' },
     })
-    await fireEvent.click(getByRole('button', { name: 'Add link' }))
+    await fireEvent.click(getByRole('button', { name: 'Add' }))
 
     expect(onCreate).toHaveBeenCalledWith({
       type: '',

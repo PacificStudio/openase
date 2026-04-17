@@ -8,6 +8,7 @@ export function normalizeSecuritySettings(
 ): SecuritySettingsResponse['security'] {
   return {
     ...security,
+    deferred: Array.isArray(security.deferred) ? security.deferred : [],
     github: {
       ...security.github,
       effective: normalizeGitHubSlot(security.github.effective),
