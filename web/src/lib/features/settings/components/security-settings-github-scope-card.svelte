@@ -48,7 +48,9 @@
   }
 
   const statusLabel = $derived(formatDisplayText(parseGitHubProbeState(slot), i18nStore.t))
-  const sourceLabel = $derived(formatDisplayText(parseGitHubCredentialSource(slot.source), i18nStore.t))
+  const sourceLabel = $derived(
+    formatDisplayText(parseGitHubCredentialSource(slot.source), i18nStore.t),
+  )
   const repoAccessLabel = $derived(
     formatDisplayText(parseGitHubRepoAccess(slot.probe.repo_access), i18nStore.t),
   )

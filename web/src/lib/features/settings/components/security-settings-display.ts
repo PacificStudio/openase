@@ -98,7 +98,10 @@ export function parseSecurityAuthMode(mode: string | null | undefined): DisplayT
 }
 
 export function parseGitHubProbeState(
-  slot: Security['github']['effective'] | Security['github']['organization'] | Security['github']['project_override'],
+  slot:
+    | Security['github']['effective']
+    | Security['github']['organization']
+    | Security['github']['project_override'],
 ): DisplayText {
   if (!slot.configured) {
     return {
@@ -176,8 +179,5 @@ export function parseDeferredCapability(
 }
 
 function humanizeIdentifier(value: string) {
-  return value
-    .trim()
-    .replaceAll(/[_-]+/g, ' ')
-    .replaceAll(/\s+/g, ' ')
+  return value.trim().replaceAll(/[_-]+/g, ' ').replaceAll(/\s+/g, ' ')
 }

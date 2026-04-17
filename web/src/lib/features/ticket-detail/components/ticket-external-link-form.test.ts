@@ -9,9 +9,8 @@ describe('TicketExternalLinkForm', () => {
   })
 
   it('renders type as optional text input and omits relation controls', () => {
-    const { container, getByLabelText, getByPlaceholderText, queryByText } = render(
-      TicketExternalLinkForm,
-    )
+    const { container, getByLabelText, getByPlaceholderText, queryByText } =
+      render(TicketExternalLinkForm)
 
     expect(getByLabelText(/Type/)).toBeTruthy()
     expect(getByPlaceholderText('Type')).toBeTruthy()
