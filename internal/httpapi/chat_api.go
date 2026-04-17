@@ -635,6 +635,7 @@ func mapProjectConversationWorkspaceDiffResponse(
 	response := map[string]any{
 		"conversation_id": item.ConversationID.String(),
 		"workspace_path":  item.WorkspacePath,
+		"preparing":       item.Preparing,
 		"dirty":           item.Dirty,
 		"repos_changed":   item.ReposChanged,
 		"files_changed":   item.FilesChanged,
@@ -687,6 +688,7 @@ func mapProjectConversationWorkspaceMetadataResponse(
 		"conversation_id": item.ConversationID.String(),
 		"available":       item.Available,
 		"workspace_path":  item.WorkspacePath,
+		"preparing":       item.Preparing,
 		"repos":           repos,
 	}
 	if item.SyncPrompt != nil {

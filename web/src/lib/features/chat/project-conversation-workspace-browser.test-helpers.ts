@@ -4,6 +4,7 @@ export const workspaceMetadata = {
   conversationId: 'conversation-1',
   available: true,
   workspacePath: '/tmp/conversation-1',
+  preparing: false,
   repos: [
     {
       name: 'openase',
@@ -32,6 +33,7 @@ export const workspaceMetadata = {
 export const workspaceDiff = {
   conversationId: 'conversation-1',
   workspacePath: '/tmp/conversation-1',
+  preparing: false,
   dirty: true,
   reposChanged: 1,
   filesChanged: 1,

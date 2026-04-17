@@ -143,6 +143,8 @@
           <span class="text-muted-foreground/60">{chatT('common.loading')}</span>
         {:else if error}
           <span class="text-destructive truncate">{error}</span>
+        {:else if workspaceDiff?.preparing}
+          <span class="text-muted-foreground/60">{chatT('chat.workspacePreparing')}</span>
         {:else if syncPrompt}
           <span class="truncate font-medium text-amber-700 dark:text-amber-300">
             {syncPromptSummary(syncPrompt)}
@@ -174,7 +176,7 @@
         </button>
       {/if}
 
-      {#if conversationId && syncPrompt}
+      {#if conversationId && syncPrompt && !workspaceDiff?.preparing}
         <button
           type="button"
           class="rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/10"

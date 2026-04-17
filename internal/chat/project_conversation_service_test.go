@@ -5303,6 +5303,105 @@ func TestProjectConversationWorkspaceDiffStillFailsForStartedConversationWithout
 	}
 }
 
+func TestProjectConversationWorkspaceDiffMarksInitialMultiRepoCloneAsPreparing(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	if _, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Prepare the workspace"); err != nil {
+		t.Fatalf("create active turn: %v", err)
+	}
+
+	backendRemote, _ := createConversationRemoteRepo(t, "main", map[string]string{"README.md": "backend\n"})
+	docsRemote, _ := createConversationRemoteRepo(t, "main", map[string]string{"README.md": "docs\n"})
+	projectRepos := []catalogdomain.ProjectRepo{
+		{
+			ID:            uuid.New(),
+			ProjectID:     project.ID,
+			Name:          "backend",
+			RepositoryURL: backendRemote,
+			DefaultBranch: "main",
+		},
+		{
+			ID:               uuid.New(),
+			ProjectID:        project.ID,
+			Name:             "docs",
+			RepositoryURL:    docsRemote,
+			DefaultBranch:    "main",
+			WorkspaceDirname: "docs",
+		},
+	}
+
+	projectItem := catalogdomain.Project{
+		ID:             project.ID,
+		OrganizationID: org.ID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+	}
+	providerItem := catalogdomain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: org.ID,
+		MachineID:      machineID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+		CliCommand:     "gemini",
+	}
+	workspaceRoot := t.TempDir()
+	catalog := &fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project:      projectItem,
+			projectRepos: projectRepos,
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{providerID: providerItem},
+		},
+		machine: catalogdomain.Machine{
+			ID:            machineID,
+			Name:          catalogdomain.LocalMachineName,
+			Host:          catalogdomain.LocalMachineHost,
+			WorkspaceRoot: stringPointer(workspaceRoot),
+		},
+	}
+	service := NewProjectConversationService(nil, repoStore, catalog, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
+
+	workspace, err := service.ensureConversationWorkspace(ctx, catalog.machine, projectItem, providerItem, conversation.ID)
+	if err != nil {
+		t.Fatalf("ensureConversationWorkspace() error = %v", err)
+	}
+
+	missingRepoPath := workspaceinfra.RepoPath(workspace.String(), "docs", "docs")
+	if err := os.RemoveAll(missingRepoPath); err != nil {
+		t.Fatalf("remove partially prepared repo %s: %v", missingRepoPath, err)
+	}
+
+	metadata, err := service.GetWorkspaceMetadata(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspaceMetadata() error = %v", err)
+	}
+	if metadata.Available || !metadata.Preparing || metadata.SyncPrompt != nil || len(metadata.Repos) != 0 {
+		t.Fatalf("expected preparing metadata without sync prompt, got %+v", metadata)
+	}
+
+	summary, err := service.GetWorkspaceDiff(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("GetWorkspaceDiff() error = %v", err)
+	}
+	if !summary.Preparing || summary.SyncPrompt != nil || summary.Dirty || len(summary.Repos) != 0 {
+		t.Fatalf("expected preparing diff without sync prompt, got %+v", summary)
+	}
+}
+
 func TestProjectConversationDeleteConversationRequiresForceForDirtyWorkspace(t *testing.T) {
 	t.Parallel()
 

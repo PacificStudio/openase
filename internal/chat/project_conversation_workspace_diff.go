@@ -21,6 +21,7 @@ import (
 type ProjectConversationWorkspaceDiff struct {
 	ConversationID uuid.UUID
 	WorkspacePath  string
+	Preparing      bool
 	Dirty          bool
 	ReposChanged   int
 	FilesChanged   int
@@ -66,6 +67,7 @@ var errProjectConversationWorkspaceLocationUnavailable = errors.New("project con
 type projectConversationWorkspaceLocation struct {
 	machine       catalogdomain.Machine
 	workspacePath string
+	preparing     bool
 	repos         []projectConversationWorkspaceRepoLocation
 	syncPrompt    *ProjectConversationWorkspaceSyncPrompt
 	missingRepos  map[string]ProjectConversationWorkspaceMissingRepo
@@ -120,8 +122,12 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 	summary := ProjectConversationWorkspaceDiff{
 		ConversationID: conversationID,
 		WorkspacePath:  location.workspacePath,
+		Preparing:      location.preparing,
 		Repos:          make([]ProjectConversationWorkspaceRepoDiff, 0, len(location.repos)),
 		SyncPrompt:     location.syncPrompt,
+	}
+	if location.preparing {
+		return summary, nil
 	}
 
 	for _, repo := range location.repos {
@@ -178,10 +184,18 @@ func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, err
 	}
+	preparing, err := s.shouldTreatWorkspaceAsPreparing(ctx, conversation, syncPrompt)
+	if err != nil {
+		return projectConversationWorkspaceLocation{}, err
+	}
+	if preparing {
+		syncPrompt = nil
+	}
 
 	return projectConversationWorkspaceLocation{
 		machine:       machine,
 		workspacePath: workspacePath,
+		preparing:     preparing,
 		repos:         repos,
 		syncPrompt:    syncPrompt,
 		missingRepos:  missingRepos,
@@ -489,4 +503,23 @@ func projectConversationCommandExitedWithCode(err error, code int) bool {
 
 func projectConversationWorkspaceMayNotExistYet(conversation chatdomain.Conversation) bool {
 	return conversation.LastTurnID == nil && conversation.ProviderThreadID == nil
+}
+
+func (s *ProjectConversationService) shouldTreatWorkspaceAsPreparing(
+	ctx context.Context,
+	conversation chatdomain.Conversation,
+	syncPrompt *ProjectConversationWorkspaceSyncPrompt,
+) (bool, error) {
+	if s == nil || s.core.entries == nil || syncPrompt == nil || !projectConversationWorkspaceMayNotExistYet(conversation) {
+		return false, nil
+	}
+	_, err := s.core.entries.GetActiveTurn(ctx, conversation.ID)
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, chatdomain.ErrNotFound):
+		return false, nil
+	default:
+		return false, fmt.Errorf("inspect active turn for workspace preparation: %w", err)
+	}
 }
