@@ -25,6 +25,7 @@
   saving={controller.saving}
   testingMachineId={controller.testingMachineId}
   deletingMachineId={controller.deletingMachineId}
+  statusUpdatingMachineId={controller.statusUpdatingMachineId}
   bind:editorOpen={controller.editorOpen}
   onRefresh={() => void controller.handleRefresh()}
   onCreate={controller.startCreate}
@@ -46,5 +47,7 @@
   onSave={() => void controller.handleSave()}
   onTest={(machineId) => void controller.handleTest(machineId)}
   onDelete={(machineId) => void controller.handleDelete(machineId)}
+  onToggleMaintenance={(machineId, enabled) =>
+    void controller.handleMaintenanceToggle(machineId, enabled)}
   onReset={controller.resetDraft}
 />

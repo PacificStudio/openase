@@ -34,6 +34,7 @@
     saving = false,
     testingMachineId = '',
     deletingMachineId = '',
+    statusUpdatingMachineId = '',
     editorOpen = $bindable(false),
     stateMessage = '',
     organizationId = null,
@@ -47,6 +48,7 @@
     onSave,
     onTest,
     onDelete,
+    onToggleMaintenance,
     onReset,
   }: {
     state: MachineWorkspaceState
@@ -64,6 +66,7 @@
     saving?: boolean
     testingMachineId?: string
     deletingMachineId?: string
+    statusUpdatingMachineId?: string
     editorOpen?: boolean
     stateMessage?: string
     organizationId?: string | null
@@ -77,6 +80,7 @@
     onSave?: () => void
     onTest?: (machineId: string) => void
     onDelete?: (machineId: string) => void
+    onToggleMaintenance?: (machineId: string, enabled: boolean) => void
     onReset?: (machineId: string) => void
   } = $props()
 
@@ -210,8 +214,10 @@
                   hasSelectedDraftChanges}
                 testing={testingMachineId === machine.id}
                 deleting={deletingMachineId === machine.id}
+                maintenanceUpdating={statusUpdatingMachineId === machine.id}
                 onOpen={() => onSelectMachine?.(machine.id)}
                 onTest={() => onTest?.(machine.id)}
+                onToggleMaintenance={(enabled) => onToggleMaintenance?.(machine.id, enabled)}
                 onReset={() => onReset?.(machine.id)}
                 onDelete={() => onDelete?.(machine.id)}
               />
@@ -236,8 +242,12 @@
     {loadingHealth}
     refreshingHealth={selectedMachine ? refreshingHealthMachineId === selectedMachine.id : false}
     {saving}
+    maintenanceUpdating={selectedMachine ? statusUpdatingMachineId === selectedMachine.id : false}
     {onDraftChange}
     onRefreshHealth={selectedMachine ? () => onRefreshHealth?.(selectedMachine.id) : undefined}
+    onToggleMaintenance={selectedMachine
+      ? (enabled) => onToggleMaintenance?.(selectedMachine.id, enabled)
+      : undefined}
     {onSave}
   />
 {/if}

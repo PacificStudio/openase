@@ -3,27 +3,33 @@
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import * as DropdownMenu from '$ui/dropdown-menu'
-  import { Ellipsis, Eye, RotateCcw, TestTube2, Trash2 } from '@lucide/svelte'
+  import { Ellipsis, Eye, RotateCcw, TestTube2, TrafficCone, Trash2 } from '@lucide/svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     machineName,
     localMachine = false,
+    inMaintenance = false,
+    maintenanceUpdating = false,
     resetEnabled = false,
     testing = false,
     deleting = false,
     onOpen,
     onTest,
+    onToggleMaintenance,
     onReset,
     onDelete,
   }: {
     machineName: string
     localMachine?: boolean
+    inMaintenance?: boolean
+    maintenanceUpdating?: boolean
     resetEnabled?: boolean
     testing?: boolean
     deleting?: boolean
     onOpen?: () => void
     onTest?: () => void
+    onToggleMaintenance?: (enabled: boolean) => void
     onReset?: () => void
     onDelete?: () => void
   } = $props()
@@ -76,6 +82,20 @@
         {testing
           ? i18nStore.t('machines.machineRowCardActions.action.testing')
           : i18nStore.t('machines.machineRowCardActions.action.connectionTest')}
+      </DropdownMenu.Item>
+      <DropdownMenu.Item
+        disabled={localMachine || maintenanceUpdating}
+        onclick={(event) => {
+          event.stopPropagation()
+          void deferMenuAction(() => onToggleMaintenance?.(!inMaintenance))
+        }}
+      >
+        <TrafficCone class="size-3.5" />
+        {maintenanceUpdating
+          ? i18nStore.t('machines.machineRowCardActions.action.updatingMaintenance')
+          : inMaintenance
+            ? i18nStore.t('machines.machineRowCardActions.action.exitMaintenance')
+            : i18nStore.t('machines.machineRowCardActions.action.enterMaintenance')}
       </DropdownMenu.Item>
       <DropdownMenu.Item
         disabled={!resetEnabled}
