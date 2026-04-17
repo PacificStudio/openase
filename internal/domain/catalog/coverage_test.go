@@ -1416,6 +1416,15 @@ func TestCatalogMachineParsers(t *testing.T) {
 	if got := InferMachineConnectionFailureStatus(Machine{Host: "builder", Status: MachineStatusMaintenance}); got != MachineStatusMaintenance {
 		t.Fatalf("InferMachineConnectionFailureStatus(manual maintenance) = %q", got)
 	}
+	if got := InferMachineConnectionFailureStatus(Machine{Host: LocalMachineHost, Status: MachineStatusOnline}); got != MachineStatusDegraded {
+		t.Fatalf("InferMachineConnectionFailureStatus(local) = %q", got)
+	}
+	if got := InferMachineRefreshedHealthStatus(MachineStatusOffline, MachineStatusOnline); got != MachineStatusOnline {
+		t.Fatalf("InferMachineRefreshedHealthStatus(offline, online) = %q", got)
+	}
+	if got := InferMachineRefreshedHealthStatus(MachineStatusMaintenance, MachineStatusOnline); got != MachineStatusMaintenance {
+		t.Fatalf("InferMachineRefreshedHealthStatus(maintenance, online) = %q", got)
+	}
 	if _, err := parseMachineEnvVars([]string{"", "KEY=VALUE"}); err == nil {
 		t.Fatal("parseMachineEnvVars() expected empty validation error")
 	}
