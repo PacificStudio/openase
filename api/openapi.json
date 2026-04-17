@@ -37537,6 +37537,535 @@
       }
     },
     "/api/v1/providers/{providerId}": {
+      "delete": {
+        "operationId": "deleteAgentProvider",
+        "parameters": [
+          {
+            "description": "Agent provider ID.",
+            "in": "path",
+            "name": "providerId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "provider": {
+                      "properties": {
+                        "adapter_type": {
+                          "type": "string"
+                        },
+                        "auth_config": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "availability_checked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_reason": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_state": {
+                          "type": "string"
+                        },
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "capabilities": {
+                          "properties": {
+                            "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "cli_args": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "cli_command": {
+                          "type": "string"
+                        },
+                        "cli_rate_limit": {
+                          "nullable": true,
+                          "properties": {
+                            "claude_code": {
+                              "nullable": true,
+                              "properties": {
+                                "is_using_overage": {
+                                  "nullable": true,
+                                  "type": "boolean"
+                                },
+                                "overage_disabled_reason": {
+                                  "type": "string"
+                                },
+                                "overage_status": {
+                                  "type": "string"
+                                },
+                                "rate_limit_type": {
+                                  "type": "string"
+                                },
+                                "resets_at": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "surpassed_threshold": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
+                                },
+                                "utilization": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "codex": {
+                              "nullable": true,
+                              "properties": {
+                                "limit_id": {
+                                  "type": "string"
+                                },
+                                "limit_name": {
+                                  "type": "string"
+                                },
+                                "plan_type": {
+                                  "type": "string"
+                                },
+                                "primary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "secondary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "gemini": {
+                              "nullable": true,
+                              "properties": {
+                                "auth_type": {
+                                  "type": "string"
+                                },
+                                "buckets": {
+                                  "items": {
+                                    "properties": {
+                                      "model_id": {
+                                        "type": "string"
+                                      },
+                                      "remaining_amount": {
+                                        "type": "string"
+                                      },
+                                      "remaining_fraction": {
+                                        "format": "double",
+                                        "nullable": true,
+                                        "type": "number"
+                                      },
+                                      "reset_time": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "token_type": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "limit": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "remaining": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "reset_time": {
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "raw": {
+                              "additionalProperties": {},
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "cli_rate_limit_updated_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "cost_per_input_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "cost_per_output_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "machine_host": {
+                          "type": "string"
+                        },
+                        "machine_id": {
+                          "type": "string"
+                        },
+                        "machine_name": {
+                          "type": "string"
+                        },
+                        "machine_ssh_user": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "machine_status": {
+                          "type": "string"
+                        },
+                        "machine_workspace_root": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "max_parallel_runs": {
+                          "type": "integer"
+                        },
+                        "model_max_tokens": {
+                          "type": "integer"
+                        },
+                        "model_name": {
+                          "type": "string"
+                        },
+                        "model_temperature": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "permission_profile": {
+                          "type": "string"
+                        },
+                        "pricing_config": {
+                          "properties": {
+                            "default_cache_write_window": {
+                              "type": "string"
+                            },
+                            "model_id": {
+                              "type": "string"
+                            },
+                            "notes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "pricing_mode": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "rates": {
+                              "properties": {
+                                "cache_storage_per_token_hour": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_1h_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_5m_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cached_input_read_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "input_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "output_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "source_kind": {
+                              "type": "string"
+                            },
+                            "source_url": {
+                              "type": "string"
+                            },
+                            "source_verified_at": {
+                              "type": "string"
+                            },
+                            "tiers": {
+                              "items": {
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "max_prompt_tokens": {
+                                    "format": "int64",
+                                    "type": "integer"
+                                  },
+                                  "rates": {
+                                    "properties": {
+                                      "cache_storage_per_token_hour": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_1h_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_5m_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cached_input_read_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "input_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "output_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "version": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete an agent provider response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Delete an agent provider",
+        "tags": [
+          "catalog"
+        ]
+      },
       "get": {
         "operationId": "getAgentProvider",
         "parameters": [

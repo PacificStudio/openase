@@ -2437,7 +2437,8 @@ export interface paths {
     get: operations['getAgentProvider']
     put?: never
     post?: never
-    delete?: never
+    /** Delete an agent provider */
+    delete: operations['deleteAgentProvider']
     options?: never
     head?: never
     /** Update an agent provider */
@@ -22210,6 +22211,229 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteAgentProvider: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent provider ID. */
+        providerId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete an agent provider response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            provider?: {
+              adapter_type?: string
+              auth_config?: {
+                [key: string]: unknown
+              }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
+              available?: boolean
+              capabilities?: {
+                ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+                reasoning?: {
+                  default_effort?: string | null
+                  effective_effort?: string | null
+                  reason?: string | null
+                  selected_effort?: string | null
+                  state?: string
+                  supported_efforts?: string[]
+                  supports_model_override?: boolean
+                  supports_provider_preset?: boolean
+                }
+              }
+              cli_args?: string[]
+              cli_command?: string
+              cli_rate_limit?: {
+                claude_code?: {
+                  is_using_overage?: boolean | null
+                  overage_disabled_reason?: string
+                  overage_status?: string
+                  rate_limit_type?: string
+                  resets_at?: string | null
+                  status?: string
+                  /** Format: double */
+                  surpassed_threshold?: number | null
+                  /** Format: double */
+                  utilization?: number | null
+                } | null
+                codex?: {
+                  limit_id?: string
+                  limit_name?: string
+                  plan_type?: string
+                  primary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                  secondary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                } | null
+                gemini?: {
+                  auth_type?: string
+                  buckets?: {
+                    model_id?: string
+                    remaining_amount?: string
+                    /** Format: double */
+                    remaining_fraction?: number | null
+                    reset_time?: string | null
+                    token_type?: string
+                  }[]
+                  /** Format: int64 */
+                  limit?: number | null
+                  /** Format: int64 */
+                  remaining?: number | null
+                  reset_time?: string | null
+                } | null
+                provider?: string
+                raw?: {
+                  [key: string]: unknown
+                }
+              } | null
+              cli_rate_limit_updated_at?: string | null
+              /** Format: double */
+              cost_per_input_token?: number
+              /** Format: double */
+              cost_per_output_token?: number
+              id?: string
+              machine_host?: string
+              machine_id?: string
+              machine_name?: string
+              machine_ssh_user?: string | null
+              machine_status?: string
+              machine_workspace_root?: string | null
+              max_parallel_runs?: number
+              model_max_tokens?: number
+              model_name?: string
+              /** Format: double */
+              model_temperature?: number
+              name?: string
+              organization_id?: string
+              permission_profile?: string
+              pricing_config?: {
+                default_cache_write_window?: string
+                model_id?: string
+                notes?: string[]
+                pricing_mode?: string
+                provider?: string
+                rates?: {
+                  /** Format: double */
+                  cache_storage_per_token_hour?: number
+                  /** Format: double */
+                  cache_write_1h_per_token?: number
+                  /** Format: double */
+                  cache_write_5m_per_token?: number
+                  /** Format: double */
+                  cached_input_read_per_token?: number
+                  /** Format: double */
+                  input_per_token?: number
+                  /** Format: double */
+                  output_per_token?: number
+                }
+                source_kind?: string
+                source_url?: string
+                source_verified_at?: string
+                tiers?: {
+                  label?: string
+                  /** Format: int64 */
+                  max_prompt_tokens?: number
+                  rates?: {
+                    /** Format: double */
+                    cache_storage_per_token_hour?: number
+                    /** Format: double */
+                    cache_write_1h_per_token?: number
+                    /** Format: double */
+                    cache_write_5m_per_token?: number
+                    /** Format: double */
+                    cached_input_read_per_token?: number
+                    /** Format: double */
+                    input_per_token?: number
+                    /** Format: double */
+                    output_per_token?: number
+                  }
+                }[]
+                version?: string
+              }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }

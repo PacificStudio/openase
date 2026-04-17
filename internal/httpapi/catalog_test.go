@@ -35,24 +35,25 @@ import (
 )
 
 type fakeCatalogService struct {
-	organizations        map[uuid.UUID]domain.Organization
-	machines             map[uuid.UUID]domain.Machine
-	projects             map[uuid.UUID]domain.Project
-	tickets              map[uuid.UUID]fakeCatalogTicket
-	projectRepos         map[uuid.UUID]domain.ProjectRepo
-	ticketScopes         map[uuid.UUID]domain.TicketRepoScope
-	providers            map[uuid.UUID]domain.AgentProvider
-	agents               map[uuid.UUID]domain.Agent
-	agentRuns            map[uuid.UUID]domain.AgentRun
-	agentDeleteConflicts map[uuid.UUID]*domain.AgentDeleteConflict
-	activityEvents       []domain.ActivityEvent
-	traceEvents          []domain.AgentTraceEntry
-	stepEvents           []domain.AgentStepEntry
-	rawEvents            []domain.AgentRawEventEntry
-	activityInstances    []domain.AgentActivityInstance
-	transcriptEntries    []domain.AgentTranscriptEntry
-	listAgentRunsErr     error
-	listTicketRunsErr    error
+	organizations           map[uuid.UUID]domain.Organization
+	machines                map[uuid.UUID]domain.Machine
+	projects                map[uuid.UUID]domain.Project
+	tickets                 map[uuid.UUID]fakeCatalogTicket
+	projectRepos            map[uuid.UUID]domain.ProjectRepo
+	ticketScopes            map[uuid.UUID]domain.TicketRepoScope
+	providers               map[uuid.UUID]domain.AgentProvider
+	agents                  map[uuid.UUID]domain.Agent
+	agentRuns               map[uuid.UUID]domain.AgentRun
+	providerDeleteConflicts map[uuid.UUID]*domain.AgentProviderDeleteConflict
+	agentDeleteConflicts    map[uuid.UUID]*domain.AgentDeleteConflict
+	activityEvents          []domain.ActivityEvent
+	traceEvents             []domain.AgentTraceEntry
+	stepEvents              []domain.AgentStepEntry
+	rawEvents               []domain.AgentRawEventEntry
+	activityInstances       []domain.AgentActivityInstance
+	transcriptEntries       []domain.AgentTranscriptEntry
+	listAgentRunsErr        error
+	listTicketRunsErr       error
 }
 
 type fakeCatalogTicket struct {
@@ -62,22 +63,23 @@ type fakeCatalogTicket struct {
 
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
-		organizations:        map[uuid.UUID]domain.Organization{},
-		machines:             map[uuid.UUID]domain.Machine{},
-		projects:             map[uuid.UUID]domain.Project{},
-		tickets:              map[uuid.UUID]fakeCatalogTicket{},
-		projectRepos:         map[uuid.UUID]domain.ProjectRepo{},
-		ticketScopes:         map[uuid.UUID]domain.TicketRepoScope{},
-		providers:            map[uuid.UUID]domain.AgentProvider{},
-		agents:               map[uuid.UUID]domain.Agent{},
-		agentRuns:            map[uuid.UUID]domain.AgentRun{},
-		agentDeleteConflicts: map[uuid.UUID]*domain.AgentDeleteConflict{},
-		activityEvents:       []domain.ActivityEvent{},
-		traceEvents:          []domain.AgentTraceEntry{},
-		stepEvents:           []domain.AgentStepEntry{},
-		rawEvents:            []domain.AgentRawEventEntry{},
-		activityInstances:    []domain.AgentActivityInstance{},
-		transcriptEntries:    []domain.AgentTranscriptEntry{},
+		organizations:           map[uuid.UUID]domain.Organization{},
+		machines:                map[uuid.UUID]domain.Machine{},
+		projects:                map[uuid.UUID]domain.Project{},
+		tickets:                 map[uuid.UUID]fakeCatalogTicket{},
+		projectRepos:            map[uuid.UUID]domain.ProjectRepo{},
+		ticketScopes:            map[uuid.UUID]domain.TicketRepoScope{},
+		providers:               map[uuid.UUID]domain.AgentProvider{},
+		agents:                  map[uuid.UUID]domain.Agent{},
+		agentRuns:               map[uuid.UUID]domain.AgentRun{},
+		providerDeleteConflicts: map[uuid.UUID]*domain.AgentProviderDeleteConflict{},
+		agentDeleteConflicts:    map[uuid.UUID]*domain.AgentDeleteConflict{},
+		activityEvents:          []domain.ActivityEvent{},
+		traceEvents:             []domain.AgentTraceEntry{},
+		stepEvents:              []domain.AgentStepEntry{},
+		rawEvents:               []domain.AgentRawEventEntry{},
+		activityInstances:       []domain.AgentActivityInstance{},
+		transcriptEntries:       []domain.AgentTranscriptEntry{},
 	}
 }
 

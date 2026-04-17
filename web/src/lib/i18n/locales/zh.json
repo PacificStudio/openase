@@ -53,6 +53,7 @@
   "activityEvent.label.project.updated": "项目已更新",
   "activityEvent.label.provider.availability_changed": "提供者可用性已更改",
   "activityEvent.label.provider.created": "提供者已创建",
+  "activityEvent.label.provider.deleted": "提供者已删除",
   "activityEvent.label.provider.machine_binding_changed": "提供者机器绑定已更改",
   "activityEvent.label.provider.rate_limit_updated": "提供者速率限制已更新",
   "activityEvent.label.provider.updated": "提供者已更新",

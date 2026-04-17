@@ -114,6 +114,22 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	}
 	decodeResponse(t, secondaryProviderRec, &secondaryProviderPayload)
 
+	deletableProviderRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex Delete","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{},"model_name":"gpt-5.4"}`,
+	)
+	if deletableProviderRec.Code != http.StatusCreated {
+		t.Fatalf("expected deletable provider create 201, got %d: %s", deletableProviderRec.Code, deletableProviderRec.Body.String())
+	}
+
+	var deletableProviderPayload struct {
+		Provider agentProviderResponse `json:"provider"`
+	}
+	decodeResponse(t, deletableProviderRec, &deletableProviderPayload)
+
 	listProviderRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/orgs/"+orgPayload.Organization.ID+"/providers", "")
 	if listProviderRec.Code != http.StatusOK {
 		t.Fatalf("expected provider list 200, got %d: %s", listProviderRec.Code, listProviderRec.Body.String())
@@ -133,6 +149,17 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	)
 	if patchProviderRec.Code != http.StatusOK {
 		t.Fatalf("expected provider patch 200, got %d: %s", patchProviderRec.Code, patchProviderRec.Body.String())
+	}
+
+	deleteProviderRec := performJSONRequest(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/providers/"+deletableProviderPayload.Provider.ID,
+		"",
+	)
+	if deleteProviderRec.Code != http.StatusOK {
+		t.Fatalf("expected provider delete 200, got %d: %s", deleteProviderRec.Code, deleteProviderRec.Body.String())
 	}
 
 	projectRec := performJSONRequest(
@@ -202,6 +229,82 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	deleteAgentRec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/agents/"+agentPayload.Agent.ID, "")
 	if deleteAgentRec.Code != http.StatusOK {
 		t.Fatalf("expected agent delete 200, got %d: %s", deleteAgentRec.Code, deleteAgentRec.Body.String())
+	}
+}
+
+func TestDeleteAgentProviderReturnsStructuredConflict(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
+	if orgRec.Code != http.StatusCreated {
+		t.Fatalf("expected organization create 201, got %d: %s", orgRec.Code, orgRec.Body.String())
+	}
+
+	var orgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	decodeResponse(t, orgRec, &orgPayload)
+
+	providerRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{},"model_name":"gpt-5.4"}`,
+	)
+	if providerRec.Code != http.StatusCreated {
+		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
+	}
+
+	var providerPayload struct {
+		Provider agentProviderResponse `json:"provider"`
+	}
+	decodeResponse(t, providerRec, &providerPayload)
+
+	providerID, err := uuid.Parse(providerPayload.Provider.ID)
+	if err != nil {
+		t.Fatalf("parse provider id: %v", err)
+	}
+	service.providerDeleteConflicts[providerID] = &domain.AgentProviderDeleteConflict{
+		ProviderID:          providerID,
+		OrganizationDefault: true,
+		ProjectDefaults: []domain.ProviderProjectReference{
+			{ID: uuid.New(), Name: "OpenASE"},
+		},
+		Agents: []domain.ProviderAgentReference{
+			{ID: uuid.New(), ProjectID: uuid.New(), ProjectName: "OpenASE", Name: "fullstack-developer"},
+		},
+	}
+
+	deleteRec := performJSONRequest(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/providers/"+providerPayload.Provider.ID,
+		"",
+	)
+	if deleteRec.Code != http.StatusConflict {
+		t.Fatalf("expected provider delete conflict 409, got %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
+	if !strings.Contains(deleteRec.Body.String(), `"code":"PROVIDER_IN_USE"`) {
+		t.Fatalf("expected provider delete conflict code, got %s", deleteRec.Body.String())
+	}
+	if !strings.Contains(deleteRec.Body.String(), `organization default`) {
+		t.Fatalf("expected provider delete conflict message to mention dependencies, got %s", deleteRec.Body.String())
+	}
+	if !strings.Contains(deleteRec.Body.String(), `"project_defaults"`) {
+		t.Fatalf("expected provider delete conflict details, got %s", deleteRec.Body.String())
 	}
 }
 
@@ -1200,6 +1303,19 @@ func (f *fakeCatalogService) UpdateAgentProvider(_ context.Context, input domain
 	}
 	f.providers[input.ID] = item
 
+	return item, nil
+}
+
+func (f *fakeCatalogService) DeleteAgentProvider(_ context.Context, id uuid.UUID) (domain.AgentProvider, error) {
+	item, ok := f.providers[id]
+	if !ok {
+		return domain.AgentProvider{}, catalogservice.ErrNotFound
+	}
+	if conflict, ok := f.providerDeleteConflicts[id]; ok && conflict != nil {
+		return domain.AgentProvider{}, conflict
+	}
+
+	delete(f.providers, id)
 	return item, nil
 }
 

@@ -53,6 +53,7 @@
   "activityEvent.label.project.updated": "Project updated",
   "activityEvent.label.provider.availability_changed": "Provider availability changed",
   "activityEvent.label.provider.created": "Provider created",
+  "activityEvent.label.provider.deleted": "Provider deleted",
   "activityEvent.label.provider.machine_binding_changed": "Provider machine binding changed",
   "activityEvent.label.provider.rate_limit_updated": "Provider rate limit updated",
   "activityEvent.label.provider.updated": "Provider updated",

@@ -149,6 +149,11 @@ export const activityEventCoreDefinitions: ActivityEventCatalogDefinition[] = [
     tone: 'info',
   },
   {
+    eventType: 'provider.deleted',
+    labelKey: 'activityEvent.label.provider.deleted',
+    tone: 'warning',
+  },
+  {
     eventType: 'provider.availability_changed',
     labelKey: 'activityEvent.label.provider.availability_changed',
     tone: 'warning',

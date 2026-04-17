@@ -13,6 +13,7 @@
     Play,
     Rocket,
     TicketPlus,
+    Trash2,
     XCircle,
   } from '@lucide/svelte'
   import type { Component } from 'svelte'
@@ -68,6 +69,7 @@
     'workflow.timeout_changed': ArrowRightLeft,
     'provider.created': TicketPlus,
     'provider.updated': ArrowRightLeft,
+    'provider.deleted': Trash2,
     'provider.availability_changed': AlertTriangle,
     'provider.machine_binding_changed': ArrowRightLeft,
     'provider.rate_limit_updated': ArrowRightLeft,

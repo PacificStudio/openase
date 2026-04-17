@@ -12,6 +12,7 @@ import (
 var (
 	providerCreatedEventType = provider.MustParseEventType("provider.created")
 	providerUpdatedEventType = provider.MustParseEventType("provider.updated")
+	providerDeletedEventType = provider.MustParseEventType("provider.deleted")
 )
 
 func (s *Server) publishProviderLifecycleEvent(
