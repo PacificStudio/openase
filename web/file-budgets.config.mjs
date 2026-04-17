@@ -1,18 +1,3 @@
-const machineContainerBudgetOverrides = {
-  'src/lib/features/machines/components/machine-create-wizard.svelte': {
-    soft: 750,
-    hard: 900,
-  },
-  'src/lib/features/machines/components/machine-editor-guidance.svelte': {
-    soft: 550,
-    hard: 700,
-  },
-  'src/lib/features/machines/components/machine-health-panel.svelte': {
-    soft: 550,
-    hard: 700,
-  },
-}
-
 export const fileBudgetLimits = {
   routePage: { soft: 150, hard: 250 },
   routeLayout: { soft: 180, hard: 300 },
@@ -61,17 +46,7 @@ function isUiPrimitive(filePath) {
   return /^src\/lib\/components\/ui\/.+\.svelte$/.test(filePath)
 }
 
-const machineContainerBudgetRules = Object.entries(machineContainerBudgetOverrides).map(
-  ([filePath, budget]) => ({
-    name: `Machine container budget override (${filePath})`,
-    match: (candidatePath) => candidatePath === filePath,
-    softLimit: budget.soft,
-    hardLimit: budget.hard,
-  }),
-)
-
 export const fileBudgetRules = [
-  ...machineContainerBudgetRules,
   {
     name: 'Route pages',
     match: isRoutePage,
