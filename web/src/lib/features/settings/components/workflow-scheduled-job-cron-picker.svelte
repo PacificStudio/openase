@@ -69,7 +69,7 @@
     daily: 'settings.workflowScheduledJobCronPicker.scheduleUnits.daily',
     monthly: 'settings.workflowScheduledJobCronPicker.scheduleUnits.monthly',
   }
-  const modeLabel = $derived(() => i18nStore.t(SCHEDULE_MODE_LABEL_KEYS[config.mode]))
+  const modeLabel = $derived(i18nStore.t(SCHEDULE_MODE_LABEL_KEYS[config.mode]))
 
   function emitChange() {
     const cron = manualMode ? manualValue : buildCronExpression(config)
