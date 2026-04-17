@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ScopedSecretRecord } from '$lib/api/contracts'
+import { authStore } from '$lib/stores/auth.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
@@ -98,8 +99,13 @@ describe('Security settings', () => {
     HTMLElement.prototype.releasePointerCapture ??= vi.fn()
   })
 
+  beforeEach(() => {
+    authStore.hydrate({ authenticated: true })
+  })
+
   afterEach(() => {
     cleanup()
+    authStore.clear()
     appStore.currentOrg = null
     appStore.currentProject = null
     vi.clearAllMocks()

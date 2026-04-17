@@ -212,6 +212,8 @@ func scopesForPermissions(permissions []humanauthdomain.PermissionKey) []string 
 		switch permission {
 		case humanauthdomain.PermissionProjectRead:
 			mapped = append(mapped, string(agentplatformdomain.ScopeActivityRead))
+		case humanauthdomain.PermissionProjectUpdate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeProjectsUpdate))
 		case humanauthdomain.PermissionProjectUpdateRead:
 			mapped = append(mapped, string(agentplatformdomain.ScopeProjectUpdatesRead))
 		case humanauthdomain.PermissionProjectUpdateCreate,
@@ -220,16 +222,97 @@ func scopesForPermissions(permissions []humanauthdomain.PermissionKey) []string 
 			mapped = append(mapped, string(agentplatformdomain.ScopeProjectUpdatesWrite))
 		case humanauthdomain.PermissionRepoRead:
 			mapped = append(mapped, string(agentplatformdomain.ScopeReposRead))
+		case humanauthdomain.PermissionRepoCreate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeReposCreate))
+		case humanauthdomain.PermissionRepoUpdate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeReposUpdate))
+		case humanauthdomain.PermissionRepoDelete:
+			mapped = append(mapped, string(agentplatformdomain.ScopeReposDelete))
 		case humanauthdomain.PermissionStatusRead:
 			mapped = append(mapped, string(agentplatformdomain.ScopeStatusesList))
+		case humanauthdomain.PermissionStatusCreate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeStatusesCreate))
+		case humanauthdomain.PermissionStatusUpdate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeStatusesUpdate))
+		case humanauthdomain.PermissionStatusDelete:
+			mapped = append(mapped, string(agentplatformdomain.ScopeStatusesDelete))
 		case humanauthdomain.PermissionTicketRead:
 			mapped = append(mapped, string(agentplatformdomain.ScopeTicketsList))
 		case humanauthdomain.PermissionTicketCreate:
 			mapped = append(mapped, string(agentplatformdomain.ScopeTicketsCreate))
 		case humanauthdomain.PermissionTicketUpdate:
 			mapped = append(mapped, string(agentplatformdomain.ScopeTicketsUpdate))
-		case humanauthdomain.PermissionWorkflowRead, humanauthdomain.PermissionHarnessRead:
-			mapped = append(mapped, string(agentplatformdomain.ScopeWorkflowsRead))
+		case humanauthdomain.PermissionWorkflowRead:
+			mapped = append(mapped,
+				string(agentplatformdomain.ScopeWorkflowsList),
+				string(agentplatformdomain.ScopeWorkflowsRead),
+			)
+		case humanauthdomain.PermissionWorkflowCreate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeWorkflowsCreate))
+		case humanauthdomain.PermissionWorkflowUpdate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeWorkflowsUpdate))
+		case humanauthdomain.PermissionWorkflowDelete:
+			mapped = append(mapped, string(agentplatformdomain.ScopeWorkflowsDelete))
+		case humanauthdomain.PermissionHarnessRead:
+			mapped = append(mapped,
+				string(agentplatformdomain.ScopeWorkflowsHarnessHistoryRead),
+				string(agentplatformdomain.ScopeWorkflowsHarnessRead),
+				string(agentplatformdomain.ScopeWorkflowsHarnessVariablesRead),
+			)
+		case humanauthdomain.PermissionHarnessUpdate:
+			mapped = append(mapped,
+				string(agentplatformdomain.ScopeWorkflowsHarnessUpdate),
+				string(agentplatformdomain.ScopeWorkflowsHarnessValidate),
+			)
+		case humanauthdomain.PermissionSkillRead:
+			mapped = append(mapped,
+				string(agentplatformdomain.ScopeSkillsList),
+				string(agentplatformdomain.ScopeSkillsRead),
+			)
+		case humanauthdomain.PermissionSkillCreate:
+			mapped = append(mapped,
+				string(agentplatformdomain.ScopeSkillsCreate),
+				string(agentplatformdomain.ScopeSkillsImport),
+			)
+		case humanauthdomain.PermissionSkillUpdate:
+			mapped = append(mapped,
+				string(agentplatformdomain.ScopeSkillsRefresh),
+				string(agentplatformdomain.ScopeSkillsUpdate),
+			)
+		case humanauthdomain.PermissionSkillDelete:
+			mapped = append(mapped, string(agentplatformdomain.ScopeSkillsDelete))
+		case humanauthdomain.PermissionAgentRead:
+			mapped = append(mapped, string(agentplatformdomain.ScopeAgentsRead))
+		case humanauthdomain.PermissionAgentCreate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeAgentsCreate))
+		case humanauthdomain.PermissionAgentUpdate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeAgentsUpdate))
+		case humanauthdomain.PermissionAgentDelete:
+			mapped = append(mapped, string(agentplatformdomain.ScopeAgentsDelete))
+		case humanauthdomain.PermissionAgentControl:
+			mapped = append(mapped,
+				string(agentplatformdomain.ScopeAgentsInterrupt),
+				string(agentplatformdomain.ScopeAgentsPause),
+				string(agentplatformdomain.ScopeAgentsResume),
+			)
+		case humanauthdomain.PermissionJobRead:
+			mapped = append(mapped, string(agentplatformdomain.ScopeScheduledJobsList))
+		case humanauthdomain.PermissionJobCreate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeScheduledJobsCreate))
+		case humanauthdomain.PermissionJobUpdate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeScheduledJobsUpdate))
+		case humanauthdomain.PermissionJobDelete:
+			mapped = append(mapped, string(agentplatformdomain.ScopeScheduledJobsDelete))
+		case humanauthdomain.PermissionJobTrigger:
+			mapped = append(mapped, string(agentplatformdomain.ScopeScheduledJobsTrigger))
+		case humanauthdomain.PermissionNotificationRead:
+			mapped = append(mapped, string(agentplatformdomain.ScopeNotificationRulesList))
+		case humanauthdomain.PermissionNotificationCreate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeNotificationRulesCreate))
+		case humanauthdomain.PermissionNotificationUpdate:
+			mapped = append(mapped, string(agentplatformdomain.ScopeNotificationRulesUpdate))
+		case humanauthdomain.PermissionNotificationDelete:
+			mapped = append(mapped, string(agentplatformdomain.ScopeNotificationRulesDelete))
 		}
 	}
 	return uniqueStrings(mapped)

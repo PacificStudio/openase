@@ -12,6 +12,7 @@
     listProjectUserAPIKeys,
     rotateProjectUserAPIKey,
   } from '$lib/api/openase'
+  import { authStore } from '$lib/stores/auth.svelte'
   import { ScopeGroupPicker } from '$lib/features/workflows'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -42,12 +43,26 @@
   let selectedScopes = $state<string[]>([])
   let mutationKey = $state('')
 
+  const projectId = $derived(security.project_id || appStore.currentProject?.id || '')
   const scopeGroups = $derived(security.user_api_keys.allowed_scope_groups ?? [])
+  const requiresHumanSession = $derived(!authStore.authenticated)
+  const humanSessionMessage = $derived(
+    authStore.requiresAuthorization
+      ? i18nStore.t('settings.security.userApiKeys.messages.signInRequired')
+      : i18nStore.t('settings.security.userApiKeys.messages.humanSessionRequired'),
+  )
 
   $effect(() => {
-    const projectId = appStore.currentProject?.id
     if (!projectId) {
       items = []
+      error = ''
+      loading = false
+      return
+    }
+    if (requiresHumanSession) {
+      items = []
+      error = ''
+      loading = false
       return
     }
     let cancelled = false
@@ -82,7 +97,6 @@
   }
 
   async function handleCreate() {
-    const projectId = appStore.currentProject?.id
     if (!projectId) return
     mutationKey = 'create'
     try {
@@ -110,7 +124,6 @@
   }
 
   async function handleRotate(item: ProjectUserAPIKey) {
-    const projectId = appStore.currentProject?.id
     if (!projectId) return
     mutationKey = `rotate:${item.id}`
     try {
@@ -126,7 +139,6 @@
   }
 
   async function handleDisable(item: ProjectUserAPIKey) {
-    const projectId = appStore.currentProject?.id
     if (!projectId) return
     mutationKey = `disable:${item.id}`
     try {
@@ -144,7 +156,6 @@
   }
 
   async function handleDelete(item: ProjectUserAPIKey) {
-    const projectId = appStore.currentProject?.id
     if (!projectId) return
     mutationKey = `delete:${item.id}`
     try {
@@ -179,7 +190,7 @@
     <Dialog.Root bind:open={createOpen}>
       <Dialog.Trigger>
         {#snippet child({ props })}
-          <Button size="sm" {...props}
+          <Button size="sm" disabled={requiresHumanSession} {...props}
             >{i18nStore.t('settings.security.userApiKeys.buttons.create')}</Button
           >
         {/snippet}
@@ -250,6 +261,10 @@
   {#if loading}
     <div class="text-muted-foreground text-sm">
       {i18nStore.t('settings.security.userApiKeys.messages.loading')}
+    </div>
+  {:else if requiresHumanSession}
+    <div class="bg-muted/30 text-muted-foreground rounded-lg px-4 py-3 text-sm">
+      {humanSessionMessage}
     </div>
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>

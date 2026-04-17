@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
+import { authStore } from '$lib/stores/auth.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import { configuredSecurity, currentOrg, currentProject } from './security-settings.test-helpers'
 import SecuritySettingsUserAPIKeys from './security-settings-user-api-keys.svelte'
@@ -39,12 +40,14 @@ describe('SecuritySettingsUserAPIKeys', () => {
 
   afterEach(() => {
     cleanup()
+    authStore.clear()
     appStore.currentOrg = null
     appStore.currentProject = null
     vi.clearAllMocks()
   })
 
   it('shows plaintext API key once after creating a project user API key', async () => {
+    authStore.hydrate({ authenticated: true })
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     listProjectUserAPIKeys.mockResolvedValue({ api_keys: [] })
@@ -89,5 +92,37 @@ describe('SecuritySettingsUserAPIKeys', () => {
     await waitFor(() => {
       expect(queryByText('ase_pat_plain_text_token')).toBeNull()
     })
+  })
+
+  it('uses the loaded security project id for API calls', async () => {
+    authStore.hydrate({ authenticated: true })
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = { ...currentProject(), id: 'atlas' }
+    listProjectUserAPIKeys.mockResolvedValue({ api_keys: [] })
+
+    render(SecuritySettingsUserAPIKeys, { security: configuredSecurity() })
+
+    await waitFor(() => {
+      expect(listProjectUserAPIKeys).toHaveBeenCalledWith(configuredSecurity().project_id)
+    })
+  })
+
+  it('shows a sign-in message instead of calling the API without a human session', async () => {
+    authStore.hydrate({
+      authenticated: false,
+      loginRequired: true,
+      authCapabilities: { availableAuthMethods: ['oidc'], currentAuthMethod: 'oidc' },
+    })
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+
+    const { findByText } = render(SecuritySettingsUserAPIKeys, { security: configuredSecurity() })
+
+    expect(
+      await findByText(
+        'Sign in to list, create, rotate, disable, or delete user API keys for this project.',
+      ),
+    ).toBeTruthy()
+    expect(listProjectUserAPIKeys).not.toHaveBeenCalled()
   })
 })
