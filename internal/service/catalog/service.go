@@ -316,7 +316,7 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 	)
 
 	resources := cloneResources(machine.Resources)
-	status := domain.InferMachineRefreshedHealthStatus(machine.Status, domain.MachineStatusOnline)
+	status := domain.MachineStatusOnline
 
 	reachability, reachabilityErr := s.machineHealthCollector.CollectReachability(ctx, machine)
 	checkedAt := reachability.CheckedAt.UTC()
