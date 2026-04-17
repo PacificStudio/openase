@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import type { ScopedSecretRecord } from '$lib/api/contracts'
 import { authStore } from '$lib/stores/auth.svelte'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
@@ -108,6 +109,7 @@ describe('Security settings', () => {
     authStore.clear()
     appStore.currentOrg = null
     appStore.currentProject = null
+    i18nStore.setLocale('en')
     vi.clearAllMocks()
   })
 
@@ -161,7 +163,7 @@ describe('Security settings', () => {
 
     expect(await findByText('Overview')).toBeTruthy()
     expect(await findByText('Inherited organization defaults')).toBeTruthy()
-    expect(await findByText('Outbound')).toBeTruthy()
+    expect(await findByText('GitHub outbound access')).toBeTruthy()
     expect(await findByText('Secret Bindings')).toBeTruthy()
     expect(await findByText('User API keys')).toBeTruthy()
     expect(await findByText('Project AI Platform')).toBeTruthy()
@@ -246,7 +248,7 @@ describe('Security settings', () => {
     await fireEvent.click(await findByText('update'))
     await fireEvent.click(await findByText('add_repo'))
     const saveButtons = await findAllByRole('button', { name: 'Save' })
-    await fireEvent.click(saveButtons[saveButtons.length - 1])
+    await fireEvent.click(saveButtons[saveButtons.length - 1]!)
 
     await waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
@@ -318,9 +320,28 @@ describe('Security settings', () => {
 
     const { findByText, queryByText } = render(SecuritySettings)
 
-    expect(await findByText('Outbound')).toBeTruthy()
+    expect(await findByText('GitHub outbound access')).toBeTruthy()
     expect(await findByText('ghu_test...1234')).toBeTruthy()
     expect(queryByText('No scopes reported')).toBeNull()
+  })
+
+  it('renders natural Chinese security copy without exposing raw expressions', async () => {
+    i18nStore.setLocale('zh')
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+
+    const { container, findByText } = render(SecuritySettings)
+
+    expect(await findByText('GitHub 出站访问')).toBeTruthy()
+    expect(container.textContent).toContain(
+      '待 OAuth 应用接线完成后，可通过 GitHub 设备验证码流程授权 CLI。',
+    )
+    expect(container.textContent).not.toContain('()=>')
+    expect(container.textContent).not.toContain('m.t(')
+    expect(container.textContent).not.toContain('github-device-flow')
   })
 
   it('creates a workflow secret binding from the security surface', async () => {

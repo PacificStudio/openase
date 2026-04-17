@@ -173,6 +173,7 @@ export type ProjectConversationWorkspaceDiffRepo = {
 export type ProjectConversationWorkspaceDiff = {
   conversationId: string
   workspacePath: string
+  preparing: boolean
   dirty: boolean
   reposChanged: number
   filesChanged: number
@@ -273,6 +274,7 @@ export type ProjectConversationWorkspaceMetadata = {
   conversationId: string
   available: boolean
   workspacePath: string
+  preparing: boolean
   repos: ProjectConversationWorkspaceRepoMetadata[]
   syncPrompt?: ProjectConversationWorkspaceSyncPrompt
 }
@@ -1640,6 +1642,7 @@ function parseProjectConversationWorkspaceDiff(value: unknown): ProjectConversat
   return {
     conversationId: readRequiredString(object, 'conversation_id'),
     workspacePath: readRequiredString(object, 'workspace_path'),
+    preparing: readRequiredBoolean(object, 'preparing'),
     dirty: readRequiredBoolean(object, 'dirty'),
     reposChanged: readRequiredNumber(object, 'repos_changed'),
     filesChanged: readRequiredNumber(object, 'files_changed'),
@@ -1683,6 +1686,7 @@ function parseProjectConversationWorkspaceMetadata(
     conversationId: readRequiredString(object, 'conversation_id'),
     available: readRequiredBoolean(object, 'available'),
     workspacePath: readOptionalString(object, 'workspace_path') ?? '',
+    preparing: readRequiredBoolean(object, 'preparing'),
     repos,
     syncPrompt: parseProjectConversationWorkspaceSyncPrompt(
       readOptionalObject(object, 'sync_prompt'),

@@ -554,6 +554,7 @@ type OpenAPIProjectConversationWorkspaceSyncPrompt struct {
 type OpenAPIProjectConversationWorkspaceDiff struct {
 	ConversationID string                                         `json:"conversation_id"`
 	WorkspacePath  string                                         `json:"workspace_path"`
+	Preparing      bool                                           `json:"preparing"`
 	Dirty          bool                                           `json:"dirty"`
 	ReposChanged   int                                            `json:"repos_changed"`
 	FilesChanged   int                                            `json:"files_changed"`
@@ -595,6 +596,7 @@ type OpenAPIProjectConversationWorkspaceMetadata struct {
 	ConversationID string                                            `json:"conversation_id"`
 	Available      bool                                              `json:"available"`
 	WorkspacePath  string                                            `json:"workspace_path"`
+	Preparing      bool                                              `json:"preparing"`
 	Repos          []OpenAPIProjectConversationWorkspaceRepoMetadata `json:"repos"`
 	SyncPrompt     *OpenAPIProjectConversationWorkspaceSyncPrompt    `json:"sync_prompt,omitempty"`
 }
