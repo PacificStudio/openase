@@ -32,7 +32,7 @@ export function createEmptyMachineDraft(): MachineDraft {
     advertisedEndpoint: '',
     description: '',
     labels: '',
-    status: 'maintenance',
+    status: 'offline',
     workspaceRoot: '',
     agentCLIPath: '',
     envVars: '',

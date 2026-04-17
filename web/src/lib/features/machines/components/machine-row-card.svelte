@@ -32,8 +32,10 @@
     resetEnabled = false,
     testing = false,
     deleting = false,
+    maintenanceUpdating = false,
     onOpen,
     onTest,
+    onToggleMaintenance,
     onReset,
     onDelete,
   }: {
@@ -42,8 +44,10 @@
     resetEnabled?: boolean
     testing?: boolean
     deleting?: boolean
+    maintenanceUpdating?: boolean
     onOpen?: () => void
     onTest?: () => void
+    onToggleMaintenance?: (enabled: boolean) => void
     onReset?: () => void
     onDelete?: () => void
   } = $props()
@@ -112,11 +116,14 @@
       <MachineRowCardActions
         machineName={machine.name}
         {localMachine}
+        inMaintenance={machine.status === 'maintenance'}
         {resetEnabled}
         {testing}
         {deleting}
+        {maintenanceUpdating}
         {onOpen}
         {onTest}
+        {onToggleMaintenance}
         {onReset}
         {onDelete}
       />

@@ -75,6 +75,14 @@ export async function removeMachine(machineId: string): Promise<void> {
   await deleteMachine(machineId)
 }
 
+export async function updateMachineStatus(
+  machineId: string,
+  status: MachineMutationInput['status'],
+): Promise<MachineItem> {
+  const payload = await updateMachine(machineId, { status })
+  return payload.machine
+}
+
 export async function runMachineSSHBootstrap(
   machineId: string,
   body: MachineSSHBootstrapRequest = {},

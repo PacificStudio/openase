@@ -124,4 +124,17 @@ describe('machine setup guidance', () => {
     expect(friendlyTransportLabel('ws_reverse')).toBe('Reverse-connect daemon')
     expect(friendlyTransportLabel('ssh')).toBe('SSH helper path')
   })
+
+  it('overrides setup guidance when a machine is manually held in maintenance', () => {
+    const guide = buildMachineSetupGuide({
+      machine: machineFixture({
+        status: 'maintenance',
+        advertised_endpoint: 'wss://builder.internal/openase',
+      }),
+    })
+
+    expect(guide.stateLabel).toBe('Manual maintenance enabled')
+    expect(guide.stateSummary).toContain('held out of scheduling')
+    expect(guide.nextSteps[0]).toContain('Exit maintenance')
+  })
 })

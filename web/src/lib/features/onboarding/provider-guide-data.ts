@@ -177,7 +177,7 @@ const reasonHints: Record<string, string[]> = {
     'The machine is connected but degraded. Fix host health first, then rerun detection.',
   ],
   machine_maintenance: [
-    'The machine is in maintenance mode. Exit maintenance and rerun detection.',
+    'The machine is manually in maintenance. Exit maintenance before rerunning detection or dispatch.',
   ],
   cli_missing: [
     'OpenASE found this provider, but could not detect the matching CLI in the target machine PATH.',

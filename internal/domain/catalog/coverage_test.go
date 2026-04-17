@@ -1395,11 +1395,35 @@ func TestCatalogMachineParsers(t *testing.T) {
 	if _, err := parseMachinePort(intPtr(70000)); err == nil {
 		t.Fatal("parseMachinePort() expected range validation error")
 	}
-	if got, err := parseMachineStatus("", false); err != nil || got != MachineStatusMaintenance {
-		t.Fatalf("parseMachineStatus(remote default) = %q, %v; want maintenance, nil", got, err)
+	if got, err := parseMachineStatus("", false); err != nil || got != MachineStatusOffline {
+		t.Fatalf("parseMachineStatus(remote default) = %q, %v; want offline, nil", got, err)
 	}
 	if _, err := parseMachineStatus("bad", true); err == nil {
 		t.Fatal("parseMachineStatus() expected validation error")
+	}
+	if got := DefaultMachineStatus(true); got != MachineStatusOnline {
+		t.Fatalf("DefaultMachineStatus(local) = %q", got)
+	}
+	if got := DefaultMachineStatus(false); got != MachineStatusOffline {
+		t.Fatalf("DefaultMachineStatus(remote) = %q", got)
+	}
+	if got := ApplyMachineMaintenanceGate(MachineStatusMaintenance, MachineStatusOnline); got != MachineStatusMaintenance {
+		t.Fatalf("ApplyMachineMaintenanceGate(maintenance, online) = %q", got)
+	}
+	if got := InferMachineConnectionSuccessStatus(MachineStatusOffline); got != MachineStatusOnline {
+		t.Fatalf("InferMachineConnectionSuccessStatus(offline) = %q", got)
+	}
+	if got := InferMachineConnectionFailureStatus(Machine{Host: "builder", Status: MachineStatusMaintenance}); got != MachineStatusMaintenance {
+		t.Fatalf("InferMachineConnectionFailureStatus(manual maintenance) = %q", got)
+	}
+	if got := InferMachineConnectionFailureStatus(Machine{Host: LocalMachineHost, Status: MachineStatusOnline}); got != MachineStatusDegraded {
+		t.Fatalf("InferMachineConnectionFailureStatus(local) = %q", got)
+	}
+	if got := InferMachineRefreshedHealthStatus(MachineStatusOffline, MachineStatusOnline); got != MachineStatusOnline {
+		t.Fatalf("InferMachineRefreshedHealthStatus(offline, online) = %q", got)
+	}
+	if got := InferMachineRefreshedHealthStatus(MachineStatusMaintenance, MachineStatusOnline); got != MachineStatusMaintenance {
+		t.Fatalf("InferMachineRefreshedHealthStatus(maintenance, online) = %q", got)
 	}
 	if _, err := parseMachineEnvVars([]string{"", "KEY=VALUE"}); err == nil {
 		t.Fatal("parseMachineEnvVars() expected empty validation error")

@@ -27,6 +27,7 @@ type MachinesPageControllerViewInput = {
   getSaving: () => boolean
   getTestingMachineId: () => string
   getDeletingMachineId: () => string
+  getStatusUpdatingMachineId: () => string
   getEditorOpen: () => boolean
   setEditorOpen: (value: boolean) => void
   getSearchQuery: () => string
@@ -38,6 +39,7 @@ type MachinesPageControllerViewInput = {
   handleRefreshHealth: (machineId: string) => Promise<void>
   handleSave: () => Promise<void>
   handleTest: (machineId: string) => Promise<void>
+  handleMaintenanceToggle: (machineId: string, enabled: boolean) => Promise<void>
   handleDelete: (machineId: string) => Promise<void>
   resetDraft: (machineId?: string) => void
 }
@@ -103,6 +105,9 @@ export function createMachinesPageControllerView(
     get deletingMachineId() {
       return input.getDeletingMachineId()
     },
+    get statusUpdatingMachineId() {
+      return input.getStatusUpdatingMachineId()
+    },
     get editorOpen() {
       return input.getEditorOpen()
     },
@@ -122,6 +127,7 @@ export function createMachinesPageControllerView(
     handleRefreshHealth: input.handleRefreshHealth,
     handleSave: input.handleSave,
     handleTest: input.handleTest,
+    handleMaintenanceToggle: input.handleMaintenanceToggle,
     handleDelete: input.handleDelete,
     resetDraft: input.resetDraft,
   }

@@ -27,6 +27,7 @@ import {
 import {
   handleMachineDelete,
   handleMachineHealthRefresh,
+  handleMachineMaintenanceToggle,
   handleMachineTest,
   loadMachineResources,
   resetMachineDraft,
@@ -51,7 +52,8 @@ export function createMachinesPageController() {
     editorOpen = $state(false)
   let refreshingHealthMachineId = $state(''),
     testingMachineId = $state(''),
-    deletingMachineId = $state('')
+    deletingMachineId = $state(''),
+    statusUpdatingMachineId = $state('')
   let workspaceState = $state<MachineWorkspaceState>('loading'),
     routeOrgId = $state(''),
     listMessage = $state(''),
@@ -99,6 +101,8 @@ export function createMachinesPageController() {
     setRefreshingHealthMachineId: (value) => (refreshingHealthMachineId = value),
     getDeletingMachineId: () => deletingMachineId,
     setDeletingMachineId: (value) => (deletingMachineId = value),
+    getStatusUpdatingMachineId: () => statusUpdatingMachineId,
+    setStatusUpdatingMachineId: (value) => (statusUpdatingMachineId = value),
     applyViewState,
     persistMachinesPageCache,
   })
@@ -293,6 +297,7 @@ export function createMachinesPageController() {
     getSaving: () => saving,
     getTestingMachineId: () => testingMachineId,
     getDeletingMachineId: () => deletingMachineId,
+    getStatusUpdatingMachineId: () => statusUpdatingMachineId,
     getEditorOpen: () => editorOpen,
     setEditorOpen: (value) => (editorOpen = value),
     getSearchQuery: () => searchQuery,
@@ -304,6 +309,8 @@ export function createMachinesPageController() {
     handleRefreshHealth: (machineId) => handleMachineHealthRefresh(controllerState, machineId),
     handleSave,
     handleTest: (machineId) => handleMachineTest(controllerState, machineId),
+    handleMaintenanceToggle: (machineId, enabled) =>
+      handleMachineMaintenanceToggle(controllerState, machineId, enabled),
     handleDelete: (machineId) => handleMachineDelete(controllerState, machineId),
     resetDraft: (machineId?: string) => resetMachineDraft(controllerState, machineId),
   })
