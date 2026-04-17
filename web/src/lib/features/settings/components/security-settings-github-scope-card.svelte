@@ -12,6 +12,12 @@
     Upload,
   } from '@lucide/svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import {
+    formatDisplayText,
+    parseGitHubCredentialSource,
+    parseGitHubProbeState,
+    parseGitHubRepoAccess,
+  } from './security-settings-display'
 
   type Security = SecuritySettingsResponse['security']
   type GitHubSlot = Security['github']['project_override']
@@ -41,12 +47,13 @@
     return 'bg-amber-500'
   }
 
-  function statusLabel(): string {
-    if (!slot.configured) {
-      return i18nStore.t('settings.security.github.status.notConfigured')
-    }
-    return slot.probe.state.replaceAll('_', ' ')
-  }
+  const statusLabel = $derived(formatDisplayText(parseGitHubProbeState(slot), i18nStore.t))
+  const sourceLabel = $derived(
+    formatDisplayText(parseGitHubCredentialSource(slot.source), i18nStore.t),
+  )
+  const repoAccessLabel = $derived(
+    formatDisplayText(parseGitHubRepoAccess(slot.probe.repo_access), i18nStore.t),
+  )
 
   function formatCheckedAt(value: string | null | undefined): string {
     if (!value) return 'Never'
@@ -76,7 +83,7 @@
       <span class="text-sm font-medium">
         {i18nStore.t('settings.security.github.title.projectOverride')}
       </span>
-      <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
+      <span class="text-muted-foreground text-xs capitalize">{statusLabel}</span>
     </div>
     {#if slot.configured}
       <div class="flex items-center gap-1">
@@ -134,13 +141,13 @@
           <span class="text-muted-foreground">
             {i18nStore.t('settings.security.github.labels.source')}
           </span>
-          <div>{slot.source ? slot.source.replaceAll('_', ' ') : '—'}</div>
+          <div>{sourceLabel}</div>
         </div>
         <div>
           <span class="text-muted-foreground">
             {i18nStore.t('settings.security.github.labels.repoAccess')}
           </span>
-          <div class="capitalize">{slot.probe.repo_access.replaceAll('_', ' ')}</div>
+          <div class="capitalize">{repoAccessLabel}</div>
         </div>
         <div>
           <span class="text-muted-foreground">

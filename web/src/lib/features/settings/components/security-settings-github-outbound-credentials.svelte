@@ -4,6 +4,12 @@
   import { i18nStore } from '$lib/i18n/store.svelte'
 
   import GitHubCredentialScopeCard from './security-settings-github-scope-card.svelte'
+  import {
+    formatDisplayText,
+    parseDeferredCapability,
+    parseGitHubCredentialSource,
+    parseGitHubProbeState,
+  } from './security-settings-display'
 
   type Security = SecuritySettingsResponse['security']
   type GitHubSlot = Security['github']['organization']
@@ -22,21 +28,21 @@
     onManualTokenChange: (value: string) => void
   } = $props()
 
-  const deviceFlowSummary = $derived(() => {
-    return security.deferred.find((item) => item.key === 'github-device-flow')?.summary ?? ''
-  })
+  const deviceFlowDisplay = $derived(
+    parseDeferredCapability(security.deferred, 'github-device-flow'),
+  )
+  const effectiveStatusLabel = $derived(
+    formatDisplayText(parseGitHubProbeState(security.github.effective), i18nStore.t),
+  )
+  const effectiveSourceLabel = $derived(
+    formatDisplayText(parseGitHubCredentialSource(security.github.effective.source), i18nStore.t),
+  )
 
   function effectiveStatusDot(slot: GitHubSlot): string {
     if (!slot.configured) return 'bg-slate-400'
     if (slot.probe.valid) return 'bg-emerald-500'
     if (slot.probe.state === 'error' || slot.probe.state === 'revoked') return 'bg-rose-500'
     return 'bg-amber-500'
-  }
-
-  function effectiveLabel(slot: GitHubSlot): string {
-    if (!slot.configured)
-      return i18nStore.t('settings.security.github.outbound.status.notConfigured')
-    return slot.probe.state.replaceAll('_', ' ')
   }
 
   function scopeSourceLabel(slot: GitHubSlot): string {
@@ -78,15 +84,13 @@
         <span
           class={`inline-block size-2 shrink-0 rounded-full ${effectiveStatusDot(security.github.effective)}`}
         ></span>
-        <span class="text-sm font-medium capitalize"
-          >{effectiveLabel(security.github.effective)}</span
-        >
+        <span class="text-sm font-medium capitalize">{effectiveStatusLabel}</span>
       </div>
       {#if security.github.effective.configured}
         <span class="text-muted-foreground text-xs">
           {scopeSourceLabel(security.github.effective)}
           {#if security.github.effective.source}
-            · {security.github.effective.source.replaceAll('_', ' ')}
+            · {effectiveSourceLabel}
           {/if}
         </span>
       {:else}
@@ -133,8 +137,8 @@
     <span class="font-medium">
       {i18nStore.t('settings.security.github.outbound.deviceFlowLabel')}
     </span>{' '}
-    — {#if deviceFlowSummary}
-      {deviceFlowSummary}
+    — {#if deviceFlowDisplay}
+      {formatDisplayText(deviceFlowDisplay.summary, i18nStore.t)}
     {:else}
       {i18nStore.t('settings.security.github.outbound.deviceFlowSummaryFallback')}
     {/if}

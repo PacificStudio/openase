@@ -38,7 +38,7 @@
     onDisable: () => void
   } = $props()
 
-  const scopesSummary = $derived(() => {
+  const scopesSummary = $derived.by(() => {
     const scopes = form.scopesText
       .split(/[\n,]/)
       .map((s) => s.trim())
@@ -46,7 +46,7 @@
     return scopes.length > 0 ? scopes.join(', ') : 'openid, profile, email'
   })
 
-  const domainsSummary = $derived(() => {
+  const domainsSummary = $derived.by(() => {
     const domains = form.allowedDomainsText
       .split(/[\n,]/)
       .map((s) => s.trim())
@@ -54,7 +54,7 @@
     return domains.length > 0 ? domains.join(', ') : adminAuthT('adminAuth.summary.anyDomain')
   })
 
-  const bootstrapSummary = $derived(() => {
+  const bootstrapSummary = $derived.by(() => {
     const emails = form.bootstrapAdminEmailsText
       .split(/[\n,]/)
       .map((s) => s.trim())
@@ -125,15 +125,15 @@
           <div class="text-muted-foreground mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
             <span>
               {adminAuthT('adminAuth.summary.scopes')}:{' '}
-              <span class="text-foreground">{scopesSummary()}</span>
+              <span class="text-foreground">{scopesSummary}</span>
             </span>
             <span>
               {adminAuthT('adminAuth.summary.domains')}:{' '}
-              <span class="text-foreground">{domainsSummary()}</span>
+              <span class="text-foreground">{domainsSummary}</span>
             </span>
             <span>
               {adminAuthT('adminAuth.summary.bootstrapAdmins')}:{' '}
-              <span class="text-foreground">{bootstrapSummary()}</span>
+              <span class="text-foreground">{bootstrapSummary}</span>
             </span>
             <span>
               {adminAuthT('adminAuth.summary.sessionTtl')}:{' '}
