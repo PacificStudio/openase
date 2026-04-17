@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ApiError } from '$lib/api/client'
   import type { Agent, AgentProvider, Machine } from '$lib/api/contracts'
   import {
     deleteProvider,
