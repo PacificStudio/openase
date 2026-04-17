@@ -441,15 +441,13 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		)
 	}
 
-	if machine.Status != entmachine.StatusMaintenance {
-		switch {
-		case hardReachabilityFailure:
-			status = entmachine.StatusOffline
-		case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
-			status = entmachine.StatusDegraded
-		default:
-			status = entmachine.StatusOnline
-		}
+	switch {
+	case hardReachabilityFailure:
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusOffline))
+	case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusDegraded))
+	default:
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusOnline))
 	}
 	logger.Info("machine monitor tick completed",
 		"checked_at", formatMachineMonitorTime(lastHeartbeatAt),

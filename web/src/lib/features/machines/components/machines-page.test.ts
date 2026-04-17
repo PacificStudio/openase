@@ -15,6 +15,7 @@ const {
   runMachineConnectionTest,
   runMachineHealthRefresh,
   saveMachine,
+  updateMachineStatus,
   subscribeOrganizationMachineEvents,
 } = vi.hoisted(() => ({
   loadMachines: vi.fn(),
@@ -24,6 +25,7 @@ const {
   runMachineConnectionTest: vi.fn(),
   runMachineHealthRefresh: vi.fn(),
   saveMachine: vi.fn(),
+  updateMachineStatus: vi.fn(),
   subscribeOrganizationMachineEvents: vi.fn(),
 }))
 
@@ -35,6 +37,7 @@ vi.mock('./machines-page-api', () => ({
   runMachineConnectionTest,
   runMachineHealthRefresh,
   saveMachine,
+  updateMachineStatus,
 }))
 
 vi.mock('$lib/features/org-events', async () => {
@@ -148,6 +151,16 @@ describe('MachinesPage cache behavior', () => {
     }
     loadMachines.mockResolvedValue([machineFixture])
     loadMachineSnapshot.mockResolvedValue(snapshotFixture)
+    runMachineHealthRefresh.mockResolvedValue({
+      machine: machineFixture,
+      snapshot: snapshotFixture,
+    })
+    updateMachineStatus.mockImplementation(
+      async (_machineId: string, status: MachineItem['status']) => ({
+        ...machineFixture,
+        status,
+      }),
+    )
     subscribeOrganizationMachineEvents.mockReturnValue(() => {})
   })
 
@@ -261,6 +274,29 @@ describe('MachinesPage cache behavior', () => {
     expect(await view.findByText('Health snapshot')).toBeTruthy()
     expect(view.getByText('Setup guidance')).toBeTruthy()
     await fireEvent.click(view.getByTestId('machine-health-setup-toggle'))
+  })
+
+  it('lets operators enter and exit maintenance from the machine detail sheet', async () => {
+    const view = render(MachinesPage)
+    expect(await view.findByTestId('machine-card-machine-1')).toBeTruthy()
+
+    await openMachineDetails('machine-1')
+
+    const toggle = await view.findByTestId('machine-maintenance-toggle')
+    expect(toggle.textContent).toContain('Enter maintenance')
+
+    await fireEvent.click(toggle)
+
+    await waitFor(() => {
+      expect(updateMachineStatus).toHaveBeenCalledWith('machine-1', 'maintenance')
+    })
+    expect(await view.findByText(/Manual maintenance is enabled\./)).toBeTruthy()
+
+    await fireEvent.click(await view.findByTestId('machine-maintenance-toggle'))
+
+    await waitFor(() => {
+      expect(updateMachineStatus).toHaveBeenCalledWith('machine-1', 'offline')
+    })
   })
 })
 

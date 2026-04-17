@@ -26,8 +26,10 @@
     loadingHealth = false,
     refreshingHealth = false,
     saving = false,
+    maintenanceUpdating = false,
     onDraftChange,
     onRefreshHealth,
+    onToggleMaintenance,
     onSave,
   }: {
     open?: boolean
@@ -39,8 +41,10 @@
     loadingHealth?: boolean
     refreshingHealth?: boolean
     saving?: boolean
+    maintenanceUpdating?: boolean
     onDraftChange?: (field: MachineDraftField, value: string) => void
     onRefreshHealth?: () => void
+    onToggleMaintenance?: (enabled: boolean) => void
     onSave?: () => void
   } = $props()
 
@@ -86,6 +90,31 @@
               : i18nStore.t('machines.machineEditorSheet.actions.save')}
         </Button>
       </div>
+
+      {#if mode === 'edit' && machine && machine.host !== 'local'}
+        <div class="flex flex-wrap items-center gap-2 pt-3">
+          <Button
+            variant={machine.status === 'maintenance' ? 'secondary' : 'outline'}
+            size="sm"
+            onclick={() => onToggleMaintenance?.(machine.status !== 'maintenance')}
+            disabled={maintenanceUpdating}
+            data-testid="machine-maintenance-toggle"
+          >
+            {#if maintenanceUpdating}
+              {i18nStore.t('machines.machineEditorSheet.actions.maintenanceUpdating')}
+            {:else if machine.status === 'maintenance'}
+              {i18nStore.t('machines.machineEditorSheet.actions.exitMaintenance')}
+            {:else}
+              {i18nStore.t('machines.machineEditorSheet.actions.enterMaintenance')}
+            {/if}
+          </Button>
+          <p class="text-muted-foreground text-xs">
+            {machine.status === 'maintenance'
+              ? i18nStore.t('machines.machineEditorSheet.actions.maintenanceEnabled')
+              : i18nStore.t('machines.machineEditorSheet.actions.maintenanceDisabled')}
+          </p>
+        </div>
+      {/if}
 
       {#if mode === 'edit' && machine}
         <div class="pt-3">

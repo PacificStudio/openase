@@ -74,11 +74,21 @@ func (s *Server) sshBootstrapMachine(c echo.Context) error {
 		machine = updatedMachine
 	}
 
+	if refreshedMachine, refreshErr := s.catalog.RefreshMachineHealth(c.Request().Context(), machineID); refreshErr != nil {
+		s.logger.Warn("ssh bootstrap post-refresh skipped",
+			"machine_id", machineID.String(),
+			"error", refreshErr,
+		)
+	} else {
+		machine = refreshedMachine
+	}
+
 	s.logger.Info("ssh bootstrap completed",
 		"machine_id", machineID.String(),
 		"topology", result.Topology,
 		"service_name", result.ServiceName,
 		"service_status", result.ServiceStatus,
+		"machine_status", machine.Status.String(),
 	)
 
 	return c.JSON(http.StatusOK, map[string]any{"result": result})

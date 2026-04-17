@@ -1,5 +1,5 @@
 import { toastStore } from '$lib/stores/toast.svelte'
-import { createEmptyMachineDraft, machineToDraft } from '../model'
+import { createEmptyMachineDraft, machineToDraft, parseMachineSnapshot } from '../model'
 import { createNoOrgState, createStartCreateState } from '../page-state'
 import {
   loadMachineSnapshot,
@@ -7,6 +7,7 @@ import {
   removeMachine,
   runMachineConnectionTest,
   runMachineHealthRefresh,
+  updateMachineStatus,
 } from './machines-page-api'
 import { syncMachineListState } from './machines-page-state-sync'
 import { writeMachineSnapshotCache } from '../machines-page-cache'
@@ -120,6 +121,44 @@ export async function handleMachineHealthRefresh(
     toastStore.error(machineErrorMessage(caughtError, 'Failed to refresh machine health.'))
   } finally {
     state.refreshingHealthMachineId = ''
+  }
+}
+
+export async function handleMachineMaintenanceToggle(
+  state: MachinesPageControllerOpsState,
+  machineId: string,
+  enabled: boolean,
+) {
+  const machine = state.machines.find((item) => item.id === machineId)
+  if (!machine) return
+
+  state.statusUpdatingMachineId = machineId
+  try {
+    let updatedMachine = await updateMachineStatus(machineId, enabled ? 'maintenance' : 'offline')
+    let nextSnapshot = parseMachineSnapshot(updatedMachine.resources)
+    if (!enabled) {
+      const refreshed = await runMachineHealthRefresh(machineId)
+      updatedMachine = refreshed.machine
+      nextSnapshot = refreshed.snapshot
+    }
+    state.machines = state.machines.map((item) =>
+      item.id === updatedMachine.id ? updatedMachine : item,
+    )
+    if (state.selectedId === machineId) {
+      state.snapshot = nextSnapshot
+      writeMachineSnapshotCache(state.routeOrgId, machineId, nextSnapshot)
+    }
+    state.persistMachinesPageCache(state.routeOrgId)
+    toastStore.success(enabled ? 'Machine entered maintenance.' : 'Machine exited maintenance.')
+  } catch (caughtError) {
+    toastStore.error(
+      machineErrorMessage(
+        caughtError,
+        enabled ? 'Failed to enter maintenance.' : 'Failed to exit maintenance.',
+      ),
+    )
+  } finally {
+    state.statusUpdatingMachineId = ''
   }
 }
 
