@@ -6352,6 +6352,7 @@ export interface operations {
             workspace?: {
               available?: boolean
               conversation_id?: string
+              preparing?: boolean
               repos?: {
                 added?: number
                 branch?: string
@@ -6471,6 +6472,7 @@ export interface operations {
               conversation_id?: string
               dirty?: boolean
               files_changed?: number
+              preparing?: boolean
               removed?: number
               repos?: {
                 added?: number
@@ -7649,6 +7651,7 @@ export interface operations {
             workspace?: {
               available?: boolean
               conversation_id?: string
+              preparing?: boolean
               repos?: {
                 added?: number
                 branch?: string

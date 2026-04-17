@@ -158,6 +158,7 @@ export function areWorkspaceMetadataEqual(
     !left ||
     left.conversationId !== right.conversationId ||
     left.available !== right.available ||
+    left.preparing !== right.preparing ||
     left.workspacePath !== right.workspacePath ||
     left.repos.length !== right.repos.length
   ) {

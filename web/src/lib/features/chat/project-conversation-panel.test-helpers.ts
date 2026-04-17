@@ -3,6 +3,7 @@ export function createWorkspaceDiff(conversationId: string, dirty = false) {
     workspaceDiff: {
       conversationId,
       workspacePath: `/tmp/${conversationId}`,
+      preparing: false,
       dirty,
       reposChanged: dirty ? 1 : 0,
       filesChanged: dirty ? 1 : 0,
