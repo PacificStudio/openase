@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/http/cgi"
-	"os"
+	cgi "net/http/cgi" //nolint:gosec // Test-only local git-http-backend harness.
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
@@ -93,7 +93,11 @@ func newRedirectingGitHTTPRepository(t *testing.T) (*requestRecord, *requestReco
 	sourceRepoPath, _ := createRemoteRepo(t, "main", map[string]string{
 		"README.md": "redirect auth coverage",
 	})
-	runTestCommand(t, exec.Command("git", "clone", "--bare", sourceRepoPath, bareRepoPath))
+	if _, err := git.PlainCloneContext(context.Background(), bareRepoPath, true, &git.CloneOptions{
+		URL: sourceRepoPath,
+	}); err != nil {
+		t.Fatalf("PlainCloneContext(bare) error = %v", err)
+	}
 
 	targetAuth := &requestRecord{}
 	targetListener, targetPort := listenLoopback(t)
@@ -134,7 +138,10 @@ func newRedirectingGitHTTPRepository(t *testing.T) (*requestRecord, *requestReco
 func serveHTTP(t *testing.T, listener net.Listener, handler http.Handler) *http.Server {
 	t.Helper()
 
-	server := &http.Server{Handler: handler}
+	server := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: time.Second,
+	}
 	go func() {
 		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 			panic(err)
@@ -175,16 +182,6 @@ func commandOutput(t *testing.T, cmd *exec.Cmd) []byte {
 		t.Fatalf("%s output error = %v", strings.Join(cmd.Args, " "), err)
 	}
 	return output
-}
-
-func runTestCommand(t *testing.T, cmd *exec.Cmd) {
-	t.Helper()
-
-	cmd.Env = os.Environ()
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("%s failed: %v\n%s", strings.Join(cmd.Args, " "), err, string(output))
-	}
 }
 
 type requestRecord struct {
