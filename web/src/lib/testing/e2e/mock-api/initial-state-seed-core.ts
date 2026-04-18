@@ -1,0 +1,343 @@
+import {
+  CLAUDE_PROVIDER_ID,
+  DEFAULT_AGENT_ID,
+  DEFAULT_PROVIDER_ID,
+  DEFAULT_TICKET_ID,
+  DEFAULT_WORKFLOW_ID,
+  GEMINI_PROVIDER_ID,
+  GPU_MACHINE_ID,
+  LOCAL_MACHINE_ID,
+  OPENAI_PROVIDER_ID,
+  ORG_ID,
+  PROJECT_ID,
+  nowIso,
+} from './constants'
+import { machineResourceSnapshot } from './entities'
+
+export function createSeedOrganizations() {
+  return [
+    {
+      id: ORG_ID,
+      name: 'E2E Org',
+      slug: 'e2e-org',
+      default_agent_provider_id: DEFAULT_PROVIDER_ID,
+    },
+  ]
+}
+
+export function createSeedProjects() {
+  return [
+    {
+      id: PROJECT_ID,
+      org_id: ORG_ID,
+      name: 'TodoApp',
+      slug: 'todo-app',
+      description: 'Playwright fixture project',
+      status: 'active',
+      default_agent_provider_id: DEFAULT_PROVIDER_ID,
+      max_concurrent_agents: 0,
+    },
+  ]
+}
+
+export function createSeedMachines() {
+  return [
+    {
+      id: LOCAL_MACHINE_ID,
+      org_id: ORG_ID,
+      name: 'local',
+      host: 'local',
+      port: 22,
+      reachability_mode: 'local',
+      execution_mode: 'local_process',
+      execution_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
+      ssh_helper_enabled: false,
+      ssh_user: '',
+      ssh_key_path: '',
+      advertised_endpoint: null,
+      daemon_status: {
+        registered: true,
+        last_registered_at: nowIso,
+        current_session_id: null,
+        session_state: 'connected',
+      },
+      detected_os: 'linux',
+      detected_arch: 'amd64',
+      detection_status: 'ok',
+      detection_message: 'Detected amd64 on Linux.',
+      channel_credential: {
+        kind: 'none',
+        token_id: null,
+        certificate_id: null,
+      },
+      description: 'Seeded local runner',
+      labels: ['local', 'default'],
+      status: 'online',
+      workspace_root: '~/.openase/workspace',
+      agent_cli_path: '/usr/local/bin/codex',
+      env_vars: ['OPENASE_ENV=dev'],
+      last_heartbeat_at: nowIso,
+      resources: machineResourceSnapshot('local', {
+        cpuUsagePercent: 18,
+        memoryTotalGB: 16,
+        memoryUsedGB: 5.5,
+        memoryAvailableGB: 10.5,
+        diskTotalGB: 512,
+        diskAvailableGB: 320,
+        gpuDispatchable: false,
+        gpus: [],
+      }),
+    },
+    {
+      id: GPU_MACHINE_ID,
+      org_id: ORG_ID,
+      name: 'gpu-runner-01',
+      host: '10.0.0.42',
+      port: 22,
+      reachability_mode: 'direct_connect',
+      execution_mode: 'websocket',
+      execution_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
+      ssh_helper_enabled: true,
+      ssh_user: 'openase',
+      ssh_key_path: '~/.ssh/openase_rsa',
+      advertised_endpoint: 'ws://10.0.0.42:19840/runtime',
+      daemon_status: {
+        registered: false,
+        last_registered_at: null,
+        current_session_id: null,
+        session_state: 'unknown',
+      },
+      detected_os: 'linux',
+      detected_arch: 'amd64',
+      detection_status: 'ok',
+      detection_message: 'Detected amd64 on Linux.',
+      channel_credential: {
+        kind: 'none',
+        token_id: null,
+        certificate_id: null,
+      },
+      description: 'Primary remote runner',
+      labels: ['gpu', 'remote'],
+      status: 'online',
+      workspace_root: '/srv/openase/workspace',
+      agent_cli_path: '/usr/bin/codex',
+      env_vars: ['CUDA_VISIBLE_DEVICES=0'],
+      last_heartbeat_at: nowIso,
+      resources: machineResourceSnapshot('ssh', {
+        cpuUsagePercent: 46,
+        memoryTotalGB: 64,
+        memoryUsedGB: 21.4,
+        memoryAvailableGB: 42.6,
+        diskTotalGB: 1024,
+        diskAvailableGB: 612,
+        gpuDispatchable: true,
+        gpus: [
+          {
+            index: 0,
+            name: 'NVIDIA A100',
+            memory_total_gb: 80,
+            memory_used_gb: 22,
+            utilization_percent: 54,
+          },
+        ],
+      }),
+    },
+  ]
+}
+
+export function createSeedProviders() {
+  return [
+    {
+      id: DEFAULT_PROVIDER_ID,
+      organization_id: ORG_ID,
+      org_id: ORG_ID,
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
+      machine_status: 'online',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'Fake Codex Validation Provider',
+      adapter_type: 'codex-app-server',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: '2026-04-01T02:54:26Z',
+      availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
+      cli_command: 'python3',
+      cli_args: ['/home/user/workspace/openase/scripts/dev/fake_codex_app_server.py'],
+      auth_config: {},
+      secret_bindings: [],
+      model_name: 'gpt-5.4',
+      model_temperature: 0,
+      model_max_tokens: 16384,
+      max_parallel_runs: 0,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
+      pricing_config: {},
+    },
+    {
+      id: CLAUDE_PROVIDER_ID,
+      organization_id: ORG_ID,
+      org_id: ORG_ID,
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
+      machine_status: 'online',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'Claude Code',
+      adapter_type: 'claude-code-cli',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: '2026-04-01T02:54:26Z',
+      availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
+      cli_command: 'claude',
+      cli_args: [],
+      auth_config: {},
+      secret_bindings: [],
+      model_name: 'claude-opus-4-6',
+      model_temperature: 0,
+      model_max_tokens: 16384,
+      max_parallel_runs: 0,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
+      pricing_config: {},
+    },
+    {
+      id: GEMINI_PROVIDER_ID,
+      organization_id: ORG_ID,
+      org_id: ORG_ID,
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
+      machine_status: 'online',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'Gemini CLI',
+      adapter_type: 'gemini-cli',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: '2026-04-01T02:54:26Z',
+      availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
+      cli_command: 'gemini',
+      cli_args: [],
+      auth_config: {},
+      secret_bindings: [],
+      model_name: 'gemini-2.5-pro',
+      model_temperature: 0,
+      model_max_tokens: 16384,
+      max_parallel_runs: 0,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
+      pricing_config: {},
+    },
+    {
+      id: OPENAI_PROVIDER_ID,
+      organization_id: ORG_ID,
+      org_id: ORG_ID,
+      machine_id: LOCAL_MACHINE_ID,
+      machine_name: 'local',
+      machine_host: 'local',
+      machine_status: 'online',
+      machine_workspace_root: '~/.openase/workspace',
+      name: 'OpenAI Codex',
+      adapter_type: 'codex-app-server',
+      availability_state: 'available',
+      available: true,
+      availability_checked_at: '2026-04-01T02:54:26Z',
+      availability_reason: null,
+      capabilities: {
+        ephemeral_chat: {
+          state: 'available',
+          reason: null,
+        },
+      },
+      cli_command: 'codex',
+      cli_args: ['app-server', '--listen', 'stdio://'],
+      auth_config: {},
+      secret_bindings: [],
+      model_name: 'gpt-5.4',
+      model_temperature: 0,
+      model_max_tokens: 16384,
+      max_parallel_runs: 0,
+      cost_per_input_token: 0,
+      cost_per_output_token: 0,
+      pricing_config: {},
+    },
+  ]
+}
+
+export function createSeedAgents() {
+  return [
+    {
+      id: DEFAULT_AGENT_ID,
+      project_id: PROJECT_ID,
+      provider_id: DEFAULT_PROVIDER_ID,
+      name: 'coding-main',
+      runtime_control_state: 'active',
+      total_tickets_completed: 12,
+      runtime: {
+        status: 'ready',
+        runtime_phase: 'ready',
+        active_run_count: 1,
+        current_run_id: 'run-1',
+        current_ticket_id: DEFAULT_TICKET_ID,
+        last_heartbeat_at: nowIso,
+        runtime_started_at: '2026-03-27T09:00:00.000Z',
+        session_id: 'sess-1',
+        last_error: '',
+      },
+    },
+  ]
+}
+
+export function createSeedAgentRuns() {
+  return [
+    {
+      id: 'run-1',
+      project_id: PROJECT_ID,
+      agent_id: DEFAULT_AGENT_ID,
+      provider_id: DEFAULT_PROVIDER_ID,
+      workflow_id: DEFAULT_WORKFLOW_ID,
+      ticket_id: DEFAULT_TICKET_ID,
+      status: 'executing',
+      last_heartbeat_at: nowIso,
+      runtime_started_at: '2026-03-27T09:00:00.000Z',
+      session_id: 'sess-1',
+      last_error: '',
+      created_at: '2026-03-27T09:00:00.000Z',
+    },
+  ]
+}
+
+export function createSeedActivityEvents() {
+  return [
+    {
+      id: 'activity-1',
+      project_id: PROJECT_ID,
+      ticket_id: DEFAULT_TICKET_ID,
+      agent_id: DEFAULT_AGENT_ID,
+      event_type: 'agent.executing',
+      message: 'coding-main started work.',
+      metadata: {
+        agent_name: 'coding-main',
+      },
+      created_at: nowIso,
+    },
+  ]
+}
