@@ -63,6 +63,13 @@ func TestMachineSSHHelperContainerE2E(t *testing.T) {
 	defer func() {
 		_ = pool.Close()
 	}()
+	enrollmentResult, err := pool.EnrollHostKey(ctx, machine, sshinfra.HostKeyEnrollmentOptions{})
+	if err != nil {
+		t.Fatalf("EnrollHostKey() error = %v", err)
+	}
+	if enrollmentResult.AlreadyTrusted || enrollmentResult.Replaced {
+		t.Fatalf("EnrollHostKey() flags = %+v, want first-use enrollment", enrollmentResult)
+	}
 
 	bootstrapResult, err := runMachineSSHBootstrap(ctx, machineSSHBootstrapDeps{
 		getClient: func(ctx context.Context, item catalogdomain.Machine) (sshinfra.Client, error) {

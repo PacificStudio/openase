@@ -61,6 +61,7 @@ type Pool struct {
 	conns           map[string]Client
 	openASEHomeDir  string
 	dialer          Dialer
+	hostKeyScanner  HostKeyScanner
 	readFile        func(string) ([]byte, error)
 	timeout         time.Duration
 	hostKeyCallback gossh.HostKeyCallback
@@ -73,13 +74,13 @@ func (p *Pool) componentLogger() *slog.Logger {
 
 func NewPool(openASEHomeDir string, opts ...PoolOption) *Pool {
 	pool := &Pool{
-		conns:           map[string]Client{},
-		openASEHomeDir:  filepath.Clean(openASEHomeDir),
-		dialer:          realDialer{},
-		readFile:        os.ReadFile,
-		timeout:         10 * time.Second,
-		hostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec
-		logger:          logging.WithComponent(nil, sshPoolComponent),
+		conns:          map[string]Client{},
+		openASEHomeDir: filepath.Clean(openASEHomeDir),
+		dialer:         realDialer{},
+		hostKeyScanner: realHostKeyScanner{},
+		readFile:       os.ReadFile,
+		timeout:        10 * time.Second,
+		logger:         logging.WithComponent(nil, sshPoolComponent),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -122,14 +123,8 @@ func WithHostKeyCallback(callback gossh.HostKeyCallback) PoolOption {
 }
 
 func (p *Pool) Get(ctx context.Context, machine domain.Machine) (Client, error) {
-	if machine.Host == domain.LocalMachineHost {
-		return nil, fmt.Errorf("local machine does not use ssh")
-	}
-	if machine.SSHUser == nil {
-		return nil, fmt.Errorf("machine %s is missing ssh_user", machine.Name)
-	}
-	if machine.SSHKeyPath == nil {
-		return nil, fmt.Errorf("machine %s is missing ssh_key_path", machine.Name)
+	if err := validateRemoteMachineSSH(machine); err != nil {
+		return nil, err
 	}
 
 	key := machine.ID.String()
@@ -146,10 +141,14 @@ func (p *Pool) Get(ctx context.Context, machine domain.Machine) (Client, error) 
 		delete(p.conns, key)
 	}
 
-	keyBytes, err := p.readFile(p.resolveKeyPath(*machine.SSHKeyPath))
+	keyBytes, err := p.readMachinePrivateKey(machine)
 	if err != nil {
-		p.componentLogger().Error("read ssh key failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host, "ssh_key_path", p.resolveKeyPath(*machine.SSHKeyPath), "error", err)
-		return nil, fmt.Errorf("read ssh key: %w", err)
+		return nil, err
+	}
+
+	hostKeyCallback, err := p.resolveHostKeyCallback(machine)
+	if err != nil {
+		return nil, err
 	}
 
 	client, err := p.dialer.DialContext(ctx, DialConfig{
@@ -157,7 +156,7 @@ func (p *Pool) Get(ctx context.Context, machine domain.Machine) (Client, error) 
 		User:            *machine.SSHUser,
 		KeyBytes:        keyBytes,
 		Timeout:         p.timeout,
-		HostKeyCallback: p.hostKeyCallback,
+		HostKeyCallback: hostKeyCallback,
 	})
 	if err != nil {
 		p.componentLogger().Error("dial ssh machine failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "host", machine.Host, "port", machine.Port, "ssh_user", *machine.SSHUser, "error", err)

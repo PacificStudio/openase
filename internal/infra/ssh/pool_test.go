@@ -1,22 +1,31 @@
 package ssh
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"io"
+	"net"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
+	gossh "golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func TestPoolReusesLiveConnection(t *testing.T) {
 	first := &fakeClient{}
 	dialer := &fakeDialer{clients: []Client{first}}
-	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	pool := NewPool("/tmp/openase",
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		WithHostKeyCallback(testHostKeyCallback()),
+	)
 
 	machine := testRemoteMachine()
 	left, err := pool.Get(context.Background(), machine)
@@ -43,9 +52,11 @@ func TestPoolRedialsBrokenConnection(t *testing.T) {
 	first := &fakeClient{keepaliveErr: errors.New("broken pipe")}
 	second := &fakeClient{}
 	dialer := &fakeDialer{clients: []Client{first, second}}
-	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	pool := NewPool("/tmp/openase",
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		WithHostKeyCallback(testHostKeyCallback()),
+	)
 
 	machine := testRemoteMachine()
 	left, err := pool.Get(context.Background(), machine)
@@ -73,9 +84,11 @@ func TestTesterRemoteProbe(t *testing.T) {
 		session: &fakeSession{output: []byte("openase\ngpu-01\nLinux 6.8 x86_64")},
 	}
 	dialer := &fakeDialer{clients: []Client{client}}
-	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	pool := NewPool("/tmp/openase",
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		WithHostKeyCallback(testHostKeyCallback()),
+	)
 
 	probe, err := NewTester(pool).TestConnection(context.Background(), testRemoteMachine())
 	if err != nil {
@@ -131,9 +144,15 @@ func TestDetectRemoteMachinePlatformDegradesOnUnknownArch(t *testing.T) {
 type fakeDialer struct {
 	clients []Client
 	calls   int
+	onDial  func(DialConfig) error
 }
 
-func (d *fakeDialer) DialContext(context.Context, DialConfig) (Client, error) {
+func (d *fakeDialer) DialContext(_ context.Context, cfg DialConfig) (Client, error) {
+	if d.onDial != nil {
+		if err := d.onDial(cfg); err != nil {
+			return nil, err
+		}
+	}
 	if d.calls >= len(d.clients) {
 		return nil, errors.New("unexpected dial")
 	}
@@ -260,6 +279,36 @@ func testRemoteMachine() domain.Machine {
 	}
 }
 
+func testHostKeyCallback() gossh.HostKeyCallback {
+	return gossh.InsecureIgnoreHostKey() //nolint:gosec
+}
+
+type fakeHostKeyScanner struct {
+	key   gossh.PublicKey
+	err   error
+	calls int
+}
+
+func (s *fakeHostKeyScanner) ScanContext(context.Context, HostKeyScanConfig) (gossh.PublicKey, error) {
+	s.calls++
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.key, nil
+}
+
+func testHostPublicKey(t *testing.T, fill byte) gossh.PublicKey {
+	t.Helper()
+
+	seed := bytes.Repeat([]byte{fill}, ed25519.SeedSize)
+	privateKey := ed25519.NewKeyFromSeed(seed)
+	publicKey, err := gossh.NewPublicKey(privateKey.Public())
+	if err != nil {
+		t.Fatalf("new public key: %v", err)
+	}
+	return publicKey
+}
+
 func TestPoolCloseClosesAllClients(t *testing.T) {
 	first := &fakeClient{}
 	second := &fakeClient{}
@@ -283,9 +332,11 @@ func TestTesterFailureIncludesCheckedAt(t *testing.T) {
 		session: &fakeSession{err: errors.New("permission denied")},
 	}
 	dialer := &fakeDialer{clients: []Client{client}}
-	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	pool := NewPool("/tmp/openase",
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		WithHostKeyCallback(testHostKeyCallback()),
+	)
 
 	probe, err := NewTester(pool).TestConnection(context.Background(), testRemoteMachine())
 	if err == nil {
@@ -293,5 +344,173 @@ func TestTesterFailureIncludesCheckedAt(t *testing.T) {
 	}
 	if probe.CheckedAt.Before(time.Now().Add(-time.Minute)) {
 		t.Fatalf("expected recent checked_at, got %+v", probe)
+	}
+}
+
+func TestPoolGetFailsClosedWithoutEnrolledHostKey(t *testing.T) {
+	root := t.TempDir()
+	hostKey := testHostPublicKey(t, 1)
+	dialer := &fakeDialer{
+		clients: []Client{&fakeClient{}},
+		onDial: func(cfg DialConfig) error {
+			return cfg.HostKeyCallback(cfg.Address, &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 22}, hostKey)
+		},
+	}
+	pool := NewPool(root,
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+	)
+
+	_, err := pool.Get(context.Background(), testRemoteMachine())
+	if err == nil || !strings.Contains(err.Error(), "not enrolled") {
+		t.Fatalf("Get() error = %v, want not enrolled guidance", err)
+	}
+	if dialer.calls != 0 {
+		t.Fatalf("expected no dial when trust is missing, got %d", dialer.calls)
+	}
+}
+
+func TestPoolEnrollHostKeyStoresFirstUseEntry(t *testing.T) {
+	root := t.TempDir()
+	hostKey := testHostPublicKey(t, 2)
+	scanner := &fakeHostKeyScanner{key: hostKey}
+	dialer := &fakeDialer{
+		clients: []Client{&fakeClient{}},
+		onDial: func(cfg DialConfig) error {
+			return cfg.HostKeyCallback(cfg.Address, &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 22}, hostKey)
+		},
+	}
+	pool := NewPool(root,
+		WithDialer(dialer),
+		WithHostKeyScanner(scanner),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+	)
+
+	machine := testRemoteMachine()
+	result, err := pool.EnrollHostKey(context.Background(), machine, HostKeyEnrollmentOptions{})
+	if err != nil {
+		t.Fatalf("EnrollHostKey() error = %v", err)
+	}
+	if result.AlreadyTrusted || result.Replaced {
+		t.Fatalf("EnrollHostKey() unexpected flags = %+v", result)
+	}
+	if result.FingerprintSHA256 != gossh.FingerprintSHA256(hostKey) {
+		t.Fatalf("EnrollHostKey() fingerprint = %q, want %q", result.FingerprintSHA256, gossh.FingerprintSHA256(hostKey))
+	}
+
+	line, err := readManagedKnownHostsLine(pool.machineKnownHostsPath(machine))
+	if err != nil {
+		t.Fatalf("read managed known_hosts: %v", err)
+	}
+	wantLine := knownhosts.Line([]string{machineConnectionTarget(machine)}, hostKey)
+	if line != wantLine {
+		t.Fatalf("managed known_hosts line = %q, want %q", line, wantLine)
+	}
+	info, err := os.Stat(pool.machineKnownHostsPath(machine))
+	if err != nil {
+		t.Fatalf("stat managed known_hosts: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("managed known_hosts mode = %v, want 0600", info.Mode().Perm())
+	}
+
+	if _, err := pool.Get(context.Background(), machine); err != nil {
+		t.Fatalf("Get() after enrollment error = %v", err)
+	}
+	if dialer.calls != 1 {
+		t.Fatalf("expected one dial after enrollment, got %d", dialer.calls)
+	}
+}
+
+func TestPoolEnrollHostKeyRejectsReplacelessMismatch(t *testing.T) {
+	root := t.TempDir()
+	initialHostKey := testHostPublicKey(t, 3)
+	rotatedHostKey := testHostPublicKey(t, 4)
+	scanner := &fakeHostKeyScanner{key: initialHostKey}
+	pool := NewPool(root,
+		WithHostKeyScanner(scanner),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+	)
+
+	machine := testRemoteMachine()
+	if _, err := pool.EnrollHostKey(context.Background(), machine, HostKeyEnrollmentOptions{}); err != nil {
+		t.Fatalf("initial EnrollHostKey() error = %v", err)
+	}
+
+	scanner.key = rotatedHostKey
+	_, err := pool.EnrollHostKey(context.Background(), machine, HostKeyEnrollmentOptions{})
+	if err == nil || !strings.Contains(err.Error(), "--replace") {
+		t.Fatalf("EnrollHostKey() mismatch error = %v, want replace guidance", err)
+	}
+
+	line, err := readManagedKnownHostsLine(pool.machineKnownHostsPath(machine))
+	if err != nil {
+		t.Fatalf("read managed known_hosts: %v", err)
+	}
+	wantLine := knownhosts.Line([]string{machineConnectionTarget(machine)}, initialHostKey)
+	if line != wantLine {
+		t.Fatalf("managed known_hosts line after mismatch = %q, want %q", line, wantLine)
+	}
+}
+
+func TestPoolEnrollHostKeyReplacesStoredKeyWhenRequested(t *testing.T) {
+	root := t.TempDir()
+	initialHostKey := testHostPublicKey(t, 5)
+	rotatedHostKey := testHostPublicKey(t, 6)
+	scanner := &fakeHostKeyScanner{key: initialHostKey}
+	pool := NewPool(root,
+		WithHostKeyScanner(scanner),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+	)
+
+	machine := testRemoteMachine()
+	if _, err := pool.EnrollHostKey(context.Background(), machine, HostKeyEnrollmentOptions{}); err != nil {
+		t.Fatalf("initial EnrollHostKey() error = %v", err)
+	}
+
+	scanner.key = rotatedHostKey
+	result, err := pool.EnrollHostKey(context.Background(), machine, HostKeyEnrollmentOptions{Replace: true})
+	if err != nil {
+		t.Fatalf("EnrollHostKey(replace) error = %v", err)
+	}
+	if !result.Replaced || result.AlreadyTrusted {
+		t.Fatalf("EnrollHostKey(replace) flags = %+v", result)
+	}
+
+	line, err := readManagedKnownHostsLine(pool.machineKnownHostsPath(machine))
+	if err != nil {
+		t.Fatalf("read managed known_hosts: %v", err)
+	}
+	wantLine := knownhosts.Line([]string{machineConnectionTarget(machine)}, rotatedHostKey)
+	if line != wantLine {
+		t.Fatalf("managed known_hosts line after replace = %q, want %q", line, wantLine)
+	}
+}
+
+func TestPoolGetRejectsChangedHostKey(t *testing.T) {
+	root := t.TempDir()
+	initialHostKey := testHostPublicKey(t, 7)
+	rotatedHostKey := testHostPublicKey(t, 8)
+	scanner := &fakeHostKeyScanner{key: initialHostKey}
+	dialer := &fakeDialer{
+		clients: []Client{&fakeClient{}},
+		onDial: func(cfg DialConfig) error {
+			return cfg.HostKeyCallback(cfg.Address, &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 22}, rotatedHostKey)
+		},
+	}
+	pool := NewPool(root,
+		WithDialer(dialer),
+		WithHostKeyScanner(scanner),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+	)
+
+	machine := testRemoteMachine()
+	if _, err := pool.EnrollHostKey(context.Background(), machine, HostKeyEnrollmentOptions{}); err != nil {
+		t.Fatalf("initial EnrollHostKey() error = %v", err)
+	}
+
+	_, err := pool.Get(context.Background(), machine)
+	if err == nil || !strings.Contains(err.Error(), "mismatch") || !strings.Contains(err.Error(), "--replace") {
+		t.Fatalf("Get() changed host key error = %v, want mismatch guidance", err)
 	}
 }
