@@ -5,7 +5,7 @@ export const fileBudgetLimits = {
   featureTest: { soft: 300, hard: 650 },
   featureStateModule: { soft: 250, hard: 500 },
   featureModule: { soft: 200, hard: 325 },
-  testingSupportModule: { soft: 350, hard: 650 },
+  testingSupportModule: { soft: 350, hard: 500 },
   layoutComponent: { soft: 200, hard: 300 },
   uiPrimitive: { soft: 150, hard: 250 },
 }

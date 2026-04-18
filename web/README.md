@@ -95,7 +95,7 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | `lib/features/**/*.svelte.{ts,js}`  | 250        | 500                  |
 | `lib/features/**/*.svelte`          | 200        | 350                  |
 | `lib/features/**/*.{ts,js}`         | 200        | 325                  |
-| `lib/testing/**/*.{ts,js}`          | 350        | 650                  |
+| `lib/testing/**/*.{ts,js}`          | 350        | 500                  |
 | `lib/components/layout/**/*.svelte` | 200        | 300                  |
 | `lib/components/ui/**/*.svelte`     | 150        | 250                  |
 | single function                     | 40 target  | 60 warning threshold |
