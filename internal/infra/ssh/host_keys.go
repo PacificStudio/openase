@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -12,11 +13,14 @@ import (
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 const machineKnownHostsDir = "ssh/known_hosts.d"
+
+var sshHostKeyComponent = logging.DeclareComponent("ssh-host-keys")
 
 type HostKeyScanConfig struct {
 	Address  string
@@ -46,6 +50,10 @@ type HostKeyEnrollmentResult struct {
 }
 
 type realHostKeyScanner struct{}
+
+func (p *Pool) hostKeyLogger() *slog.Logger {
+	return logging.WithComponent(p.logger, sshHostKeyComponent)
+}
 
 func (realHostKeyScanner) ScanContext(ctx context.Context, cfg HostKeyScanConfig) (gossh.PublicKey, error) {
 	signer, err := gossh.ParsePrivateKey(cfg.KeyBytes)
@@ -121,6 +129,7 @@ func (p *Pool) EnrollHostKey(ctx context.Context, machine domain.Machine, opts H
 
 	result := buildHostKeyEnrollmentResult(machine, path, hostKey)
 	if currentLine == line {
+		p.hostKeyLogger().Debug("ssh host key already enrolled", "machine_id", machine.ID.String(), "machine_name", machine.Name, "connection_target", target, "known_hosts_path", path, "fingerprint_sha256", result.FingerprintSHA256)
 		result.AlreadyTrusted = true
 		result.Summary = fmt.Sprintf("SSH host key %s (%s) for machine %s (%s) is already enrolled at %s.", result.Algorithm, result.FingerprintSHA256, machine.Name, target, path)
 		return result, nil
@@ -141,6 +150,7 @@ func (p *Pool) EnrollHostKey(ctx context.Context, machine domain.Machine, opts H
 	}
 
 	p.dropCachedMachineConnection(machine.ID.String())
+	p.hostKeyLogger().Debug("stored ssh host key", "machine_id", machine.ID.String(), "machine_name", machine.Name, "connection_target", target, "known_hosts_path", path, "fingerprint_sha256", result.FingerprintSHA256, "replaced", currentLine != "")
 	if currentLine != "" {
 		result.Replaced = true
 		result.Summary = fmt.Sprintf("Replaced the stored SSH host key for machine %s (%s) with %s (%s) at %s.", machine.Name, target, result.Algorithm, result.FingerprintSHA256, path)
@@ -233,6 +243,7 @@ func buildHostKeyEnrollmentResult(machine domain.Machine, path string, key gossh
 }
 
 func readManagedKnownHostsLine(path string) (string, error) {
+	//nolint:gosec // path points to an OpenASE-managed known_hosts file beneath openASEHomeDir
 	body, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
