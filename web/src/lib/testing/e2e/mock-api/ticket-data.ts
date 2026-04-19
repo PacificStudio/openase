@@ -568,6 +568,7 @@ export function buildMockProjectConversationWorkspaceDiff(conversationId: string
   return {
     conversation_id: conversationId,
     workspace_path: `/tmp/${conversationId}`,
+    preparing: false,
     dirty: false,
     repos_changed: 0,
     files_changed: 0,

@@ -162,7 +162,7 @@ const settingsAuditCases: SettingsAuditCase[] = [
       },
       {
         file: './settings/components/security-settings-github-outbound-credentials.svelte',
-        snippets: ['GitHub Device Flow remains deferred.'],
+        snippets: ['deviceFlowLabel', 'deviceFlowSummaryFallback'],
       },
     ],
   },

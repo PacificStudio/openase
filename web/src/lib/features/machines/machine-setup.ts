@@ -33,6 +33,7 @@ type MachineLike = Pick<
   Machine,
   | 'id'
   | 'host'
+  | 'status'
   | 'ssh_user'
   | 'ssh_key_path'
   | 'advertised_endpoint'
@@ -44,7 +45,13 @@ type MachineLike = Pick<
 
 type DraftLike = Pick<
   MachineDraft,
-  'host' | 'sshUser' | 'sshKeyPath' | 'advertisedEndpoint' | 'reachabilityMode' | 'executionMode'
+  | 'host'
+  | 'status'
+  | 'sshUser'
+  | 'sshKeyPath'
+  | 'advertisedEndpoint'
+  | 'reachabilityMode'
+  | 'executionMode'
 >
 
 export function buildMachineSetupGuide(input: {
@@ -75,7 +82,7 @@ export function buildMachineSetupGuide(input: {
   })
 
   if (reachabilityMode === 'local') {
-    return {
+    return applyMaintenanceOverride(draft?.status ?? machine?.status, {
       topologyLabel: i18nStore.t('machines.setup.local.topologyLabel'),
       topologySummary: i18nStore.t('machines.setup.local.topologySummary'),
       runtimeLabel: i18nStore.t('machines.setup.local.runtimeLabel'),
@@ -93,19 +100,44 @@ export function buildMachineSetupGuide(input: {
         i18nStore.t('machines.setup.local.nextSteps.refreshChecks'),
       ],
       commands: [],
-    }
+    })
   }
 
   if (reachabilityMode === 'reverse_connect') {
-    return buildReverseConnectGuide(machine, snapshot, sshPreview)
+    return applyMaintenanceOverride(
+      draft?.status ?? machine?.status,
+      buildReverseConnectGuide(machine, snapshot, sshPreview),
+    )
   }
 
-  return buildDirectConnectGuide({
-    machine,
-    advertisedEndpoint,
-    snapshot,
-    sshPreview,
-  })
+  return applyMaintenanceOverride(
+    draft?.status ?? machine?.status,
+    buildDirectConnectGuide({
+      machine,
+      advertisedEndpoint,
+      snapshot,
+      sshPreview,
+    }),
+  )
+}
+
+function applyMaintenanceOverride(
+  status: string | undefined,
+  guide: MachineSetupGuide,
+): MachineSetupGuide {
+  if (status !== 'maintenance') {
+    return guide
+  }
+
+  return {
+    ...guide,
+    stateLabel: i18nStore.t('machines.setup.maintenance.stateLabel'),
+    stateSummary: i18nStore.t('machines.setup.maintenance.stateSummary'),
+    nextSteps: [
+      i18nStore.t('machines.setup.maintenance.nextSteps.exitMaintenance'),
+      ...guide.nextSteps,
+    ],
+  }
 }
 
 function buildDirectConnectGuide(input: {

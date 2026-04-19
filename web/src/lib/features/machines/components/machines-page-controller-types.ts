@@ -34,6 +34,8 @@ export type MachinesPageControllerOpsState = {
   set refreshingHealthMachineId(value: string)
   get deletingMachineId(): string
   set deletingMachineId(value: string)
+  get statusUpdatingMachineId(): string
+  set statusUpdatingMachineId(value: string)
   applyViewState(nextState: MachinesPageViewState): void
   persistMachinesPageCache(orgId: string): void
 }
@@ -65,6 +67,8 @@ export function createMachinesPageControllerOpsState(input: {
   setRefreshingHealthMachineId(value: string): void
   getDeletingMachineId(): string
   setDeletingMachineId(value: string): void
+  getStatusUpdatingMachineId(): string
+  setStatusUpdatingMachineId(value: string): void
   applyViewState(nextState: MachinesPageViewState): void
   persistMachinesPageCache(orgId: string): void
 }): MachinesPageControllerOpsState {
@@ -147,6 +151,12 @@ export function createMachinesPageControllerOpsState(input: {
     set deletingMachineId(value) {
       input.setDeletingMachineId(value)
     },
+    get statusUpdatingMachineId() {
+      return input.getStatusUpdatingMachineId()
+    },
+    set statusUpdatingMachineId(value) {
+      input.setStatusUpdatingMachineId(value)
+    },
     applyViewState: input.applyViewState,
     persistMachinesPageCache: input.persistMachinesPageCache,
   }
@@ -171,6 +181,7 @@ export type MachinesPageControllerView = {
   readonly saving: boolean
   readonly testingMachineId: string
   readonly deletingMachineId: string
+  readonly statusUpdatingMachineId: string
   editorOpen: boolean
   searchQuery: string
   handleRefresh(): Promise<void>
@@ -180,6 +191,7 @@ export type MachinesPageControllerView = {
   handleRefreshHealth(machineId: string): Promise<void>
   handleSave(): Promise<void>
   handleTest(machineId: string): Promise<void>
+  handleMaintenanceToggle(machineId: string, enabled: boolean): Promise<void>
   handleDelete(machineId: string): Promise<void>
   resetDraft(machineId?: string): void
 }

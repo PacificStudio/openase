@@ -323,10 +323,7 @@ func parseMachinePort(raw *int) (int, error) {
 
 func parseMachineStatus(raw string, isLocal bool) (MachineStatus, error) {
 	if strings.TrimSpace(raw) == "" {
-		if isLocal {
-			return MachineStatusOnline, nil
-		}
-		return MachineStatusMaintenance, nil
+		return DefaultMachineStatus(isLocal), nil
 	}
 
 	status := MachineStatus(strings.ToLower(strings.TrimSpace(raw)))

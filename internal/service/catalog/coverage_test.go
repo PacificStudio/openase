@@ -159,17 +159,17 @@ func TestServiceMachineProbePathsAndHelpers(t *testing.T) {
 		t.Fatalf("TestMachineConnection failure error = %v", err)
 	}
 
-	if got := domainMachineFailureStatus(domain.Machine{Host: domain.LocalMachineHost}); got != domain.MachineStatusDegraded {
-		t.Fatalf("domainMachineFailureStatus(local) = %q", got)
+	if got := domain.InferMachineConnectionFailureStatus(domain.Machine{Host: domain.LocalMachineHost}); got != domain.MachineStatusDegraded {
+		t.Fatalf("InferMachineConnectionFailureStatus(local) = %q", got)
 	}
-	if got := domainMachineFailureStatus(domain.Machine{Host: "remote"}); got != domain.MachineStatusOffline {
-		t.Fatalf("domainMachineFailureStatus(remote) = %q", got)
+	if got := domain.InferMachineConnectionFailureStatus(domain.Machine{Host: "remote"}); got != domain.MachineStatusOffline {
+		t.Fatalf("InferMachineConnectionFailureStatus(remote) = %q", got)
 	}
-	if got := domainMachineSuccessStatus(domain.Machine{Status: domain.MachineStatusMaintenance}); got != domain.MachineStatusOnline {
-		t.Fatalf("domainMachineSuccessStatus(maintenance) = %q", got)
+	if got := domain.InferMachineConnectionSuccessStatus(domain.MachineStatusMaintenance); got != domain.MachineStatusMaintenance {
+		t.Fatalf("InferMachineConnectionSuccessStatus(maintenance) = %q", got)
 	}
-	if got := domainMachineSuccessStatus(domain.Machine{Status: domain.MachineStatusDegraded}); got != domain.MachineStatusDegraded {
-		t.Fatalf("domainMachineSuccessStatus(passthrough) = %q", got)
+	if got := domain.InferMachineConnectionSuccessStatus(domain.MachineStatusDegraded); got != domain.MachineStatusOnline {
+		t.Fatalf("InferMachineConnectionSuccessStatus(degraded) = %q", got)
 	}
 	if got := cloneResources(map[string]any{"cpu": "8"}); got["cpu"] != "8" {
 		t.Fatalf("cloneResources() = %+v", got)

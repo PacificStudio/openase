@@ -1,15 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import {
-    Settings,
-    GitBranch,
-    Columns3,
-    Bot,
-    Bell,
-    KeyRound,
-    Shield,
-    Archive,
-  } from '@lucide/svelte'
+  import { Settings, GitBranch, Columns3, Bot, Bell, Shield, Archive } from '@lucide/svelte'
   import type { Component } from 'svelte'
   import type { SettingsSection } from '../types'
   import type { TranslationKey } from '$lib/i18n'
@@ -35,7 +26,6 @@
     { key: 'statuses', labelKey: 'settings.nav.labels.statuses', icon: Columns3 },
     { key: 'agents', labelKey: 'settings.nav.labels.agents', icon: Bot },
     { key: 'notifications', labelKey: 'settings.nav.labels.notifications', icon: Bell },
-    { key: 'access', labelKey: 'settings.nav.labels.access', icon: KeyRound },
     { key: 'security', labelKey: 'settings.nav.labels.security', icon: Shield },
     { key: 'archived', labelKey: 'settings.nav.labels.archived', icon: Archive },
   ]

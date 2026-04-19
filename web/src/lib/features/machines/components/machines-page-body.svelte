@@ -33,6 +33,7 @@
     saving = false,
     testingMachineId = '',
     deletingMachineId = '',
+    statusUpdatingMachineId = '',
     editorOpen = $bindable(false),
     onRefresh,
     onCreate,
@@ -45,6 +46,7 @@
     onSave,
     onTest,
     onDelete,
+    onToggleMaintenance,
     onReset,
   }: {
     routeOrgId?: string
@@ -65,6 +67,7 @@
     saving?: boolean
     testingMachineId?: string
     deletingMachineId?: string
+    statusUpdatingMachineId?: string
     editorOpen?: boolean
     onRefresh?: () => void
     onCreate?: () => void
@@ -77,6 +80,7 @@
     onSave?: () => void
     onTest?: (machineId: string) => void
     onDelete?: (machineId: string) => void
+    onToggleMaintenance?: (machineId: string, enabled: boolean) => void
     onReset?: (machineId?: string) => void
   } = $props()
   const t = i18nStore.t
@@ -117,6 +121,7 @@
     {saving}
     {testingMachineId}
     {deletingMachineId}
+    {statusUpdatingMachineId}
     bind:editorOpen
     stateMessage={listMessage}
     organizationId={routeOrgId || null}
@@ -130,6 +135,7 @@
     {onSave}
     {onTest}
     {onDelete}
+    {onToggleMaintenance}
     {onReset}
   />
 </PageScaffold>

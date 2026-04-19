@@ -539,6 +539,103 @@ func TestRefreshMachineHealthCollectsAndPersistsMultiLevelSnapshot(t *testing.T)
 	}
 }
 
+func TestRefreshMachineHealthPromotesHealthyOfflineMachine(t *testing.T) {
+	machineID := uuid.New()
+	orgID := uuid.New()
+	checkedAt := time.Date(2026, 4, 17, 9, 0, 0, 0, time.UTC)
+	repo := &stubRepository{
+		machine: domain.Machine{
+			ID:             machineID,
+			OrganizationID: orgID,
+			Name:           "builder-01",
+			Host:           "10.0.0.42",
+			Port:           22,
+			Status:         domain.MachineStatusOffline,
+			Resources:      map[string]any{},
+		},
+	}
+	collector := stubMachineHealthCollector{
+		reachability: domain.MachineReachability{
+			CheckedAt: checkedAt,
+			Transport: "ssh",
+			Reachable: true,
+		},
+		systemResources: domain.MachineSystemResources{
+			CollectedAt:            checkedAt,
+			CPUCores:               8,
+			CPUUsagePercent:        12,
+			MemoryTotalGB:          32,
+			MemoryUsedGB:           8,
+			MemoryAvailableGB:      24,
+			MemoryAvailablePercent: 75,
+			DiskTotalGB:            512,
+			DiskAvailableGB:        400,
+		},
+		gpuResources: domain.MachineGPUResources{
+			CollectedAt: checkedAt,
+			Available:   false,
+		},
+		agentEnvironment: domain.MachineAgentEnvironment{
+			CollectedAt:  checkedAt,
+			Dispatchable: true,
+			CLIs: []domain.MachineAgentCLI{
+				{Name: "codex", Installed: true, Version: "0.117.0", AuthStatus: domain.MachineAgentAuthStatusLoggedIn, AuthMode: domain.MachineAgentAuthModeLogin, Ready: true},
+			},
+		},
+		fullAudit: domain.MachineFullAudit{
+			CollectedAt: checkedAt,
+			Git:         domain.MachineGitAudit{Installed: true},
+			GitHubCLI:   domain.MachineGitHubCLIAudit{Installed: true, AuthStatus: domain.MachineAgentAuthStatusLoggedIn},
+			Network:     domain.MachineNetworkAudit{GitHubReachable: true, PyPIReachable: true, NPMReachable: true},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil, WithMachineHealthCollector(collector))
+
+	updated, err := svc.RefreshMachineHealth(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("RefreshMachineHealth returned error: %v", err)
+	}
+	if updated.Status != domain.MachineStatusOnline {
+		t.Fatalf("expected healthy offline machine to advance to online, got %+v", updated)
+	}
+}
+
+func TestTestMachineConnectionPreservesManualMaintenance(t *testing.T) {
+	machineID := uuid.New()
+	orgID := uuid.New()
+	checkedAt := time.Date(2026, 4, 17, 11, 0, 0, 0, time.UTC)
+	repo := &stubRepository{
+		machine: domain.Machine{
+			ID:             machineID,
+			OrganizationID: orgID,
+			Name:           "builder-02",
+			Host:           "10.0.0.43",
+			Port:           22,
+			Status:         domain.MachineStatusMaintenance,
+			Resources:      map[string]any{},
+		},
+	}
+	tester := stubMachineTester{
+		probe: domain.MachineProbe{
+			CheckedAt:       checkedAt,
+			Transport:       "ssh",
+			Output:          "ok",
+			DetectedOS:      domain.MachineDetectedOSLinux,
+			DetectedArch:    domain.MachineDetectedArchAMD64,
+			DetectionStatus: domain.MachineDetectionStatusOK,
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, tester)
+
+	updated, _, err := svc.TestMachineConnection(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("TestMachineConnection returned error: %v", err)
+	}
+	if updated.Status != domain.MachineStatusMaintenance {
+		t.Fatalf("expected manual maintenance to survive connection success, got %+v", updated)
+	}
+}
+
 func TestRefreshMachineHealthWebsocketLayerFailureAndRecoveryConvergesStatus(t *testing.T) {
 	machineID := uuid.New()
 	orgID := uuid.New()

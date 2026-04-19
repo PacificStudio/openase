@@ -8,7 +8,6 @@ const supportedExtensions = ['.svelte', '.svelte.ts', '.svelte.js', '.ts', '.js'
 
 const files = walkFiles(sourceRoot).filter(isSupportedSourceFile)
 const violations = []
-const waivedViolations = []
 
 for (const filePath of files) {
   const relativeFile = toRepoPath(filePath)
@@ -35,7 +34,6 @@ for (const filePath of files) {
         continue
       }
 
-      const waiverReason = rule.allowlist?.[relativeFile]
       const result = {
         file: relativeFile,
         line: imported.line,
@@ -45,25 +43,9 @@ for (const filePath of files) {
         reason: message,
       }
 
-      if (waiverReason) {
-        waivedViolations.push({ ...result, waiverReason })
-      } else {
-        violations.push(result)
-      }
+      violations.push(result)
     }
   }
-}
-
-if (waivedViolations.length > 0) {
-  console.warn('Legacy dependency boundary waivers:')
-  for (const waived of uniqueIssues(waivedViolations)) {
-    console.warn(
-      `  - ${waived.file}:${waived.line} imports ${waived.specifier} -> ${waived.target}`,
-    )
-    console.warn(`    ${waived.reason}`)
-    console.warn(`    waiver: ${waived.waiverReason}`)
-  }
-  console.warn('')
 }
 
 if (violations.length > 0) {

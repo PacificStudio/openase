@@ -10,7 +10,12 @@
     machineWizardStrategyOptions,
   } from './machine-create-wizard-options'
   import MachineCreateWizardReview from './machine-create-wizard-review.svelte'
-  import { machineErrorMessage, runMachineSSHBootstrap, saveMachine } from './machines-page-api'
+  import {
+    machineErrorMessage,
+    runMachineHealthRefresh,
+    runMachineSSHBootstrap,
+    saveMachine,
+  } from './machines-page-api'
   import MachineCreateWizardSteps from './machine-create-wizard-steps.svelte'
   import type { MachineMutationInput } from '../types'
   import type {
@@ -142,7 +147,7 @@
         advertised_endpoint: '',
         description: '',
         labels: [],
-        status: 'maintenance',
+        status: 'online',
         workspace_root: '',
         agent_cli_path: '',
         env_vars: [],
@@ -162,7 +167,7 @@
         advertised_endpoint: '',
         description: '',
         labels: [],
-        status: 'maintenance',
+        status: 'offline',
         workspace_root: '',
         agent_cli_path: '',
         env_vars: [],
@@ -184,7 +189,7 @@
       advertised_endpoint: endpoint,
       description: '',
       labels: [],
-      status: 'maintenance',
+      status: 'offline',
       workspace_root: '',
       agent_cli_path: '',
       env_vars: [],
@@ -199,10 +204,11 @@
 
     errorMessage = ''
     saving = true
+    let createdMachine: Machine | null = null
     try {
       const mutation = buildMutationInput()
       const created = await saveMachine(organizationId, null, 'create', mutation)
-      onCreated?.(created.machine)
+      createdMachine = created.machine
 
       if (strategy === 'ssh-install-listener' || strategy === 'reverse') {
         bootstrapping = true
@@ -214,6 +220,8 @@
             topology,
             ...(listenerAddress ? { listener_address: listenerAddress } : {}),
           })
+          const refreshed = await runMachineHealthRefresh(created.machine.id)
+          createdMachine = refreshed.machine
           toastStore.success(
             bootstrapResult.summary ||
               i18nStore.t('machines.machineCreateWizard.successes.bootstrap'),
@@ -229,6 +237,10 @@
         }
       } else {
         toastStore.success(i18nStore.t('machines.machineCreateWizard.successes.created'))
+      }
+
+      if (createdMachine) {
+        onCreated?.(createdMachine)
       }
 
       if (!bootstrapResult && !errorMessage) {

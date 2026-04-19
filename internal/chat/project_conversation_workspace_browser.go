@@ -29,6 +29,7 @@ type ProjectConversationWorkspaceMetadata struct {
 	ConversationID uuid.UUID
 	Available      bool
 	WorkspacePath  string
+	Preparing      bool
 	Repos          []ProjectConversationWorkspaceRepoMetadata
 	SyncPrompt     *ProjectConversationWorkspaceSyncPrompt
 }
@@ -160,11 +161,15 @@ func (s *ProjectConversationService) GetWorkspaceMetadata(
 
 	metadata := ProjectConversationWorkspaceMetadata{
 		ConversationID: conversationID,
-		Available:      true,
 		WorkspacePath:  location.workspacePath,
+		Preparing:      location.preparing,
 		Repos:          make([]ProjectConversationWorkspaceRepoMetadata, 0, len(location.repos)),
 		SyncPrompt:     location.syncPrompt,
 	}
+	if location.preparing {
+		return metadata, nil
+	}
+	metadata.Available = true
 	for _, repo := range location.repos {
 		item, err := s.readConversationWorkspaceRepoMetadata(ctx, location.machine, repo)
 		if err != nil {

@@ -193,11 +193,11 @@ describe('ProjectConversationPanel workspace summary', () => {
       },
     })
 
-    await findByText('Workspace changes')
-    await findByText('1 repo changed · +4 -1')
+    await findByText('Workspace Changes')
+    await findByText('1 Repo Changed Singular · +4 -1')
     expect(queryByText('web/src/app.ts')).toBeNull()
 
-    const bar = await findByText('Workspace changes')
+    const bar = await findByText('Workspace Changes')
     await fireEvent.click(bar.closest('button')!)
 
     await findByText('web/src/app.ts')
@@ -243,22 +243,22 @@ describe('ProjectConversationPanel workspace summary', () => {
       },
     })
 
-    await findByText('Browse')
+    await findByText('Chat Browse')
     await waitFor(() => expect(workspaceBrowserPortal.conversationId).toBe('conversation-1'))
     expect(workspaceBrowserPortal.open).toBe(false)
     expect(workspaceBrowserPortal.workspaceDiff).toEqual(diff.workspaceDiff)
 
-    await fireEvent.click(getByText('Browse'))
+    await fireEvent.click(getByText('Chat Browse'))
 
     await waitFor(() => expect(workspaceBrowserPortal.open).toBe(true))
     expect(workspaceBrowserPortal.conversationId).toBe('conversation-1')
     expect(workspaceBrowserPortal.workspaceDiff).toEqual(diff.workspaceDiff)
-    expect(queryByText('Browse')).toBeNull()
+    expect(queryByText('Chat Browse')).toBeNull()
     expect(getByText('Hide browser')).toBeTruthy()
 
     await fireEvent.click(getByText('Hide browser'))
     await waitFor(() => expect(workspaceBrowserPortal.open).toBe(false))
-    expect(getByText('Browse')).toBeTruthy()
+    expect(getByText('Chat Browse')).toBeTruthy()
   })
 
   it('updates the workspace summary in real time after a turn completes', async () => {
@@ -293,7 +293,7 @@ describe('ProjectConversationPanel workspace summary', () => {
     })
     await fireEvent.click(getByRole('button', { name: 'Send message' }))
 
-    expect(container.textContent).not.toContain('1 repo changed · +4 -1')
+    expect(container.textContent).not.toContain('1 Repo Changed Singular · +4 -1')
 
     mux.emit('conversation-1', {
       kind: 'turn_done',
@@ -303,8 +303,63 @@ describe('ProjectConversationPanel workspace summary', () => {
       },
     })
 
-    await waitFor(() => expect(container.textContent).toContain('1 repo changed · +4 -1'))
+    await waitFor(() => expect(container.textContent).toContain('1 Repo Changed Singular · +4 -1'))
     expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows a preparing message instead of repo sync guidance while the initial clone is still running', async () => {
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          rollingSummary: 'Current conversation',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+          providerId: 'provider-1',
+        },
+      ],
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue({
+      workspaceDiff: {
+        conversationId: 'conversation-1',
+        workspacePath: '/tmp/conversation-1',
+        preparing: true,
+        dirty: false,
+        reposChanged: 0,
+        filesChanged: 0,
+        added: 0,
+        removed: 0,
+        repos: [],
+        syncPrompt: {
+          reason: 'repo_missing',
+          missingRepos: [{ name: 'docs', path: 'docs' }],
+        },
+      },
+    })
+    listProjectConversationEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-1',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'Current conversation' },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    watchProjectConversation.mockResolvedValue(undefined)
+
+    const { findByText, queryByText } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+      },
+    })
+
+    await findByText('Preparing workspace and cloning repositories...')
+    expect(queryByText('Sync repos')).toBeNull()
   })
 
   it('surfaces repo sync guidance and refreshes workspace diff after syncing', async () => {
@@ -367,8 +422,8 @@ describe('ProjectConversationPanel workspace summary', () => {
       },
     })
 
-    await findByText('1 repo needs sync')
-    await fireEvent.click(getByText('Sync repos'))
+    await findByText('1 Sync Prompt Label Single')
+    await fireEvent.click(getByText('Chat Sync Repos'))
 
     await waitFor(() => {
       expect(syncProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1')
