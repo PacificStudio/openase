@@ -100,6 +100,9 @@ func TestServiceDelegatesRepositoryWrappers(t *testing.T) {
 	if _, err := svc.GetAgentProvider(ctx, repo.provider.ID); err != nil {
 		t.Fatalf("GetAgentProvider error = %v", err)
 	}
+	if _, err := svc.DeleteAgentProvider(ctx, repo.provider.ID); err != nil {
+		t.Fatalf("DeleteAgentProvider error = %v", err)
+	}
 	if _, err := svc.ListAgents(ctx, projectID); err != nil {
 		t.Fatalf("ListAgents error = %v", err)
 	}

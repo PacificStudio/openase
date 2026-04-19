@@ -732,6 +732,8 @@ func mapConstraintError(action string, err error) error {
 		return domain.ErrAgentNameConflict
 	case action == "delete machine":
 		return domain.ErrMachineInUseConflict
+	case action == "delete agent provider":
+		return domain.ErrAgentProviderInUseConflict
 	case action == "delete project repo":
 		return domain.ErrProjectRepoInUseConflict
 	case action == "delete agent":

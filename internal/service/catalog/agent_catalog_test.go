@@ -1285,6 +1285,10 @@ func (r *stubRepository) UpdateAgentProvider(_ context.Context, input domain.Upd
 	}, nil
 }
 
+func (r *stubRepository) DeleteAgentProvider(context.Context, uuid.UUID) (domain.AgentProvider, error) {
+	return r.provider, nil
+}
+
 func (r *stubRepository) ListAgents(context.Context, uuid.UUID) ([]domain.Agent, error) {
 	return append([]domain.Agent(nil), r.agents...), nil
 }

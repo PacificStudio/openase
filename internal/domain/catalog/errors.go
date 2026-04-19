@@ -16,6 +16,7 @@ var (
 	ErrMachineInUseConflict     = fmt.Errorf("%w: machine is still referenced by other resources", ErrConflict)
 
 	ErrAgentProviderNameConflict    = fmt.Errorf("%w: agent provider name already exists", ErrConflict)
+	ErrAgentProviderInUseConflict   = fmt.Errorf("%w: agent provider is still referenced by other resources", ErrConflict)
 	ErrProjectRepoNameConflict      = fmt.Errorf("%w: repository name already exists", ErrConflict)
 	ErrProjectRepoInUseConflict     = fmt.Errorf("%w: repository is still referenced by other resources", ErrConflict)
 	ErrTicketRepoScopeConflict      = fmt.Errorf("%w: repository is already attached to this ticket", ErrConflict)

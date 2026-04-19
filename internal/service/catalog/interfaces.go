@@ -61,6 +61,7 @@ type AgentProviderService interface {
 	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
 	UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error)
+	DeleteAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
 }
 
 type AgentService interface {
@@ -209,6 +210,7 @@ type AgentProviderRepository interface {
 	CreateAgentProvider(ctx context.Context, input domain.CreateAgentProvider) (domain.AgentProvider, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
 	UpdateAgentProvider(ctx context.Context, input domain.UpdateAgentProvider) (domain.AgentProvider, error)
+	DeleteAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error)
 }
 
 type AgentRepository interface {
