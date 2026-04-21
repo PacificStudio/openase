@@ -3,18 +3,19 @@ import {
   mountProjectConversationTerminal,
 } from './project-conversation-terminal-panel-helpers'
 import { createTerminalConnectionHelpers } from './terminal-manager-connection'
+import {
+  TERMINAL_RECONNECT_ATTEMPT_LIMIT,
+  clearTerminalReconnectTimer,
+  ensureTerminalRuntime,
+  forgetTerminalRuntime,
+  generateTerminalManagerID,
+  nextTerminalReconnectDelay,
+} from './terminal-manager-runtime'
 import type {
   MountedTerminal,
   TerminalInstance,
   TerminalInstanceRuntime,
 } from './terminal-manager-types'
-
-let nextId = 1
-const reconnectDelaysMs = [750, 1_500, 3_000, 5_000] as const
-
-function generateId(): string {
-  return `term-${nextId++}`
-}
 
 export function createTerminalManager(input: {
   getConversationId: () => string
@@ -43,40 +44,6 @@ export function createTerminalManager(input: {
     return instances.some((inst) => inst.id === id)
   }
 
-  function ensureRuntime(id: string) {
-    let runtime = runtimeMap.get(id)
-    if (!runtime) {
-      runtime = {
-        mountRevision: 0,
-        connectRevision: 0,
-        reconnectAttempts: 0,
-        reconnectEnabled: false,
-        reconnectTimer: null,
-        session: null,
-      }
-      runtimeMap.set(id, runtime)
-    }
-    return runtime
-  }
-
-  function clearReconnectTimer(id: string) {
-    const runtime = runtimeMap.get(id)
-    if (!runtime?.reconnectTimer) {
-      return
-    }
-    clearTimeout(runtime.reconnectTimer)
-    runtime.reconnectTimer = null
-  }
-
-  function forgetRuntime(id: string) {
-    clearReconnectTimer(id)
-    runtimeMap.delete(id)
-  }
-
-  function nextReconnectDelay(attempt: number) {
-    return reconnectDelaysMs[Math.min(attempt - 1, reconnectDelaysMs.length - 1)]
-  }
-
   const { attachSocket, matchesConnectionState, resolveTerminalSession, setConnectingStatus } =
     createTerminalConnectionHelpers({
       getConversationId: input.getConversationId,
@@ -92,7 +59,7 @@ export function createTerminalManager(input: {
     // Prevent double-mount
     if (xtermMap.has(id) && elementMap.get(id) === element) return
 
-    const runtime = ensureRuntime(id)
+    const runtime = ensureTerminalRuntime(runtimeMap, id)
     runtime.mountRevision += 1
     const mountRevision = runtime.mountRevision
 
@@ -148,7 +115,7 @@ export function createTerminalManager(input: {
     xtermMap.delete(id)
     elementMap.delete(id)
     if (forget) {
-      forgetRuntime(id)
+      forgetTerminalRuntime(runtimeMap, id)
     }
   }
 
@@ -160,9 +127,9 @@ export function createTerminalManager(input: {
       terminate: boolean
     },
   ) {
-    const runtime = ensureRuntime(id)
+    const runtime = ensureTerminalRuntime(runtimeMap, id)
     runtime.reconnectEnabled = options.reconnect
-    clearReconnectTimer(id)
+    clearTerminalReconnectTimer(runtimeMap, id)
 
     const socket = socketMap.get(id)
     socketMap.delete(id)
@@ -194,7 +161,7 @@ export function createTerminalManager(input: {
       return
     }
 
-    if (runtime.reconnectAttempts >= reconnectDelaysMs.length) {
+    if (runtime.reconnectAttempts >= TERMINAL_RECONNECT_ATTEMPT_LIMIT) {
       runtime.reconnectEnabled = false
       updateInstance(id, {
         status: 'error',
@@ -205,7 +172,7 @@ export function createTerminalManager(input: {
     }
 
     runtime.reconnectAttempts += 1
-    const delay = nextReconnectDelay(runtime.reconnectAttempts)
+    const delay = nextTerminalReconnectDelay(runtime.reconnectAttempts)
     updateInstance(id, {
       status: 'connecting',
       statusMessage: `Reconnecting shell in ${label}...`,
@@ -223,7 +190,7 @@ export function createTerminalManager(input: {
   async function connectTerminal(id: string, isReconnect = false) {
     const conversationId = input.getConversationId()
     const workspacePath = input.getWorkspacePath()
-    const runtime = ensureRuntime(id)
+    const runtime = ensureTerminalRuntime(runtimeMap, id)
     const entry = xtermMap.get(id)
     if (!conversationId || !entry || !hasInstance(id)) return
 
@@ -231,7 +198,7 @@ export function createTerminalManager(input: {
     runtime.connectRevision += 1
     const connectRevision = runtime.connectRevision
     runtime.reconnectEnabled = true
-    clearReconnectTimer(id)
+    clearTerminalReconnectTimer(runtimeMap, id)
     entry.fitAddon.fit()
 
     const label = workspacePath || 'workspace root'
@@ -267,7 +234,7 @@ export function createTerminalManager(input: {
   }
 
   function createInstance(): string {
-    const id = generateId()
+    const id = generateTerminalManagerID()
     const index = instances.length + 1
     instances = [
       ...instances,
