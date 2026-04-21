@@ -27,6 +27,7 @@ import {
   updateWorkspaceEditorDraft,
   updateWorkspaceEditorSelection,
 } from './project-conversation-workspace-file-editor-state-transforms'
+import { createWorkspaceFileEditorStoreApi } from './project-conversation-workspace-file-editor-store-api'
 
 const WORKSPACE_AUTOSAVE_DELAY_MS = 1000
 export function createWorkspaceFileEditorStore(input: {
@@ -314,11 +315,9 @@ export function createWorkspaceFileEditorStore(input: {
   async function saveSelectedFile(): Promise<boolean> {
     return saveFile(input.getSelectedRepoPath(), input.getSelectedFilePath())
   }
-  return {
-    get selectedEditorState() {
-      return getEditorState()
-    },
-    get selectedDraftLineDiff(): WorkspaceFileLineDiffMarkers | null {
+  return createWorkspaceFileEditorStoreApi({
+    getSelectedEditorState: () => getEditorState(),
+    getSelectedDraftLineDiff: (): WorkspaceFileLineDiffMarkers | null => {
       const repoPath = input.getSelectedRepoPath()
       const filePath = input.getSelectedFilePath()
       const editor = getEditorState(repoPath, filePath)
@@ -344,5 +343,5 @@ export function createWorkspaceFileEditorStore(input: {
     saveFile,
     discardSelectedDraft,
     discardDraft,
-  }
+  })
 }
