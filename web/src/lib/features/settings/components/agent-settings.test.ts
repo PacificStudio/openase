@@ -1,12 +1,14 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ApiError } from '$lib/api/client'
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import AgentSettings from './agent-settings.svelte'
 
 const {
   createProvider,
+  deleteProvider,
   listAgents,
   listMachines,
   listProviderModelOptions,
@@ -14,6 +16,7 @@ const {
   updateProject,
 } = vi.hoisted(() => ({
   createProvider: vi.fn(),
+  deleteProvider: vi.fn(),
   listAgents: vi.fn(),
   listMachines: vi.fn(),
   listProviderModelOptions: vi.fn(),
@@ -31,6 +34,7 @@ const { toastStore } = vi.hoisted(() => ({
 
 vi.mock('$lib/api/openase', () => ({
   createProvider,
+  deleteProvider,
   listAgents,
   listMachines,
   listProviderModelOptions,
@@ -61,12 +65,8 @@ describe('Agent settings add provider entry', () => {
 
     await waitFor(() => expect(listProviders).toHaveBeenCalledWith('org-1'))
 
-    expect((getByRole('button', { name: 'Add provider' }) as HTMLButtonElement).disabled).toBe(true)
-    expect(
-      getByText(
-        'Register an execution machine in this organization before creating a provider from project settings.',
-      ),
-    ).toBeTruthy()
+    expect((getByRole('button', { name: 'Add Provider' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(getByText('Register machine')).toBeTruthy()
   })
 })
 
@@ -82,13 +82,13 @@ it('creates a provider from project settings', async () => {
 
   const { findByRole, findByLabelText, findByText, getByRole } = render(AgentSettings)
 
-  await fireEvent.click(await findByRole('button', { name: 'Add provider' }))
+  await fireEvent.click(await findByRole('button', { name: 'Add Provider' }))
   await waitFor(() => expect(listProviderModelOptions).toHaveBeenCalledTimes(1))
 
   await fireEvent.input(await findByLabelText('Provider name'), {
     target: { value: 'Project Provider' },
   })
-  await fireEvent.input(await findByLabelText('Model name'), {
+  await fireEvent.input(await findByLabelText('Model Name'), {
     target: { value: 'gpt-5.4' },
   })
   await fireEvent.click(getByRole('button', { name: 'Create provider' }))
@@ -104,6 +104,7 @@ it('creates a provider from project settings', async () => {
       auth_config: {},
       secret_bindings: [],
       model_name: 'gpt-5.4',
+      reasoning_effort: '',
       model_temperature: 0,
       model_max_tokens: 1,
       max_parallel_runs: 0,
@@ -138,25 +139,82 @@ it('refreshes provider state so the new provider can be selected immediately', a
 
   const { findByRole, findByLabelText, findByText, getByRole, getByTitle } = render(AgentSettings)
 
-  await fireEvent.click(await findByRole('button', { name: 'Add provider' }))
+  await fireEvent.click(await findByRole('button', { name: 'Add Provider' }))
   await waitFor(() => expect(listProviderModelOptions).toHaveBeenCalledTimes(1))
 
   await fireEvent.input(await findByLabelText('Provider name'), {
     target: { value: 'Project Provider' },
   })
-  await fireEvent.input(await findByLabelText('Model name'), {
+  await fireEvent.input(await findByLabelText('Model Name'), {
     target: { value: 'gpt-5.4' },
   })
   await fireEvent.click(getByRole('button', { name: 'Create provider' }))
   await findByText('Project Provider')
 
-  await fireEvent.click(getByTitle('Set Project Provider as project default'))
+  await fireEvent.click(getByTitle('Set Project Default'))
   await fireEvent.click(getByRole('button', { name: 'Save default' }))
 
   await waitFor(() =>
     expect(updateProject).toHaveBeenCalledWith('project-1', {
       default_agent_provider_id: 'provider-2',
     }),
+  )
+})
+
+it('deletes a provider from project settings after confirmation', async () => {
+  seedAppContext()
+  listProviders.mockResolvedValue({ providers: [providerFixture()] })
+  listAgents.mockResolvedValue({ agents: [] })
+  listMachines.mockResolvedValue({ machines: [machineFixture()] })
+  listProviderModelOptions.mockResolvedValue({ adapter_model_options: [] })
+  deleteProvider.mockResolvedValue({ provider: providerFixture() })
+
+  const { findByLabelText, findByText, getByRole, queryByText } = render(AgentSettings)
+
+  await fireEvent.click(await findByLabelText('Configure Provider'))
+  await fireEvent.click(getByRole('button', { name: 'Delete provider' }))
+  const dialogs = document.querySelectorAll('[role="dialog"]')
+  const deleteDialog = dialogs[dialogs.length - 1] as HTMLElement
+  await fireEvent.click(deleteDialog.querySelectorAll('button')[1] as HTMLButtonElement)
+
+  await waitFor(() => expect(deleteProvider).toHaveBeenCalledWith('provider-1'))
+  expect(queryByText('Codex')).toBeNull()
+  expect(toastStore.success).toHaveBeenCalledWith('Deleted provider Codex.')
+  expect(await findByText('No providers')).toBeTruthy()
+})
+
+it('shows provider dependency details when delete is blocked', async () => {
+  seedAppContext()
+  listProviders.mockResolvedValue({ providers: [providerFixture()] })
+  listAgents.mockResolvedValue({ agents: [] })
+  listMachines.mockResolvedValue({ machines: [machineFixture()] })
+  listProviderModelOptions.mockResolvedValue({ adapter_model_options: [] })
+  deleteProvider.mockRejectedValue(
+    new ApiError(
+      409,
+      'Provider cannot be deleted because it is still referenced.',
+      'PROVIDER_IN_USE',
+      {
+        organization_default: true,
+        project_defaults: [{ id: 'project-1', name: 'OpenASE' }],
+        agents: [{ id: 'agent-1', name: 'fullstack-developer' }],
+        conversation_principals: [{ id: 'principal-1', name: 'project-ai' }],
+      },
+    ),
+  )
+
+  const { findByLabelText, getByRole } = render(AgentSettings)
+
+  await fireEvent.click(await findByLabelText('Configure Provider'))
+  await fireEvent.click(getByRole('button', { name: 'Delete provider' }))
+  const dialogs = document.querySelectorAll('[role="dialog"]')
+  const deleteDialog = dialogs[dialogs.length - 1] as HTMLElement
+  await fireEvent.click(deleteDialog.querySelectorAll('button')[1] as HTMLButtonElement)
+
+  await waitFor(() =>
+    expect(toastStore.error).toHaveBeenCalledWith(
+      'Provider is still in use by organization default, project defaults: OpenASE, agents: fullstack-developer, project conversation principals: project-ai.',
+    ),
   )
 })
 

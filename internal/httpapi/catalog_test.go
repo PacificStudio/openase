@@ -36,24 +36,25 @@ import (
 )
 
 type fakeCatalogService struct {
-	organizations        map[uuid.UUID]domain.Organization
-	machines             map[uuid.UUID]domain.Machine
-	projects             map[uuid.UUID]domain.Project
-	tickets              map[uuid.UUID]fakeCatalogTicket
-	projectRepos         map[uuid.UUID]domain.ProjectRepo
-	ticketScopes         map[uuid.UUID]domain.TicketRepoScope
-	providers            map[uuid.UUID]domain.AgentProvider
-	agents               map[uuid.UUID]domain.Agent
-	agentRuns            map[uuid.UUID]domain.AgentRun
-	agentDeleteConflicts map[uuid.UUID]*domain.AgentDeleteConflict
-	activityEvents       []domain.ActivityEvent
-	traceEvents          []domain.AgentTraceEntry
-	stepEvents           []domain.AgentStepEntry
-	rawEvents            []domain.AgentRawEventEntry
-	activityInstances    []domain.AgentActivityInstance
-	transcriptEntries    []domain.AgentTranscriptEntry
-	listAgentRunsErr     error
-	listTicketRunsErr    error
+	organizations           map[uuid.UUID]domain.Organization
+	machines                map[uuid.UUID]domain.Machine
+	projects                map[uuid.UUID]domain.Project
+	tickets                 map[uuid.UUID]fakeCatalogTicket
+	projectRepos            map[uuid.UUID]domain.ProjectRepo
+	ticketScopes            map[uuid.UUID]domain.TicketRepoScope
+	providers               map[uuid.UUID]domain.AgentProvider
+	agents                  map[uuid.UUID]domain.Agent
+	agentRuns               map[uuid.UUID]domain.AgentRun
+	providerDeleteConflicts map[uuid.UUID]*domain.AgentProviderDeleteConflict
+	agentDeleteConflicts    map[uuid.UUID]*domain.AgentDeleteConflict
+	activityEvents          []domain.ActivityEvent
+	traceEvents             []domain.AgentTraceEntry
+	stepEvents              []domain.AgentStepEntry
+	rawEvents               []domain.AgentRawEventEntry
+	activityInstances       []domain.AgentActivityInstance
+	transcriptEntries       []domain.AgentTranscriptEntry
+	listAgentRunsErr        error
+	listTicketRunsErr       error
 }
 
 type stubHTTPBootstrapper struct {
@@ -72,22 +73,23 @@ type fakeCatalogTicket struct {
 
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
-		organizations:        map[uuid.UUID]domain.Organization{},
-		machines:             map[uuid.UUID]domain.Machine{},
-		projects:             map[uuid.UUID]domain.Project{},
-		tickets:              map[uuid.UUID]fakeCatalogTicket{},
-		projectRepos:         map[uuid.UUID]domain.ProjectRepo{},
-		ticketScopes:         map[uuid.UUID]domain.TicketRepoScope{},
-		providers:            map[uuid.UUID]domain.AgentProvider{},
-		agents:               map[uuid.UUID]domain.Agent{},
-		agentRuns:            map[uuid.UUID]domain.AgentRun{},
-		agentDeleteConflicts: map[uuid.UUID]*domain.AgentDeleteConflict{},
-		activityEvents:       []domain.ActivityEvent{},
-		traceEvents:          []domain.AgentTraceEntry{},
-		stepEvents:           []domain.AgentStepEntry{},
-		rawEvents:            []domain.AgentRawEventEntry{},
-		activityInstances:    []domain.AgentActivityInstance{},
-		transcriptEntries:    []domain.AgentTranscriptEntry{},
+		organizations:           map[uuid.UUID]domain.Organization{},
+		machines:                map[uuid.UUID]domain.Machine{},
+		projects:                map[uuid.UUID]domain.Project{},
+		tickets:                 map[uuid.UUID]fakeCatalogTicket{},
+		projectRepos:            map[uuid.UUID]domain.ProjectRepo{},
+		ticketScopes:            map[uuid.UUID]domain.TicketRepoScope{},
+		providers:               map[uuid.UUID]domain.AgentProvider{},
+		agents:                  map[uuid.UUID]domain.Agent{},
+		agentRuns:               map[uuid.UUID]domain.AgentRun{},
+		providerDeleteConflicts: map[uuid.UUID]*domain.AgentProviderDeleteConflict{},
+		agentDeleteConflicts:    map[uuid.UUID]*domain.AgentDeleteConflict{},
+		activityEvents:          []domain.ActivityEvent{},
+		traceEvents:             []domain.AgentTraceEntry{},
+		stepEvents:              []domain.AgentStepEntry{},
+		rawEvents:               []domain.AgentRawEventEntry{},
+		activityInstances:       []domain.AgentActivityInstance{},
+		transcriptEntries:       []domain.AgentTranscriptEntry{},
 	}
 }
 
@@ -365,6 +367,64 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, archiveProjectRec, &archiveProjectPayload)
 	if archiveProjectPayload.Project.Status != "Archived" {
 		t.Fatalf("expected archived project status, got %+v", archiveProjectPayload.Project)
+	}
+}
+
+func TestPatchProjectSanitizesLegacyProjectAIScopesOnUnrelatedUpdate(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	service.organizations[orgID] = domain.Organization{
+		ID:     orgID,
+		Name:   "Acme Platform",
+		Slug:   "acme-platform",
+		Status: domain.OrganizationStatusActive,
+	}
+	service.projects[projectID] = domain.Project{
+		ID:                             projectID,
+		OrganizationID:                 orgID,
+		Name:                           "OpenASE",
+		Slug:                           "openase",
+		Status:                         domain.ProjectStatusInProgress,
+		ProjectAIPlatformAccessAllowed: []string{"projects.update", "tickets.report_usage"},
+		MaxConcurrentAgents:            2,
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+projectID.String(),
+		`{"agent_run_summary_prompt":"Summarize blockers first."}`,
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected project patch 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		Project projectResponse `json:"project"`
+	}
+	decodeResponse(t, rec, &payload)
+	if got, want := payload.Project.ProjectAIPlatformAccessAllowed, []string{"projects.update"}; !slices.Equal(got, want) {
+		t.Fatalf("project ai platform access allowed = %v, want %v", got, want)
+	}
+	if payload.Project.AgentRunSummaryPrompt == nil || *payload.Project.AgentRunSummaryPrompt != "Summarize blockers first." {
+		t.Fatalf("expected run summary prompt to update, got %+v", payload.Project)
+	}
+	if got, want := service.projects[projectID].ProjectAIPlatformAccessAllowed, []string{"projects.update"}; !slices.Equal(got, want) {
+		t.Fatalf("stored project ai platform access allowed = %v, want %v", got, want)
 	}
 }
 

@@ -37,6 +37,7 @@ const canonicalCases = [
   ['workflow.timeout_changed', 'Workflow timeout changed', 'info'],
   ['provider.created', 'Provider created', 'info'],
   ['provider.updated', 'Provider updated', 'info'],
+  ['provider.deleted', 'Provider deleted', 'warning'],
   ['provider.availability_changed', 'Provider availability changed', 'warning'],
   ['provider.machine_binding_changed', 'Provider machine binding changed', 'info'],
   ['provider.rate_limit_updated', 'Provider rate limit updated', 'info'],

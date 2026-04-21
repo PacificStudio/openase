@@ -67,6 +67,15 @@ func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAg
 	return annotateAgentProviderAvailability(item), nil
 }
 
+func (s *service) DeleteAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error) {
+	item, err := s.repo.DeleteAgentProvider(ctx, id)
+	if err != nil {
+		return domain.AgentProvider{}, err
+	}
+
+	return annotateAgentProviderAvailability(item), nil
+}
+
 func (s *service) ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error) {
 	if allowed, err := s.allowsProjectScope(ctx, projectID); err != nil {
 		return nil, err

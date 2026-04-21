@@ -348,3 +348,38 @@ func TestPrincipalKindScopeHelpers(t *testing.T) {
 		}
 	})
 }
+
+func TestNormalizeSupportedScopesForPrincipalKind(t *testing.T) {
+	t.Run("empty input stays empty", func(t *testing.T) {
+		if got := NormalizeSupportedScopesForPrincipalKind(PrincipalKindProjectConversation, nil); len(got) != 0 {
+			t.Fatalf("NormalizeSupportedScopesForPrincipalKind(nil) = %#v, want empty", got)
+		}
+	})
+
+	t.Run("project conversation filters unsupported scopes and deduplicates", func(t *testing.T) {
+		got := NormalizeSupportedScopesForPrincipalKind(PrincipalKindProjectConversation, []string{
+			" projects.update ",
+			"",
+			"tickets.report_usage",
+			"projects.update",
+			"tickets.update.self",
+			"tickets.list",
+		})
+		want := []string{"projects.update", "tickets.list"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("NormalizeSupportedScopesForPrincipalKind(project conversation) = %#v, want %#v", got, want)
+		}
+	})
+
+	t.Run("ticket agent keeps supported ticket runtime scopes", func(t *testing.T) {
+		got := NormalizeSupportedScopesForPrincipalKind(PrincipalKindTicketAgent, []string{
+			"tickets.update.self",
+			"tickets.report_usage",
+			" tickets.update.self ",
+		})
+		want := []string{"tickets.update.self", "tickets.report_usage"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("NormalizeSupportedScopesForPrincipalKind(ticket agent) = %#v, want %#v", got, want)
+		}
+	})
+}

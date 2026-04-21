@@ -65,3 +65,31 @@ func TestParseAgentProjectPatchRequestSupportsFullProjectSurface(t *testing.T) {
 		t.Fatalf("project ai platform access allowed = %+v", input.ProjectAIPlatformAccessAllowed)
 	}
 }
+
+func TestParseAgentProjectPatchRequestFiltersLegacyProjectAIScopesOnUnrelatedUpdates(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	runSummaryPrompt := "Summarize blockers first."
+
+	input, err := parseAgentProjectPatchRequest(projectID, domain.Project{
+		ID:                             projectID,
+		OrganizationID:                 orgID,
+		Name:                           "OpenASE",
+		Slug:                           "openase",
+		Status:                         domain.ProjectStatusInProgress,
+		ProjectAIPlatformAccessAllowed: []string{"projects.update", "tickets.report_usage"},
+		MaxConcurrentAgents:            1,
+	}, rawAgentProjectPatchRequest{
+		AgentRunSummaryPrompt: &runSummaryPrompt,
+	})
+	if err != nil {
+		t.Fatalf("parseAgentProjectPatchRequest() error = %v", err)
+	}
+
+	if input.AgentRunSummaryPrompt != runSummaryPrompt {
+		t.Fatalf("agent run summary prompt = %q, want %q", input.AgentRunSummaryPrompt, runSummaryPrompt)
+	}
+	if got, want := input.ProjectAIPlatformAccessAllowed, []string{"projects.update"}; len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("project ai platform access allowed = %v, want %v", got, want)
+	}
+}
