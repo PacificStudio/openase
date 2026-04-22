@@ -51,7 +51,6 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   let gitGraphError = $state('')
   let selectedGitCommitID = $state('')
   let detailMode = $state<'file' | 'git_graph'>('file')
-
   function loadFile(repoPath: string, filePath: string, options: { silent?: boolean } = {}) {
     return loadWorkspaceFile(
       {
@@ -80,9 +79,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   function getActiveTabFileState(): WorkspaceTabFileState {
     return tabs.getActiveTabFileState()
   }
-  function currentWorkspaceDiff() {
-    return input.getWorkspaceDiff?.() ?? null
-  }
+  const currentWorkspaceDiff = () => input.getWorkspaceDiff?.() ?? null
   function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
     if (!areWorkspaceMetadataEqual(metadata, nextMetadata)) metadata = nextMetadata
   }
@@ -165,7 +162,6 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     refreshWorkspaceDiff,
     getAutosaveEnabled: () => autosaveEnabled,
   })
-
   function reset() {
     metadata = null
     metadataLoading = false
@@ -230,9 +226,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     autosaveEnabled = enabled
     storeWorkspaceAutosavePreference(enabled)
   }
-  function activeFilePath() {
-    return tabs.activeFilePath(tabs.treeRepoPath)
-  }
+  const activeFilePath = () => tabs.activeFilePath(tabs.treeRepoPath)
   return buildProjectConversationWorkspaceBrowserStateView({
     getMetadata: () => metadata,
     getMetadataLoading: () => metadataLoading,
