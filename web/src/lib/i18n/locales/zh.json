@@ -2586,7 +2586,7 @@
   "settings.retention.labels.keepRecent": "保留最近天数",
   "settings.retention.placeholders.keepLatest": "0",
   "settings.retention.placeholders.keepRecent": "0",
-  "settings.retention.toggleAriaLabel": "切换辅助文本",
+  "settings.retention.toggleAriaLabel": "启用 Project AI 保留策略",
   "settings.runSummary.prompt.additionalInstructions": "附加要求",
   "settings.runSummary.prompt.conciseMarkdown": "使用简洁的 Markdown，优先写事实、结果和关键证据。",
   "settings.runSummary.prompt.emptySectionNotice": "如果某一节没有内容，请明确写“无”或“未发生”，不要编造。",

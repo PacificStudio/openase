@@ -88,3 +88,18 @@ workflows:
 		t.Fatalf("ParseYAML() unknown status error = %v", err)
 	}
 }
+
+func TestParseYAMLRejectsInvalidDocumentShapes(t *testing.T) {
+	if _, err := ParseYAML("testdata/bad.yaml", []byte(":")); err == nil {
+		t.Fatal("ParseYAML() invalid yaml expected error")
+	}
+	if _, err := ParseYAML("testdata/version.yaml", []byte("version: 2\npreset:\n  key: bad\n  name: Bad\nstatuses: [{name: Todo, stage: unstarted}]\nworkflows: [{key: coding, name: Coding, type: coding, pickup_statuses: [Todo], finish_statuses: [Todo]}]\n")); err == nil || !strings.Contains(err.Error(), "unsupported version") {
+		t.Fatalf("ParseYAML() unsupported version error = %v", err)
+	}
+	if _, err := ParseYAML("testdata/project-ai.yaml", []byte("version: 1\npreset:\n  key: bad\n  name: Bad\nstatuses: [{name: Todo, stage: unstarted}]\nworkflows: [{key: coding, name: Coding, type: coding, pickup_statuses: [Todo], finish_statuses: [Todo]}]\nproject_ai:\n  skill_references:\n    - skill: ' '\n")); err == nil || !strings.Contains(err.Error(), "project_ai.skill_references") {
+		t.Fatalf("ParseYAML() invalid project ai error = %v", err)
+	}
+	if _, err := ParseYAML("testdata/meta.yaml", []byte("version: 1\npreset:\n  key: 'bad key'\n  name: Bad\nstatuses: [{name: Todo, stage: unstarted}]\nworkflows: [{key: coding, name: Coding, type: coding, pickup_statuses: [Todo], finish_statuses: [Todo]}]\n")); err == nil || !strings.Contains(err.Error(), "whitespace") {
+		t.Fatalf("ParseYAML() invalid meta error = %v", err)
+	}
+}
