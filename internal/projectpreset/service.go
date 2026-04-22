@@ -197,20 +197,20 @@ func (s *Service) Apply(ctx context.Context, input presetdomain.ApplyInput) (pre
 				return presetdomain.ApplyResult{}, updateErr
 			}
 			if _, updateHarnessErr := s.workflowService.UpdateHarness(txCtx, workflowservice.UpdateHarnessInput{
-				WorkflowID: detail.Workflow.ID,
+				WorkflowID: detail.ID,
 				Content:    harnessContent,
 				EditedBy:   appliedBy,
 			}); updateHarnessErr != nil {
 				return presetdomain.ApplyResult{}, updateHarnessErr
 			}
 			appliedWorkflows = append(appliedWorkflows, presetdomain.AppliedWorkflow{
-				ID:          detail.Workflow.ID,
+				ID:          detail.ID,
 				Key:         workflowPreset.Key,
-				Name:        detail.Workflow.Name,
+				Name:        detail.Name,
 				AgentID:     agentID,
 				AgentName:   agentNamesByID[agentID],
 				Action:      "updated",
-				HarnessPath: detail.Workflow.HarnessPath,
+				HarnessPath: detail.HarnessPath,
 			})
 			continue
 		}
@@ -239,13 +239,13 @@ func (s *Service) Apply(ctx context.Context, input presetdomain.ApplyInput) (pre
 			return presetdomain.ApplyResult{}, createErr
 		}
 		appliedWorkflows = append(appliedWorkflows, presetdomain.AppliedWorkflow{
-			ID:          detail.Workflow.ID,
+			ID:          detail.ID,
 			Key:         workflowPreset.Key,
-			Name:        detail.Workflow.Name,
+			Name:        detail.Name,
 			AgentID:     agentID,
 			AgentName:   agentNamesByID[agentID],
 			Action:      "created",
-			HarnessPath: detail.Workflow.HarnessPath,
+			HarnessPath: detail.HarnessPath,
 		})
 	}
 
