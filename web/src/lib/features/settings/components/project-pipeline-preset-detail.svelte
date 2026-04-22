@@ -78,7 +78,9 @@
       <Label>{i18nStore.t('settings.pipelinePresets.labels.statusPreview')}</Label>
       <div class="space-y-2">
         {#each selectedPreset.statuses as item (item.name)}
-          <div class="bg-muted/30 flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+          <div
+            class="bg-muted/30 flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+          >
             <div>
               <p class="text-foreground font-medium">{item.name}</p>
               <p class="text-muted-foreground text-xs">{item.stage}</p>
