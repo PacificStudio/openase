@@ -9,6 +9,15 @@ const { updateProject } = vi.hoisted(() => ({
   updateProject: vi.fn(),
 }))
 
+const { applyPipelinePreset, listAgents, listPipelinePresets, listStatuses, listWorkflows } =
+  vi.hoisted(() => ({
+    applyPipelinePreset: vi.fn(),
+    listAgents: vi.fn(),
+    listPipelinePresets: vi.fn(),
+    listStatuses: vi.fn(),
+    listWorkflows: vi.fn(),
+  }))
+
 const { toastStore } = vi.hoisted(() => ({
   toastStore: {
     success: vi.fn(),
@@ -18,6 +27,11 @@ const { toastStore } = vi.hoisted(() => ({
 
 vi.mock('$lib/api/openase', () => ({
   archiveProject: vi.fn(),
+  applyPipelinePreset,
+  listAgents,
+  listPipelinePresets,
+  listStatuses,
+  listWorkflows,
   updateProject,
 }))
 
@@ -32,7 +46,32 @@ describe('General settings', () => {
     vi.clearAllMocks()
   })
 
+  function primePipelinePresetMocks() {
+    listPipelinePresets.mockResolvedValue({
+      active_ticket_count: 0,
+      can_apply: true,
+      presets: [],
+    })
+    listAgents.mockResolvedValue({ agents: [] })
+    listStatuses.mockResolvedValue({ statuses: [] })
+    listWorkflows.mockResolvedValue({ workflows: [] })
+    applyPipelinePreset.mockResolvedValue({
+      result: {
+        preset: {
+          version: 1,
+          preset: { key: 'fullstack-default', name: 'Fullstack', description: '' },
+          statuses: [],
+          workflows: [],
+        },
+        active_ticket_count: 0,
+        statuses: [],
+        workflows: [],
+      },
+    })
+  }
+
   it('displays the effective built-in prompt and preserves default-fallback semantics when unchanged', async () => {
+    primePipelinePresetMocks()
     const effectivePrompt = 'Built-in run summary prompt currently in effect.'
     appStore.currentProject = currentProject({
       effective_agent_run_summary_prompt: effectivePrompt,
@@ -68,6 +107,7 @@ describe('General settings', () => {
   })
 
   it('turns the built-in effective prompt into a project override once edited', async () => {
+    primePipelinePresetMocks()
     const effectivePrompt = 'Built-in run summary prompt currently in effect.'
     const expectedPrompt =
       `${effectivePrompt}\n\n## Files Touched\n` +
@@ -108,6 +148,7 @@ describe('General settings', () => {
   })
 
   it('saves blank summary prompts to reset an existing project override', async () => {
+    primePipelinePresetMocks()
     const builtinPrompt = 'Built-in run summary prompt currently in effect.'
     appStore.currentProject = currentProject({
       agent_run_summary_prompt: 'Existing custom summary prompt',
@@ -148,6 +189,7 @@ describe('General settings', () => {
   })
 
   it('saves Project AI retention settings with explicit keep rules', async () => {
+    primePipelinePresetMocks()
     appStore.currentProject = currentProject({
       project_ai_retention: {
         enabled: false,

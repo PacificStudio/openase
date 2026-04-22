@@ -165,6 +165,84 @@ export type ProjectArchiveResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}', 'delete'>
 >
 
+export type PipelinePresetStatus = {
+  name: string
+  stage: string
+  color: string
+  icon?: string
+  max_active_runs?: number | null
+  default?: boolean
+  description?: string
+}
+
+export type PipelinePresetWorkflow = {
+  key: string
+  name: string
+  type: string
+  role_slug?: string
+  role_name?: string
+  role_description?: string
+  platform_access_allowed?: string[]
+  skill_names?: string[]
+  harness_path?: string | null
+  harness_content?: string
+  max_concurrent: number
+  max_retry_attempts: number
+  timeout_minutes: number
+  stall_timeout_minutes: number
+  pickup_statuses: string[]
+  finish_statuses: string[]
+}
+
+export type PipelinePresetSkillReference = {
+  skill: string
+  files?: string[]
+}
+
+export type PipelinePreset = {
+  version: number
+  preset: {
+    key: string
+    name: string
+    description: string
+    source_path?: string
+  }
+  statuses: PipelinePresetStatus[]
+  workflows: PipelinePresetWorkflow[]
+  project_ai?: {
+    skill_references?: PipelinePresetSkillReference[]
+  }
+}
+
+export type PipelinePresetCatalog = {
+  active_ticket_count: number
+  can_apply: boolean
+  presets: PipelinePreset[]
+}
+
+export type PipelinePresetApplyResult = {
+  preset: PipelinePreset
+  active_ticket_count: number
+  statuses: Array<{
+    id: string
+    name: string
+    action: 'created' | 'updated' | string
+  }>
+  workflows: Array<{
+    id: string
+    key: string
+    name: string
+    agent_id: string
+    agent_name: string
+    action: 'created' | 'updated' | string
+    harness_path: string
+  }>
+}
+
+export type PipelinePresetApplyResponse = {
+  result: PipelinePresetApplyResult
+}
+
 export type MachinePayload = DeepRequired<ResponseFor<'/api/v1/orgs/{orgId}/machines', 'get'>>
 export type MachineCreateResponse = DeepRequired<
   ResponseFor<'/api/v1/orgs/{orgId}/machines', 'post'>

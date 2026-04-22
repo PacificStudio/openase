@@ -1523,6 +1523,10 @@ func defaultHarnessContent(name string, workflowType Type, pickupStatusNames []s
 	return builder.String()
 }
 
+func DefaultHarnessContent(name string, workflowType Type, pickupStatusNames []string, finishStatusNames []string) string {
+	return defaultHarnessContent(name, workflowType, pickupStatusNames, finishStatusNames)
+}
+
 func slugify(raw string) string {
 	trimmed := strings.ToLower(strings.TrimSpace(raw))
 	trimmed = nonAlphaNumericPattern.ReplaceAllString(trimmed, "-")

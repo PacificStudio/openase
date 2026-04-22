@@ -29,6 +29,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
+	projectpresetservice "github.com/BetterAndBetterII/openase/internal/projectpreset"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
@@ -242,6 +243,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	projectPresetSvc := projectpresetservice.NewService(client, ticketSvc, ticketStatusSvc, workflowSvc)
 	scheduledJobSvc := scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketSvc, a.logger)
 	defer func() {
 		if closeErr := workflowSvc.Close(); closeErr != nil {
@@ -329,6 +331,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithMetricsHandler(a.metricsHandler),
 		httpapi.WithScheduledJobService(scheduledJobSvc),
 		httpapi.WithNotificationService(notificationSvc),
+		httpapi.WithProjectPresetService(projectPresetSvc),
 		httpapi.WithProjectUpdateService(projectUpdateSvc),
 		httpapi.WithChatService(chatSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),

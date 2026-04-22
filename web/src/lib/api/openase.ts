@@ -52,6 +52,8 @@ import type {
   OIDCEnableResponse,
   ProjectRepoPayload,
   ProjectArchiveResponse,
+  PipelinePresetApplyResponse,
+  PipelinePresetCatalog,
   ProjectUpdateCommentCreateResponse,
   ProjectUpdateCommentDeleteResponse,
   ProjectUpdateCommentResponse,
@@ -677,6 +679,26 @@ export function updateProject(
 
 export function archiveProject(projectId: string) {
   return api.delete<ProjectArchiveResponse>(`/api/v1/projects/${projectId}`)
+}
+
+export function listPipelinePresets(projectId: string) {
+  return api.get<PipelinePresetCatalog>(`/api/v1/projects/${projectId}/pipeline-presets`)
+}
+
+export function applyPipelinePreset(
+  projectId: string,
+  presetKey: string,
+  body: {
+    workflow_agent_bindings: Array<{
+      workflow_key: string
+      agent_id: string
+    }>
+  },
+) {
+  return api.post<PipelinePresetApplyResponse>(
+    `/api/v1/projects/${projectId}/pipeline-presets/${presetKey}/apply`,
+    { body },
+  )
 }
 
 export function listActivity(

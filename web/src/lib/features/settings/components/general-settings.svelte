@@ -14,6 +14,7 @@
   import { i18nStore } from '$lib/i18n/store.svelte'
   import ProjectArchivePanel from '$lib/features/settings/components/project-archive-panel.svelte'
   import ProjectAIRetentionSettings from '$lib/features/settings/components/project-ai-retention-settings.svelte'
+  import ProjectPipelinePresetPanel from '$lib/features/settings/components/project-pipeline-preset-panel.svelte'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
@@ -295,6 +296,9 @@
         : i18nStore.t('settings.general.button.saveChanges')}
     </Button>
   </div>
+
+  <Separator />
+  <ProjectPipelinePresetPanel />
 
   <Separator />
   <ProjectArchivePanel {archiving} onArchive={handleArchive} />

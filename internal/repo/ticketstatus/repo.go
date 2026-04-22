@@ -12,6 +12,7 @@ import (
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/ticketstatus"
+	"github.com/BetterAndBetterII/openase/internal/repo/enttx"
 	"github.com/google/uuid"
 )
 
@@ -24,18 +25,19 @@ func NewEntRepository(client *ent.Client) *EntRepository {
 }
 
 func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain.Status, error) {
-	if err := ensureProjectExists(ctx, r.client.Project, projectID); err != nil {
+	client := enttx.Client(ctx, r.client)
+	if err := ensureProjectExists(ctx, client.Project, projectID); err != nil {
 		return nil, err
 	}
 
-	statuses, err := r.client.TicketStatus.Query().
+	statuses, err := client.TicketStatus.Query().
 		Where(entticketstatus.ProjectIDEQ(projectID)).
 		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list ticket statuses: %w", err)
 	}
-	activeRunsByStatusID, err := countProjectStatusActiveRuns(ctx, r.client, projectID)
+	activeRunsByStatusID, err := countProjectStatusActiveRuns(ctx, client, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("list ticket status runtime snapshots: %w", err)
 	}
@@ -44,7 +46,8 @@ func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain
 }
 
 func (r *EntRepository) ResolveStatusIDByName(ctx context.Context, projectID uuid.UUID, name string) (uuid.UUID, error) {
-	if err := ensureProjectExists(ctx, r.client.Project, projectID); err != nil {
+	client := enttx.Client(ctx, r.client)
+	if err := ensureProjectExists(ctx, client.Project, projectID); err != nil {
 		return uuid.UUID{}, err
 	}
 
@@ -53,7 +56,7 @@ func (r *EntRepository) ResolveStatusIDByName(ctx context.Context, projectID uui
 		return uuid.UUID{}, fmt.Errorf("status name must not be empty")
 	}
 
-	statuses, err := r.client.TicketStatus.Query().
+	statuses, err := client.TicketStatus.Query().
 		Where(entticketstatus.ProjectIDEQ(projectID)).
 		All(ctx)
 	if err != nil {
@@ -78,11 +81,12 @@ func (r *EntRepository) ResolveStatusIDByName(ctx context.Context, projectID uui
 }
 
 func (r *EntRepository) Get(ctx context.Context, statusID uuid.UUID) (domain.Status, error) {
-	item, err := r.client.TicketStatus.Get(ctx, statusID)
+	client := enttx.Client(ctx, r.client)
+	item, err := client.TicketStatus.Get(ctx, statusID)
 	if err != nil {
 		return domain.Status{}, mapNotFoundError(err, domain.ErrStatusNotFound)
 	}
-	activeRuns, err := countStatusActiveRuns(ctx, r.client, item.ProjectID, item.ID)
+	activeRuns, err := countStatusActiveRuns(ctx, client, item.ProjectID, item.ID)
 	if err != nil {
 		return domain.Status{}, fmt.Errorf("count ticket status active runs: %w", err)
 	}
@@ -90,11 +94,14 @@ func (r *EntRepository) Get(ctx context.Context, statusID uuid.UUID) (domain.Sta
 }
 
 func (r *EntRepository) Create(ctx context.Context, input domain.CreateInput) (domain.Status, error) {
-	tx, err := r.client.Tx(ctx)
+	baseCtx := ctx
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return domain.Status{}, fmt.Errorf("start ticket status create tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
+	client := session.Client()
 
 	if err := ensureProjectExists(ctx, tx.Project, input.ProjectID); err != nil {
 		return domain.Status{}, err
@@ -145,15 +152,19 @@ func (r *EntRepository) Create(ctx context.Context, input domain.CreateInput) (d
 	if err != nil {
 		return domain.Status{}, mapPersistenceError("create ticket status", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return domain.Status{}, fmt.Errorf("commit ticket status create tx: %w", err)
 	}
 
-	saved, err := r.client.TicketStatus.Get(ctx, created.ID)
+	readClient := client
+	if session.Owned() {
+		readClient = r.client
+	}
+	saved, err := readClient.TicketStatus.Get(baseCtx, created.ID)
 	if err != nil {
 		return domain.Status{}, fmt.Errorf("load created ticket status: %w", err)
 	}
-	activeRuns, err := countStatusActiveRuns(ctx, r.client, saved.ProjectID, saved.ID)
+	activeRuns, err := countStatusActiveRuns(baseCtx, readClient, saved.ProjectID, saved.ID)
 	if err != nil {
 		return domain.Status{}, fmt.Errorf("count created ticket status active runs: %w", err)
 	}
@@ -161,11 +172,14 @@ func (r *EntRepository) Create(ctx context.Context, input domain.CreateInput) (d
 }
 
 func (r *EntRepository) Update(ctx context.Context, input domain.UpdateInput) (domain.Status, error) {
-	tx, err := r.client.Tx(ctx)
+	baseCtx := ctx
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return domain.Status{}, fmt.Errorf("start ticket status update tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
+	client := session.Client()
 
 	current, err := tx.TicketStatus.Get(ctx, input.StatusID)
 	if err != nil {
@@ -241,15 +255,19 @@ func (r *EntRepository) Update(ctx context.Context, input domain.UpdateInput) (d
 	if err != nil {
 		return domain.Status{}, mapPersistenceError("update ticket status", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return domain.Status{}, fmt.Errorf("commit ticket status update tx: %w", err)
 	}
 
-	saved, err := r.client.TicketStatus.Get(ctx, updated.ID)
+	readClient := client
+	if session.Owned() {
+		readClient = r.client
+	}
+	saved, err := readClient.TicketStatus.Get(baseCtx, updated.ID)
 	if err != nil {
 		return domain.Status{}, fmt.Errorf("load updated ticket status: %w", err)
 	}
-	activeRuns, err := countStatusActiveRuns(ctx, r.client, saved.ProjectID, saved.ID)
+	activeRuns, err := countStatusActiveRuns(baseCtx, readClient, saved.ProjectID, saved.ID)
 	if err != nil {
 		return domain.Status{}, fmt.Errorf("count updated ticket status active runs: %w", err)
 	}
@@ -257,11 +275,12 @@ func (r *EntRepository) Update(ctx context.Context, input domain.UpdateInput) (d
 }
 
 func (r *EntRepository) Delete(ctx context.Context, statusID uuid.UUID) (domain.DeleteResult, error) {
-	tx, err := r.client.Tx(ctx)
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return domain.DeleteResult{}, fmt.Errorf("start ticket status delete tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
 
 	current, err := tx.TicketStatus.Get(ctx, statusID)
 	if err != nil {
@@ -297,7 +316,7 @@ func (r *EntRepository) Delete(ctx context.Context, statusID uuid.UUID) (domain.
 	if err := tx.TicketStatus.DeleteOneID(current.ID).Exec(ctx); err != nil {
 		return domain.DeleteResult{}, fmt.Errorf("delete ticket status: %w", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return domain.DeleteResult{}, fmt.Errorf("commit ticket status delete tx: %w", err)
 	}
 
@@ -308,11 +327,13 @@ func (r *EntRepository) Delete(ctx context.Context, statusID uuid.UUID) (domain.
 }
 
 func (r *EntRepository) ResetToDefaultTemplate(ctx context.Context, projectID uuid.UUID, template []domain.TemplateStatus) ([]domain.Status, error) {
-	tx, err := r.client.Tx(ctx)
+	baseCtx := ctx
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return nil, fmt.Errorf("start ticket status reset tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
 
 	if err := ensureProjectExists(ctx, tx.Project, projectID); err != nil {
 		return nil, err
@@ -419,10 +440,13 @@ func (r *EntRepository) ResetToDefaultTemplate(ctx context.Context, projectID uu
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return nil, fmt.Errorf("commit ticket status reset tx: %w", err)
 	}
 
+	if session.Owned() {
+		return r.List(baseCtx, projectID)
+	}
 	return r.List(ctx, projectID)
 }
 

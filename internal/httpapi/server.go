@@ -24,6 +24,7 @@ import (
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
+	projectpresetservice "github.com/BetterAndBetterII/openase/internal/projectpreset"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
@@ -63,6 +64,7 @@ type Server struct {
 	workflowService             *workflowservice.Service
 	scheduledJobService         *scheduledjobservice.Service
 	notificationService         *notificationservice.Service
+	projectPresetService        *projectpresetservice.Service
 	projectUpdateService        *projectupdateservice.Service
 	chatService                 *chatservice.Service
 	projectConversationService  *chatservice.ProjectConversationService
@@ -101,6 +103,12 @@ func WithNotificationService(service *notificationservice.Service) ServerOption 
 func WithProjectUpdateService(service *projectupdateservice.Service) ServerOption {
 	return func(server *Server) {
 		server.projectUpdateService = service
+	}
+}
+
+func WithProjectPresetService(service *projectpresetservice.Service) ServerOption {
+	return func(server *Server) {
+		server.projectPresetService = service
 	}
 }
 
