@@ -8,12 +8,12 @@ source "$SCRIPT_DIR/common.sh"
 usage() {
   cat <<'EOF'
 Usage:
+  delete_review_env.sh --ticket-identifier <ticket-id> --env-name <name>
   delete_review_env.sh --branch <branch> [--env-name <name>] [--app-name <name>]
-  delete_review_env.sh --env-name <name> --ticket-identifier <ticket-id>
 
 Examples:
+  delete_review_env.sh --env-name review --ticket-identifier ASE-123
   delete_review_env.sh --branch feature/review-env
-  delete_review_env.sh --env-name review --ticket-identifier ASE-184
 EOF
 }
 
@@ -50,45 +50,91 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$branch" || -n "$ticket_identifier" || -n "$env_name" ]] || {
+[[ -n "$branch" || -n "$env_name" || -n "$ticket_identifier" ]] || {
   usage >&2
-  die "--branch, --ticket-identifier, or --env-name is required"
+  die "--ticket-identifier, --branch, or --env-name is required"
 }
-[[ -z "$branch" || -z "$ticket_identifier" ]] || die "--branch and --ticket-identifier are mutually exclusive"
 
 ensure_common_runtime_env
 
 if [[ -n "$ticket_identifier" ]]; then
-  if [[ -z "$env_name" ]]; then
-    env_name="${COOLIFY_ENVIRONMENT_NAME:-review}"
-  fi
+  [[ -z "$branch" ]] || die "--branch cannot be combined with --ticket-identifier"
+  [[ -z "$app_name" ]] || die "--app-name cannot be combined with --ticket-identifier"
 
-  matched_records="$(find_application_records_by_ticket_identifier "$ticket_identifier" "$env_name")"
+  if [[ -z "$env_name" ]]; then
+    env_name="${COOLIFY_ENVIRONMENT_NAME:-}"
+  fi
+  [[ -n "$env_name" ]] || die "--env-name is required when using --ticket-identifier unless COOLIFY_ENVIRONMENT_NAME is set"
+
+  ticket_slug="$(slugify_name "$ticket_identifier")"
+  api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
+  case "$API_STATUS" in
+    200)
+      ;;
+    404)
+      info "environment $env_name is already absent"
+      cat <<EOF
+ticket_identifier=$ticket_identifier
+environment_name=$env_name
+matched_application_count=0
+deleted_application_names=
+deleted_application_uuids=
+EOF
+      exit 0
+      ;;
+    *)
+      die "failed to inspect environment $env_name: HTTP $API_STATUS: $API_BODY"
+      ;;
+  esac
+
+  matches="$(
+    python3 - "$ticket_slug" "$API_BODY" <<'PY'
+import json
+import re
+import sys
+
+ticket_slug = sys.argv[1]
+payload = json.loads(sys.argv[2])
+pattern = re.compile(rf"(^|[^a-z0-9]){re.escape(ticket_slug)}([^a-z0-9]|$)")
+
+for app in payload.get("applications", []):
+    haystacks = [
+        app.get("name", ""),
+        app.get("git_branch", ""),
+        app.get("description", ""),
+        app.get("fqdn", ""),
+    ]
+    normalized = [value.lower() for value in haystacks if value]
+    if any(pattern.search(value) for value in normalized):
+        print(f"{app.get('name', '')}\t{app.get('uuid', '')}")
+PY
+  )"
+
   deleted_names=()
   deleted_uuids=()
 
-  if [[ -n "$matched_records" ]]; then
-    while IFS= read -r record || [[ -n "$record" ]]; do
-      [[ -n "$record" ]] || continue
-      app_name="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["name"])' <<<"$record")"
-      app_uuid="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["uuid"])' <<<"$record")"
-      info "deleting application $app_name ($app_uuid) for ticket $ticket_identifier"
-      api_request DELETE "/api/v1/applications/$app_uuid?delete_configurations=true&delete_volumes=true&docker_cleanup=true&delete_connected_networks=true"
-      [[ "$API_STATUS" == "200" ]] || die "failed to delete application $app_uuid: HTTP $API_STATUS: $API_BODY"
-      deleted_names+=("$app_name")
-      deleted_uuids+=("$app_uuid")
-    done <<<"$matched_records"
+  if [[ -z "$matches" ]]; then
+    info "application for ticket $ticket_identifier is already absent in environment $env_name"
   else
-    info "no applications matched ticket identifier $ticket_identifier in environment $env_name"
+    while IFS=$'\t' read -r matched_name matched_uuid; do
+      [[ -n "$matched_name" && -n "$matched_uuid" ]] || continue
+      info "deleting application $matched_name ($matched_uuid) for ticket $ticket_identifier"
+      api_request DELETE "/api/v1/applications/$matched_uuid?delete_configurations=true&delete_volumes=true&docker_cleanup=true&delete_connected_networks=true"
+      [[ "$API_STATUS" == "200" ]] || die "failed to delete application $matched_uuid: HTTP $API_STATUS: $API_BODY"
+      deleted_names+=("$matched_name")
+      deleted_uuids+=("$matched_uuid")
+    done <<<"$matches"
   fi
 
-  {
-    printf 'environment_name=%s\n' "$env_name"
-    printf 'ticket_identifier=%s\n' "$ticket_identifier"
-    printf 'deleted_application_count=%s\n' "${#deleted_names[@]}"
-    printf 'deleted_application_names=%s\n' "$(IFS=,; echo "${deleted_names[*]:-}")"
-    printf 'deleted_application_uuids=%s\n' "$(IFS=,; echo "${deleted_uuids[*]:-}")"
-  }
+  deleted_names_csv="$(IFS=,; printf '%s' "${deleted_names[*]-}")"
+  deleted_uuids_csv="$(IFS=,; printf '%s' "${deleted_uuids[*]-}")"
+  cat <<EOF
+ticket_identifier=$ticket_identifier
+environment_name=$env_name
+matched_application_count=${#deleted_uuids[@]}
+deleted_application_names=$deleted_names_csv
+deleted_application_uuids=$deleted_uuids_csv
+EOF
   exit 0
 fi
 
