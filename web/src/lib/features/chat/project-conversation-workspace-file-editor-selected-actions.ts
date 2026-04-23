@@ -28,21 +28,24 @@ export function createWorkspaceFileEditorSelectedActions(input: {
     filePath: string,
     nextState: WorkspaceFileEditorState | null,
   ) => void
-  updateDraft: (editor: WorkspaceFileEditorState, nextDraftContent: string) => WorkspaceFileEditorState
+  updateDraft: (
+    editor: WorkspaceFileEditorState,
+    nextDraftContent: string,
+  ) => WorkspaceFileEditorState
   updateSelection: (
     editor: WorkspaceFileEditorState,
     selection: WorkspaceSelectionInput | null,
   ) => WorkspaceFileEditorState
   revertDraft: (editor: WorkspaceFileEditorState) => WorkspaceFileEditorState
   keepDraft: (editor: WorkspaceFileEditorState) => WorkspaceFileEditorState
-  formatDocument: (args: {
-    filePath: string
-    editor: WorkspaceFileEditorState
-  }) => { ok: boolean; nextState: WorkspaceFileEditorState }
-  formatSelection: (args: {
-    filePath: string
-    editor: WorkspaceFileEditorState
-  }) => { ok: boolean; nextState: WorkspaceFileEditorState }
+  formatDocument: (args: { filePath: string; editor: WorkspaceFileEditorState }) => {
+    ok: boolean
+    nextState: WorkspaceFileEditorState
+  }
+  formatSelection: (args: { filePath: string; editor: WorkspaceFileEditorState }) => {
+    ok: boolean
+    nextState: WorkspaceFileEditorState
+  }
   saveFile: (repoPath: string, filePath: string) => Promise<boolean>
 }) {
   return {

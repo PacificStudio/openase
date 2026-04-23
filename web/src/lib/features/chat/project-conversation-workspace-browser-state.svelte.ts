@@ -1,6 +1,4 @@
-import {
-  type ProjectConversationWorkspaceDiff,
-} from '$lib/api/chat'
+import { type ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 import { buildProjectConversationWorkspaceBrowserStateView } from './workspace-browser-state-view'
 import {
   readWorkspaceAutosavePreference,

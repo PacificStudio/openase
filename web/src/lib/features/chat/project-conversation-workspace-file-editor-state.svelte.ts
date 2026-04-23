@@ -6,9 +6,7 @@ import {
   savePersistedWorkspaceFileDraft,
   workspaceFileDraftStorageKey,
 } from './project-conversation-workspace-file-drafts'
-import {
-  buildWorkspaceWorkingSet,
-} from './project-conversation-workspace-editor-helpers'
+import { buildWorkspaceWorkingSet } from './project-conversation-workspace-editor-helpers'
 import {
   type WorkspaceFileEditorState,
   type WorkspaceRecentFile,
