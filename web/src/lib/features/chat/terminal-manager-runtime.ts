@@ -3,12 +3,6 @@ import type { TerminalInstanceRuntime } from './terminal-manager-types'
 const reconnectDelaysMs = [750, 1_500, 3_000, 5_000] as const
 export const TERMINAL_RECONNECT_ATTEMPT_LIMIT = reconnectDelaysMs.length
 
-let nextTerminalID = 1
-
-export function generateTerminalManagerID(): string {
-  return `term-${nextTerminalID++}`
-}
-
 export function ensureTerminalRuntime(
   runtimeMap: Map<string, TerminalInstanceRuntime>,
   id: string,
