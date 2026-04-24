@@ -85,10 +85,16 @@ func (s *Server) validateMutatingCSRFRequest(c echo.Context, csrfToken string) e
 		return nil
 	}
 	if !sameOriginRequest(c.Request(), s.auth.CSRF.TrustedOrigins) {
-		return writeAPIError(c, http.StatusForbidden, "CSRF_ORIGIN_FORBIDDEN", "origin or referer must match this host")
+		if err := writeAPIError(c, http.StatusForbidden, "CSRF_ORIGIN_FORBIDDEN", "origin or referer must match this host"); err != nil {
+			return err
+		}
+		return errAPIResponseCommitted
 	}
 	if strings.TrimSpace(c.Request().Header.Get(csrfHeaderName)) != strings.TrimSpace(csrfToken) {
-		return writeAPIError(c, http.StatusForbidden, "CSRF_TOKEN_INVALID", "csrf token is missing or invalid")
+		if err := writeAPIError(c, http.StatusForbidden, "CSRF_TOKEN_INVALID", "csrf token is missing or invalid"); err != nil {
+			return err
+		}
+		return errAPIResponseCommitted
 	}
 	return nil
 }
