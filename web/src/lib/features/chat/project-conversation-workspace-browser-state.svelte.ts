@@ -226,13 +226,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     selectPreviousChangedFile,
     reviewPatch,
   } = workspaceActions
-  function setAutosaveEnabled(enabled: boolean) {
-    autosaveEnabled = enabled
-    storeWorkspaceAutosavePreference(enabled)
-  }
-  function activeFilePath() {
-    return tabs.activeFilePath(tabs.treeRepoPath)
-  }
+  function activeFilePath() { return tabs.activeFilePath(tabs.treeRepoPath) }
   return buildProjectConversationWorkspaceBrowserStateView({
     getMetadata: () => metadata,
     getMetadataLoading: () => metadataLoading,
@@ -303,7 +297,10 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     refreshWorkspaceDiff,
     checkoutBlockers,
     checkoutBranch,
-    setAutosaveEnabled,
+    setAutosaveEnabled: (enabled: boolean) => {
+      autosaveEnabled = enabled
+      storeWorkspaceAutosavePreference(enabled)
+    },
     selectNextChangedFile,
     selectPreviousChangedFile,
     reviewPatch,
