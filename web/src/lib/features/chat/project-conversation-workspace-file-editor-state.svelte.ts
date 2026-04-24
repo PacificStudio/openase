@@ -6,9 +6,7 @@ import {
   savePersistedWorkspaceFileDraft,
   workspaceFileDraftStorageKey,
 } from './project-conversation-workspace-file-drafts'
-import {
-  type WorkspaceSelectionInput,
-} from './project-conversation-workspace-editor-helpers'
+import { type WorkspaceSelectionInput } from './project-conversation-workspace-editor-helpers'
 import {
   computeDraftLineDiff,
   type WorkspaceFileEditorState,
@@ -178,12 +176,16 @@ export function createWorkspaceFileEditorStore(input: {
   function keepSelectedDraft() {
     updateSelectedEditorState((editor) => keepWorkspaceEditorDraft(editor))
   }
-  function discardSelectedDraft() { discardDraft(input.getSelectedRepoPath(), input.getSelectedFilePath()) }
+  function discardSelectedDraft() {
+    discardDraft(input.getSelectedRepoPath(), input.getSelectedFilePath())
+  }
   function discardDraft(repoPath: string, filePath: string) {
     if (!repoPath || !filePath) return
     setEditorState(repoPath, filePath, null)
   }
-  function reloadSelectedSavedVersion() { revertSelectedDraft() }
+  function reloadSelectedSavedVersion() {
+    revertSelectedDraft()
+  }
   function reviewPatch(repoPath: string, filePath: string, diff: ChatDiffPayload) {
     const editor = getEditorState(repoPath, filePath)
     if (!editor) {

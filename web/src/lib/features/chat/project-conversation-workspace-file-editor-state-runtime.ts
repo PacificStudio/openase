@@ -12,21 +12,18 @@ export function shouldAutosaveWorkspaceFileEditor(args: {
 }) {
   return Boolean(
     args.autosaveEnabled &&
-      args.editorState.dirty &&
-      args.editorState.savePhase !== 'saving' &&
-      args.editorState.savePhase !== 'conflict' &&
-      !args.editorState.externalChange &&
-      args.preview?.writable === true,
+    args.editorState.dirty &&
+    args.editorState.savePhase !== 'saving' &&
+    args.editorState.savePhase !== 'conflict' &&
+    !args.editorState.externalChange &&
+    args.preview?.writable === true,
   )
 }
 
 export function buildWorkspaceFileEditorWorkingSet(args: {
   recentFiles: WorkspaceRecentFile[]
   getEditorState: (repoPath: string, filePath: string) => WorkspaceFileEditorState | null
-  getPreview: (
-    repoPath: string,
-    filePath: string,
-  ) => ProjectConversationWorkspaceFilePreview | null
+  getPreview: (repoPath: string, filePath: string) => ProjectConversationWorkspaceFilePreview | null
 }) {
   return buildWorkspaceWorkingSet(
     args.recentFiles.flatMap((item) => {

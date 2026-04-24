@@ -226,7 +226,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     selectPreviousChangedFile,
     reviewPatch,
   } = workspaceActions
-  function activeFilePath() { return tabs.activeFilePath(tabs.treeRepoPath) }
+  const activeFilePath = () => tabs.activeFilePath(tabs.treeRepoPath)
   return buildProjectConversationWorkspaceBrowserStateView({
     getMetadata: () => metadata,
     getMetadataLoading: () => metadataLoading,
