@@ -262,7 +262,6 @@ export function createTerminalManager(input: {
       panelOpen = false
     }
   }
-
   function openPanel() {
     panelOpen = true
     if (instances.length === 0) {
@@ -273,14 +272,12 @@ export function createTerminalManager(input: {
   function togglePanel() {
     if (panelOpen) {
       panelOpen = false
-    } else {
-      openPanel()
+      return
     }
+    openPanel()
   }
 
-  function closePanel() {
-    panelOpen = false
-  }
+  function closePanel() { panelOpen = false }
 
   function disposeAll() {
     for (const inst of instances) {
