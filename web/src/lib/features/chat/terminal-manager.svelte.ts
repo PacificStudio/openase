@@ -262,20 +262,17 @@ export function createTerminalManager(input: {
       panelOpen = false
     }
   }
-
   function openPanel() {
     panelOpen = true
-    if (instances.length === 0) {
-      createInstance()
-    }
+    if (instances.length === 0) createInstance()
   }
 
   function togglePanel() {
     if (panelOpen) {
       panelOpen = false
-    } else {
-      openPanel()
+      return
     }
+    openPanel()
   }
 
   function closePanel() {
