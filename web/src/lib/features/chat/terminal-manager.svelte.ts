@@ -37,11 +37,10 @@ export function createTerminalManager(input: {
   }
 
   function getActiveInstance(): TerminalInstance | undefined {
-    return instances.find((i) => i.id === activeId)
+    return instances.find((instance) => instance.id === activeId)
   }
-
   function hasInstance(id: string) {
-    return instances.some((inst) => inst.id === id)
+    return instances.some((instance) => instance.id === id)
   }
 
   const { attachSocket, matchesConnectionState, resolveTerminalSession, setConnectingStatus } =
@@ -258,9 +257,7 @@ export function createTerminalManager(input: {
       const nextActive = instances[closingIndex] ?? instances[Math.max(closingIndex - 1, 0)]
       activeId = nextActive?.id ?? ''
     }
-    if (instances.length === 0) {
-      panelOpen = false
-    }
+    if (instances.length === 0) panelOpen = false
   }
 
   function openPanel() {

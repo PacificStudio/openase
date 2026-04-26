@@ -6,16 +6,16 @@ import {
   savePersistedWorkspaceFileDraft,
   workspaceFileDraftStorageKey,
 } from './project-conversation-workspace-file-drafts'
+import { type WorkspaceSelectionInput } from './project-conversation-workspace-editor-helpers'
 import {
-  buildWorkspaceWorkingSet,
-  type WorkspaceSelectionInput,
-} from './project-conversation-workspace-editor-helpers'
-import {
-  computeDraftLineDiff,
   type WorkspaceFileEditorState,
   type WorkspaceFileLineDiffMarkers,
   type WorkspaceRecentFile,
 } from './project-conversation-workspace-browser-state-helpers'
+import {
+  buildWorkspaceEditorWorkingSet,
+  getSelectedWorkspaceDraftLineDiff,
+} from './project-conversation-workspace-file-editor-derived'
 import {
   applyWorkspaceEditorPendingPatch,
   formatWorkspaceEditorDocument,
@@ -151,47 +151,43 @@ export function createWorkspaceFileEditorStore(input: {
     }
     editorStates = new Map()
   }
-  function updateSelectedDraft(nextDraftContent: string) {
+  function withSelectedEditor<TResult>(
+    fallback: TResult,
+    run: (repoPath: string, filePath: string, editor: WorkspaceFileEditorState) => TResult,
+  ): TResult {
     const repoPath = input.getSelectedRepoPath()
     const filePath = input.getSelectedFilePath()
     const editor = getEditorState(repoPath, filePath)
     if (!editor || !repoPath || !filePath) {
-      return
+      return fallback
     }
-    setEditorState(repoPath, filePath, updateWorkspaceEditorDraft(editor, nextDraftContent))
+    return run(repoPath, filePath, editor)
+  }
+  function updateSelectedEditor(
+    transform: (editor: WorkspaceFileEditorState) => WorkspaceFileEditorState | null,
+  ) {
+    withSelectedEditor(undefined, (repoPath, filePath, editor) => {
+      setEditorState(repoPath, filePath, transform(editor))
+      return undefined
+    })
+  }
+  function updateSelectedDraft(nextDraftContent: string) {
+    updateSelectedEditor((editor) => updateWorkspaceEditorDraft(editor, nextDraftContent))
   }
   function updateSelectedSelection(selection: WorkspaceSelectionInput | null) {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, updateWorkspaceEditorSelection(editor, selection))
+    updateSelectedEditor((editor) => updateWorkspaceEditorSelection(editor, selection))
   }
   function revertSelectedDraft() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, revertWorkspaceEditorDraft(editor))
+    updateSelectedEditor(revertWorkspaceEditorDraft)
   }
   function keepSelectedDraft() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, keepWorkspaceEditorDraft(editor))
+    updateSelectedEditor(keepWorkspaceEditorDraft)
   }
   function discardSelectedDraft() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    if (!repoPath || !filePath) return
-    setEditorState(repoPath, filePath, null)
+    withSelectedEditor(undefined, (repoPath, filePath) => {
+      setEditorState(repoPath, filePath, null)
+      return undefined
+    })
   }
   function discardDraft(repoPath: string, filePath: string) {
     if (!repoPath || !filePath) return
@@ -233,26 +229,18 @@ export function createWorkspaceFileEditorStore(input: {
     })
   }
   function formatSelectedDocument() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return false
-    }
-    const result = formatWorkspaceEditorDocument({ filePath, editor })
-    setEditorState(repoPath, filePath, result.nextState)
-    return result.ok
+    return withSelectedEditor(false, (repoPath, filePath, editor) => {
+      const result = formatWorkspaceEditorDocument({ filePath, editor })
+      setEditorState(repoPath, filePath, result.nextState)
+      return result.ok
+    })
   }
   function formatSelectedSelection() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return false
-    }
-    const result = formatWorkspaceEditorSelection({ filePath, editor })
-    setEditorState(repoPath, filePath, result.nextState)
-    return result.ok
+    return withSelectedEditor(false, (repoPath, filePath, editor) => {
+      const result = formatWorkspaceEditorSelection({ filePath, editor })
+      setEditorState(repoPath, filePath, result.nextState)
+      return result.ok
+    })
   }
   function renameFileState(repoPath: string, fromPath: string, toPath: string) {
     const fromKey = selectedFileStorageKey(repoPath, fromPath)
@@ -272,25 +260,11 @@ export function createWorkspaceFileEditorStore(input: {
     }
   }
   function buildWorkingSet(recentFiles: WorkspaceRecentFile[]) {
-    return buildWorkspaceWorkingSet(
-      recentFiles
-        .map((item) => {
-          const editor = getEditorState(item.repoPath, item.filePath)
-          const preview = input.getPreview(item.repoPath, item.filePath)
-          const content = editor?.draftContent ?? preview?.content ?? ''
-          if (!content) {
-            return null
-          }
-          return {
-            filePath: item.filePath,
-            content,
-            dirty: editor?.dirty ?? false,
-          }
-        })
-        .filter(
-          (item): item is { filePath: string; content: string; dirty: boolean } => item != null,
-        ),
-    )
+    return buildWorkspaceEditorWorkingSet({
+      recentFiles,
+      getEditorState,
+      getPreview: input.getPreview,
+    })
   }
   async function saveFile(repoPath: string, filePath: string): Promise<boolean> {
     const conversationId = input.getConversationId()
@@ -317,13 +291,12 @@ export function createWorkspaceFileEditorStore(input: {
   }
   return createWorkspaceFileEditorStoreApi({
     getSelectedEditorState: () => getEditorState(),
-    getSelectedDraftLineDiff: (): WorkspaceFileLineDiffMarkers | null => {
-      const repoPath = input.getSelectedRepoPath()
-      const filePath = input.getSelectedFilePath()
-      const editor = getEditorState(repoPath, filePath)
-      if (!editor || !filePath) return null
-      return computeDraftLineDiff(editor.latestSavedContent, editor.draftContent)
-    },
+    getSelectedDraftLineDiff: (): WorkspaceFileLineDiffMarkers | null =>
+      getSelectedWorkspaceDraftLineDiff({
+        repoPath: input.getSelectedRepoPath(),
+        filePath: input.getSelectedFilePath(),
+        getEditorState,
+      }),
     getEditorState,
     reset,
     syncFromPreview,

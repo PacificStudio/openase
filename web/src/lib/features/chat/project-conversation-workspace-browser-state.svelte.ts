@@ -71,18 +71,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     renameEditorFileState: (repoPath, fromPath, toPath) =>
       editorStore.renameFileState(repoPath, fromPath, toPath),
   })
-  function patchTabFileState(key: string, patch: Partial<WorkspaceTabFileState>) {
+  const patchTabFileState = (key: string, patch: Partial<WorkspaceTabFileState>) =>
     tabs.patchTabFileState(key, patch)
-  }
-  function getActiveTab(): WorkspaceTab | null {
-    return tabs.getActiveTab()
-  }
-  function getActiveTabFileState(): WorkspaceTabFileState {
-    return tabs.getActiveTabFileState()
-  }
-  function currentWorkspaceDiff() {
-    return input.getWorkspaceDiff?.() ?? null
-  }
+  const getActiveTab = (): WorkspaceTab | null => tabs.getActiveTab()
+  const getActiveTabFileState = (): WorkspaceTabFileState => tabs.getActiveTabFileState()
+  const currentWorkspaceDiff = () => input.getWorkspaceDiff?.() ?? null
   function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
     if (!areWorkspaceMetadataEqual(metadata, nextMetadata)) metadata = nextMetadata
   }
@@ -230,9 +223,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     autosaveEnabled = enabled
     storeWorkspaceAutosavePreference(enabled)
   }
-  function activeFilePath() {
-    return tabs.activeFilePath(tabs.treeRepoPath)
-  }
+  const activeFilePath = () => tabs.activeFilePath(tabs.treeRepoPath)
   return buildProjectConversationWorkspaceBrowserStateView({
     getMetadata: () => metadata,
     getMetadataLoading: () => metadataLoading,
