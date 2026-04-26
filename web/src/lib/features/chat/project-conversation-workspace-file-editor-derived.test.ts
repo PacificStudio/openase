@@ -53,8 +53,14 @@ function buildEditorState(
 describe('buildWorkspaceEditorWorkingSet', () => {
   it('prefers draft content, falls back to preview content, and skips empty files', () => {
     const previews = new Map<string, ProjectConversationWorkspaceFilePreview>([
-      ['services/openase::README.md', buildPreview({ path: 'README.md', content: 'preview readme' })],
-      ['services/openase::docs/guide.md', buildPreview({ path: 'docs/guide.md', content: 'guide preview' })],
+      [
+        'services/openase::README.md',
+        buildPreview({ path: 'README.md', content: 'preview readme' }),
+      ],
+      [
+        'services/openase::docs/guide.md',
+        buildPreview({ path: 'docs/guide.md', content: 'guide preview' }),
+      ],
       ['services/openase::EMPTY.md', buildPreview({ path: 'EMPTY.md', content: '' })],
     ])
     const editors = new Map<string, WorkspaceFileEditorState>([
