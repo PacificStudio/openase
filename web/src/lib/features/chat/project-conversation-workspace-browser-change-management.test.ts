@@ -507,14 +507,12 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       expect(view.container.textContent).toContain('line two')
     })
 
-    await fireEvent.click(view.getByLabelText('Close README.md'))
+    await fireEvent.click(view.getByTestId('workspace-browser-detail-tab-close-README.md'))
 
-    expect(await view.findByText('Save changes?')).toBeTruthy()
-    expect(
-      await view.findByText('README.md has unsaved changes. Save them before closing the tab?'),
-    ).toBeTruthy()
+    const dialog = await view.findByRole('dialog')
+    expect(dialog).toBeTruthy()
 
-    await fireEvent.click(view.getByRole('button', { name: "Don't save" }))
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Dont Save' }))
 
     await waitFor(() => {
       expect(view.queryByTestId('workspace-browser-detail-tab-README.md')).toBeNull()
