@@ -60,6 +60,7 @@
         tabindex="0"
         class="hover:bg-muted/80 ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors"
         aria-label={`${chatT('chat.closeTab')} ${tabName}`}
+        data-testid={`workspace-browser-detail-tab-close-${tabName}`}
         onclick={(event) => onRequestCloseTab(event, tab.repoPath, tab.filePath)}
         onkeydown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {

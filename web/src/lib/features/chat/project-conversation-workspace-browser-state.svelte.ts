@@ -15,14 +15,10 @@ import { createWorkspaceFileEditorStore } from './project-conversation-workspace
 import { createWorkspaceBrowserActions } from './project-conversation-workspace-browser-actions'
 import { createWorkspaceBrowserLoaders } from './project-conversation-workspace-browser-loaders'
 import { loadWorkspaceFile } from './project-conversation-workspace-data-loader'
-import {
-  buildWorkspaceFocusContext,
-  workspaceSelectedChangedFiles,
-} from './project-conversation-workspace-browser-file-ops'
+import { createWorkspaceBrowserSelection } from './project-conversation-workspace-browser-selection'
 import {
   areWorkspaceMetadataEqual,
   workspaceTabKey,
-  type WorkspaceRecentFile,
   type WorkspaceTab,
   type WorkspaceTabFileState,
 } from './project-conversation-workspace-browser-state-helpers'
@@ -51,7 +47,6 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   let gitGraphError = $state('')
   let selectedGitCommitID = $state('')
   let detailMode = $state<'file' | 'git_graph'>('file')
-
   function loadFile(repoPath: string, filePath: string, options: { silent?: boolean } = {}) {
     return loadWorkspaceFile(
       {
@@ -80,9 +75,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   function getActiveTabFileState(): WorkspaceTabFileState {
     return tabs.getActiveTabFileState()
   }
-  function currentWorkspaceDiff() {
-    return input.getWorkspaceDiff?.() ?? null
-  }
+  const currentWorkspaceDiff = () => input.getWorkspaceDiff?.() ?? null
   function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
     if (!areWorkspaceMetadataEqual(metadata, nextMetadata)) metadata = nextMetadata
   }
@@ -165,7 +158,6 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     refreshWorkspaceDiff,
     getAutosaveEnabled: () => autosaveEnabled,
   })
-
   function reset() {
     metadata = null
     metadataLoading = false
@@ -230,9 +222,16 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     autosaveEnabled = enabled
     storeWorkspaceAutosavePreference(enabled)
   }
-  function activeFilePath() {
-    return tabs.activeFilePath(tabs.treeRepoPath)
-  }
+  const activeFilePath = () => tabs.activeFilePath(tabs.treeRepoPath)
+  const selection = createWorkspaceBrowserSelection({
+    getActiveTab,
+    getActiveTabFileState,
+    getSelectedEditorState: () => editorStore.selectedEditorState,
+    getRecentFiles: () => tabs.recentFiles,
+    getTreeRepoPath: () => tabs.treeRepoPath,
+    getWorkspaceDiff: currentWorkspaceDiff,
+    buildWorkingSet: editorStore.buildWorkingSet,
+  })
   return buildProjectConversationWorkspaceBrowserStateView({
     getMetadata: () => metadata,
     getMetadataLoading: () => metadataLoading,
@@ -258,27 +257,16 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       tabs.openTabs.some(
         (tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true,
       ),
-    getPreview: () => getActiveTabFileState().preview,
-    getPatch: () => getActiveTabFileState().patch,
-    getFileLoading: () => getActiveTabFileState().loading,
-    getFileError: () => getActiveTabFileState().error,
-    getSelectedRepoPath: () => tabs.treeRepoPath,
-    getSelectedFilePath: activeFilePath,
+    getPreview: selection.getPreview,
+    getPatch: selection.getPatch,
+    getFileLoading: selection.getFileLoading,
+    getFileError: selection.getFileError,
+    getSelectedRepoPath: selection.getSelectedRepoPath,
+    getSelectedFilePath: selection.getSelectedFilePath,
     getSelectedEditorState: () => editorStore.selectedEditorState,
     getSelectedDraftLineDiff: () => editorStore.selectedDraftLineDiff,
-    getSelectedChangedFiles: () =>
-      workspaceSelectedChangedFiles({
-        repoPath: tabs.treeRepoPath,
-        activeFilePath: activeFilePath(),
-        workspaceDiff: currentWorkspaceDiff(),
-      }),
-    getSelectedFocusContext: () =>
-      buildWorkspaceFocusContext({
-        selectedEditorState: editorStore.selectedEditorState,
-        hasActiveTab: getActiveTab() != null,
-        recentFiles: tabs.recentFiles as WorkspaceRecentFile[],
-        buildWorkingSet: editorStore.buildWorkingSet,
-      }),
+    getSelectedChangedFiles: selection.getSelectedChangedFiles,
+    getSelectedFocusContext: selection.getSelectedFocusContext,
     getEditorState: editorStore.getEditorState,
     reset,
     refreshWorkspace,

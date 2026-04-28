@@ -6,28 +6,18 @@ import {
   savePersistedWorkspaceFileDraft,
   workspaceFileDraftStorageKey,
 } from './project-conversation-workspace-file-drafts'
+import { buildWorkspaceWorkingSet } from './project-conversation-workspace-editor-helpers'
 import {
-  buildWorkspaceWorkingSet,
-  type WorkspaceSelectionInput,
-} from './project-conversation-workspace-editor-helpers'
-import {
-  computeDraftLineDiff,
   type WorkspaceFileEditorState,
-  type WorkspaceFileLineDiffMarkers,
   type WorkspaceRecentFile,
 } from './project-conversation-workspace-browser-state-helpers'
 import {
   applyWorkspaceEditorPendingPatch,
-  formatWorkspaceEditorDocument,
-  formatWorkspaceEditorSelection,
-  keepWorkspaceEditorDraft,
-  revertWorkspaceEditorDraft,
   reviewWorkspaceEditorPatch,
   syncWorkspaceEditorStateFromPreview,
-  updateWorkspaceEditorDraft,
-  updateWorkspaceEditorSelection,
 } from './project-conversation-workspace-file-editor-state-transforms'
 import { createWorkspaceFileEditorStoreApi } from './project-conversation-workspace-file-editor-store-api'
+import { createWorkspaceFileEditorSelectedActions } from './project-conversation-workspace-file-editor-selected-actions'
 
 const WORKSPACE_AUTOSAVE_DELAY_MS = 1000
 export function createWorkspaceFileEditorStore(input: {
@@ -151,54 +141,9 @@ export function createWorkspaceFileEditorStore(input: {
     }
     editorStates = new Map()
   }
-  function updateSelectedDraft(nextDraftContent: string) {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, updateWorkspaceEditorDraft(editor, nextDraftContent))
-  }
-  function updateSelectedSelection(selection: WorkspaceSelectionInput | null) {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, updateWorkspaceEditorSelection(editor, selection))
-  }
-  function revertSelectedDraft() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, revertWorkspaceEditorDraft(editor))
-  }
-  function keepSelectedDraft() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, keepWorkspaceEditorDraft(editor))
-  }
-  function discardSelectedDraft() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    if (!repoPath || !filePath) return
-    setEditorState(repoPath, filePath, null)
-  }
   function discardDraft(repoPath: string, filePath: string) {
     if (!repoPath || !filePath) return
     setEditorState(repoPath, filePath, null)
-  }
-  function reloadSelectedSavedVersion() {
-    revertSelectedDraft()
   }
   function reviewPatch(repoPath: string, filePath: string, diff: ChatDiffPayload) {
     const editor = getEditorState(repoPath, filePath)
@@ -222,37 +167,14 @@ export function createWorkspaceFileEditorStore(input: {
     repoPath = input.getSelectedRepoPath(),
     filePath = input.getSelectedFilePath(),
   ) {
+    if (!repoPath || !filePath) return
     const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
+    if (!editor) return
     setEditorState(repoPath, filePath, {
       ...editor,
       pendingPatch: null,
       errorMessage: '',
     })
-  }
-  function formatSelectedDocument() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return false
-    }
-    const result = formatWorkspaceEditorDocument({ filePath, editor })
-    setEditorState(repoPath, filePath, result.nextState)
-    return result.ok
-  }
-  function formatSelectedSelection() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return false
-    }
-    const result = formatWorkspaceEditorSelection({ filePath, editor })
-    setEditorState(repoPath, filePath, result.nextState)
-    return result.ok
   }
   function renameFileState(repoPath: string, fromPath: string, toPath: string) {
     const fromKey = selectedFileStorageKey(repoPath, fromPath)
@@ -312,36 +234,35 @@ export function createWorkspaceFileEditorStore(input: {
       setPreview: input.setPreview,
     })
   }
-  async function saveSelectedFile(): Promise<boolean> {
-    return saveFile(input.getSelectedRepoPath(), input.getSelectedFilePath())
-  }
+  const saveSelectedFile = () => saveFile(input.getSelectedRepoPath(), input.getSelectedFilePath())
+  const selectedActions = createWorkspaceFileEditorSelectedActions({
+    getSelectedRepoPath: input.getSelectedRepoPath,
+    getSelectedFilePath: input.getSelectedFilePath,
+    getEditorState,
+    setEditorState,
+  })
+
   return createWorkspaceFileEditorStoreApi({
     getSelectedEditorState: () => getEditorState(),
-    getSelectedDraftLineDiff: (): WorkspaceFileLineDiffMarkers | null => {
-      const repoPath = input.getSelectedRepoPath()
-      const filePath = input.getSelectedFilePath()
-      const editor = getEditorState(repoPath, filePath)
-      if (!editor || !filePath) return null
-      return computeDraftLineDiff(editor.latestSavedContent, editor.draftContent)
-    },
+    getSelectedDraftLineDiff: selectedActions.getSelectedDraftLineDiff,
     getEditorState,
     reset,
     syncFromPreview,
-    updateSelectedDraft,
-    updateSelectedSelection,
-    revertSelectedDraft,
-    keepSelectedDraft,
-    reloadSelectedSavedVersion,
+    updateSelectedDraft: selectedActions.updateSelectedDraft,
+    updateSelectedSelection: selectedActions.updateSelectedSelection,
+    revertSelectedDraft: selectedActions.revertSelectedDraft,
+    keepSelectedDraft: selectedActions.keepSelectedDraft,
+    reloadSelectedSavedVersion: selectedActions.reloadSelectedSavedVersion,
     reviewPatch,
     applyPendingPatch,
     discardPendingPatch,
-    formatSelectedDocument,
-    formatSelectedSelection,
+    formatSelectedDocument: selectedActions.formatSelectedDocument,
+    formatSelectedSelection: selectedActions.formatSelectedSelection,
     renameFileState,
     buildWorkingSet,
     saveSelectedFile,
     saveFile,
-    discardSelectedDraft,
+    discardSelectedDraft: selectedActions.discardSelectedDraft,
     discardDraft,
   })
 }
