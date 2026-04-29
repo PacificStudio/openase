@@ -23,7 +23,7 @@ func BuiltinAgentProviderTemplates() []BuiltinAgentProviderTemplate {
 			Name:        "OpenAI Codex",
 			Command:     "codex",
 			AdapterType: AgentProviderAdapterTypeCodexAppServer,
-			ModelName:   "gpt-5.4",
+			ModelName:   "gpt-5.5",
 			CliArgs:     []string{"app-server", "--listen", "stdio://"},
 		},
 		{

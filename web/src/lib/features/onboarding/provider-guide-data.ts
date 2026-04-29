@@ -54,7 +54,7 @@ const guideCopy: Record<string, GuideCopyEntry> = {
     fallback: 'Codex CLI official docs',
   },
   'codex.recommendedModel': {
-    fallback: 'gpt-5.4',
+    fallback: 'gpt-5.5',
   },
   'codex.install.global': {
     translationKey: 'onboarding.providerGuide.codex.install.global',

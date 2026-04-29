@@ -9,7 +9,7 @@ import (
 func TestBuiltinAgentProviderPricingConfigReturnsClone(t *testing.T) {
 	t.Parallel()
 
-	config, ok := BuiltinAgentProviderPricingConfig(AgentProviderAdapterTypeCodexAppServer, " gpt-5.4 ")
+	config, ok := BuiltinAgentProviderPricingConfig(AgentProviderAdapterTypeCodexAppServer, " gpt-5.5 ")
 	if !ok {
 		t.Fatal("expected builtin codex pricing config")
 	}
@@ -18,12 +18,20 @@ func TestBuiltinAgentProviderPricingConfigReturnsClone(t *testing.T) {
 	}
 
 	config.Notes[0] = "changed"
-	fresh, ok := BuiltinAgentProviderPricingConfig(AgentProviderAdapterTypeCodexAppServer, "gpt-5.4")
+	fresh, ok := BuiltinAgentProviderPricingConfig(AgentProviderAdapterTypeCodexAppServer, "gpt-5.5")
 	if !ok {
 		t.Fatal("expected fresh builtin codex pricing config")
 	}
 	if fresh.Notes[0] == "changed" {
 		t.Fatalf("expected builtin pricing lookup to return clone, got %+v", fresh)
+	}
+	if fresh.ModelID != "gpt-5.5" || fresh.SourceURL != "https://openai.com/api/pricing/" || fresh.SourceVerifiedAt != builtinOpenAIPricingVerifiedAt {
+		t.Fatalf("expected refreshed gpt-5.5 pricing metadata, got %+v", fresh)
+	}
+	if fresh.Rates.InputPerToken != usdPerMillion(5.00) ||
+		fresh.Rates.CachedInputReadPerToken != usdPerMillion(0.50) ||
+		fresh.Rates.OutputPerToken != usdPerMillion(30.00) {
+		t.Fatalf("expected official gpt-5.5 pricing rates, got %+v", fresh.Rates)
 	}
 
 	if _, ok := BuiltinAgentProviderPricingConfig(AgentProviderAdapterType("unknown"), "gpt-5.4"); ok {
@@ -47,7 +55,7 @@ func TestResolveAgentProviderPricingConfig(t *testing.T) {
 	}
 	custom := ResolveAgentProviderPricingConfig(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 		0,
 		0,
 		rawCustom,
@@ -58,12 +66,12 @@ func TestResolveAgentProviderPricingConfig(t *testing.T) {
 
 	builtin := ResolveAgentProviderPricingConfig(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 		0,
 		0,
 		map[string]any{"rates": map[string]any{"input_per_token": -1}},
 	)
-	if builtin.SourceKind != pricing.PricingSourceKindOfficial || builtin.ModelID != "gpt-5.4" {
+	if builtin.SourceKind != pricing.PricingSourceKindOfficial || builtin.ModelID != "gpt-5.5" {
 		t.Fatalf("expected builtin fallback pricing config, got %+v", builtin)
 	}
 
@@ -97,7 +105,7 @@ func TestDeriveAgentProviderPricing(t *testing.T) {
 
 	derived := DeriveAgentProviderPricing(AgentProvider{
 		AdapterType: AgentProviderAdapterTypeCodexAppServer,
-		ModelName:   "gpt-5.4",
+		ModelName:   "gpt-5.5",
 	})
 	if derived.PricingConfig.SourceKind != pricing.PricingSourceKindOfficial {
 		t.Fatalf("expected official derived pricing config, got %+v", derived.PricingConfig)
