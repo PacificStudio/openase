@@ -6,10 +6,14 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
 )
 
-const builtinPricingVerifiedAt = "2026-04-01"
+const (
+	builtinPricingVerifiedAt       = "2026-04-01"
+	builtinOpenAIPricingVerifiedAt = "2026-04-29"
+)
 
 var builtinAgentProviderPricingConfigs = map[AgentProviderAdapterType]map[string]pricing.ProviderModelPricingConfig{
 	AgentProviderAdapterTypeCodexAppServer: {
+		"gpt-5.5":            openAIPricingConfig("gpt-5.5", 5.00, 30.00, 0.50),
 		"gpt-5.4":            openAIPricingConfig("gpt-5.4", 2.50, 15.00, 0.25),
 		"gpt-5.4-mini":       openAIPricingConfig("gpt-5.4-mini", 0.75, 4.50, 0.075),
 		"gpt-5.3-codex":      openAIPricingConfig("gpt-5.3-codex", 1.75, 14.00, 0.175),
@@ -148,15 +152,15 @@ func openAIPricingConfig(
 	cachedInputUSDPerMillion float64,
 ) pricing.ProviderModelPricingConfig {
 	return pricing.ProviderModelPricingConfig{
-		Version:          builtinPricingVerifiedAt,
+		Version:          builtinOpenAIPricingVerifiedAt,
 		SourceKind:       pricing.PricingSourceKindOfficial,
 		PricingMode:      pricing.PricingModeFlat,
 		Provider:         "openai",
 		ModelID:          modelID,
-		SourceURL:        "https://platform.openai.com/docs/pricing/",
-		SourceVerifiedAt: builtinPricingVerifiedAt,
+		SourceURL:        "https://openai.com/api/pricing/",
+		SourceVerifiedAt: builtinOpenAIPricingVerifiedAt,
 		Notes: []string{
-			"Official OpenAI API pricing defaults.",
+			"Official OpenAI API pricing defaults verified against the API pricing page.",
 		},
 		Rates: pricing.ProviderModelPricingRates{
 			InputPerToken:           usdPerMillion(inputUSDPerMillion),

@@ -1966,6 +1966,9 @@ func TestCatalogEnvironmentProvisioningHelpers(t *testing.T) {
 	if len(templates) != 3 || templates[1].AdapterType != AgentProviderAdapterTypeCodexAppServer || !reflect.DeepEqual(templates[1].CliArgs, []string{"app-server", "--listen", "stdio://"}) {
 		t.Fatalf("BuiltinAgentProviderTemplates() = %+v", templates)
 	}
+	if templates[1].ModelName != "gpt-5.5" {
+		t.Fatalf("BuiltinAgentProviderTemplates() codex model = %q, want gpt-5.5", templates[1].ModelName)
+	}
 
 	auditPlan := MachineEnvironmentProvisioningPlan{}
 	auditPlan.appendAuditIssues(storedFullAudit{

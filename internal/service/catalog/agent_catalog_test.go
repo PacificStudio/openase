@@ -1108,10 +1108,12 @@ type stubRepository struct {
 	updatedAgent           *domain.UpdateAgent
 	updatedRuntimeControl  *domain.UpdateAgentRuntimeControlState
 	updatedOrganization    *domain.UpdateOrganization
+	createdMachineInput    *domain.CreateMachine
 	archivedOrganizationID uuid.UUID
 	createdOrganization    domain.Organization
 	createdProject         domain.Project
 	organizations          []domain.Organization
+	listedMachines         []domain.Machine
 	projects               []domain.Project
 	projectRepos           []domain.ProjectRepo
 	agents                 []domain.Agent
@@ -1125,6 +1127,8 @@ type stubRepository struct {
 	provider               domain.AgentProvider
 	agent                  domain.Agent
 	machine                domain.Machine
+	createdMachine         domain.Machine
+	createMachineErr       error
 	recordedMachineProbe   *domain.RecordMachineProbe
 }
 
@@ -1162,11 +1166,12 @@ func (r *stubRepository) ListProjects(context.Context, uuid.UUID) ([]domain.Proj
 }
 
 func (r *stubRepository) ListMachines(context.Context, uuid.UUID) ([]domain.Machine, error) {
-	return nil, nil
+	return append([]domain.Machine(nil), r.listedMachines...), nil
 }
 
-func (r *stubRepository) CreateMachine(context.Context, domain.CreateMachine) (domain.Machine, error) {
-	return domain.Machine{}, nil
+func (r *stubRepository) CreateMachine(_ context.Context, input domain.CreateMachine) (domain.Machine, error) {
+	r.createdMachineInput = &input
+	return r.createdMachine, r.createMachineErr
 }
 
 func (r *stubRepository) GetMachine(context.Context, uuid.UUID) (domain.Machine, error) {

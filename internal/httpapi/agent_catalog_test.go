@@ -1158,14 +1158,32 @@ func TestAgentCatalogRouteErrorMappingsAndHelpers(t *testing.T) {
 	if modelOptionsRec.Code != http.StatusOK {
 		t.Fatalf("provider model options status = %d, body=%s", modelOptionsRec.Code, modelOptionsRec.Body.String())
 	}
-	if !strings.Contains(modelOptionsRec.Body.String(), `"adapter_type":"codex-app-server"`) {
-		t.Fatalf("provider model options body missing codex adapter: %s", modelOptionsRec.Body.String())
+
+	var modelOptionsPayload struct {
+		AdapterModelOptions []agentProviderModelCatalogEntryResponse `json:"adapter_model_options"`
 	}
-	if !strings.Contains(modelOptionsRec.Body.String(), `"id":"gpt-5.4"`) {
-		t.Fatalf("provider model options body missing codex model: %s", modelOptionsRec.Body.String())
+	decodeResponse(t, modelOptionsRec, &modelOptionsPayload)
+
+	codexIndex := slices.IndexFunc(modelOptionsPayload.AdapterModelOptions, func(entry agentProviderModelCatalogEntryResponse) bool {
+		return entry.AdapterType == string(domain.AgentProviderAdapterTypeCodexAppServer)
+	})
+	if codexIndex < 0 {
+		t.Fatalf("provider model options missing codex adapter: %+v", modelOptionsPayload.AdapterModelOptions)
 	}
-	if !strings.Contains(modelOptionsRec.Body.String(), `"supported_efforts":["low","medium","high","xhigh"]`) {
-		t.Fatalf("provider model options body missing reasoning efforts: %s", modelOptionsRec.Body.String())
+	codexOptions := modelOptionsPayload.AdapterModelOptions[codexIndex].Options
+	if len(codexOptions) == 0 {
+		t.Fatalf("provider model options missing codex models: %+v", modelOptionsPayload.AdapterModelOptions[codexIndex])
+	}
+	if codexOptions[0].ID != "gpt-5.5" || !codexOptions[0].Recommended {
+		t.Fatalf("first codex model option = %+v, want recommended gpt-5.5", codexOptions[0])
+	}
+	if codexOptions[0].PricingConfig == nil ||
+		codexOptions[0].PricingConfig.ModelID != "gpt-5.5" ||
+		codexOptions[0].PricingConfig.SourceURL != "https://openai.com/api/pricing/" {
+		t.Fatalf("first codex model pricing = %+v, want refreshed gpt-5.5 pricing", codexOptions[0].PricingConfig)
+	}
+	if codexOptions[0].Reasoning == nil || !slices.Equal(codexOptions[0].Reasoning.SupportedEfforts, []string{"low", "medium", "high", "xhigh"}) {
+		t.Fatalf("first codex model reasoning = %+v, want [low medium high xhigh]", codexOptions[0].Reasoning)
 	}
 
 	mappedProvider := mapAgentProviderResponse(service.providers[providerOneID])

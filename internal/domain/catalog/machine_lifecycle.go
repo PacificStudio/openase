@@ -1,5 +1,9 @@
 package catalog
 
+func IsLocalMachineIdentity(name, host string, mode MachineConnectionMode) bool {
+	return name == LocalMachineName && host == LocalMachineHost && mode == MachineConnectionModeLocal
+}
+
 // DefaultMachineStatus returns the stored machine status to use when the
 // caller does not provide one explicitly. Remote machines begin offline until
 // connectivity or health checks prove they are schedulable; maintenance is
