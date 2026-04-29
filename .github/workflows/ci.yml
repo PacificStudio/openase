@@ -10,7 +10,7 @@ permissions:
 jobs:
   changes:
     name: Detect Changes
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     outputs:
       go_changed: ${{ steps.detect.outputs.go_changed }}
       web_changed: ${{ steps.detect.outputs.web_changed }}
@@ -112,7 +112,7 @@ jobs:
 
   openapi-check:
     name: OpenAPI Check
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.openapi_check_changed == 'true'
 
@@ -146,25 +146,18 @@ jobs:
         run: |
           mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
 
-      - name: Configure Go Toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cached_go_bin="/home/docker/actions-runner/_work/_tool/go/1.26.1/x64/bin"
-          if [[ -d "${cached_go_bin}" ]]; then
-            echo "${cached_go_bin}" >> "${GITHUB_PATH}"
-          fi
-
-          command -v go
-          go version
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
 
       - name: Verify Generated OpenAPI Artifacts
         run: make openapi-check-ci
 
   frontend-api-audit-check:
     name: Frontend API Audit Check
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.frontend_api_audit_changed == 'true'
 
@@ -188,7 +181,7 @@ jobs:
         run: make frontend-api-audit-check
   frontend:
     name: Frontend Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.web_changed == 'true'
     defaults:
@@ -379,7 +372,7 @@ jobs:
 
   desktop:
     name: Desktop Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: changes
     if: needs.changes.outputs.desktop_changed == 'true'
@@ -433,7 +426,7 @@ jobs:
 
   backend:
     name: Backend Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
       - changes
@@ -498,8 +491,8 @@ jobs:
               now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
               printf '%s\n' "${now}" > "${heartbeat_file}"
               printf '[backend-heartbeat] %s make check still running\n' "${now}"
-              # Keep a low-frequency heartbeat so quiet success-path test runs do
-              # not look stalled to the self-hosted runner watchdog.
+              # Keep a low-frequency heartbeat so quiet success-path test runs
+              # still show progress in CI logs.
             done
           }
 
@@ -597,7 +590,7 @@ jobs:
 
   go-lint:
     name: Go Lint
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.go_changed == 'true'
 
