@@ -68,8 +68,6 @@ function buildOpenASEServiceEnvironment(options) {
     ...env,
     OPENASE_SERVER_HOST: '127.0.0.1',
     OPENASE_SERVER_PORT: String(port),
-    // Desktop owns the local loopback runtime, so skip the browser bootstrap/login gate.
-    OPENASE_DESKTOP_DISABLE_AUTH: '1',
   }
 }
 
