@@ -72,6 +72,19 @@ type MachineMonitor struct {
 	now       func() time.Time
 }
 
+type localMachineProbeFanoutState struct {
+	level2Due bool
+	level3Due bool
+
+	systemLoaded bool
+	systemResult domain.MachineSystemResources
+	systemErr    error
+
+	gpuLoaded bool
+	gpuResult domain.MachineGPUResources
+	gpuErr    error
+}
+
 func NewMachineMonitor(client *ent.Client, logger *slog.Logger, collector MachineMonitorCollector) *MachineMonitor {
 	if logger == nil {
 		logger = slog.Default()
@@ -109,11 +122,14 @@ func (m *MachineMonitor) RunTick(ctx context.Context) (MachineMonitorReport, err
 	}
 
 	now := m.now().UTC()
+	machines := make([]monitoredMachine, 0, len(items))
 	for _, item := range items {
 		report.MachinesScanned++
-
-		current := mapMachineEntity(item)
-		updated, changed := m.runMachineTick(ctx, current, now, &report)
+		machines = append(machines, mapMachineEntity(item))
+	}
+	localFanout := planLocalMachineProbeFanout(machines, now)
+	for _, current := range machines {
+		updated, changed := m.runMachineTick(ctx, current, now, &report, localFanout[localMachineProbeFanoutKey(current)])
 		if !changed {
 			continue
 		}
@@ -191,12 +207,22 @@ func (m monitoredMachine) toDomain() domain.Machine {
 	}
 }
 
-func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMachine, now time.Time, report *MachineMonitorReport) (monitoredMachine, bool) {
+func (m *MachineMonitor) runMachineTick(
+	ctx context.Context,
+	machine monitoredMachine,
+	now time.Time,
+	report *MachineMonitorReport,
+	localFanout *localMachineProbeFanoutState,
+) (monitoredMachine, bool) {
 	level1Due := machineMonitorDue(machine.Resources, "l1", now, machineMonitorLevel1Interval)
 	level2Due := machineMonitorDue(machine.Resources, "l2", now, machineMonitorLevel2Interval)
 	level3Due := machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
 	level4Due := machineMonitorDue(machine.Resources, "l4", now, machineMonitorLevel4Interval)
 	level5Due := machineMonitorDue(machine.Resources, "l5", now, machineMonitorLevel5Interval)
+	if localFanout != nil {
+		level2Due = level2Due || localFanout.level2Due
+		level3Due = level3Due || localFanout.level3Due
+	}
 	logger := m.machineLogger(machine)
 	if !level1Due && !level2Due && !level3Due && !level4Due && !level5Due {
 		return machine, false
@@ -263,8 +289,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	}
 
 	if level2Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
-		report.L2Checks++
-		systemResources, err := m.collector.CollectSystemResources(ctx, domainMachine)
+		systemResources, err := m.collectSystemResources(ctx, domainMachine, report, localFanout)
 		if err != nil {
 			systemProbeFailure = true
 			setMachineMonitorError(resources, "l2", err.Error())
@@ -285,8 +310,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	}
 
 	if level3Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
-		report.L3Checks++
-		gpuResources, err := m.collector.CollectGPUResources(ctx, domainMachine)
+		gpuResources, err := m.collectGPUResources(ctx, domainMachine, report, localFanout)
 		if err != nil {
 			setMachineMonitorError(resources, "l3", err.Error())
 			logger.Warn("machine monitor l3 gpu probe failed", "error", err)
@@ -441,15 +465,13 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		)
 	}
 
-	if machine.Status != entmachine.StatusMaintenance {
-		switch {
-		case hardReachabilityFailure:
-			status = entmachine.StatusOffline
-		case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
-			status = entmachine.StatusDegraded
-		default:
-			status = entmachine.StatusOnline
-		}
+	switch {
+	case hardReachabilityFailure:
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusOffline))
+	case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusDegraded))
+	default:
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusOnline))
 	}
 	logger.Info("machine monitor tick completed",
 		"checked_at", formatMachineMonitorTime(lastHeartbeatAt),
@@ -483,6 +505,68 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		LastHeartbeatAt:    lastHeartbeatAt,
 		Resources:          resources,
 	}, true
+}
+
+func (m *MachineMonitor) collectSystemResources(
+	ctx context.Context,
+	machine domain.Machine,
+	report *MachineMonitorReport,
+	localFanout *localMachineProbeFanoutState,
+) (domain.MachineSystemResources, error) {
+	if localFanout == nil {
+		report.L2Checks++
+		return m.collector.CollectSystemResources(ctx, machine)
+	}
+	if !localFanout.systemLoaded {
+		report.L2Checks++
+		localFanout.systemResult, localFanout.systemErr = m.collector.CollectSystemResources(ctx, machine)
+		localFanout.systemLoaded = true
+	}
+	return localFanout.systemResult, localFanout.systemErr
+}
+
+func (m *MachineMonitor) collectGPUResources(
+	ctx context.Context,
+	machine domain.Machine,
+	report *MachineMonitorReport,
+	localFanout *localMachineProbeFanoutState,
+) (domain.MachineGPUResources, error) {
+	if localFanout == nil {
+		report.L3Checks++
+		return m.collector.CollectGPUResources(ctx, machine)
+	}
+	if !localFanout.gpuLoaded {
+		report.L3Checks++
+		localFanout.gpuResult, localFanout.gpuErr = m.collector.CollectGPUResources(ctx, machine)
+		localFanout.gpuLoaded = true
+	}
+	return localFanout.gpuResult, localFanout.gpuErr
+}
+
+func planLocalMachineProbeFanout(machines []monitoredMachine, now time.Time) map[string]*localMachineProbeFanoutState {
+	states := map[string]*localMachineProbeFanoutState{}
+	for _, machine := range machines {
+		key := localMachineProbeFanoutKey(machine)
+		if key == "" {
+			continue
+		}
+		state := states[key]
+		if state == nil {
+			state = &localMachineProbeFanoutState{}
+			states[key] = state
+		}
+		state.level2Due = state.level2Due || machineMonitorDue(machine.Resources, "l2", now, machineMonitorLevel2Interval)
+		state.level3Due = state.level3Due || machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
+	}
+	return states
+}
+
+func localMachineProbeFanoutKey(machine monitoredMachine) string {
+	connectionMode, _, _ := resolveMonitoredMachineTransport(machine)
+	if !domain.IsLocalMachineIdentity(machine.Name, machine.Host, connectionMode) {
+		return ""
+	}
+	return string(connectionMode) + "|" + machine.Name + "|" + machine.Host
 }
 
 func (m *MachineMonitor) publishRuntimeEvents(

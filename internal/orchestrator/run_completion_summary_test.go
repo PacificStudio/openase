@@ -10,6 +10,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/google/uuid"
@@ -359,6 +361,123 @@ func TestBuildRunCompletionSummaryUserPromptCompactsOversizedInput(t *testing.T)
 	}
 	if !strings.Contains(prompt, "\"omitted_counts\"") {
 		t.Fatalf("expected prompt context to record omitted counts, got %q", prompt)
+	}
+}
+
+func TestListPendingRunCompletionSummariesOnlyReturnsPendingTerminalRuns(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	now := time.Date(2026, 4, 4, 9, 0, 0, 0, time.UTC)
+	fixture := seedProjectFixtureAt(ctx, t, client, now)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-01", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-382").
+		SetTitle("Fix reconcile query").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetPriority(entticket.PriorityMedium).
+		SetCreatedBy("user:test").
+		SetCreatedAt(now.Add(-time.Hour)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	nilSummaryRun, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(fixture.providerID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetTerminalAt(now.Add(1 * time.Minute)).
+		SetCreatedAt(now.Add(-50 * time.Minute)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create nil-summary run: %v", err)
+	}
+	pendingStatus := entagentrun.CompletionSummaryStatusPending
+	pendingSummaryRun, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(fixture.providerID).
+		SetStatus(entagentrun.StatusErrored).
+		SetCompletionSummaryStatus(pendingStatus).
+		SetTerminalAt(now.Add(2 * time.Minute)).
+		SetCreatedAt(now.Add(-40 * time.Minute)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create pending-summary run: %v", err)
+	}
+	completedStatus := entagentrun.CompletionSummaryStatusCompleted
+	if _, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(fixture.providerID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetCompletionSummaryStatus(completedStatus).
+		SetTerminalAt(now.Add(30 * time.Second)).
+		SetCreatedAt(now.Add(-30 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create completed-summary run: %v", err)
+	}
+	if _, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(fixture.providerID).
+		SetStatus(entagentrun.StatusExecuting).
+		SetCompletionSummaryStatus(pendingStatus).
+		SetCreatedAt(now.Add(-20 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create non-terminal pending run: %v", err)
+	}
+	failedStatus := entagentrun.CompletionSummaryStatusFailed
+	if _, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketItem.ID).
+		SetProviderID(fixture.providerID).
+		SetStatus(entagentrun.StatusTerminated).
+		SetCompletionSummaryStatus(failedStatus).
+		SetTerminalAt(now.Add(3 * time.Minute)).
+		SetCreatedAt(now.Add(-10 * time.Minute)).
+		Save(ctx); err != nil {
+		t.Fatalf("create failed-summary run: %v", err)
+	}
+
+	coordinator := newRuntimeCompletionSummaryCoordinator(client, nil, nil, nil, nil, nil, nil, func() time.Time {
+		return now
+	}, 0)
+	runs, err := coordinator.listPendingRunCompletionSummaries(ctx)
+	if err != nil {
+		t.Fatalf("list pending run completion summaries: %v", err)
+	}
+	if len(runs) != 2 {
+		t.Fatalf("expected two pending terminal runs, got %+v", runs)
+	}
+	if runs[0].ID != nilSummaryRun.ID || runs[1].ID != pendingSummaryRun.ID {
+		t.Fatalf("unexpected pending run order: %+v", runs)
+	}
+	if runs[0].CompletionSummaryStatus != nil {
+		t.Fatalf("expected first run to keep nil completion summary status, got %+v", runs[0].CompletionSummaryStatus)
+	}
+	if runs[1].CompletionSummaryStatus == nil || *runs[1].CompletionSummaryStatus != entagentrun.CompletionSummaryStatusPending {
+		t.Fatalf("expected second run to keep pending completion summary status, got %+v", runs[1].CompletionSummaryStatus)
 	}
 }
 

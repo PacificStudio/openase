@@ -47,6 +47,14 @@ func TestAgentRuntimeControlRetireAndRetiredGuards(t *testing.T) {
 }
 
 func TestDeleteConflictErrorsWrapDomainConflicts(t *testing.T) {
+	providerConflict := &AgentProviderDeleteConflict{ProviderID: uuid.New()}
+	if !errors.Is(providerConflict, ErrAgentProviderInUseConflict) {
+		t.Fatal("AgentProviderDeleteConflict should wrap ErrAgentProviderInUseConflict")
+	}
+	if providerConflict.Error() != ErrAgentProviderInUseConflict.Error() {
+		t.Fatalf("AgentProviderDeleteConflict.Error() = %q", providerConflict.Error())
+	}
+
 	projectRepoConflict := &ProjectRepoDeleteConflict{RepoID: uuid.New()}
 	if !errors.Is(projectRepoConflict, ErrProjectRepoInUseConflict) {
 		t.Fatal("ProjectRepoDeleteConflict should wrap ErrProjectRepoInUseConflict")
@@ -76,6 +84,14 @@ func TestDeleteConflictErrorsWrapDomainConflicts(t *testing.T) {
 }
 
 func TestDeleteConflictNilReceivers(t *testing.T) {
+	var providerConflict *AgentProviderDeleteConflict
+	if got := providerConflict.Error(); got != "" {
+		t.Fatalf("nil AgentProviderDeleteConflict.Error() = %q", got)
+	}
+	if providerConflict.Unwrap() != nil {
+		t.Fatal("nil AgentProviderDeleteConflict.Unwrap() should be nil")
+	}
+
 	var projectRepoConflict *ProjectRepoDeleteConflict
 	if got := projectRepoConflict.Error(); got != "" {
 		t.Fatalf("nil ProjectRepoDeleteConflict.Error() = %q", got)

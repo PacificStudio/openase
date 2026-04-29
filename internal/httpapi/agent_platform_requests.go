@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
@@ -227,16 +228,19 @@ func parseAgentProjectPatchRequest(
 	}
 
 	request := domain.ProjectInput{
-		Name:                           current.Name,
-		Slug:                           current.Slug,
-		Description:                    current.Description,
-		Status:                         current.Status.String(),
-		DefaultAgentProviderID:         uuidToStringPointer(current.DefaultAgentProviderID),
-		ProjectAIPlatformAccessAllowed: cloneStringSlice(current.ProjectAIPlatformAccessAllowed),
-		AccessibleMachineIDs:           uuidSliceToStrings(current.AccessibleMachineIDs),
-		MaxConcurrentAgents:            intPointer(current.MaxConcurrentAgents),
-		AgentRunSummaryPrompt:          stringPointerOrNil(current.AgentRunSummaryPrompt),
-		ProjectAIRetention:             mergeProjectAIRetentionPatch(current.ProjectAIRetention, raw.ProjectAIRetention),
+		Name:                   current.Name,
+		Slug:                   current.Slug,
+		Description:            current.Description,
+		Status:                 current.Status.String(),
+		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
+		ProjectAIPlatformAccessAllowed: agentplatformdomain.NormalizeSupportedScopesForPrincipalKind(
+			agentplatformdomain.PrincipalKindProjectConversation,
+			current.ProjectAIPlatformAccessAllowed,
+		),
+		AccessibleMachineIDs:  uuidSliceToStrings(current.AccessibleMachineIDs),
+		MaxConcurrentAgents:   intPointer(current.MaxConcurrentAgents),
+		AgentRunSummaryPrompt: stringPointerOrNil(current.AgentRunSummaryPrompt),
+		ProjectAIRetention:    mergeProjectAIRetentionPatch(current.ProjectAIRetention, raw.ProjectAIRetention),
 	}
 	if raw.Name != nil {
 		request.Name = strings.TrimSpace(*raw.Name)

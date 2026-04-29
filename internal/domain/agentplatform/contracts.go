@@ -264,6 +264,23 @@ func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
 	}
 }
 
+func NormalizeSupportedScopesForPrincipalKind(kind PrincipalKind, raw []string) []string {
+	supported := SupportedScopesForPrincipalKind(kind)
+	if len(raw) == 0 {
+		return []string{}
+	}
+
+	normalized := make([]string, 0, len(raw))
+	for _, item := range raw {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" || !slices.Contains(supported, trimmed) || slices.Contains(normalized, trimmed) {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
+}
+
 type IssueInput struct {
 	PrincipalKind  PrincipalKind
 	PrincipalID    uuid.UUID

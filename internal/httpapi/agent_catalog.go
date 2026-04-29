@@ -360,6 +360,25 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 	})
 }
 
+func (s *Server) deleteAgentProvider(c echo.Context) error {
+	providerID, err := parseUUIDPathParam(c, "providerId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.DeleteAgentProvider(c.Request().Context(), providerID)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	if err := s.publishProviderLifecycleEvent(c.Request().Context(), providerDeletedEventType, item); err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"provider": mapAgentProviderResponse(item),
+	})
+}
+
 func (s *Server) listAgents(c echo.Context) error {
 	projectID, err := parseUUIDPathParam(c, "projectId")
 	if err != nil {

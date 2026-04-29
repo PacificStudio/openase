@@ -1575,6 +1575,10 @@ export function updateProvider(
   return api.patch<{ provider?: AgentProvider }>(`/api/v1/providers/${providerId}`, { body })
 }
 
+export function deleteProvider(providerId: string) {
+  return api.delete<AgentProviderResponse>(`/api/v1/providers/${providerId}`)
+}
+
 export function listNotificationEventTypes() {
   return api.get<NotificationRuleEventTypesPayload>('/api/v1/notification-event-types')
 }

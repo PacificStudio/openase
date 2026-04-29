@@ -13,10 +13,26 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
     adapter_type: 'codex-app-server',
     options: [
       {
+        id: 'gpt-5.5',
+        label: 'gpt-5.5',
+        description: 'Default flagship model for complex reasoning and coding.',
+        recommended: true,
+        preview: false,
+        pricing_config: null,
+        reasoning: {
+          state: 'available',
+          reason: null,
+          supported_efforts: ['low', 'medium', 'high', 'xhigh'],
+          default_effort: 'medium',
+          supports_provider_preset: true,
+          supports_model_override: false,
+        },
+      },
+      {
         id: 'gpt-5.4',
         label: 'gpt-5.4',
-        description: 'Latest frontier agentic coding model.',
-        recommended: true,
+        description: 'Prior flagship coding model.',
+        recommended: false,
         preview: false,
         pricing_config: null,
         reasoning: {
@@ -141,7 +157,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
 describe('provider model options', () => {
   it('returns the recommended model id for an adapter', () => {
     expect(recommendedProviderModelId(providerModelCatalogFixture, 'codex-app-server')).toBe(
-      'gpt-5.4',
+      'gpt-5.5',
     )
   })
 
@@ -175,7 +191,7 @@ describe('provider model options', () => {
 
   it('falls back to the recommended model when the adapter changes', () => {
     expect(
-      splitProviderModelSelection(providerModelCatalogFixture, 'gemini-cli', 'gpt-5.4', false),
+      splitProviderModelSelection(providerModelCatalogFixture, 'gemini-cli', 'gpt-5.5', false),
     ).toEqual({
       baseModelId: 'auto-gemini-2.5',
       customModelId: '',
@@ -184,7 +200,7 @@ describe('provider model options', () => {
 
   it('derives reasoning capability for known and unknown models', () => {
     expect(
-      providerModelReasoningCapability(providerModelCatalogFixture, 'codex-app-server', 'gpt-5.4'),
+      providerModelReasoningCapability(providerModelCatalogFixture, 'codex-app-server', 'gpt-5.5'),
     ).toEqual(
       expect.objectContaining({
         state: 'available',

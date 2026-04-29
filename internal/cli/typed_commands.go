@@ -1454,6 +1454,7 @@ func newProviderCommand() *cobra.Command {
 	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a provider.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [providerId]", Short: "Update a provider.", Method: http.MethodPatch, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [providerId]", Short: "Delete a provider.", Method: http.MethodDelete, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}}))
 	return command
 }
 
@@ -2471,6 +2472,7 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "get [providerId]", Short: "Get a provider.", Method: http.MethodGet, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
 		{Use: "create [orgId]", Short: "Create a provider.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}},
 		{Use: "update [providerId]", Short: "Update a provider.", Method: http.MethodPatch, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
+		{Use: "delete [providerId]", Short: "Delete a provider.", Method: http.MethodDelete, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
 		{Use: "list [projectId]", Short: "List agents.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}},
 		{Use: "get [agentId]", Short: "Get an agent.", Method: http.MethodGet, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}},
 		{Use: "create [projectId]", Short: "Create an agent.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}},

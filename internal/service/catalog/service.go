@@ -187,6 +187,12 @@ func (s *service) ListMachines(ctx context.Context, organizationID uuid.UUID) ([
 }
 
 func (s *service) CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error) {
+	if existing, ok, err := s.findExistingLocalMachine(ctx, input); err != nil {
+		return domain.Machine{}, err
+	} else if ok {
+		return existing, nil
+	}
+
 	return s.repo.CreateMachine(ctx, input)
 }
 
@@ -200,6 +206,24 @@ func (s *service) UpdateMachine(ctx context.Context, input domain.UpdateMachine)
 
 func (s *service) DeleteMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error) {
 	return s.repo.DeleteMachine(ctx, id)
+}
+
+func (s *service) findExistingLocalMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, bool, error) {
+	if !domain.IsLocalMachineIdentity(input.Name, input.Host, input.ConnectionMode) {
+		return domain.Machine{}, false, nil
+	}
+
+	machines, err := s.repo.ListMachines(ctx, input.OrganizationID)
+	if err != nil {
+		return domain.Machine{}, false, err
+	}
+	for _, machine := range machines {
+		if domain.IsLocalMachineIdentity(machine.Name, machine.Host, machine.ConnectionMode) {
+			return machine, true, nil
+		}
+	}
+
+	return domain.Machine{}, false, nil
 }
 
 func (s *service) GetWorkspaceDashboardSummary(ctx context.Context) (domain.WorkspaceDashboardSummary, error) {
@@ -255,7 +279,7 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 		)
 		updateErr := s.repo.RecordMachineProbe(ctx, domain.RecordMachineProbe{
 			ID:              id,
-			Status:          domainMachineFailureStatus(machine),
+			Status:          domain.InferMachineConnectionFailureStatus(machine),
 			LastHeartbeatAt: checkedAt,
 			Resources:       mergeMachineProbeResources(machine.Resources, probe, checkedAt, err),
 			DetectedOS:      probe.DetectedOS,
@@ -277,7 +301,7 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 
 	if err := s.repo.RecordMachineProbe(ctx, domain.RecordMachineProbe{
 		ID:              id,
-		Status:          domainMachineSuccessStatus(machine),
+		Status:          domain.InferMachineConnectionSuccessStatus(machine.Status),
 		LastHeartbeatAt: probe.CheckedAt,
 		Resources:       mergeMachineProbeResources(machine.Resources, probe, probe.CheckedAt, nil),
 		DetectedOS:      probe.DetectedOS,
@@ -316,10 +340,7 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 	)
 
 	resources := cloneResources(machine.Resources)
-	status := machine.Status
-	if status != domain.MachineStatusMaintenance {
-		status = domain.MachineStatusOnline
-	}
+	status := domain.MachineStatusOnline
 
 	reachability, reachabilityErr := s.machineHealthCollector.CollectReachability(ctx, machine)
 	checkedAt := reachability.CheckedAt.UTC()
@@ -527,15 +548,13 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 		)
 	}
 
-	if machine.Status != domain.MachineStatusMaintenance {
-		switch {
-		case hardReachabilityFailure:
-			status = domain.MachineStatusOffline
-		case softReachabilityFailure || systemProbeFailure || level3ProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
-			status = domain.MachineStatusDegraded
-		default:
-			status = domain.MachineStatusOnline
-		}
+	switch {
+	case hardReachabilityFailure:
+		status = domain.InferMachineRefreshedHealthStatus(machine.Status, domain.MachineStatusOffline)
+	case softReachabilityFailure || systemProbeFailure || level3ProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
+		status = domain.InferMachineRefreshedHealthStatus(machine.Status, domain.MachineStatusDegraded)
+	default:
+		status = domain.InferMachineRefreshedHealthStatus(machine.Status, domain.MachineStatusOnline)
 	}
 
 	if err := s.repo.RecordMachineProbe(ctx, domain.RecordMachineProbe{
@@ -646,20 +665,6 @@ func (s *service) UpdateTicketRepoScope(ctx context.Context, input domain.Update
 
 func (s *service) DeleteTicketRepoScope(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID, id uuid.UUID) (domain.TicketRepoScope, error) {
 	return s.repo.DeleteTicketRepoScope(ctx, projectID, ticketID, id)
-}
-
-func domainMachineFailureStatus(machine domain.Machine) domain.MachineStatus {
-	if machine.Host == domain.LocalMachineHost {
-		return domain.MachineStatusDegraded
-	}
-	return domain.MachineStatusOffline
-}
-
-func domainMachineSuccessStatus(machine domain.Machine) domain.MachineStatus {
-	if machine.Status == domain.MachineStatusMaintenance {
-		return domain.MachineStatusOnline
-	}
-	return machine.Status
 }
 
 func (s *service) machineLogger(machine domain.Machine) *slog.Logger {

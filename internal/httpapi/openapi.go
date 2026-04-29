@@ -4559,6 +4559,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	providerPatch.AddParameter(uuidPathParameter("providerId", "Agent provider ID."))
 	b.doc.AddOperation("/api/v1/providers/{providerId}", http.MethodPatch, providerPatch)
 
+	providerDelete, err := b.jsonOperation(
+		"deleteAgentProvider",
+		"Delete an agent provider",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentProviderResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	providerDelete.AddParameter(uuidPathParameter("providerId", "Agent provider ID."))
+	b.doc.AddOperation("/api/v1/providers/{providerId}", http.MethodDelete, providerDelete)
+
 	statusesGet, err := b.jsonOperation(
 		"listTicketStatuses",
 		"List ticket statuses",

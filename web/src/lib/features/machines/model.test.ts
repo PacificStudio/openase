@@ -57,6 +57,7 @@ describe('machines model', () => {
 
     expect(draft.reachabilityMode).toBe('direct_connect')
     expect(draft.executionMode).toBe('websocket')
+    expect(draft.status).toBe('offline')
     expect(draft.workspaceRoot).toBe('/srv/openase/workspace')
   })
 

@@ -23,6 +23,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -35,24 +36,34 @@ import (
 )
 
 type fakeCatalogService struct {
-	organizations        map[uuid.UUID]domain.Organization
-	machines             map[uuid.UUID]domain.Machine
-	projects             map[uuid.UUID]domain.Project
-	tickets              map[uuid.UUID]fakeCatalogTicket
-	projectRepos         map[uuid.UUID]domain.ProjectRepo
-	ticketScopes         map[uuid.UUID]domain.TicketRepoScope
-	providers            map[uuid.UUID]domain.AgentProvider
-	agents               map[uuid.UUID]domain.Agent
-	agentRuns            map[uuid.UUID]domain.AgentRun
-	agentDeleteConflicts map[uuid.UUID]*domain.AgentDeleteConflict
-	activityEvents       []domain.ActivityEvent
-	traceEvents          []domain.AgentTraceEntry
-	stepEvents           []domain.AgentStepEntry
-	rawEvents            []domain.AgentRawEventEntry
-	activityInstances    []domain.AgentActivityInstance
-	transcriptEntries    []domain.AgentTranscriptEntry
-	listAgentRunsErr     error
-	listTicketRunsErr    error
+	organizations           map[uuid.UUID]domain.Organization
+	machines                map[uuid.UUID]domain.Machine
+	projects                map[uuid.UUID]domain.Project
+	tickets                 map[uuid.UUID]fakeCatalogTicket
+	projectRepos            map[uuid.UUID]domain.ProjectRepo
+	ticketScopes            map[uuid.UUID]domain.TicketRepoScope
+	providers               map[uuid.UUID]domain.AgentProvider
+	agents                  map[uuid.UUID]domain.Agent
+	agentRuns               map[uuid.UUID]domain.AgentRun
+	providerDeleteConflicts map[uuid.UUID]*domain.AgentProviderDeleteConflict
+	agentDeleteConflicts    map[uuid.UUID]*domain.AgentDeleteConflict
+	activityEvents          []domain.ActivityEvent
+	traceEvents             []domain.AgentTraceEntry
+	stepEvents              []domain.AgentStepEntry
+	rawEvents               []domain.AgentRawEventEntry
+	activityInstances       []domain.AgentActivityInstance
+	transcriptEntries       []domain.AgentTranscriptEntry
+	listAgentRunsErr        error
+	listTicketRunsErr       error
+}
+
+type stubHTTPBootstrapper struct {
+	result machinesetup.BootstrapResult
+	err    error
+}
+
+func (s stubHTTPBootstrapper) Bootstrap(_ context.Context, _ domain.Machine, _ machinesetup.BootstrapInput) (machinesetup.BootstrapResult, error) {
+	return s.result, s.err
 }
 
 type fakeCatalogTicket struct {
@@ -62,23 +73,28 @@ type fakeCatalogTicket struct {
 
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
-		organizations:        map[uuid.UUID]domain.Organization{},
-		machines:             map[uuid.UUID]domain.Machine{},
-		projects:             map[uuid.UUID]domain.Project{},
-		tickets:              map[uuid.UUID]fakeCatalogTicket{},
-		projectRepos:         map[uuid.UUID]domain.ProjectRepo{},
-		ticketScopes:         map[uuid.UUID]domain.TicketRepoScope{},
-		providers:            map[uuid.UUID]domain.AgentProvider{},
-		agents:               map[uuid.UUID]domain.Agent{},
-		agentRuns:            map[uuid.UUID]domain.AgentRun{},
-		agentDeleteConflicts: map[uuid.UUID]*domain.AgentDeleteConflict{},
-		activityEvents:       []domain.ActivityEvent{},
-		traceEvents:          []domain.AgentTraceEntry{},
-		stepEvents:           []domain.AgentStepEntry{},
-		rawEvents:            []domain.AgentRawEventEntry{},
-		activityInstances:    []domain.AgentActivityInstance{},
-		transcriptEntries:    []domain.AgentTranscriptEntry{},
+		organizations:           map[uuid.UUID]domain.Organization{},
+		machines:                map[uuid.UUID]domain.Machine{},
+		projects:                map[uuid.UUID]domain.Project{},
+		tickets:                 map[uuid.UUID]fakeCatalogTicket{},
+		projectRepos:            map[uuid.UUID]domain.ProjectRepo{},
+		ticketScopes:            map[uuid.UUID]domain.TicketRepoScope{},
+		providers:               map[uuid.UUID]domain.AgentProvider{},
+		agents:                  map[uuid.UUID]domain.Agent{},
+		agentRuns:               map[uuid.UUID]domain.AgentRun{},
+		providerDeleteConflicts: map[uuid.UUID]*domain.AgentProviderDeleteConflict{},
+		agentDeleteConflicts:    map[uuid.UUID]*domain.AgentDeleteConflict{},
+		activityEvents:          []domain.ActivityEvent{},
+		traceEvents:             []domain.AgentTraceEntry{},
+		stepEvents:              []domain.AgentStepEntry{},
+		rawEvents:               []domain.AgentRawEventEntry{},
+		activityInstances:       []domain.AgentActivityInstance{},
+		transcriptEntries:       []domain.AgentTranscriptEntry{},
 	}
+}
+
+func catalogTestStringPtr(value string) *string {
+	return &value
 }
 
 func TestCatalogCRUDRoutes(t *testing.T) {
@@ -354,6 +370,119 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	}
 }
 
+func TestPatchProjectSanitizesLegacyProjectAIScopesOnUnrelatedUpdate(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	service.organizations[orgID] = domain.Organization{
+		ID:     orgID,
+		Name:   "Acme Platform",
+		Slug:   "acme-platform",
+		Status: domain.OrganizationStatusActive,
+	}
+	service.projects[projectID] = domain.Project{
+		ID:                             projectID,
+		OrganizationID:                 orgID,
+		Name:                           "OpenASE",
+		Slug:                           "openase",
+		Status:                         domain.ProjectStatusInProgress,
+		ProjectAIPlatformAccessAllowed: []string{"projects.update", "tickets.report_usage"},
+		MaxConcurrentAgents:            2,
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+projectID.String(),
+		`{"agent_run_summary_prompt":"Summarize blockers first."}`,
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected project patch 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		Project projectResponse `json:"project"`
+	}
+	decodeResponse(t, rec, &payload)
+	if got, want := payload.Project.ProjectAIPlatformAccessAllowed, []string{"projects.update"}; !slices.Equal(got, want) {
+		t.Fatalf("project ai platform access allowed = %v, want %v", got, want)
+	}
+	if payload.Project.AgentRunSummaryPrompt == nil || *payload.Project.AgentRunSummaryPrompt != "Summarize blockers first." {
+		t.Fatalf("expected run summary prompt to update, got %+v", payload.Project)
+	}
+	if got, want := service.projects[projectID].ProjectAIPlatformAccessAllowed, []string{"projects.update"}; !slices.Equal(got, want) {
+		t.Fatalf("stored project ai platform access allowed = %v, want %v", got, want)
+	}
+}
+
+func TestSSHBootstrapRefreshesMachineHealthAfterSuccess(t *testing.T) {
+	catalog := newFakeCatalogService()
+	machineID := uuid.New()
+	orgID := uuid.New()
+	catalog.machines[machineID] = domain.Machine{
+		ID:             machineID,
+		OrganizationID: orgID,
+		Name:           "builder-01",
+		Host:           "10.0.0.50",
+		Port:           22,
+		Status:         domain.MachineStatusOffline,
+		SSHUser:        catalogTestStringPtr("openase"),
+		Resources:      map[string]any{},
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithSSHBootstrapper(stubHTTPBootstrapper{
+			result: machinesetup.BootstrapResult{
+				MachineID:      machineID.String(),
+				MachineName:    "builder-01",
+				Topology:       "remote-listener",
+				ServiceManager: "systemd",
+				ServiceName:    "openase-machine-agent",
+				ServiceStatus:  "active",
+				Summary:        "bootstrap complete",
+			},
+		}),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/machines/"+machineID.String()+"/ssh-bootstrap",
+		`{"topology":"remote-listener"}`,
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ssh bootstrap 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	updated := catalog.machines[machineID]
+	if updated.Status != domain.MachineStatusOnline {
+		t.Fatalf("expected ssh bootstrap post-refresh to advance machine online, got %+v", updated)
+	}
+}
+
 func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	service := newFakeCatalogService()
 	server := NewServer(
@@ -575,8 +704,8 @@ func TestMachineRoutes(t *testing.T) {
 		Machine machineResponse `json:"machine"`
 	}
 	decodeResponse(t, createMachineRec, &createMachinePayload)
-	if createMachinePayload.Machine.Status != "maintenance" {
-		t.Fatalf("expected created remote machine to default to maintenance, got %+v", createMachinePayload.Machine)
+	if createMachinePayload.Machine.Status != "offline" {
+		t.Fatalf("expected created remote machine to default to offline, got %+v", createMachinePayload.Machine)
 	}
 	if got := createMachinePayload.Machine.AgentCLIPaths["codex-app-server"]; got != "/opt/codex/bin/codex" {
 		t.Fatalf("expected codex agent_cli_paths to round-trip, got %+v", createMachinePayload.Machine.AgentCLIPaths)
