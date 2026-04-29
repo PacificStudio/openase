@@ -10,7 +10,7 @@ import (
 func TestBuiltinAgentProviderModelReasoningCapabilityCodex(t *testing.T) {
 	capability := BuiltinAgentProviderModelReasoningCapability(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 	)
 	if capability.State != AgentProviderCapabilityStateAvailable {
 		t.Fatalf("capability state = %q, want available", capability.State)
@@ -69,7 +69,7 @@ func TestParseAgentProviderReasoningEffort(t *testing.T) {
 	raw := " high "
 	parsed, err := parseAgentProviderReasoningEffort(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 		&raw,
 	)
 	if err != nil {
@@ -84,7 +84,7 @@ func TestParseAgentProviderReasoningEffortRejectsUnsupportedCombination(t *testi
 	raw := "max"
 	if _, err := parseAgentProviderReasoningEffort(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 		&raw,
 	); err == nil || !strings.Contains(err.Error(), `allowed values: low, medium, high, xhigh`) {
 		t.Fatalf("parseAgentProviderReasoningEffort() error = %v", err)
@@ -94,7 +94,7 @@ func TestParseAgentProviderReasoningEffortRejectsUnsupportedCombination(t *testi
 func TestParseAgentProviderReasoningEffortHandlesEmptyInput(t *testing.T) {
 	if got, err := parseAgentProviderReasoningEffort(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 		nil,
 	); err != nil || got != nil {
 		t.Fatalf("parseAgentProviderReasoningEffort(nil) = (%v, %v), want (nil, nil)", got, err)
@@ -103,7 +103,7 @@ func TestParseAgentProviderReasoningEffortHandlesEmptyInput(t *testing.T) {
 	raw := "   "
 	if got, err := parseAgentProviderReasoningEffort(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 		&raw,
 	); err != nil || got != nil {
 		t.Fatalf("parseAgentProviderReasoningEffort(blank) = (%v, %v), want (nil, nil)", got, err)
@@ -114,7 +114,7 @@ func TestParseAgentProviderReasoningEffortRejectsInvalidValue(t *testing.T) {
 	raw := "turbo"
 	if _, err := parseAgentProviderReasoningEffort(
 		AgentProviderAdapterTypeCodexAppServer,
-		"gpt-5.4",
+		"gpt-5.5",
 		&raw,
 	); err == nil || !strings.Contains(err.Error(), "reasoning_effort must be one of minimal, low, medium, high, xhigh, max") {
 		t.Fatalf("parseAgentProviderReasoningEffort() error = %v", err)

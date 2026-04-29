@@ -41,6 +41,12 @@ type AgentProviderModelReasoningCapability struct {
 
 var builtinAgentProviderModelReasoning = map[AgentProviderAdapterType]map[string]AgentProviderModelReasoningCapability{
 	AgentProviderAdapterTypeCodexAppServer: {
+		"gpt-5.5": {
+			State:                  AgentProviderCapabilityStateAvailable,
+			SupportedEfforts:       newReasoningEffortSlice(AgentProviderReasoningEffortLow, AgentProviderReasoningEffortMedium, AgentProviderReasoningEffortHigh, AgentProviderReasoningEffortXHigh),
+			DefaultEffort:          reasoningEffortPointer(AgentProviderReasoningEffortMedium),
+			SupportsProviderPreset: true,
+		},
 		"gpt-5.4": {
 			State:                  AgentProviderCapabilityStateAvailable,
 			SupportedEfforts:       newReasoningEffortSlice(AgentProviderReasoningEffortLow, AgentProviderReasoningEffortMedium, AgentProviderReasoningEffortHigh, AgentProviderReasoningEffortXHigh),

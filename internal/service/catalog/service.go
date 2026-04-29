@@ -187,6 +187,12 @@ func (s *service) ListMachines(ctx context.Context, organizationID uuid.UUID) ([
 }
 
 func (s *service) CreateMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, error) {
+	if existing, ok, err := s.findExistingLocalMachine(ctx, input); err != nil {
+		return domain.Machine{}, err
+	} else if ok {
+		return existing, nil
+	}
+
 	return s.repo.CreateMachine(ctx, input)
 }
 
@@ -200,6 +206,24 @@ func (s *service) UpdateMachine(ctx context.Context, input domain.UpdateMachine)
 
 func (s *service) DeleteMachine(ctx context.Context, id uuid.UUID) (domain.Machine, error) {
 	return s.repo.DeleteMachine(ctx, id)
+}
+
+func (s *service) findExistingLocalMachine(ctx context.Context, input domain.CreateMachine) (domain.Machine, bool, error) {
+	if !domain.IsLocalMachineIdentity(input.Name, input.Host, input.ConnectionMode) {
+		return domain.Machine{}, false, nil
+	}
+
+	machines, err := s.repo.ListMachines(ctx, input.OrganizationID)
+	if err != nil {
+		return domain.Machine{}, false, err
+	}
+	for _, machine := range machines {
+		if domain.IsLocalMachineIdentity(machine.Name, machine.Host, machine.ConnectionMode) {
+			return machine, true, nil
+		}
+	}
+
+	return domain.Machine{}, false, nil
 }
 
 func (s *service) GetWorkspaceDashboardSummary(ctx context.Context) (domain.WorkspaceDashboardSummary, error) {

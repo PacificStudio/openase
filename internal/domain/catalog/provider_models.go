@@ -21,10 +21,23 @@ var builtinAgentProviderModelOptionAdapters = []AgentProviderAdapterType{
 var builtinAgentProviderModelOptions = map[AgentProviderAdapterType][]AgentProviderModelOption{
 	AgentProviderAdapterTypeCodexAppServer: {
 		{
+			ID:          "gpt-5.5",
+			Label:       "gpt-5.5",
+			Description: "Default flagship model for complex reasoning and coding.",
+			Recommended: true,
+			PricingConfig: builtinPricingConfigPointer(
+				AgentProviderAdapterTypeCodexAppServer,
+				"gpt-5.5",
+			),
+			Reasoning: builtinModelReasoningCapabilityPointer(
+				AgentProviderAdapterTypeCodexAppServer,
+				"gpt-5.5",
+			),
+		},
+		{
 			ID:          "gpt-5.4",
 			Label:       "gpt-5.4",
-			Description: "Latest frontier agentic coding model.",
-			Recommended: true,
+			Description: "Prior flagship coding model.",
 			PricingConfig: builtinPricingConfigPointer(
 				AgentProviderAdapterTypeCodexAppServer,
 				"gpt-5.4",
