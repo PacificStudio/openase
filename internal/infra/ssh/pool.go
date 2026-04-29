@@ -19,9 +19,12 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	gossh "golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 var sshPoolComponent = logging.DeclareComponent("ssh-pool")
+
+const sshInsecureIgnoreHostKeyEnv = "OPENASE_SSH_INSECURE_IGNORE_HOST_KEY"
 
 type Session interface {
 	CombinedOutput(cmd string) ([]byte, error)
@@ -73,13 +76,32 @@ func (p *Pool) componentLogger() *slog.Logger {
 
 func NewPool(openASEHomeDir string, opts ...PoolOption) *Pool {
 	pool := &Pool{
-		conns:           map[string]Client{},
-		openASEHomeDir:  filepath.Clean(openASEHomeDir),
-		dialer:          realDialer{},
-		readFile:        os.ReadFile,
-		timeout:         10 * time.Second,
-		hostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec
-		logger:          logging.WithComponent(nil, sshPoolComponent),
+		conns:          map[string]Client{},
+		openASEHomeDir: filepath.Clean(openASEHomeDir),
+		dialer:         realDialer{},
+		readFile:       os.ReadFile,
+		timeout:        10 * time.Second,
+		logger:         logging.WithComponent(nil, sshPoolComponent),
+	}
+	if insecureIgnoreHostKeyEnabled() {
+		//nolint:gosec // This is an explicit compatibility escape hatch for environments that cannot verify host keys yet.
+		pool.hostKeyCallback = gossh.InsecureIgnoreHostKey()
+		pool.componentLogger().Warn(
+			"ssh host key verification is disabled by environment override",
+			"env", sshInsecureIgnoreHostKeyEnv,
+		)
+	} else {
+		callback, err := defaultHostKeyCallback(pool.openASEHomeDir)
+		if err != nil {
+			pool.hostKeyCallback = rejectingHostKeyCallback(err)
+			pool.componentLogger().Warn(
+				"ssh host key verification is required but no valid known_hosts file was found",
+				"error", err,
+				"checked_paths", knownHostsCandidatePaths(pool.openASEHomeDir),
+			)
+		} else {
+			pool.hostKeyCallback = callback
+		}
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -87,6 +109,70 @@ func NewPool(openASEHomeDir string, opts ...PoolOption) *Pool {
 		}
 	}
 	return pool
+}
+
+func insecureIgnoreHostKeyEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(sshInsecureIgnoreHostKeyEnv))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func defaultHostKeyCallback(openASEHomeDir string) (gossh.HostKeyCallback, error) {
+	paths := existingKnownHostsPaths(knownHostsCandidatePaths(openASEHomeDir))
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no known_hosts file found")
+	}
+	callback, err := knownhosts.New(paths...)
+	if err != nil {
+		return nil, fmt.Errorf("load known_hosts: %w", err)
+	}
+	return callback, nil
+}
+
+func knownHostsCandidatePaths(openASEHomeDir string) []string {
+	cleanRoot := filepath.Clean(strings.TrimSpace(openASEHomeDir))
+	if cleanRoot == "." || cleanRoot == "" {
+		return []string{filepath.Join(".ssh", "known_hosts")}
+	}
+	homeDir := filepath.Dir(cleanRoot)
+	return []string{
+		filepath.Join(cleanRoot, "known_hosts"),
+		filepath.Join(homeDir, ".ssh", "known_hosts"),
+	}
+}
+
+func existingKnownHostsPaths(candidates []string) []string {
+	result := make([]string, 0, len(candidates))
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		trimmed := strings.TrimSpace(candidate)
+		if trimmed == "" {
+			continue
+		}
+		clean := filepath.Clean(trimmed)
+		if _, ok := seen[clean]; ok {
+			continue
+		}
+		info, err := os.Stat(clean)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		seen[clean] = struct{}{}
+		result = append(result, clean)
+	}
+	return result
+}
+
+func rejectingHostKeyCallback(cause error) gossh.HostKeyCallback {
+	return func(hostname string, _ net.Addr, _ gossh.PublicKey) error {
+		if cause == nil {
+			return fmt.Errorf("ssh host key verification unavailable for %s", hostname)
+		}
+		return fmt.Errorf("ssh host key verification unavailable for %s: %w", hostname, cause)
+	}
 }
 
 func WithDialer(dialer Dialer) PoolOption {
