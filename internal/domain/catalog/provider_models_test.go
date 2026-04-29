@@ -4,11 +4,14 @@ import "testing"
 
 func TestBuiltinAgentProviderModelOptionsCodex(t *testing.T) {
 	options := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
-	if len(options) != 8 {
-		t.Fatalf("BuiltinAgentProviderModelOptions(codex) count = %d, want 8", len(options))
+	if len(options) != 9 {
+		t.Fatalf("BuiltinAgentProviderModelOptions(codex) count = %d, want 9", len(options))
 	}
-	if options[0].ID != "gpt-5.4" || !options[0].Recommended {
-		t.Fatalf("first codex option = %+v, want recommended gpt-5.4", options[0])
+	if options[0].ID != "gpt-5.5" || !options[0].Recommended {
+		t.Fatalf("first codex option = %+v, want recommended gpt-5.5", options[0])
+	}
+	if options[1].ID != "gpt-5.4" || options[1].Recommended {
+		t.Fatalf("second codex option = %+v, want retained non-recommended gpt-5.4", options[1])
 	}
 	if options[len(options)-1].ID != "gpt-5.1-codex-mini" {
 		t.Fatalf("last codex option = %+v, want gpt-5.1-codex-mini", options[len(options)-1])
@@ -57,7 +60,7 @@ func TestBuiltinAgentProviderModelOptionsReturnsClone(t *testing.T) {
 	options[0].Reasoning.SupportedEfforts[0] = AgentProviderReasoningEffortMinimal
 
 	fresh := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
-	if fresh[0].ID != "gpt-5.4" {
+	if fresh[0].ID != "gpt-5.5" {
 		t.Fatalf("BuiltinAgentProviderModelOptions() did not return a clone: %+v", fresh[0])
 	}
 	if fresh[0].PricingConfig == nil || fresh[0].PricingConfig.Rates.InputPerToken == 123 {
@@ -92,9 +95,9 @@ func TestBuiltinAgentProviderAdaptersWithModelOptionsReturnsClone(t *testing.T) 
 }
 
 func TestBuiltinPricingConfigPointer(t *testing.T) {
-	ptr := builtinPricingConfigPointer(AgentProviderAdapterTypeCodexAppServer, "gpt-5.4")
-	if ptr == nil || ptr.ModelID != "gpt-5.4" {
-		t.Fatalf("builtinPricingConfigPointer() = %+v, want gpt-5.4 pricing config", ptr)
+	ptr := builtinPricingConfigPointer(AgentProviderAdapterTypeCodexAppServer, "gpt-5.5")
+	if ptr == nil || ptr.ModelID != "gpt-5.5" {
+		t.Fatalf("builtinPricingConfigPointer() = %+v, want gpt-5.5 pricing config", ptr)
 	}
 	if builtinPricingConfigPointer(AgentProviderAdapterTypeCodexAppServer, "unknown") != nil {
 		t.Fatal("builtinPricingConfigPointer() expected nil for unknown model")
