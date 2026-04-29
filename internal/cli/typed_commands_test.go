@@ -153,6 +153,36 @@ func TestMachineRefreshHealthHelpMentionsHealthRefreshSemantics(t *testing.T) {
 	}
 }
 
+func TestMachineSSHEnrollHelpMentionsExplicitTrustFlow(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"machine", "ssh-enroll"})
+	if err != nil {
+		t.Fatalf("Find(machine ssh-enroll) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected machine ssh-enroll command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"fails closed",
+		"known_hosts.d/<machine-id>.known_hosts",
+		"--replace",
+		"openase machine ssh-enroll",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func TestProviderGetHelpMentionsAvailabilitySemantics(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"provider", "get"})
