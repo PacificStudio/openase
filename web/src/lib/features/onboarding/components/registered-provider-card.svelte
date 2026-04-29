@@ -9,6 +9,7 @@
   import { Button } from '$ui/button'
   import { CheckCircle2, Loader2, RefreshCcw, Zap } from '@lucide/svelte'
   import { guideForProvider, isProviderAvailable, providerStatus } from '../provider-guides'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     provider,
@@ -34,6 +35,7 @@
   const available = $derived(isProviderAvailable(provider))
   const isSelected = $derived(selectedId === provider.id)
   const iconPath = $derived(adapterIconPath(provider.adapter_type))
+  const t = i18nStore.t
 </script>
 
 <div
@@ -67,27 +69,30 @@
         {/if}
       </div>
       <p class="text-muted-foreground mt-0.5 text-xs">
-        {adapterDisplayName(provider.adapter_type)} · {provider.model_name || 'Model not set'}
+        {adapterDisplayName(provider.adapter_type)} ·{' '}
+        {provider.model_name || t('onboarding.registeredProvider.labels.modelNotSet')}
       </p>
     </div>
   </div>
 
   <div class="mb-3 space-y-1.5 text-xs">
     <div class="flex items-center justify-between gap-3">
-      <span class="text-muted-foreground">Machine</span>
+      <span class="text-muted-foreground">{t('onboarding.registeredProvider.labels.machine')}</span>
       <span class="text-foreground truncate text-right font-medium"
         >{provider.machine_name || '—'}</span
       >
     </div>
     <div class="flex items-center justify-between gap-3">
-      <span class="text-muted-foreground">CLI</span>
+      <span class="text-muted-foreground">{t('onboarding.registeredProvider.labels.cli')}</span>
       <span class="text-foreground truncate text-right font-mono text-[11px]"
         >{provider.cli_command || '—'}</span
       >
     </div>
     {#if checkedAt}
       <div class="flex items-center justify-between gap-3">
-        <span class="text-muted-foreground">Checked</span>
+        <span class="text-muted-foreground"
+          >{t('onboarding.registeredProvider.labels.checked')}</span
+        >
         <span class="text-muted-foreground text-right">{checkedAt}</span>
       </div>
     {/if}
@@ -109,17 +114,17 @@
       >
         {#if selecting && isSelected}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Setting…
+          {t('onboarding.registeredProvider.actions.setting')}
         {:else if isSelected}
-          Default
+          {t('onboarding.registeredProvider.actions.default')}
         {:else}
-          Use this provider
+          {t('onboarding.registeredProvider.actions.useProvider')}
         {/if}
       </Button>
     {:else}
       {#if guide}
         <Button size="sm" variant="outline" onclick={() => onOpenGuide(provider.id)}>
-          {guide.title} guide
+          {t('onboarding.registeredProvider.actions.openGuide', { guideTitle: guide.title })}
         </Button>
       {/if}
       <Button
@@ -130,10 +135,10 @@
       >
         {#if refreshing}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Checking…
+          {t('onboarding.registeredProvider.actions.checking')}
         {:else}
           <RefreshCcw class="mr-1.5 size-3.5" />
-          Recheck
+          {t('onboarding.registeredProvider.actions.recheck')}
         {/if}
       </Button>
     {/if}

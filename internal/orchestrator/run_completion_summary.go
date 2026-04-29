@@ -188,6 +188,12 @@ type runCompletionSummaryContext struct {
 	workspaces   []*ent.TicketRepoWorkspace
 }
 
+type pendingRunCompletionSummary struct {
+	ID                      uuid.UUID                            `json:"id"`
+	CompletionSummaryStatus *entagentrun.CompletionSummaryStatus `json:"completion_summary_status,omitempty"`
+	TerminalAt              *time.Time                           `json:"terminal_at,omitempty"`
+}
+
 type runCompletionSummaryInputPayload struct {
 	Metadata       map[string]any                 `json:"metadata"`
 	Steps          []map[string]any               `json:"steps"`
@@ -284,25 +290,12 @@ func (c *runtimeCompletionSummaryCoordinator) reconcileRunCompletionSummaries(ct
 		return nil
 	}
 
-	runs, err := c.client.AgentRun.Query().
-		Where(
-			entagentrun.StatusIn(
-				entagentrun.StatusCompleted,
-				entagentrun.StatusErrored,
-				entagentrun.StatusInterrupted,
-				entagentrun.StatusTerminated,
-			),
-		).
-		Order(entagentrun.ByTerminalAt(sql.OrderAsc())).
-		All(ctx)
+	runs, err := c.listPendingRunCompletionSummaries(ctx)
 	if err != nil {
-		return fmt.Errorf("list pending run completion summaries: %w", err)
+		return err
 	}
 
 	for _, run := range runs {
-		if run == nil {
-			continue
-		}
 		switch {
 		case run.CompletionSummaryStatus == nil:
 			c.prepareRunCompletionSummaryBestEffort(ctx, run.ID)
@@ -312,6 +305,37 @@ func (c *runtimeCompletionSummaryCoordinator) reconcileRunCompletionSummaries(ct
 		}
 	}
 	return nil
+}
+
+func (c *runtimeCompletionSummaryCoordinator) listPendingRunCompletionSummaries(ctx context.Context) ([]pendingRunCompletionSummary, error) {
+	if c == nil || c.client == nil {
+		return nil, nil
+	}
+
+	var runs []pendingRunCompletionSummary
+	if err := c.client.AgentRun.Query().
+		Where(
+			entagentrun.StatusIn(
+				entagentrun.StatusCompleted,
+				entagentrun.StatusErrored,
+				entagentrun.StatusInterrupted,
+				entagentrun.StatusTerminated,
+			),
+			entagentrun.Or(
+				entagentrun.CompletionSummaryStatusIsNil(),
+				entagentrun.CompletionSummaryStatusEQ(entagentrun.CompletionSummaryStatusPending),
+			),
+		).
+		Order(entagentrun.ByTerminalAt(sql.OrderAsc())).
+		Select(
+			entagentrun.FieldID,
+			entagentrun.FieldCompletionSummaryStatus,
+			entagentrun.FieldTerminalAt,
+		).
+		Scan(ctx, &runs); err != nil {
+		return nil, fmt.Errorf("list pending run completion summaries: %w", err)
+	}
+	return runs, nil
 }
 
 func (c *runtimeCompletionSummaryCoordinator) prepareRunCompletionSummaryBestEffort(ctx context.Context, runID uuid.UUID) {
@@ -423,9 +447,6 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 	}
 
 	commandString := strings.TrimSpace(summaryCtx.provider.CliCommand)
-	if summaryCtx.machine.AgentCLIPath != nil && strings.TrimSpace(*summaryCtx.machine.AgentCLIPath) != "" {
-		commandString = strings.TrimSpace(*summaryCtx.machine.AgentCLIPath)
-	}
 	command, err := provider.ParseAgentCLICommand(commandString)
 	if err != nil {
 		return fmt.Errorf("parse summary provider command: %w", err)
@@ -441,6 +462,9 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 	})
 	if err != nil {
 		return err
+	}
+	if resolved := catalogdomain.ResolveMachineOpenASEBinaryPath(summaryCtx.machine); resolved != nil {
+		environment = catalogdomain.UpsertMachineEnvironmentValue(environment, "OPENASE_REAL_BIN", *resolved)
 	}
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,

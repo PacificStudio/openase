@@ -45,7 +45,7 @@ describe('machine health panel view', () => {
 
     const levelCards = buildLevelCards(snapshot!)
     expect(levelCards.find((card) => card.id === 'l5')?.value).toBe(
-      'Git, GitHub CLI observation, and network audit captured',
+      'Git, GitHub CLI, and network audit captured',
     )
 
     const auditRows = buildAuditRows(snapshot!)
@@ -53,12 +53,60 @@ describe('machine health panel view', () => {
     const ghCliRow = auditRows.find((row) => row.kind === 'gh-cli')
     expect(ghCliRow).toMatchObject({
       kind: 'gh-cli',
-      label: 'GitHub CLI',
+      label: 'Github CLI',
       installed: 'yes',
       authStatus: 'logged_in',
     })
 
     expect(auditRows.some((row) => row.kind === 'network')).toBe(true)
     expect(auditRows.map((row) => row.kind)).toEqual(['git', 'gh-cli', 'network'])
+  })
+
+  it('renders layered websocket health cards from websocket_health resources', () => {
+    const snapshot = parseMachineSnapshot({
+      websocket_health: {
+        transport_mode: 'ws_reverse',
+        checked_at: '2026-04-15T10:00:00Z',
+        l2: {
+          state: 'healthy',
+          observed_at: '2026-04-15T10:00:00Z',
+          reason: '',
+          details: {},
+        },
+        l3: {
+          state: 'failed',
+          observed_at: '2026-04-15T10:00:01Z',
+          reason: 'control plane route missing',
+          details: {},
+        },
+        l4: {
+          state: 'healthy',
+          observed_at: '2026-04-15T10:00:02Z',
+          reason: '',
+          details: { session_id: 'session-1' },
+        },
+        l5: {
+          state: 'degraded',
+          observed_at: '2026-04-15T10:00:03Z',
+          reason: 'runtime probe failed',
+          details: {},
+        },
+      },
+    })
+
+    expect(snapshot?.websocketHealth?.transportMode).toBe('ws_reverse')
+
+    const levelCards = buildLevelCards(snapshot!)
+    expect(levelCards.map((card) => card.id)).toEqual(['l2', 'l3', 'l4', 'l5'])
+    expect(levelCards.find((card) => card.id === 'l3')).toMatchObject({
+      label: 'L3 Control Plane Network',
+      state: 'error',
+      value: 'control plane route missing',
+    })
+    expect(levelCards.find((card) => card.id === 'l5')).toMatchObject({
+      label: 'L5 Machine Agent',
+      state: 'warn',
+      value: 'runtime probe failed',
+    })
   })
 })

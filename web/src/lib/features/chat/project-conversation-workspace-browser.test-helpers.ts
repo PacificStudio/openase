@@ -4,11 +4,22 @@ export const workspaceMetadata = {
   conversationId: 'conversation-1',
   available: true,
   workspacePath: '/tmp/conversation-1',
+  preparing: false,
   repos: [
     {
       name: 'openase',
       path: 'services/openase',
       branch: 'agent/conv-123',
+      currentRef: {
+        kind: 'branch',
+        displayName: 'agent/conv-123',
+        cacheKey: 'branch:refs/heads/agent/conv-123',
+        branchName: 'agent/conv-123',
+        branchFullName: 'refs/heads/agent/conv-123',
+        commitId: '123456789abc',
+        shortCommitId: '123456789abc',
+        subject: 'Add workspace browser scaffolding',
+      },
       headCommit: '123456789abc',
       headSummary: 'Add workspace browser scaffolding',
       dirty: true,
@@ -22,6 +33,7 @@ export const workspaceMetadata = {
 export const workspaceDiff = {
   conversationId: 'conversation-1',
   workspacePath: '/tmp/conversation-1',
+  preparing: false,
   dirty: true,
   reposChanged: 1,
   filesChanged: 1,

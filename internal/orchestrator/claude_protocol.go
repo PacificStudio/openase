@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -646,28 +645,5 @@ func cloneClaudeMap(value map[string]any) map[string]any {
 }
 
 func claudeTurnFailure(event provider.ClaudeCodeEvent) (string, string) {
-	message := strings.TrimSpace(event.Result)
-	rawPayload := decodeClaudeRaw(event.Raw)
-	additionalDetails := ""
-	if rawPayload != nil {
-		if encoded, err := json.Marshal(rawPayload); err == nil {
-			additionalDetails = string(encoded)
-		}
-	}
-	if message != "" {
-		return message, additionalDetails
-	}
-
-	subtype := strings.TrimSpace(event.Subtype)
-	if subtype != "" {
-		summary := fmt.Sprintf("Claude Code reported an empty %s result.", subtype)
-		if subtype == "error" {
-			summary = "Claude Code reported an empty error result."
-		}
-		return summary, additionalDetails
-	}
-	if additionalDetails != "" {
-		return "Claude Code reported an empty result error.", additionalDetails
-	}
-	return "Claude Code reported an empty result error.", ""
+	return provider.ClaudeCodeTurnFailure(event)
 }

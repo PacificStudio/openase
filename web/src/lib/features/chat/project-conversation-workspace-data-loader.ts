@@ -3,6 +3,7 @@ import {
   getProjectConversationWorkspaceFilePreview,
   type ProjectConversationWorkspaceFilePreview,
 } from '$lib/api/chat'
+import { ApiError } from '$lib/api/client'
 import {
   workspaceTabKey,
   type WorkspaceTabFileState,
@@ -57,11 +58,17 @@ export async function loadWorkspaceFile(
     ctx.syncEditorFromPreview(repoPath, filePath, previewPayload.filePreview)
   } catch (error) {
     if (conversationId !== ctx.getConversationId() || !ctx.hasOpenTab(key)) return
+    const message =
+      error instanceof ApiError && error.code === 'PROJECT_CONVERSATION_WORKSPACE_NOT_FOUND'
+        ? 'This file is not present on the current branch.'
+        : error instanceof Error
+          ? error.message
+          : 'Failed to load the workspace file details.'
     ctx.patchTabFileState(key, {
       preview: null,
       patch: null,
       loading: false,
-      error: error instanceof Error ? error.message : 'Failed to load the workspace file details.',
+      error: message,
     })
   }
 }

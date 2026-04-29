@@ -1,132 +1,137 @@
-export const fileBudgetLimits = {
-  routePage: { soft: 150, hard: 250 },
-  routeLayout: { soft: 180, hard: 300 },
-  featureComponent: { soft: 200, hard: 350 },
-  featureTest: { soft: 300, hard: 650 },
-  featureStateModule: { soft: 250, hard: 500 },
-  featureModule: { soft: 200, hard: 325 },
-  layoutComponent: { soft: 200, hard: 300 },
-  uiPrimitive: { soft: 150, hard: 250 },
+function matchesPattern(pattern) {
+  return (filePath) => pattern.test(filePath)
 }
 
-function isRoutePage(filePath) {
-  return /^src\/routes\/.+\/\+page\.svelte$|^src\/routes\/\+page\.svelte$/.test(filePath)
+function defineBudgetCategory({
+  key,
+  name,
+  softLimit,
+  hardLimit,
+  match,
+  eslintFiles,
+  eslintIgnores = [],
+}) {
+  return { key, name, softLimit, hardLimit, match, eslintFiles, eslintIgnores }
 }
 
-function isRouteLayout(filePath) {
-  return /^src\/routes\/.+\/\+layout\.svelte$|^src\/routes\/\+layout\.svelte$/.test(filePath)
-}
+const isRoutePage = matchesPattern(
+  /^src\/routes\/.+\/\+page\.svelte$|^src\/routes\/\+page\.svelte$/,
+)
+const isRouteLayout = matchesPattern(
+  /^src\/routes\/.+\/\+layout\.svelte$|^src\/routes\/\+layout\.svelte$/,
+)
+const isFeatureTestModule = matchesPattern(/^src\/lib\/features\/.+\.test\.(ts|js|mjs|cjs)$/)
+const isFeatureStateModule = matchesPattern(/^src\/lib\/features\/.+\.svelte\.(ts|js)$/)
+const isFeatureComponent = matchesPattern(/^src\/lib\/features\/.+\.svelte$/)
+const isFeatureModule = matchesPattern(/^src\/lib\/features\/.+\.(ts|js|mjs|cjs)$/)
+const isTestingSupportModule = matchesPattern(/^src\/lib\/testing\/.+\.(ts|js|mjs|cjs)$/)
+const isLayoutComponent = matchesPattern(/^src\/lib\/components\/layout\/.+\.svelte$/)
+const isUiPrimitive = matchesPattern(/^src\/lib\/components\/ui\/.+\.svelte$/)
 
-function isFeatureTestModule(filePath) {
-  return /^src\/lib\/features\/.+\.test\.(ts|js|mjs|cjs)$/.test(filePath)
-}
-
-function isFeatureStateModule(filePath) {
-  return /^src\/lib\/features\/.+\.svelte\.(ts|js)$/.test(filePath)
-}
-
-function isFeatureComponent(filePath) {
-  return /^src\/lib\/features\/.+\.svelte$/.test(filePath)
-}
-
-function isFeatureModule(filePath) {
-  return /^src\/lib\/features\/.+\.(ts|js|mjs|cjs)$/.test(filePath)
-}
-
-function isLayoutComponent(filePath) {
-  return /^src\/lib\/components\/layout\/.+\.svelte$/.test(filePath)
-}
-
-function isUiPrimitive(filePath) {
-  return /^src\/lib\/components\/ui\/.+\.svelte$/.test(filePath)
-}
-
-export const fileBudgetRules = [
-  {
-    name: 'Workspace editor V2 detail view',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-detail.svelte',
-    softLimit: 250,
-    hardLimit: 450,
-  },
-  {
-    name: 'Workspace editor V2 sidebar',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-sidebar.svelte',
-    softLimit: 250,
-    hardLimit: 400,
-  },
-  {
-    name: 'Workspace editor V2 browser state',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-state.svelte.ts',
-    softLimit: 350,
-    hardLimit: 700,
-  },
-  {
-    name: 'Workspace editor V2 editor state',
-    match: (filePath) =>
-      filePath ===
-      'src/lib/features/chat/project-conversation-workspace-file-editor-state.svelte.ts',
-    softLimit: 350,
-    hardLimit: 650,
-  },
-  {
-    name: 'Workspace editor V2 refresh test',
-    match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-refresh.test.ts',
-    softLimit: 350,
-    hardLimit: 700,
-  },
-  {
+export const fileBudgetCategories = [
+  defineBudgetCategory({
+    key: 'routePage',
     name: 'Route pages',
+    softLimit: 150,
+    hardLimit: 250,
     match: isRoutePage,
-    softLimit: fileBudgetLimits.routePage.soft,
-    hardLimit: fileBudgetLimits.routePage.hard,
-  },
-  {
+    eslintFiles: ['src/routes/**/+page.svelte'],
+  }),
+  defineBudgetCategory({
+    key: 'routeLayout',
     name: 'Route layouts',
+    softLimit: 180,
+    hardLimit: 300,
     match: isRouteLayout,
-    softLimit: fileBudgetLimits.routeLayout.soft,
-    hardLimit: fileBudgetLimits.routeLayout.hard,
-  },
-  {
+    eslintFiles: ['src/routes/**/+layout.svelte'],
+  }),
+  defineBudgetCategory({
+    key: 'featureTest',
     name: 'Feature tests',
+    softLimit: 300,
+    hardLimit: 650,
     match: isFeatureTestModule,
-    softLimit: fileBudgetLimits.featureTest.soft,
-    hardLimit: fileBudgetLimits.featureTest.hard,
-  },
-  {
+    eslintFiles: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}'],
+  }),
+  defineBudgetCategory({
+    key: 'featureStateModule',
     name: 'Feature state modules',
+    softLimit: 250,
+    hardLimit: 350,
     match: isFeatureStateModule,
-    softLimit: fileBudgetLimits.featureStateModule.soft,
-    hardLimit: fileBudgetLimits.featureStateModule.hard,
-  },
-  {
+    eslintFiles: ['src/lib/features/**/*.svelte.{ts,js}'],
+  }),
+  defineBudgetCategory({
+    key: 'featureComponent',
     name: 'Feature components',
+    softLimit: 200,
+    hardLimit: 350,
     match: isFeatureComponent,
-    softLimit: fileBudgetLimits.featureComponent.soft,
-    hardLimit: fileBudgetLimits.featureComponent.hard,
-  },
-  {
+    eslintFiles: ['src/lib/features/**/*.svelte'],
+  }),
+  defineBudgetCategory({
+    key: 'featureModule',
     name: 'Feature modules',
+    softLimit: 200,
+    hardLimit: 325,
     match: (filePath) =>
       isFeatureModule(filePath) &&
       !isFeatureTestModule(filePath) &&
       !isFeatureStateModule(filePath),
-    softLimit: fileBudgetLimits.featureModule.soft,
-    hardLimit: fileBudgetLimits.featureModule.hard,
-  },
-  {
+    eslintFiles: ['src/lib/features/**/*.{js,ts,mjs,cjs}'],
+    eslintIgnores: [
+      'src/lib/features/**/*.test.{js,ts,mjs,cjs}',
+      'src/lib/features/**/*.svelte.{ts,js}',
+    ],
+  }),
+  defineBudgetCategory({
+    key: 'testingSupportModule',
+    name: 'Testing support modules',
+    softLimit: 350,
+    hardLimit: 650,
+    match: isTestingSupportModule,
+    eslintFiles: ['src/lib/testing/**/*.{js,ts,mjs,cjs}'],
+  }),
+  defineBudgetCategory({
+    key: 'layoutComponent',
     name: 'Layout components',
+    softLimit: 200,
+    hardLimit: 300,
     match: isLayoutComponent,
-    softLimit: fileBudgetLimits.layoutComponent.soft,
-    hardLimit: fileBudgetLimits.layoutComponent.hard,
-  },
-  {
+    eslintFiles: ['src/lib/components/layout/**/*.svelte'],
+  }),
+  defineBudgetCategory({
+    key: 'uiPrimitive',
     name: 'UI primitives',
+    softLimit: 150,
+    hardLimit: 250,
     match: isUiPrimitive,
-    softLimit: fileBudgetLimits.uiPrimitive.soft,
-    hardLimit: fileBudgetLimits.uiPrimitive.hard,
-  },
+    eslintFiles: ['src/lib/components/ui/**/*.svelte'],
+  }),
 ]
+
+export const fileBudgetLimits = Object.fromEntries(
+  fileBudgetCategories.map(({ key, softLimit, hardLimit }) => [
+    key,
+    { soft: softLimit, hard: hardLimit },
+  ]),
+)
+
+export const fileBudgetRules = fileBudgetCategories.map(
+  ({ name, match, softLimit, hardLimit }) => ({
+    name,
+    match,
+    softLimit,
+    hardLimit,
+  }),
+)
+
+// `lint:structure` uses first-match wins while ESLint uses last-match wins, so
+// the shared categories are reversed here to keep future specific overrides authoritative.
+export const eslintFileBudgetOverrides = [...fileBudgetCategories]
+  .reverse()
+  .map(({ eslintFiles, eslintIgnores, hardLimit }) => ({
+    files: eslintFiles,
+    ignores: eslintIgnores,
+    hardLimit,
+  }))

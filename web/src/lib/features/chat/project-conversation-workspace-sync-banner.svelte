@@ -2,6 +2,7 @@
   import type { ProjectConversationWorkspaceSyncPrompt } from '$lib/api/chat'
   import { Button } from '$ui/button'
   import { AlertCircle } from '@lucide/svelte'
+  import { chatT } from './i18n'
 
   let {
     prompt,
@@ -19,13 +20,13 @@
 
   const title = $derived(
     prompt.reason === 'repo_binding_changed'
-      ? 'Workspace sync required'
-      : 'Some project repos are missing from this workspace',
+      ? chatT('chat.workspaceSyncTitleBindingChanged')
+      : chatT('chat.workspaceSyncTitleMissingRepos'),
   )
   const description = $derived(
     prompt.reason === 'repo_binding_changed'
-      ? 'This conversation workspace was prepared before the latest project repo binding changes. Newly bound repos have not been cloned into this workspace yet, so browse and diff can be incomplete until you sync.'
-      : 'One or more repos are bound to this project but are still missing from the current conversation workspace. Sync the workspace to clone them before browsing or diffing.',
+      ? chatT('chat.workspaceSyncDescriptionBindingChanged')
+      : chatT('chat.workspaceSyncDescriptionMissingRepos'),
   )
   const missingRepos = $derived(prompt.missingRepos.map((repo) => repo.path).join(', '))
 </script>
@@ -35,13 +36,15 @@
     <div class="border-border bg-muted/20 max-w-lg rounded-xl border p-5 text-left">
       <p class="text-sm font-medium">{title}</p>
       <p class="text-muted-foreground mt-2 text-sm">{description}</p>
-      <p class="text-muted-foreground mt-3 text-xs">Missing repos: {missingRepos}</p>
+      <p class="text-muted-foreground mt-3 text-xs">
+        {chatT('chat.missingReposLabel', { repos: missingRepos })}
+      </p>
       {#if syncError}
         <p class="text-destructive mt-3 text-xs">{syncError}</p>
       {/if}
       <div class="mt-4 flex gap-2">
         <Button size="sm" onclick={() => void onSync?.()} disabled={syncInFlight}>
-          {syncInFlight ? 'Syncing repos...' : 'Sync repos'}
+          {syncInFlight ? chatT('chat.syncingRepos') : chatT('chat.syncRepos')}
         </Button>
       </div>
     </div>
@@ -55,7 +58,9 @@
       <div class="min-w-0 flex-1">
         <p class="text-sm font-medium">{title}</p>
         <p class="mt-1 text-xs leading-5">{description}</p>
-        <p class="mt-2 text-xs">Missing repos: {missingRepos}</p>
+        <p class="mt-2 text-xs">
+          {chatT('chat.missingReposLabel', { repos: missingRepos })}
+        </p>
         {#if syncError}
           <p class="text-destructive mt-2 text-xs">{syncError}</p>
         {/if}
@@ -67,7 +72,7 @@
         onclick={() => void onSync?.()}
         disabled={syncInFlight}
       >
-        {syncInFlight ? 'Syncing...' : 'Sync repos'}
+        {syncInFlight ? chatT('chat.syncing') : chatT('chat.syncRepos')}
       </Button>
     </div>
   </div>

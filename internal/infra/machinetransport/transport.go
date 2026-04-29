@@ -2,15 +2,18 @@ package machinetransport
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
@@ -28,6 +31,8 @@ type CommandSession interface {
 	StdoutPipe() (io.Reader, error)
 	StderrPipe() (io.Reader, error)
 	Start(cmd string) error
+	StartPTY(cmd string, cols int, rows int) error
+	Resize(cols int, rows int) error
 	Signal(signal string) error
 	Wait() error
 	Close() error
@@ -428,10 +433,104 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 	}
 }
 
+func (c *MonitorCollector) CollectWebsocketHealth(ctx context.Context, machine domain.Machine) (domain.WebsocketMachineHealth, error) {
+	mode := effectiveConnectionMode(machine)
+	if mode != domain.MachineConnectionModeWSReverse && mode != domain.MachineConnectionModeWSListener {
+		return domain.WebsocketMachineHealth{}, fmt.Errorf("%w: websocket health collection is not implemented for %s", ErrTransportUnavailable, mode)
+	}
+
+	observedAt := c.currentTime()
+	health := domain.WebsocketMachineHealth{
+		TransportMode: mode,
+		CheckedAt:     observedAt,
+		L2:            domain.WebsocketHealthUnknownLayer(observedAt, "websocket machine has no link telemetry yet", map[string]any{}),
+		L3:            domain.WebsocketHealthUnknownLayer(observedAt, "websocket machine has no network telemetry yet", map[string]any{}),
+		L4:            domain.WebsocketHealthUnknownLayer(observedAt, "transport has not been observed yet", map[string]any{}),
+		L5:            domain.WebsocketHealthUnknownLayer(observedAt, "application probe has not completed yet", map[string]any{}),
+	}
+	if parsed, err := domain.ParseStoredWebsocketMachineHealth(machine.Resources); err == nil {
+		health.L2 = parsed.L2
+		health.L3 = parsed.L3
+		health.L5 = parsed.L5
+	}
+
+	client, closeClient, openErr := c.websocketRuntimeClient(ctx, machine)
+	if openErr != nil {
+		health.L4 = domain.WebsocketHealthLayer{
+			State:      domain.WebsocketHealthStateFailed,
+			Reason:     openErr.Error(),
+			ObservedAt: observedAt,
+			Details: map[string]any{
+				"transport_mode": mode.String(),
+			},
+		}
+		health.L5 = domain.WebsocketHealthUnknownLayer(
+			observedAt,
+			"application probe skipped because websocket transport is unavailable",
+			map[string]any{"transport_mode": mode.String()},
+		)
+		return health, openErr
+	}
+	defer closeClient(nil)
+
+	sessionState := domain.MachineTransportSessionStateConnected
+	heartbeat, heartbeatErr := c.resolveHeartbeat(ctx, machine)
+	if heartbeatErr == nil && heartbeat.SessionState != "" {
+		sessionState = heartbeat.SessionState
+	}
+	health.L4 = domain.WebsocketHealthLayer{
+		State:      domain.WebsocketHealthStateHealthy,
+		ObservedAt: observedAt,
+		Details: map[string]any{
+			"session_state": sessionState.String(),
+			"session_id":    strings.TrimSpace(pointerString(heartbeat.CurrentSessionID)),
+		},
+	}
+
+	envelope, err := client.request(ctx, runtimecontract.OperationProbe, nil)
+	if err != nil {
+		health.L5 = websocketProbeFailureLayer(observedAt, err)
+		return health, err
+	}
+	payload, err := runtimecontract.DecodePayload[runtimecontract.ProbeResponse](envelope)
+	if err != nil {
+		health.L5 = websocketProbeFailureLayer(observedAt, err)
+		return health, err
+	}
+
+	health.L5 = domain.WebsocketHealthLayer{
+		State:      domain.WebsocketHealthStateHealthy,
+		ObservedAt: observedAt,
+		Details: map[string]any{
+			"runtime_probe_checked_at": strings.TrimSpace(payload.CheckedAt),
+			"detected_os":              strings.TrimSpace(payload.DetectedOS),
+			"detected_arch":            strings.TrimSpace(payload.DetectedArch),
+		},
+	}
+	if mode == domain.MachineConnectionModeWSListener {
+		health.L2 = domain.WebsocketHealthUnknownLayer(observedAt, "listener mode does not expose remote link telemetry", map[string]any{})
+		health.L3 = domain.WebsocketHealthUnknownLayer(observedAt, "listener mode cannot confirm reverse control-plane reachability", map[string]any{})
+	}
+
+	return health, nil
+}
+
 func (c *MonitorCollector) CollectSystemResources(ctx context.Context, machine domain.Machine) (domain.MachineSystemResources, error) {
 	mode := effectiveConnectionMode(machine)
-	if mode == domain.MachineConnectionModeWSReverse || mode == domain.MachineConnectionModeWSListener {
-		return domain.MachineSystemResources{}, fmt.Errorf("%w: system resource collection is not implemented for %s", ErrTransportUnavailable, mode)
+	if mode == domain.MachineConnectionModeWSListener {
+		resolved, resolveErr := c.resolver.ResolveRuntime(machine)
+		if resolveErr != nil {
+			return domain.MachineSystemResources{}, resolveErr
+		}
+		prober := resolved.ProbeExecutor()
+		if prober == nil {
+			return domain.MachineSystemResources{}, fmt.Errorf("%w: probe unavailable for machine %s", ErrTransportUnavailable, machine.Name)
+		}
+		probe, err := prober.Probe(ctx, machine)
+		if err != nil {
+			return domain.MachineSystemResources{}, err
+		}
+		return parseRuntimeSystemResources(probe.Resources, probe.CheckedAt)
 	}
 	if c == nil || c.sshCollector == nil {
 		return domain.MachineSystemResources{}, fmt.Errorf("machine monitor collector unavailable")
@@ -439,9 +538,300 @@ func (c *MonitorCollector) CollectSystemResources(ctx context.Context, machine d
 	return c.sshCollector.CollectSystemResources(ctx, machine)
 }
 
+func (c *MonitorCollector) websocketRuntimeClient(
+	ctx context.Context,
+	machine domain.Machine,
+) (*runtimeProtocolClient, func(error), error) {
+	transport := websocketTransport{mode: effectiveConnectionMode(machine)}
+	if transport.mode == domain.MachineConnectionModeWSReverse {
+		transport.reverseRelay = c.resolver.reverseRelay
+	}
+	return transport.openRuntimeClient(ctx, machine)
+}
+
+func (c *MonitorCollector) resolveHeartbeat(ctx context.Context, machine domain.Machine) (domain.MachineDaemonStatus, error) {
+	channel, err := c.resolve(machine)
+	if err != nil {
+		return domain.MachineDaemonStatus{}, err
+	}
+	return channel.Heartbeat(ctx, machine)
+}
+
+func parseRuntimeSystemResources(resources map[string]any, checkedAt time.Time) (domain.MachineSystemResources, error) {
+	cpuCores, ok := intFromRuntimeResource(resources, "cpu_cores")
+	if !ok {
+		return domain.MachineSystemResources{}, fmt.Errorf("runtime probe did not include cpu_cores")
+	}
+	cpuUsagePercent, ok := floatFromRuntimeResource(resources, "cpu_usage_percent")
+	if !ok {
+		return domain.MachineSystemResources{}, fmt.Errorf("runtime probe did not include cpu_usage_percent")
+	}
+	memoryTotalGB, ok := floatFromRuntimeResource(resources, "memory_total_gb")
+	if !ok {
+		return domain.MachineSystemResources{}, fmt.Errorf("runtime probe did not include memory_total_gb")
+	}
+	memoryUsedGB, ok := floatFromRuntimeResource(resources, "memory_used_gb")
+	if !ok {
+		return domain.MachineSystemResources{}, fmt.Errorf("runtime probe did not include memory_used_gb")
+	}
+	memoryAvailableGB, ok := floatFromRuntimeResource(resources, "memory_available_gb")
+	if !ok {
+		return domain.MachineSystemResources{}, fmt.Errorf("runtime probe did not include memory_available_gb")
+	}
+	diskTotalGB, ok := floatFromRuntimeResource(resources, "disk_total_gb")
+	if !ok {
+		return domain.MachineSystemResources{}, fmt.Errorf("runtime probe did not include disk_total_gb")
+	}
+	diskAvailableGB, ok := floatFromRuntimeResource(resources, "disk_available_gb")
+	if !ok {
+		return domain.MachineSystemResources{}, fmt.Errorf("runtime probe did not include disk_available_gb")
+	}
+	memoryAvailablePercent := 0.0
+	if memoryTotalGB > 0 {
+		memoryAvailablePercent = (memoryAvailableGB / memoryTotalGB) * 100
+	}
+	diskAvailablePercent := 0.0
+	if diskTotalGB > 0 {
+		diskAvailablePercent = (diskAvailableGB / diskTotalGB) * 100
+	}
+	return domain.MachineSystemResources{
+		CollectedAt:            checkedAt.UTC(),
+		CPUCores:               cpuCores,
+		CPUUsagePercent:        cpuUsagePercent,
+		MemoryTotalGB:          memoryTotalGB,
+		MemoryUsedGB:           memoryUsedGB,
+		MemoryAvailableGB:      memoryAvailableGB,
+		MemoryAvailablePercent: memoryAvailablePercent,
+		DiskTotalGB:            diskTotalGB,
+		DiskAvailableGB:        diskAvailableGB,
+		DiskAvailablePercent:   diskAvailablePercent,
+	}, nil
+}
+
+func intFromRuntimeResource(resources map[string]any, key string) (int, bool) {
+	value, ok := resources[key]
+	if !ok {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int64:
+		return int(typed), true
+	case float64:
+		return int(typed), true
+	case json.Number:
+		parsed, err := typed.Int64()
+		return int(parsed), err == nil
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(typed))
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func floatFromRuntimeResource(resources map[string]any, key string) (float64, bool) {
+	value, ok := resources[key]
+	if !ok {
+		return 0, false
+	}
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case int:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case json.Number:
+		parsed, err := typed.Float64()
+		return parsed, err == nil
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func parseRuntimeAgentEnvironment(resources map[string]any, checkedAt time.Time) (domain.MachineAgentEnvironment, error) {
+	raw, ok := resources["agent_environment"].(map[string]any)
+	if !ok {
+		return domain.MachineAgentEnvironment{}, fmt.Errorf("runtime probe did not include agent_environment")
+	}
+	names := []string{"claude_code", "codex", "gemini"}
+	clis := make([]domain.MachineAgentCLI, 0, len(names))
+	dispatchable := false
+	for _, name := range names {
+		item, ok := raw[name].(map[string]any)
+		if !ok {
+			return domain.MachineAgentEnvironment{}, fmt.Errorf("runtime probe missing agent_environment.%s", name)
+		}
+		installed, ok := boolFromRuntimeResource(item, "installed")
+		if !ok {
+			return domain.MachineAgentEnvironment{}, fmt.Errorf("runtime probe missing agent_environment.%s.installed", name)
+		}
+		authStatusRaw, ok := stringFromRuntimeResource(item, "auth_status")
+		if !ok {
+			return domain.MachineAgentEnvironment{}, fmt.Errorf("runtime probe missing agent_environment.%s.auth_status", name)
+		}
+		authStatus, err := parseMachineAgentAuthStatusRuntime(authStatusRaw)
+		if err != nil {
+			return domain.MachineAgentEnvironment{}, err
+		}
+		authModeRaw, _ := stringFromRuntimeResource(item, "auth_mode")
+		authMode, err := parseMachineAgentAuthModeRuntime(authModeRaw)
+		if err != nil {
+			return domain.MachineAgentEnvironment{}, err
+		}
+		version, _ := stringFromRuntimeResource(item, "version")
+		ready, _ := boolFromRuntimeResource(item, "ready")
+		dispatchable = dispatchable || ready
+		clis = append(clis, domain.MachineAgentCLI{Name: name, Installed: installed, Version: version, AuthStatus: authStatus, AuthMode: authMode, Ready: ready})
+	}
+	return domain.MachineAgentEnvironment{CollectedAt: checkedAt.UTC(), Dispatchable: dispatchable, CLIs: clis}, nil
+}
+
+func parseRuntimeFullAudit(resources map[string]any, checkedAt time.Time) (domain.MachineFullAudit, error) {
+	raw, ok := resources["full_audit"].(map[string]any)
+	if !ok {
+		return domain.MachineFullAudit{}, fmt.Errorf("runtime probe did not include full_audit")
+	}
+	gitRaw, ok := raw["git"].(map[string]any)
+	if !ok {
+		return domain.MachineFullAudit{}, fmt.Errorf("runtime probe missing full_audit.git")
+	}
+	ghRaw, ok := raw["gh_cli"].(map[string]any)
+	if !ok {
+		return domain.MachineFullAudit{}, fmt.Errorf("runtime probe missing full_audit.gh_cli")
+	}
+	networkRaw, ok := raw["network"].(map[string]any)
+	if !ok {
+		return domain.MachineFullAudit{}, fmt.Errorf("runtime probe missing full_audit.network")
+	}
+	gitInstalled, _ := boolFromRuntimeResource(gitRaw, "installed")
+	ghInstalled, _ := boolFromRuntimeResource(ghRaw, "installed")
+	ghAuthRaw, _ := stringFromRuntimeResource(ghRaw, "auth_status")
+	ghAuth, err := parseMachineAgentAuthStatusRuntime(ghAuthRaw)
+	if err != nil {
+		return domain.MachineFullAudit{}, err
+	}
+	githubReachable, ok := boolFromRuntimeResource(networkRaw, "github_reachable")
+	if !ok {
+		return domain.MachineFullAudit{}, fmt.Errorf("runtime probe missing full_audit.network.github_reachable")
+	}
+	pypiReachable, ok := boolFromRuntimeResource(networkRaw, "pypi_reachable")
+	if !ok {
+		return domain.MachineFullAudit{}, fmt.Errorf("runtime probe missing full_audit.network.pypi_reachable")
+	}
+	npmReachable, ok := boolFromRuntimeResource(networkRaw, "npm_reachable")
+	if !ok {
+		return domain.MachineFullAudit{}, fmt.Errorf("runtime probe missing full_audit.network.npm_reachable")
+	}
+	probe := githubauthdomain.MissingProbe()
+	if probeRaw, ok := raw["github_token_probe"].(map[string]any); ok {
+		stateRaw, _ := stringFromRuntimeResource(probeRaw, "state")
+		configured, _ := boolFromRuntimeResource(probeRaw, "configured")
+		valid, _ := boolFromRuntimeResource(probeRaw, "valid")
+		permissions := stringSliceFromRuntimeResource(probeRaw["permissions"])
+		repoAccessRaw, _ := stringFromRuntimeResource(probeRaw, "repo_access")
+		lastError, _ := stringFromRuntimeResource(probeRaw, "last_error")
+		probe = githubauthdomain.NormalizeProbe(&githubauthdomain.TokenProbe{State: githubauthdomain.ProbeState(stateRaw), Configured: configured, Valid: valid, Permissions: permissions, RepoAccess: githubauthdomain.RepoAccess(repoAccessRaw), LastError: lastError}, configured)
+	}
+	return domain.MachineFullAudit{CollectedAt: checkedAt.UTC(), Git: domain.MachineGitAudit{Installed: gitInstalled, UserName: stringOrEmptyRuntime(gitRaw, "user_name"), UserEmail: stringOrEmptyRuntime(gitRaw, "user_email")}, GitHubCLI: domain.MachineGitHubCLIAudit{Installed: ghInstalled, AuthStatus: ghAuth}, GitHubTokenProbe: probe, Network: domain.MachineNetworkAudit{GitHubReachable: githubReachable, PyPIReachable: pypiReachable, NPMReachable: npmReachable}}, nil
+}
+
+func boolFromRuntimeResource(resources map[string]any, key string) (bool, bool) {
+	value, ok := resources[key]
+	if !ok {
+		return false, false
+	}
+	typed, ok := value.(bool)
+	return typed, ok
+}
+
+func stringFromRuntimeResource(resources map[string]any, key string) (string, bool) {
+	value, ok := resources[key]
+	if !ok {
+		return "", false
+	}
+	s, ok := value.(string)
+	if !ok {
+		return "", false
+	}
+	return strings.TrimSpace(s), true
+}
+
+func stringOrEmptyRuntime(resources map[string]any, key string) string {
+	s, _ := stringFromRuntimeResource(resources, key)
+	return s
+}
+
+func stringSliceFromRuntimeResource(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		if ss, ok := value.([]string); ok {
+			return append([]string(nil), ss...)
+		}
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+			out = append(out, strings.TrimSpace(s))
+		}
+	}
+	return out
+}
+
+func parseMachineAgentAuthStatusRuntime(raw string) (domain.MachineAgentAuthStatus, error) {
+	switch raw {
+	case "unknown", "":
+		return domain.MachineAgentAuthStatusUnknown, nil
+	case "logged_in":
+		return domain.MachineAgentAuthStatusLoggedIn, nil
+	case "not_logged_in":
+		return domain.MachineAgentAuthStatusNotLoggedIn, nil
+	default:
+		return "", fmt.Errorf("invalid runtime auth_status %q", raw)
+	}
+}
+
+func parseMachineAgentAuthModeRuntime(raw string) (domain.MachineAgentAuthMode, error) {
+	switch raw {
+	case "unknown", "":
+		return domain.MachineAgentAuthModeUnknown, nil
+	case "login":
+		return domain.MachineAgentAuthModeLogin, nil
+	case "api_key":
+		return domain.MachineAgentAuthModeAPIKey, nil
+	default:
+		return "", fmt.Errorf("invalid runtime auth_mode %q", raw)
+	}
+}
+
+func websocketProbeFailureLayer(observedAt time.Time, err error) domain.WebsocketHealthLayer {
+	details := map[string]any{}
+	var runtimeErr runtimeProtocolError
+	if errors.As(err, &runtimeErr) {
+		payload := runtimeErr.Payload()
+		details["error_code"] = string(payload.Code)
+		details["error_class"] = string(payload.Class)
+		for key, value := range payload.Details {
+			details[key] = value
+		}
+	}
+	return domain.WebsocketHealthLayer{
+		State:      domain.WebsocketHealthStateFailed,
+		Reason:     err.Error(),
+		ObservedAt: observedAt.UTC(),
+		Details:    details,
+	}
+}
+
 func (c *MonitorCollector) CollectGPUResources(ctx context.Context, machine domain.Machine) (domain.MachineGPUResources, error) {
 	mode := effectiveConnectionMode(machine)
-	if mode == domain.MachineConnectionModeWSReverse || mode == domain.MachineConnectionModeWSListener {
+	if mode == domain.MachineConnectionModeWSListener {
 		return domain.MachineGPUResources{}, fmt.Errorf("%w: gpu resource collection is not implemented for %s", ErrTransportUnavailable, mode)
 	}
 	if c == nil || c.sshCollector == nil {
@@ -452,8 +842,20 @@ func (c *MonitorCollector) CollectGPUResources(ctx context.Context, machine doma
 
 func (c *MonitorCollector) CollectAgentEnvironment(ctx context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error) {
 	mode := effectiveConnectionMode(machine)
-	if mode == domain.MachineConnectionModeWSReverse || mode == domain.MachineConnectionModeWSListener {
-		return domain.MachineAgentEnvironment{}, fmt.Errorf("%w: agent environment collection is not implemented for %s", ErrTransportUnavailable, mode)
+	if mode == domain.MachineConnectionModeWSListener {
+		resolved, resolveErr := c.resolver.ResolveRuntime(machine)
+		if resolveErr != nil {
+			return domain.MachineAgentEnvironment{}, resolveErr
+		}
+		prober := resolved.ProbeExecutor()
+		if prober == nil {
+			return domain.MachineAgentEnvironment{}, fmt.Errorf("%w: probe unavailable for machine %s", ErrTransportUnavailable, machine.Name)
+		}
+		probe, err := prober.Probe(ctx, machine)
+		if err != nil {
+			return domain.MachineAgentEnvironment{}, err
+		}
+		return parseRuntimeAgentEnvironment(probe.Resources, probe.CheckedAt)
 	}
 	if c == nil || c.sshCollector == nil {
 		return domain.MachineAgentEnvironment{}, fmt.Errorf("machine monitor collector unavailable")
@@ -463,8 +865,20 @@ func (c *MonitorCollector) CollectAgentEnvironment(ctx context.Context, machine 
 
 func (c *MonitorCollector) CollectFullAudit(ctx context.Context, machine domain.Machine) (domain.MachineFullAudit, error) {
 	mode := effectiveConnectionMode(machine)
-	if mode == domain.MachineConnectionModeWSReverse || mode == domain.MachineConnectionModeWSListener {
-		return domain.MachineFullAudit{}, fmt.Errorf("%w: full audit collection is not implemented for %s", ErrTransportUnavailable, mode)
+	if mode == domain.MachineConnectionModeWSListener {
+		resolved, resolveErr := c.resolver.ResolveRuntime(machine)
+		if resolveErr != nil {
+			return domain.MachineFullAudit{}, resolveErr
+		}
+		prober := resolved.ProbeExecutor()
+		if prober == nil {
+			return domain.MachineFullAudit{}, fmt.Errorf("%w: probe unavailable for machine %s", ErrTransportUnavailable, machine.Name)
+		}
+		probe, err := prober.Probe(ctx, machine)
+		if err != nil {
+			return domain.MachineFullAudit{}, err
+		}
+		return parseRuntimeFullAudit(probe.Resources, probe.CheckedAt)
 	}
 	if c == nil || c.sshCollector == nil {
 		return domain.MachineFullAudit{}, fmt.Errorf("machine monitor collector unavailable")
@@ -804,6 +1218,19 @@ func pointerString(value *string) string {
 }
 
 func effectiveConnectionMode(machine domain.Machine) domain.MachineConnectionMode {
+	if machine.ConnectionMode.IsValid() &&
+		!machine.ReachabilityMode.IsValid() &&
+		!machine.ExecutionMode.IsValid() {
+		return machine.ConnectionMode
+	}
+	if mode, _, _, err := domain.ResolveMachineConnectionMode(
+		machine.ConnectionMode.String(),
+		machine.ReachabilityMode.String(),
+		machine.ExecutionMode.String(),
+		machine.Host,
+	); err == nil {
+		return mode
+	}
 	if machine.ConnectionMode.IsValid() {
 		return machine.ConnectionMode
 	}

@@ -89,6 +89,15 @@ func (s *Service) ListRules(ctx context.Context, projectID uuid.UUID) ([]domain.
 	return s.repo.Rules(ctx, projectID)
 }
 
+// GetRule returns a single configured notification rule.
+func (s *Service) GetRule(ctx context.Context, ruleID uuid.UUID) (domain.Rule, error) {
+	if s.repo == nil {
+		return domain.Rule{}, ErrUnavailable
+	}
+
+	return s.repo.Rule(ctx, ruleID)
+}
+
 // Create validates and persists a new notification channel.
 func (s *Service) Create(ctx context.Context, input domain.CreateChannelInput) (domain.Channel, error) {
 	if s.repo == nil {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import {
     Inbox,
     Plus,
@@ -109,7 +110,9 @@
           </Tooltip.Trigger>
           <Tooltip.Portal>
             <Tooltip.Content side="top">
-              Parallel limit: {column.wipInfo}
+              {i18nStore.t('board.column.parallelLimit', {
+                limit: currentStatus?.maxActiveRuns ?? '',
+              })}
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>
@@ -131,7 +134,7 @@
           </Tooltip.Trigger>
           <Tooltip.Portal>
             <Tooltip.Content side="top">
-              Picked up by: {wf.name}
+              {i18nStore.t('board.column.pickedUpBy', { workflowName: wf.name })}
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>
@@ -142,7 +145,7 @@
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
           class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-6 items-center justify-center rounded transition-colors"
-          aria-label="Column actions"
+          aria-label={i18nStore.t('board.column.actions')}
         >
           <Ellipsis class="size-3.5" />
         </DropdownMenu.Trigger>
@@ -151,14 +154,14 @@
             class="text-xs"
             onclick={() => onColumnAction?.(column.id, 'set_concurrency')}
           >
-            Set concurrency
+            {i18nStore.t('board.column.actions.setConcurrency')}
           </DropdownMenu.Item>
           <DropdownMenu.Item
             class="text-xs"
             onclick={() => onColumnAction?.(column.id, 'clear_concurrency')}
             disabled={!hasConcurrencyLimit}
           >
-            Clear concurrency
+            {i18nStore.t('board.column.actions.clearConcurrency')}
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
           <DropdownMenu.Item
@@ -167,7 +170,7 @@
             disabled={column.tickets.length === 0}
           >
             <Archive class="size-3.5" />
-            Archive all
+            {i18nStore.t('board.column.actions.archiveAll')}
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
           <DropdownMenu.Item
@@ -176,7 +179,7 @@
             disabled={!canMoveLeft}
           >
             <ArrowLeft class="size-3.5" />
-            Move left
+            {i18nStore.t('board.column.actions.moveLeft')}
           </DropdownMenu.Item>
           <DropdownMenu.Item
             class="gap-2 text-xs"
@@ -184,7 +187,7 @@
             disabled={!canMoveRight}
           >
             <ArrowRight class="size-3.5" />
-            Move right
+            {i18nStore.t('board.column.actions.moveRight')}
           </DropdownMenu.Item>
           <DropdownMenu.Separator />
           <DropdownMenu.Item
@@ -192,7 +195,7 @@
             onclick={() => onColumnAction?.(column.id, 'delete')}
           >
             <Trash2 class="size-3.5" />
-            Delete
+            {i18nStore.t('board.column.actions.delete')}
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
@@ -200,7 +203,7 @@
       <button
         type="button"
         class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-6 items-center justify-center rounded transition-colors"
-        aria-label="Create ticket in {column.name}"
+        aria-label={i18nStore.t('board.column.createTicket', { columnName: column.name })}
         onclick={() => onCreateTicket?.(column.id)}
       >
         <Plus class="size-3.5" />
@@ -223,7 +226,7 @@
       <button
         type="button"
         class="border-border/60 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50 flex w-full shrink-0 items-center justify-center rounded-md border border-dashed py-1.5 transition-colors"
-        aria-label="Add ticket to {column.name}"
+        aria-label={i18nStore.t('board.column.addTicket', { columnName: column.name })}
         onclick={() => onCreateTicket?.(column.id)}
       >
         <Plus class="size-3.5" />
@@ -233,7 +236,7 @@
     {#if column.tickets.length === 0 && !showDropPlaceholder}
       <div class="text-muted-foreground flex flex-1 flex-col items-center justify-center py-8">
         <Inbox class="mb-2 size-5" />
-        <span class="text-xs">No tickets</span>
+        <span class="text-xs">{i18nStore.t('board.column.emptyState.noTickets')}</span>
       </div>
     {/if}
 
@@ -256,7 +259,7 @@
       <div
         class="border-primary/50 bg-primary/5 text-primary rounded-md border border-dashed px-3 py-2 text-xs font-medium"
       >
-        Drop ticket here
+        {i18nStore.t('board.column.dropPlaceholder')}
       </div>
     {/if}
 
@@ -264,7 +267,7 @@
       <button
         type="button"
         class="border-border/60 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/50 flex w-full shrink-0 items-center justify-center rounded-md border border-dashed py-1.5 transition-colors"
-        aria-label="Add ticket to {column.name}"
+        aria-label={i18nStore.t('board.column.addTicket', { columnName: column.name })}
         onclick={() => onCreateTicket?.(column.id)}
       >
         <Plus class="size-3.5" />

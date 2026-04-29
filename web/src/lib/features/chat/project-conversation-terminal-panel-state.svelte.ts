@@ -13,6 +13,7 @@ import {
   type TerminalPanelStatus,
   type TerminalServerFrame,
 } from './project-conversation-terminal-panel-helpers'
+import { chatT } from './i18n'
 
 export function createProjectConversationTerminalPanelState(input: {
   getConversationId: () => string
@@ -189,7 +190,7 @@ export function createProjectConversationTerminalPanelState(input: {
       session = payload.terminalSession
     } catch (error) {
       status = 'error'
-      statusMessage = error instanceof Error ? error.message : 'Failed to create terminal session.'
+      statusMessage = error instanceof Error ? error.message : chatT('chat.terminal.errors.create')
       return
     }
 
@@ -205,7 +206,7 @@ export function createProjectConversationTerminalPanelState(input: {
         handleServerFrame(parseTerminalServerFrame(event.data), socket)
       } catch (error) {
         status = 'error'
-        statusMessage = error instanceof Error ? error.message : 'Failed to parse terminal output.'
+        statusMessage = error instanceof Error ? error.message : chatT('chat.terminal.errors.parse')
         socket.close()
       }
     }

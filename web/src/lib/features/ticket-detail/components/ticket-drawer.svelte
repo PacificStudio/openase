@@ -1,5 +1,6 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
+  import { createProjectReconnectRecoveryTask } from '$lib/features/project-events'
   import { statusSync } from '$lib/features/statuses/public'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import { createTicketDrawerState } from '../drawer-state.svelte'
@@ -7,6 +8,8 @@
   import { createTicketDrawerActions } from '../ticket-drawer-actions'
   import TicketDrawerContent from './ticket-drawer-content.svelte'
   import TicketDrawerLoading from './ticket-drawer-loading.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import { startTicketDetailTour, hasTicketDetailTourBeenShown } from '$lib/features/tour'
   import type { TicketDetail } from '../types'
 
   let {
@@ -77,11 +80,30 @@
   })
 
   $effect(() => {
+    if (!open || !projectId) return
+    if (drawerState.loading || !drawerState.ticket) return
+    if (hasTicketDetailTourBeenShown(projectId)) return
+    const pinnedProjectId = projectId
+    const timer = setTimeout(() => {
+      if (!open || projectId !== pinnedProjectId) return
+      startTicketDetailTour(pinnedProjectId, i18nStore.t)
+    }, 700)
+    return () => clearTimeout(timer)
+  })
+
+  $effect(() => {
     if (!open || !projectId || !ticketId) {
       return
     }
 
-    let runStreamNeedsRecovery = false
+    const recoverAfterReconnect = createProjectReconnectRecoveryTask(async () => {
+      drawerState.invalidateReferences(projectId)
+      await drawerState.load(projectId, ticketId, {
+        background: true,
+        preserveMessages: true,
+      })
+      await drawerState.recoverRunTranscript(projectId, ticketId)
+    })
 
     return connectTicketDetailStreams(projectId, ticketId, {
       onRelevantEvent: () => {
@@ -94,16 +116,9 @@
       onRunFrame: (frame) => {
         drawerState.applyRunStreamFrame(frame)
       },
+      onReconnectRecovery: recoverAfterReconnect,
       onRunStateChange: (state) => {
         drawerState.setRunStreamState(state)
-        if (state === 'retrying') {
-          runStreamNeedsRecovery = true
-          return
-        }
-        if (state === 'live' && runStreamNeedsRecovery) {
-          runStreamNeedsRecovery = false
-          void drawerState.recoverRunTranscript(projectId, ticketId)
-        }
       },
     })
   })
@@ -116,8 +131,10 @@
     showCloseButton={false}
   >
     <SheetHeader class="sr-only">
-      <SheetTitle>{drawerState.ticket?.identifier ?? 'Ticket detail'}</SheetTitle>
-      <SheetDescription>Ticket detail drawer</SheetDescription>
+      <SheetTitle>
+        {drawerState.ticket?.identifier ?? i18nStore.t('ticketDetail.drawer.defaultTitle')}
+      </SheetTitle>
+      <SheetDescription>{i18nStore.t('ticketDetail.drawer.defaultDescription')}</SheetDescription>
     </SheetHeader>
 
     {#if drawerState.loading}

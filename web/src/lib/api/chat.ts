@@ -139,7 +139,10 @@ export type ProjectConversationWorkspaceFileStatus =
 
 export type ProjectConversationWorkspaceDiffFile = {
   path: string
+  oldPath?: string
   status: ProjectConversationWorkspaceFileStatus
+  staged?: boolean
+  unstaged?: boolean
   added: number
   removed: number
 }
@@ -170,6 +173,7 @@ export type ProjectConversationWorkspaceDiffRepo = {
 export type ProjectConversationWorkspaceDiff = {
   conversationId: string
   workspacePath: string
+  preparing: boolean
   dirty: boolean
   reposChanged: number
   filesChanged: number
@@ -183,6 +187,7 @@ export type ProjectConversationWorkspaceRepoMetadata = {
   name: string
   path: string
   branch: string
+  currentRef: ProjectConversationWorkspaceCurrentRef
   headCommit: string
   headSummary: string
   dirty: boolean
@@ -191,10 +196,85 @@ export type ProjectConversationWorkspaceRepoMetadata = {
   removed: number
 }
 
+export type ProjectConversationWorkspaceCurrentRefKind = 'branch' | 'detached'
+
+export type ProjectConversationWorkspaceCurrentRef = {
+  kind: ProjectConversationWorkspaceCurrentRefKind
+  displayName: string
+  cacheKey: string
+  branchName: string
+  branchFullName: string
+  commitId: string
+  shortCommitId: string
+  subject: string
+}
+
+export type ProjectConversationWorkspaceBranchScope = 'local_branch' | 'remote_tracking_branch'
+
+export type ProjectConversationWorkspaceBranchRef = {
+  name: string
+  fullName: string
+  scope: ProjectConversationWorkspaceBranchScope
+  current: boolean
+  commitId: string
+  shortCommitId: string
+  subject: string
+  upstreamName: string
+  ahead: number
+  behind: number
+  suggestedLocalBranchName: string
+}
+
+export type ProjectConversationWorkspaceRepoRefs = {
+  conversationId: string
+  repoPath: string
+  currentRef: ProjectConversationWorkspaceCurrentRef
+  localBranches: ProjectConversationWorkspaceBranchRef[]
+  remoteBranches: ProjectConversationWorkspaceBranchRef[]
+}
+
+export type ProjectConversationWorkspaceGitRefLabelScope =
+  | 'head'
+  | 'local_branch'
+  | 'remote_tracking_branch'
+
+export type ProjectConversationWorkspaceGitRefLabel = {
+  name: string
+  fullName: string
+  scope: ProjectConversationWorkspaceGitRefLabelScope
+  current: boolean
+}
+
+export type ProjectConversationWorkspaceGitGraphCommit = {
+  commitId: string
+  shortCommitId: string
+  parentIds: string[]
+  subject: string
+  authorName: string
+  authoredAt: string
+  labels: ProjectConversationWorkspaceGitRefLabel[]
+  head: boolean
+}
+
+export type ProjectConversationWorkspaceGitGraph = {
+  conversationId: string
+  repoPath: string
+  limit: number
+  commits: ProjectConversationWorkspaceGitGraphCommit[]
+}
+
+export type ProjectConversationWorkspaceCheckoutResult = {
+  conversationId: string
+  repoPath: string
+  currentRef: ProjectConversationWorkspaceCurrentRef
+  createdLocalBranch: string
+}
+
 export type ProjectConversationWorkspaceMetadata = {
   conversationId: string
   available: boolean
   workspacePath: string
+  preparing: boolean
   repos: ProjectConversationWorkspaceRepoMetadata[]
   syncPrompt?: ProjectConversationWorkspaceSyncPrompt
 }
@@ -594,6 +674,265 @@ export async function syncProjectConversationWorkspace(conversationId: string) {
   const object = parseRequiredObject(payload as Record<string, unknown>)
   return {
     workspace: parseProjectConversationWorkspaceMetadata(object.workspace ?? object),
+  }
+}
+
+export async function getProjectConversationWorkspaceRepoRefs(
+  conversationId: string,
+  request: { repoPath: string },
+) {
+  const payload = await fetchJSON<{ repo_refs?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/repo-refs`,
+    {
+      params: {
+        repo_path: request.repoPath,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    repoRefs: parseProjectConversationWorkspaceRepoRefs(object.repo_refs ?? object),
+  }
+}
+
+export async function getProjectConversationWorkspaceGitGraph(
+  conversationId: string,
+  request: { repoPath: string; limit?: number },
+) {
+  const payload = await fetchJSON<{ git_graph?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/git-graph`,
+    {
+      params: {
+        repo_path: request.repoPath,
+        limit: request.limit == null ? undefined : String(request.limit),
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    gitGraph: parseProjectConversationWorkspaceGitGraph(object.git_graph ?? object),
+  }
+}
+
+export async function checkoutProjectConversationWorkspaceBranch(
+  conversationId: string,
+  request: {
+    repoPath: string
+    targetKind: ProjectConversationWorkspaceBranchScope
+    targetName: string
+    createTrackingBranch: boolean
+    localBranchName?: string
+    expectedCleanWorkspace: boolean
+  },
+) {
+  const payload = await fetchJSON<{ checkout?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/checkout`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        target_kind: request.targetKind,
+        target_name: request.targetName,
+        create_tracking_branch: request.createTrackingBranch,
+        local_branch_name: request.localBranchName ?? '',
+        expected_clean_workspace: request.expectedCleanWorkspace,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    checkout: parseProjectConversationWorkspaceCheckoutResult(object.checkout ?? object),
+  }
+}
+
+export type ProjectConversationWorkspaceGitRemoteOp = 'fetch' | 'pull' | 'push'
+
+export type ProjectConversationWorkspaceGitRemoteOpResult = {
+  conversationId: string
+  repoPath: string
+  op: ProjectConversationWorkspaceGitRemoteOp
+  output: string
+}
+
+export type ProjectConversationWorkspaceGitStageResult = {
+  conversationId: string
+  repoPath: string
+  path: string
+}
+
+export type ProjectConversationWorkspaceGitStageAllResult = {
+  conversationId: string
+  repoPath: string
+}
+
+export type ProjectConversationWorkspaceGitCommitResult = {
+  conversationId: string
+  repoPath: string
+  output: string
+}
+
+export type ProjectConversationWorkspaceGitDiscardResult = {
+  conversationId: string
+  repoPath: string
+  path: string
+}
+
+export type ProjectConversationWorkspaceGitUnstageResult = {
+  conversationId: string
+  repoPath: string
+  path: string
+}
+
+export async function runProjectConversationWorkspaceGitRemoteOp(
+  conversationId: string,
+  request: { repoPath: string; op: ProjectConversationWorkspaceGitRemoteOp },
+): Promise<ProjectConversationWorkspaceGitRemoteOpResult> {
+  const payload = await fetchJSON<Record<string, unknown>>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/git-remote-op`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        op: request.op,
+      },
+    },
+  )
+  return {
+    conversationId: readRequiredString(payload, 'conversation_id'),
+    repoPath: readRequiredString(payload, 'repo_path'),
+    op: readRequiredString(payload, 'op') as ProjectConversationWorkspaceGitRemoteOp,
+    output: readOptionalString(payload, 'output') ?? '',
+  }
+}
+
+export async function stageProjectConversationWorkspaceFile(
+  conversationId: string,
+  request: { repoPath: string; path: string },
+): Promise<ProjectConversationWorkspaceGitStageResult> {
+  const payload = await fetchJSON<Record<string, unknown>>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/git-stage`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        path: request.path,
+      },
+    },
+  )
+  return {
+    conversationId: readRequiredString(payload, 'conversation_id'),
+    repoPath: readRequiredString(payload, 'repo_path'),
+    path: readRequiredString(payload, 'path'),
+  }
+}
+
+export async function stageAllProjectConversationWorkspaceFiles(
+  conversationId: string,
+  request: { repoPath: string },
+): Promise<ProjectConversationWorkspaceGitStageAllResult> {
+  const payload = await fetchJSON<Record<string, unknown>>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/git-stage-all`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+      },
+    },
+  )
+  return {
+    conversationId: readRequiredString(payload, 'conversation_id'),
+    repoPath: readRequiredString(payload, 'repo_path'),
+  }
+}
+
+export async function commitProjectConversationWorkspace(
+  conversationId: string,
+  request: { repoPath: string; message: string },
+): Promise<ProjectConversationWorkspaceGitCommitResult> {
+  const payload = await fetchJSON<Record<string, unknown>>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/git-commit`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        message: request.message,
+      },
+    },
+  )
+  return {
+    conversationId: readRequiredString(payload, 'conversation_id'),
+    repoPath: readRequiredString(payload, 'repo_path'),
+    output: readOptionalString(payload, 'output') ?? '',
+  }
+}
+
+export async function discardProjectConversationWorkspaceFile(
+  conversationId: string,
+  request: { repoPath: string; path: string },
+): Promise<ProjectConversationWorkspaceGitDiscardResult> {
+  const payload = await fetchJSON<Record<string, unknown>>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/git-discard`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        path: request.path,
+      },
+    },
+  )
+  return {
+    conversationId: readRequiredString(payload, 'conversation_id'),
+    repoPath: readRequiredString(payload, 'repo_path'),
+    path: readRequiredString(payload, 'path'),
+  }
+}
+
+export async function unstageProjectConversationWorkspace(
+  conversationId: string,
+  request: { repoPath: string; path?: string },
+): Promise<ProjectConversationWorkspaceGitUnstageResult> {
+  const payload = await fetchJSON<Record<string, unknown>>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/git-unstage`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        path: request.path ?? '',
+      },
+    },
+  )
+  return {
+    conversationId: readRequiredString(payload, 'conversation_id'),
+    repoPath: readRequiredString(payload, 'repo_path'),
+    path: readOptionalString(payload, 'path') ?? '',
+  }
+}
+
+export type ProjectConversationWorkspaceCreateBranchResult = {
+  conversationId: string
+  repoPath: string
+  branchName: string
+}
+
+export async function createProjectConversationWorkspaceBranch(
+  conversationId: string,
+  request: { repoPath: string; branchName: string; startPoint?: string },
+): Promise<ProjectConversationWorkspaceCreateBranchResult> {
+  const payload = await fetchJSON<Record<string, unknown>>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/create-branch`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        branch_name: request.branchName,
+        start_point: request.startPoint ?? '',
+      },
+    },
+  )
+  return {
+    conversationId: readRequiredString(payload, 'conversation_id'),
+    repoPath: readRequiredString(payload, 'repo_path'),
+    branchName: readRequiredString(payload, 'branch_name'),
   }
 }
 
@@ -1303,6 +1642,7 @@ function parseProjectConversationWorkspaceDiff(value: unknown): ProjectConversat
   return {
     conversationId: readRequiredString(object, 'conversation_id'),
     workspacePath: readRequiredString(object, 'workspace_path'),
+    preparing: readRequiredBoolean(object, 'preparing'),
     dirty: readRequiredBoolean(object, 'dirty'),
     reposChanged: readRequiredNumber(object, 'repos_changed'),
     filesChanged: readRequiredNumber(object, 'files_changed'),
@@ -1326,6 +1666,12 @@ function parseProjectConversationWorkspaceMetadata(
           name: readRequiredString(repo, 'name'),
           path: readRequiredString(repo, 'path'),
           branch: readRequiredString(repo, 'branch'),
+          currentRef: parseProjectConversationWorkspaceCurrentRef(
+            readOptionalObject(repo, 'current_ref'),
+            readRequiredString(repo, 'branch'),
+            readRequiredString(repo, 'head_commit'),
+            readRequiredString(repo, 'head_summary'),
+          ),
           headCommit: readRequiredString(repo, 'head_commit'),
           headSummary: readRequiredString(repo, 'head_summary'),
           dirty: readRequiredBoolean(repo, 'dirty'),
@@ -1340,10 +1686,154 @@ function parseProjectConversationWorkspaceMetadata(
     conversationId: readRequiredString(object, 'conversation_id'),
     available: readRequiredBoolean(object, 'available'),
     workspacePath: readOptionalString(object, 'workspace_path') ?? '',
+    preparing: readRequiredBoolean(object, 'preparing'),
     repos,
     syncPrompt: parseProjectConversationWorkspaceSyncPrompt(
       readOptionalObject(object, 'sync_prompt'),
     ),
+  }
+}
+
+function parseProjectConversationWorkspaceCurrentRef(
+  value: Record<string, unknown> | undefined,
+  fallbackDisplayName = '',
+  fallbackCommitId = '',
+  fallbackSubject = '',
+): ProjectConversationWorkspaceCurrentRef {
+  if (!value) {
+    const kind: ProjectConversationWorkspaceCurrentRefKind = fallbackDisplayName.startsWith(
+      'detached',
+    )
+      ? 'detached'
+      : 'branch'
+    return {
+      kind,
+      displayName: fallbackDisplayName,
+      cacheKey:
+        kind === 'branch' ? `branch:${fallbackDisplayName}` : `detached:${fallbackCommitId || ''}`,
+      branchName: kind === 'branch' ? fallbackDisplayName : '',
+      branchFullName: kind === 'branch' ? `refs/heads/${fallbackDisplayName}` : '',
+      commitId: fallbackCommitId,
+      shortCommitId: fallbackCommitId.slice(0, 12),
+      subject: fallbackSubject,
+    }
+  }
+  const kind = readRequiredString(value, 'kind')
+  if (kind !== 'branch' && kind !== 'detached') {
+    throw new Error(`project conversation workspace current ref ${kind} is unsupported`)
+  }
+  return {
+    kind,
+    displayName: readRequiredString(value, 'display_name'),
+    cacheKey: readRequiredString(value, 'cache_key'),
+    branchName: readOptionalString(value, 'branch_name') ?? '',
+    branchFullName: readOptionalString(value, 'branch_full_name') ?? '',
+    commitId: readOptionalString(value, 'commit_id') ?? '',
+    shortCommitId: readOptionalString(value, 'short_commit_id') ?? '',
+    subject: readOptionalString(value, 'subject') ?? '',
+  }
+}
+
+function parseProjectConversationWorkspaceBranchRef(
+  value: unknown,
+): ProjectConversationWorkspaceBranchRef {
+  const object = parseRequiredObject(value)
+  const scope = readRequiredString(object, 'scope')
+  if (scope !== 'local_branch' && scope !== 'remote_tracking_branch') {
+    throw new Error(`project conversation workspace branch scope ${scope} is unsupported`)
+  }
+  return {
+    name: readRequiredString(object, 'name'),
+    fullName: readRequiredString(object, 'full_name'),
+    scope,
+    current: readRequiredBoolean(object, 'current'),
+    commitId: readOptionalString(object, 'commit_id') ?? '',
+    shortCommitId: readOptionalString(object, 'short_commit_id') ?? '',
+    subject: readOptionalString(object, 'subject') ?? '',
+    upstreamName: readOptionalString(object, 'upstream_name') ?? '',
+    ahead: readRequiredNumber(object, 'ahead'),
+    behind: readRequiredNumber(object, 'behind'),
+    suggestedLocalBranchName: readOptionalString(object, 'suggested_local_branch_name') ?? '',
+  }
+}
+
+function parseProjectConversationWorkspaceRepoRefs(
+  value: unknown,
+): ProjectConversationWorkspaceRepoRefs {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    currentRef: parseProjectConversationWorkspaceCurrentRef(
+      readOptionalObject(object, 'current_ref'),
+    ),
+    localBranches: Array.isArray(object.local_branches)
+      ? object.local_branches.map((item) => parseProjectConversationWorkspaceBranchRef(item))
+      : [],
+    remoteBranches: Array.isArray(object.remote_branches)
+      ? object.remote_branches.map((item) => parseProjectConversationWorkspaceBranchRef(item))
+      : [],
+  }
+}
+
+function parseProjectConversationWorkspaceGitRefLabel(
+  value: unknown,
+): ProjectConversationWorkspaceGitRefLabel {
+  const object = parseRequiredObject(value)
+  const scope = readRequiredString(object, 'scope')
+  if (scope !== 'head' && scope !== 'local_branch' && scope !== 'remote_tracking_branch') {
+    throw new Error(`project conversation workspace git label scope ${scope} is unsupported`)
+  }
+  return {
+    name: readRequiredString(object, 'name'),
+    fullName: readRequiredString(object, 'full_name'),
+    scope,
+    current: readRequiredBoolean(object, 'current'),
+  }
+}
+
+function parseProjectConversationWorkspaceGitGraph(
+  value: unknown,
+): ProjectConversationWorkspaceGitGraph {
+  const object = parseRequiredObject(value)
+  const commits = Array.isArray(object.commits)
+    ? object.commits.map((item) => {
+        const commit = parseRequiredObject(item)
+        return {
+          commitId: readRequiredString(commit, 'commit_id'),
+          shortCommitId: readRequiredString(commit, 'short_commit_id'),
+          parentIds: Array.isArray(commit.parent_ids)
+            ? commit.parent_ids.map((parent) => String(parent))
+            : [],
+          subject: readRequiredString(commit, 'subject'),
+          authorName: readRequiredString(commit, 'author_name'),
+          authoredAt: readRequiredString(commit, 'authored_at'),
+          labels: Array.isArray(commit.labels)
+            ? commit.labels.map((label) => parseProjectConversationWorkspaceGitRefLabel(label))
+            : [],
+          head: readRequiredBoolean(commit, 'head'),
+        } satisfies ProjectConversationWorkspaceGitGraphCommit
+      })
+    : []
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    limit: readRequiredNumber(object, 'limit'),
+    commits,
+  }
+}
+
+function parseProjectConversationWorkspaceCheckoutResult(
+  value: unknown,
+): ProjectConversationWorkspaceCheckoutResult {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    currentRef: parseProjectConversationWorkspaceCurrentRef(
+      readOptionalObject(object, 'current_ref'),
+    ),
+    createdLocalBranch: readOptionalString(object, 'created_local_branch') ?? '',
   }
 }
 
@@ -1578,7 +2068,10 @@ function readProjectConversationWorkspaceDiffFiles(
     }
     return {
       path: readRequiredString(file, 'path'),
+      oldPath: readOptionalString(file, 'old_path') ?? '',
       status,
+      staged: readOptionalBoolean(file, 'staged') ?? false,
+      unstaged: readOptionalBoolean(file, 'unstaged') ?? false,
       added: readRequiredNumber(file, 'added'),
       removed: readRequiredNumber(file, 'removed'),
     }

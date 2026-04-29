@@ -6,6 +6,7 @@
   import MachineRowCardActions from './machine-row-card-actions.svelte'
   import { buildResourceBars, buildStatusDots, type StatusDot } from './machine-row-card-view'
   import {
+    detectedPlatformFromSnapshot,
     isLocalMachine,
     machineDetectedArchLabel,
     machineDetectedOSLabel,
@@ -16,6 +17,7 @@
   } from '../model'
   import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineItem } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const dotColorClass: Record<StatusDot['color'], string> = {
     green: 'bg-emerald-500',
@@ -30,8 +32,10 @@
     resetEnabled = false,
     testing = false,
     deleting = false,
+    maintenanceUpdating = false,
     onOpen,
     onTest,
+    onToggleMaintenance,
     onReset,
     onDelete,
   }: {
@@ -40,17 +44,20 @@
     resetEnabled?: boolean
     testing?: boolean
     deleting?: boolean
+    maintenanceUpdating?: boolean
     onOpen?: () => void
     onTest?: () => void
+    onToggleMaintenance?: (enabled: boolean) => void
     onReset?: () => void
     onDelete?: () => void
   } = $props()
 
   const snapshot = $derived(parseMachineSnapshot(machine.resources))
   const localMachine = $derived(isLocalMachine(machine))
+  const detectedPlatform = $derived(detectedPlatformFromSnapshot(snapshot))
   const reachabilityLabel = $derived(machineReachabilityLabel(machine.reachability_mode))
   const platformLabel = $derived(
-    `${machineDetectedOSLabel(machine.detected_os)} / ${machineDetectedArchLabel(machine.detected_arch)}`,
+    `${machineDetectedOSLabel(machine.detected_os ?? detectedPlatform.os)} / ${machineDetectedArchLabel(machine.detected_arch ?? detectedPlatform.arch)}`,
   )
   const detectionLabel = $derived(machineDetectionStatusLabel(machine.detection_status))
   const detectionBadgeClass = $derived(machineDetectionBadgeClass(machine.detection_status))
@@ -73,7 +80,9 @@
       <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <h3 class="text-foreground min-w-0 truncate text-sm font-semibold">{machine.name}</h3>
         {#if localMachine}
-          <Badge variant="secondary" class="text-[10px]">local</Badge>
+          <Badge variant="secondary" class="text-[10px]">
+            {i18nStore.t('machines.machineRowCard.badge.local')}
+          </Badge>
         {/if}
         <span class="text-muted-foreground hidden font-mono text-xs sm:inline">
           {machine.host}:{machine.port}
@@ -107,11 +116,14 @@
       <MachineRowCardActions
         machineName={machine.name}
         {localMachine}
+        inMaintenance={machine.status === 'maintenance'}
         {resetEnabled}
         {testing}
         {deleting}
+        {maintenanceUpdating}
         {onOpen}
         {onTest}
+        {onToggleMaintenance}
         {onReset}
         {onDelete}
       />

@@ -2,6 +2,7 @@
   import { Button } from '$ui/button'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { TicketDetail } from '../types'
 
   let {
@@ -29,19 +30,23 @@
 <section class="border-border bg-muted/20 rounded-lg border p-4">
   <div class="flex items-center justify-between gap-3">
     <div>
-      <h3 class="text-sm font-medium">Description</h3>
+      <h3 class="text-sm font-medium">{i18nStore.t('ticketDetail.fieldEditor.title')}</h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Update the issue description without leaving the drawer.
+        {i18nStore.t('ticketDetail.fieldEditor.description')}
       </p>
     </div>
     <Button size="sm" onclick={handleSave} disabled={!fieldsDirty || saving}>
-      {saving ? 'Saving…' : 'Save description'}
+      {saving
+        ? i18nStore.t('ticketDetail.fieldEditor.actions.saving')
+        : i18nStore.t('ticketDetail.fieldEditor.actions.save')}
     </Button>
   </div>
 
   <div class="mt-4">
     <div class="space-y-2">
-      <Label for="ticket-description">Description</Label>
+      <Label for="ticket-description">
+        {i18nStore.t('ticketDetail.fieldEditor.descriptionLabel')}
+      </Label>
       <Textarea id="ticket-description" rows={5} bind:value={descriptionDraft} disabled={saving} />
     </div>
   </div>

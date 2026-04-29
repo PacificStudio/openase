@@ -292,6 +292,10 @@ func (s *remoteTestSession) StderrPipe() (io.Reader, error) { return strings.New
 
 func (s *remoteTestSession) Start(string) error { return nil }
 
+func (s *remoteTestSession) StartPTY(string, int, int) error { return nil }
+
+func (s *remoteTestSession) Resize(int, int) error { return nil }
+
 func (s *remoteTestSession) Signal(string) error { return nil }
 
 func (s *remoteTestSession) Wait() error { return nil }

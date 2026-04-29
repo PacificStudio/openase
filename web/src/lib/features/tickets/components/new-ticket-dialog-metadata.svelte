@@ -12,6 +12,8 @@
     type TicketStatusOption,
   } from '../new-ticket'
 
+  import { ticketsT } from '../i18n'
+
   let {
     loading = false,
     saving = false,
@@ -64,7 +66,9 @@
         <StageIcon stage={selectedStatus.stage} color={selectedStatus.color} class="size-3.5" />
         <span class="text-foreground">{selectedStatus.label}</span>
       {:else}
-        <span class="text-muted-foreground">Status</span>
+        <span class="text-muted-foreground">
+          {ticketsT('tickets.newTicket.metadata.statusPlaceholder')}
+        </span>
       {/if}
       <ChevronDown class="text-muted-foreground size-3" />
     </Popover.Trigger>
@@ -125,13 +129,20 @@
       >
         <GitBranch class="text-muted-foreground size-3.5" />
         {#if selectedRepoCount === 0}
-          <span class="text-muted-foreground">Repos</span>
+          <span class="text-muted-foreground">
+            {ticketsT('tickets.newTicket.metadata.repoPlaceholder.none')}
+          </span>
         {:else if selectedRepoCount === 1}
           <span class="text-foreground max-w-28 truncate">
-            {repoOptions.find((repo) => draft.repoIds.includes(repo.id))?.label ?? '1 repo'}
+            {repoOptions.find((repo) => draft.repoIds.includes(repo.id))?.label ??
+              ticketsT('tickets.newTicket.metadata.repoPlaceholder.single')}
           </span>
         {:else}
-          <span class="text-foreground">{selectedRepoCount} repos</span>
+          <span class="text-foreground">
+            {ticketsT('tickets.newTicket.metadata.repoPlaceholder.multiple', {
+              count: selectedRepoCount,
+            })}
+          </span>
         {/if}
         <ChevronDown class="text-muted-foreground size-3" />
       </Popover.Trigger>
@@ -148,7 +159,11 @@
             />
             <div class="min-w-0 flex-1">
               <span class="text-foreground truncate">{option.label}</span>
-              <span class="text-muted-foreground ml-1">base: {option.defaultBranch}</span>
+              <span class="text-muted-foreground ml-1">
+                {ticketsT('tickets.newTicket.metadata.baseBranchLabel', {
+                  branchName: option.defaultBranch,
+                })}
+              </span>
             </div>
           </label>
         {/each}
@@ -166,7 +181,7 @@
         onclick={() => (branchConfigOpen = !branchConfigOpen)}
       >
         <Settings2 class="size-3" />
-        <span>Advanced</span>
+        <span>{ticketsT('tickets.newTicket.metadata.advanced')}</span>
         <ChevronRight
           class={cn('size-3 transition-transform duration-150', branchConfigOpen && 'rotate-90')}
         />
@@ -185,7 +200,9 @@
         <Input
           class="h-7 flex-1 text-[11px]"
           value={draft.repoBranchOverrides[option.id] ?? ''}
-          placeholder={`default: ticket branch (base: ${option.defaultBranch})`}
+          placeholder={ticketsT('tickets.newTicket.metadata.branchOverridePlaceholder', {
+            branchName: option.defaultBranch,
+          })}
           disabled={loading || saving}
           oninput={(event) => onUpdateRepoBranchOverride?.(option.id, event.currentTarget.value)}
         />

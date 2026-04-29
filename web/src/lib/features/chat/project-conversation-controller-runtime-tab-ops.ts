@@ -1,3 +1,4 @@
+import { tick } from 'svelte'
 import {
   createProjectConversation,
   startProjectConversationTurn,
@@ -11,6 +12,7 @@ import {
   isCurrentProjectConversationOperation,
   projectConversationHasPendingInterrupt,
 } from './project-conversation-controller-helpers'
+import { chatT } from './i18n'
 import type { ProjectAIFocus } from './project-ai-focus'
 import type {
   CreateProjectConversationControllerInput,
@@ -197,6 +199,8 @@ export function createProjectConversationRuntimeTabOps(
       activeTab.unread = false
       activeTab.phase = 'submitting_turn'
       input.touch()
+      await tick()
+      if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) return false
       const turnResponse = await startProjectConversationTurn(activeTab.conversationId, {
         message: trimmed,
         focus: focus ?? undefined,
@@ -224,7 +228,7 @@ export function createProjectConversationRuntimeTabOps(
       activeTab.phase = 'idle'
       input.touch()
       input.controllerInput.onError?.(
-        caughtError instanceof Error ? caughtError.message : 'Failed to send project message.',
+        caughtError instanceof Error ? caughtError.message : chatT('chat.errors.sendMessage'),
       )
       return false
     }

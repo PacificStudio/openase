@@ -37,6 +37,8 @@ import type {
   MachineHealthRefreshResponse,
   MachineResourcesResponse,
   MachineResponse,
+  MachineSSHBootstrapRequest,
+  MachineSSHBootstrapResponse,
   MachineTestResponse,
   NotificationChannelDeleteResponse,
   NotificationChannelPayload,
@@ -107,7 +109,6 @@ import type {
   TicketPayload,
   TicketResponse,
   TicketWorkspaceResetResponse,
-  HRAdvisorActivationResponse,
   HRAdvisorResponse,
   Organization,
   OrganizationSummaryResponse,
@@ -282,6 +283,12 @@ export function testMachineConnection(machineId: string) {
 
 export function refreshMachineHealth(machineId: string) {
   return api.post<MachineHealthRefreshResponse>(`/api/v1/machines/${machineId}/refresh-health`)
+}
+
+export function sshBootstrapMachine(machineId: string, body: MachineSSHBootstrapRequest = {}) {
+  return api.post<MachineSSHBootstrapResponse>(`/api/v1/machines/${machineId}/ssh-bootstrap`, {
+    body,
+  })
 }
 
 export function getMachineResources(machineId: string) {
@@ -649,21 +656,6 @@ export function deleteOrgGitHubCredential(orgId: string) {
 
 export function getHRAdvisor(projectId: string) {
   return api.get<HRAdvisorResponse>(`/api/v1/projects/${projectId}/hr-advisor`)
-}
-
-export function activateHRRecommendation(
-  projectId: string,
-  body: {
-    role_slug: string
-    create_bootstrap_ticket?: boolean | null
-  },
-) {
-  return api.post<HRAdvisorActivationResponse>(
-    `/api/v1/projects/${projectId}/hr-advisor/activate`,
-    {
-      body,
-    },
-  )
 }
 
 export function updateProject(
@@ -1351,6 +1343,10 @@ export function createScheduledJob(
       created_by?: string
       description?: string
       priority?: string
+      repo_scopes?: Array<{
+        branch_name?: string | null
+        repo_id: string
+      }>
       status?: string
       title?: string
       type?: string
@@ -1371,6 +1367,10 @@ export function updateScheduledJob(
       created_by?: string
       description?: string
       priority?: string
+      repo_scopes?: Array<{
+        branch_name?: string | null
+        repo_id: string
+      }>
       status?: string
       title?: string
       type?: string
@@ -1534,6 +1534,10 @@ export function updateProvider(
   },
 ) {
   return api.patch<{ provider?: AgentProvider }>(`/api/v1/providers/${providerId}`, { body })
+}
+
+export function deleteProvider(providerId: string) {
+  return api.delete<AgentProviderResponse>(`/api/v1/providers/${providerId}`)
 }
 
 export function listNotificationEventTypes() {

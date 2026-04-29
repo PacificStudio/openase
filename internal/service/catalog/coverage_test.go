@@ -100,11 +100,17 @@ func TestServiceDelegatesRepositoryWrappers(t *testing.T) {
 	if _, err := svc.GetAgentProvider(ctx, repo.provider.ID); err != nil {
 		t.Fatalf("GetAgentProvider error = %v", err)
 	}
+	if _, err := svc.DeleteAgentProvider(ctx, repo.provider.ID); err != nil {
+		t.Fatalf("DeleteAgentProvider error = %v", err)
+	}
 	if _, err := svc.ListAgents(ctx, projectID); err != nil {
 		t.Fatalf("ListAgents error = %v", err)
 	}
 	if _, err := svc.ListAgentRuns(ctx, projectID); err != nil {
 		t.Fatalf("ListAgentRuns error = %v", err)
+	}
+	if _, err := svc.ListTicketRuns(ctx, projectID, ticketID); err != nil {
+		t.Fatalf("ListTicketRuns error = %v", err)
 	}
 	if _, err := svc.CreateAgent(ctx, domain.CreateAgent{ProjectID: projectID}); err != nil {
 		t.Fatalf("CreateAgent error = %v", err)
@@ -153,17 +159,17 @@ func TestServiceMachineProbePathsAndHelpers(t *testing.T) {
 		t.Fatalf("TestMachineConnection failure error = %v", err)
 	}
 
-	if got := domainMachineFailureStatus(domain.Machine{Host: domain.LocalMachineHost}); got != domain.MachineStatusDegraded {
-		t.Fatalf("domainMachineFailureStatus(local) = %q", got)
+	if got := domain.InferMachineConnectionFailureStatus(domain.Machine{Host: domain.LocalMachineHost}); got != domain.MachineStatusDegraded {
+		t.Fatalf("InferMachineConnectionFailureStatus(local) = %q", got)
 	}
-	if got := domainMachineFailureStatus(domain.Machine{Host: "remote"}); got != domain.MachineStatusOffline {
-		t.Fatalf("domainMachineFailureStatus(remote) = %q", got)
+	if got := domain.InferMachineConnectionFailureStatus(domain.Machine{Host: "remote"}); got != domain.MachineStatusOffline {
+		t.Fatalf("InferMachineConnectionFailureStatus(remote) = %q", got)
 	}
-	if got := domainMachineSuccessStatus(domain.Machine{Status: domain.MachineStatusMaintenance}); got != domain.MachineStatusOnline {
-		t.Fatalf("domainMachineSuccessStatus(maintenance) = %q", got)
+	if got := domain.InferMachineConnectionSuccessStatus(domain.MachineStatusMaintenance); got != domain.MachineStatusMaintenance {
+		t.Fatalf("InferMachineConnectionSuccessStatus(maintenance) = %q", got)
 	}
-	if got := domainMachineSuccessStatus(domain.Machine{Status: domain.MachineStatusDegraded}); got != domain.MachineStatusDegraded {
-		t.Fatalf("domainMachineSuccessStatus(passthrough) = %q", got)
+	if got := domain.InferMachineConnectionSuccessStatus(domain.MachineStatusDegraded); got != domain.MachineStatusOnline {
+		t.Fatalf("InferMachineConnectionSuccessStatus(degraded) = %q", got)
 	}
 	if got := cloneResources(map[string]any{"cpu": "8"}); got["cpu"] != "8" {
 		t.Fatalf("cloneResources() = %+v", got)
@@ -183,6 +189,82 @@ func TestServiceMachineProbePathsAndHelpers(t *testing.T) {
 	}
 	if err := ProjectStatusBootstrapperFunc(func(context.Context, uuid.UUID) error { return nil }).BootstrapProjectStatuses(ctx, projectID); err != nil {
 		t.Fatalf("ProjectStatusBootstrapperFunc error = %v", err)
+	}
+}
+
+func TestServiceCreateMachineReusesExistingLocalMachineIdentity(t *testing.T) {
+	t.Parallel()
+
+	orgID := uuid.New()
+	existing := domain.Machine{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           domain.LocalMachineName,
+		Host:           domain.LocalMachineHost,
+		ConnectionMode: domain.MachineConnectionModeLocal,
+		Status:         domain.MachineStatusOnline,
+	}
+	repo := &stubRepository{
+		listedMachines: []domain.Machine{
+			existing,
+			{
+				ID:             uuid.New(),
+				OrganizationID: orgID,
+				Name:           "gpu-01",
+				Host:           "10.0.0.10",
+				ConnectionMode: domain.MachineConnectionModeSSH,
+			},
+		},
+	}
+	svc := New(repo, nil, nil)
+
+	item, err := svc.CreateMachine(context.Background(), domain.CreateMachine{
+		OrganizationID: orgID,
+		Name:           domain.LocalMachineName,
+		Host:           domain.LocalMachineHost,
+		ConnectionMode: domain.MachineConnectionModeLocal,
+	})
+	if err != nil {
+		t.Fatalf("CreateMachine(local) error = %v", err)
+	}
+	if item.ID != existing.ID {
+		t.Fatalf("CreateMachine(local) = %+v, want existing %+v", item, existing)
+	}
+	if repo.createdMachineInput != nil {
+		t.Fatalf("CreateMachine(local) should not create a duplicate row: %+v", repo.createdMachineInput)
+	}
+}
+
+func TestServiceCreateMachineFallsBackToCreateForRemoteOrMissingLocalMachine(t *testing.T) {
+	t.Parallel()
+
+	orgID := uuid.New()
+	created := domain.Machine{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Name:           "builder-01",
+		Host:           "10.0.0.15",
+		ConnectionMode: domain.MachineConnectionModeSSH,
+	}
+	repo := &stubRepository{
+		createdMachine: created,
+	}
+	svc := New(repo, nil, nil)
+
+	item, err := svc.CreateMachine(context.Background(), domain.CreateMachine{
+		OrganizationID: orgID,
+		Name:           created.Name,
+		Host:           created.Host,
+		ConnectionMode: created.ConnectionMode,
+	})
+	if err != nil {
+		t.Fatalf("CreateMachine(remote) error = %v", err)
+	}
+	if item.ID != created.ID {
+		t.Fatalf("CreateMachine(remote) = %+v, want %+v", item, created)
+	}
+	if repo.createdMachineInput == nil || repo.createdMachineInput.Name != created.Name {
+		t.Fatalf("CreateMachine(remote) should delegate to repository create, got %+v", repo.createdMachineInput)
 	}
 }
 

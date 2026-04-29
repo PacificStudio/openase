@@ -16,6 +16,7 @@ import {
 const projectEventListeners = new Set<(event: ProjectEventEnvelope) => void>()
 
 const {
+  subscribeProjectEvents,
   createProjectUpdateComment,
   createProjectUpdateThread,
   deleteProjectUpdateComment,
@@ -31,6 +32,7 @@ const {
   updateProjectUpdateComment,
   updateProjectUpdateThread,
 } = vi.hoisted(() => ({
+  subscribeProjectEvents: vi.fn(),
   createProjectUpdateComment: vi.fn(),
   createProjectUpdateThread: vi.fn(),
   deleteProjectUpdateComment: vi.fn(),
@@ -99,12 +101,14 @@ vi.mock('$lib/features/project-events', async () => {
   )
   return {
     ...actual,
-    subscribeProjectEvents: vi.fn((_: string, listener: (event: ProjectEventEnvelope) => void) => {
-      projectEventListeners.add(listener)
-      return () => {
-        projectEventListeners.delete(listener)
-      }
-    }),
+    subscribeProjectEvents: subscribeProjectEvents.mockImplementation(
+      (_: string, listener: (event: ProjectEventEnvelope) => void) => {
+        projectEventListeners.add(listener)
+        return () => {
+          projectEventListeners.delete(listener)
+        }
+      },
+    ),
   }
 })
 
@@ -224,6 +228,34 @@ describe('OrgDashboard', () => {
     expect(getHRAdvisor).toHaveBeenCalledTimes(1)
     expect(getProjectTokenUsage).toHaveBeenCalledTimes(1)
     expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(1)
+  })
+
+  it('revalidates dashboard sections after reconnect even when no new post-reconnect event arrives', async () => {
+    render(OrgDashboard)
+
+    await waitFor(() => {
+      expect(listAgents).toHaveBeenCalledTimes(1)
+      expect(listTickets).toHaveBeenCalledTimes(1)
+      expect(listActivity).toHaveBeenCalledTimes(1)
+      expect(getSystemDashboard).toHaveBeenCalledTimes(1)
+      expect(getHRAdvisor).toHaveBeenCalledTimes(1)
+      expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(1)
+    })
+
+    for (const [, , options] of subscribeProjectEvents.mock.calls) {
+      ;(
+        options as { onReconnectRecovery?: (recovery: { sequence: number }) => void } | undefined
+      )?.onReconnectRecovery?.({ sequence: 1 })
+    }
+
+    await waitFor(() => {
+      expect(listAgents).toHaveBeenCalledTimes(2)
+      expect(listTickets).toHaveBeenCalledTimes(2)
+      expect(listActivity).toHaveBeenCalledTimes(2)
+      expect(getSystemDashboard).toHaveBeenCalledTimes(2)
+      expect(getHRAdvisor).toHaveBeenCalledTimes(2)
+      expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('loads project token usage on the dashboard and refreshes the selected window', async () => {

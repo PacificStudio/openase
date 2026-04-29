@@ -12,6 +12,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import TicketCommentHistoryControl from './ticket-comment-history-control.svelte'
   import TicketDescriptionTimelineItem from './ticket-description-timeline-item.svelte'
   import TicketMarkdownContent from './ticket-markdown-content.svelte'
@@ -25,6 +26,8 @@
     TicketDetail,
     TicketTimelineItem,
   } from '../types'
+
+  const t = i18nStore.t
 
   let {
     ticket,
@@ -90,7 +93,11 @@
   }
 
   async function handleDeleteComment(commentId: string) {
-    if (deletingCommentId === commentId || !window.confirm('Delete this comment?')) return
+    if (
+      deletingCommentId === commentId ||
+      !window.confirm(t('ticketDetail.commentThread.confirmDelete'))
+    )
+      return
 
     const success = (await onDeleteComment?.(commentId)) ?? false
     if (success && editingCommentId === commentId) cancelCommentEdit()
@@ -196,7 +203,9 @@
                       >
                     {/if}
                     {#if item.isDeleted}
-                      <Badge variant="outline" class="h-4 px-1.5 py-0 text-[9px]">Deleted</Badge>
+                      <Badge variant="outline" class="h-4 px-1.5 py-0 text-[9px]">
+                        {t('ticketDetail.commentThread.badge.deleted')}
+                      </Badge>
                     {/if}
                   </div>
                   <div class="flex shrink-0 items-center">
@@ -205,7 +214,7 @@
                         size="icon-xs"
                         variant="ghost"
                         class="size-5"
-                        aria-label="Edit comment"
+                        aria-label={t('ticketDetail.commentThread.actions.editComment')}
                         onclick={() => beginCommentEdit(item)}
                         disabled={Boolean(updatingCommentId || deletingCommentId || item.isDeleted)}
                       >
@@ -217,7 +226,7 @@
                       size="icon-xs"
                       variant="ghost"
                       class="size-5"
-                      aria-label="Delete comment"
+                      aria-label={t('ticketDetail.commentThread.actions.deleteComment')}
                       onclick={() => handleDeleteComment(item.commentId)}
                       disabled={deletingCommentId === item.commentId ||
                         updatingCommentId === item.commentId ||
@@ -230,8 +239,12 @@
                       variant="ghost"
                       class="size-5"
                       aria-label={isCommentCollapsed(item.commentId)
-                        ? `Expand comment by ${item.actor.name}`
-                        : `Collapse comment by ${item.actor.name}`}
+                        ? t('ticketDetail.commentThread.actions.expandComment', {
+                            author: item.actor.name,
+                          })
+                        : t('ticketDetail.commentThread.actions.collapseComment', {
+                            author: item.actor.name,
+                          })}
                       onclick={() => toggleCommentCollapsed(item.commentId)}
                       disabled={editingCommentId === item.commentId}
                     >
@@ -259,7 +272,7 @@
                           onclick={cancelCommentEdit}
                           disabled={updatingCommentId === item.commentId}
                         >
-                          Cancel
+                          {t('ticketDetail.commentThread.actions.cancel')}
                         </Button>
                         <Button
                           size="sm"
@@ -267,20 +280,26 @@
                           onclick={() => handleSaveCommentEdit(item.commentId)}
                           disabled={!editingBody.trim() || updatingCommentId === item.commentId}
                         >
-                          {updatingCommentId === item.commentId ? 'Saving…' : 'Save'}
+                          {updatingCommentId === item.commentId
+                            ? t('ticketDetail.commentThread.actions.saving')
+                            : t('ticketDetail.commentThread.actions.save')}
                         </Button>
                       </div>
                     </div>
                   {:else if isCommentCollapsed(item.commentId)}
                     <p class="text-muted-foreground text-xs italic">
-                      {item.isDeleted ? 'Deleted comment collapsed.' : 'Collapsed.'}
+                      {item.isDeleted
+                        ? t('ticketDetail.commentThread.status.deletedCollapsed')
+                        : t('ticketDetail.commentThread.status.collapsed')}
                     </p>
                   {:else if item.bodyMarkdown.trim()}
                     <div class={cn('text-sm', item.isDeleted && 'text-muted-foreground')}>
                       <TicketMarkdownContent source={item.bodyMarkdown} />
                     </div>
                   {:else}
-                    <p class="text-muted-foreground text-xs italic">No content.</p>
+                    <p class="text-muted-foreground text-xs italic">
+                      {t('ticketDetail.commentThread.status.empty')}
+                    </p>
                   {/if}
                 </div>
               </article>

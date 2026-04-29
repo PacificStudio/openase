@@ -92,14 +92,15 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | `routes/**/+page.svelte`            | 150        | 250                  |
 | `routes/**/+layout.svelte`          | 180        | 300                  |
 | `lib/features/**/*.test.{ts,js}`    | 300        | 650                  |
-| `lib/features/**/*.svelte.{ts,js}`  | 250        | 500                  |
+| `lib/features/**/*.svelte.{ts,js}`  | 250        | 350                  |
 | `lib/features/**/*.svelte`          | 200        | 350                  |
 | `lib/features/**/*.{ts,js}`         | 200        | 325                  |
+| `lib/testing/**/*.{ts,js}`          | 350        | 650                  |
 | `lib/components/layout/**/*.svelte` | 200        | 300                  |
 | `lib/components/ui/**/*.svelte`     | 150        | 250                  |
 | single function                     | 40 target  | 60 warning threshold |
 
-There are no per-file budget waivers. If a recurring file shape needs a different limit, promote it into a named budget category instead of growing an allowlist.
+There are no per-file budget waivers. Budgets live in one shared category definition that drives both `lint:structure` and the mirrored ESLint `max-lines` rules, so any recurring exception should be promoted into a named category instead of growing an allowlist.
 
 ## Quality Gates
 
@@ -115,11 +116,62 @@ pnpm run ci
 ```
 
 - `pnpm run lint`: ESLint with complexity, file-size, and cycle checks.
+- `pnpm run lint:i18n`: fails on newly introduced hardcoded user-visible strings that do not go through the shared i18n layer.
 - `pnpm run lint:mobile`: validates that every project route declares a mobile support policy and that responsive routes wire into the mobile regression templates.
-- `pnpm run lint:structure`: custom file budget enforcement with first-class categories for routes, feature tests, state modules, and UI layers.
-- `pnpm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes`.
+- `pnpm run lint:structure`: custom file budget enforcement with first-class categories for routes, feature tests, testing support modules, state modules, and UI layers.
+- `pnpm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes` with no waiver path.
 - `pnpm run check`: `svelte-check` type validation.
 - `pnpm run ci`: unified local and CI entrypoint for the frontend gate.
+
+## i18n Rules
+
+OpenASE now ships a lightweight frontend i18n layer under `src/lib/i18n/` with `en` and `zh` locale support.
+
+- Runtime access: use `i18nStore.t('some.key')` in Svelte and `translate(locale, 'some.key')` in pure TypeScript helpers.
+- Runtime switching: the current language is selectable from the top-right user menu and persisted in `localStorage`.
+- Page titles: use `pageTitle(...)` so the localized title stays consistent with the app suffix.
+
+Strings that must go through i18n:
+
+- visible button, menu, link, badge, dialog, and empty-state copy
+- page titles, section headings, helper copy, and status text shown to users
+- user-facing accessibility text such as `aria-label`, `title`, `placeholder`, and translated `alt`
+- labels or descriptions declared in TypeScript for navigation, menus, and other UI metadata
+
+Strings that may stay literal when they are technical data rather than product copy:
+
+- URLs, routes, API paths, IDs, protocol constants, and status codes
+- CLI commands, shell snippets, file paths, and code samples that users must copy exactly
+- test fixtures, mocks, generated files, and non-UI support code
+
+When a literal exemption is truly necessary in scanned UI code:
+
+- prefer the shared allowlist patterns in `i18n-check.config.json`
+- otherwise add `i18n-exempt` on the same line or the line immediately above the literal and keep the exemption narrowly scoped
+- do not use exemptions for normal product copy just to bypass translation work
+
+## i18n Scanner
+
+`pnpm run lint:i18n` runs `scripts/check-i18n.mjs`.
+
+- Default mode scans the full frontend source tree and suppresses only the reviewed legacy backlog recorded in `i18n-check.baseline.json`.
+- `node scripts/check-i18n.mjs --diff --base-ref origin/main` limits the scan to the current branch diff when you want a focused local pass.
+- `node scripts/check-i18n.mjs --write-baseline` refreshes `i18n-check.baseline.json`; only do this after reviewing the current backlog and intentionally accepting the remaining untranslated surfaces.
+- The scanner is section-aware for Svelte files: markup text/attributes are checked in template regions, while suspicious `label` / `title` / `description` style assignments are checked in script regions.
+- Violations print file, line, reason, and the offending literal so CI fails with actionable output.
+
+Baseline policy:
+
+- treat `i18n-check.baseline.json` as a shrinking migration ledger, not a dump for fresh copy
+- when you translate an existing legacy surface, make sure its offense entries disappear from the baseline on the next refresh
+- do not add new user-visible literals and then "fix" CI by updating the baseline; route the string through i18n instead
+
+When adding new copy:
+
+1. add the key to both locale dictionaries in `src/lib/i18n/index.ts`
+2. replace the literal use site with `i18nStore.t(...)` or `translate(...)`
+3. run `pnpm run lint` and `pnpm run check`
+4. if you intentionally cleaned up older untranslated surfaces in the same area, refresh the baseline so it keeps shrinking rather than preserving resolved debt
 
 ## Mobile Route Policy
 

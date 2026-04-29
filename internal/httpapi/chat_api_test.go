@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -262,6 +263,36 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace-diff",
 		},
 		{
+			name:   "workspace git stage",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/git-stage",
+			body:   `{"repo_path":"openase","path":"README.md"}`,
+		},
+		{
+			name:   "workspace git stage all",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/git-stage-all",
+			body:   `{"repo_path":"openase"}`,
+		},
+		{
+			name:   "workspace git unstage",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/git-unstage",
+			body:   `{"repo_path":"openase","path":"README.md"}`,
+		},
+		{
+			name:   "workspace git commit",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/git-commit",
+			body:   `{"repo_path":"openase","message":"feat: test"}`,
+		},
+		{
+			name:   "workspace git discard",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/git-discard",
+			body:   `{"repo_path":"openase","path":"README.md"}`,
+		},
+		{
 			name:   "create terminal session",
 			method: http.MethodPost,
 			target: "/api/v1/chat/conversations/" + conversationID + "/terminal-sessions",
@@ -311,6 +342,60 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 				t.Fatalf("expected 401 HUMAN_SESSION_REQUIRED, got %d: %s", rec.Code, rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestProjectConversationWorkspaceGitStageRouteRequiresConversationUpdatePermissionInOIDCMode(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	routeFixture := setupProjectConversationTerminalRouteFixture(t, fixture.client)
+
+	unauthorizedToken, unauthorizedCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "viewer@example.com",
+		displayName: "Viewer",
+	})
+
+	unauthorizedRec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+routeFixture.conversation.ID.String()+"/workspace/git-stage",
+		`{"repo_path":"backend","path":"src/main.go"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + unauthorizedToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": unauthorizedCSRF,
+			"User-Agent":     "ConversationGitAuthTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(t, unauthorizedRec, http.StatusForbidden, "AUTHORIZATION_DENIED", "required permission is missing")
+
+	projectItem, err := fixture.client.Project.Get(context.Background(), routeFixture.conversation.ProjectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	authorizedToken, authorizedCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:      "project-admin@example.com",
+		displayName:    "Project Admin",
+		orgID:          projectItem.OrganizationID,
+		projectID:      routeFixture.conversation.ProjectID,
+		projectRoleKey: "project_admin",
+	})
+
+	authorizedRec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+routeFixture.conversation.ID.String()+"/workspace/git-stage",
+		`{"repo_path":"backend","path":"src/main.go"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + authorizedToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": authorizedCSRF,
+			"User-Agent":     "ConversationGitAuthTest/1.0",
+		},
+	)
+	if authorizedRec.Code == http.StatusForbidden {
+		t.Fatalf("expected authorized request to pass authorization, got 403: %s", authorizedRec.Body.String())
 	}
 }
 
@@ -1276,6 +1361,267 @@ func TestProjectConversationTerminalSessionCreateRouteRejectsInvalidMode(t *test
 	}
 }
 
+func TestProjectConversationWorkspaceGitStageAndCommitRoutes(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	if err := os.WriteFile(filepath.Join(fixture.repoPath, "src", "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o600); err != nil {
+		t.Fatalf("write dirty workspace file: %v", err)
+	}
+
+	stageRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace/git-stage",
+		`{"repo_path":"backend","path":"src/main.go"}`,
+	)
+	if stageRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from stage, got %d: %s", stageRec.Code, stageRec.Body.String())
+	}
+
+	diffRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace-diff",
+		"",
+	)
+	if diffRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from diff, got %d: %s", diffRec.Code, diffRec.Body.String())
+	}
+	if !strings.Contains(diffRec.Body.String(), `"path":"src/main.go"`) ||
+		!strings.Contains(diffRec.Body.String(), `"staged":true`) ||
+		!strings.Contains(diffRec.Body.String(), `"unstaged":false`) {
+		t.Fatalf("expected staged diff metadata in body, got %s", diffRec.Body.String())
+	}
+
+	commitRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace/git-commit",
+		`{"repo_path":"backend","message":"feat: commit staged route test"}`,
+	)
+	if commitRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from commit, got %d: %s", commitRec.Code, commitRec.Body.String())
+	}
+	if !strings.Contains(commitRec.Body.String(), `feat: commit staged route test`) {
+		t.Fatalf("expected commit output in body, got %s", commitRec.Body.String())
+	}
+
+	logOutput := runConversationGitCommand(t, "", "git", "-C", fixture.repoPath, "log", "-1", "--format=%s")
+	if strings.TrimSpace(logOutput) != "feat: commit staged route test" {
+		t.Fatalf("head subject = %q", strings.TrimSpace(logOutput))
+	}
+}
+
+func TestProjectConversationWorkspaceGitStageAllAndUnstageRoutes(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	if err := os.WriteFile(filepath.Join(fixture.repoPath, "src", "main.go"), []byte("package main\n\nfunc changed() {}\n"), 0o600); err != nil {
+		t.Fatalf("write modified file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(fixture.repoPath, "src", "extra.go"), []byte("package main\n\nconst extra = true\n"), 0o600); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+
+	stageAllRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace/git-stage-all",
+		`{"repo_path":"backend"}`,
+	)
+	if stageAllRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from stage all, got %d: %s", stageAllRec.Code, stageAllRec.Body.String())
+	}
+
+	diffRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace-diff",
+		"",
+	)
+	if diffRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from diff, got %d: %s", diffRec.Code, diffRec.Body.String())
+	}
+	if !strings.Contains(diffRec.Body.String(), `"path":"src/main.go"`) ||
+		!strings.Contains(diffRec.Body.String(), `"path":"src/extra.go"`) ||
+		!strings.Contains(diffRec.Body.String(), `"staged":true`) {
+		t.Fatalf("expected stage-all metadata in body, got %s", diffRec.Body.String())
+	}
+
+	unstageRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace/git-unstage",
+		`{"repo_path":"backend","path":"src/main.go"}`,
+	)
+	if unstageRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from unstage, got %d: %s", unstageRec.Code, unstageRec.Body.String())
+	}
+
+	diffRec = performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace-diff",
+		"",
+	)
+	if diffRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from diff after unstage, got %d: %s", diffRec.Code, diffRec.Body.String())
+	}
+	if !strings.Contains(diffRec.Body.String(), `"path":"src/main.go"`) ||
+		!strings.Contains(diffRec.Body.String(), `"unstaged":true`) ||
+		!strings.Contains(diffRec.Body.String(), `"path":"src/extra.go"`) {
+		t.Fatalf("expected mixed staged/unstaged metadata in body, got %s", diffRec.Body.String())
+	}
+
+	unstageAllRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace/git-unstage",
+		`{"repo_path":"backend"}`,
+	)
+	if unstageAllRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from unstage all, got %d: %s", unstageAllRec.Code, unstageAllRec.Body.String())
+	}
+
+	statusOutput := runConversationGitCommand(t, "", "git", "-C", fixture.repoPath, "status", "--porcelain=v1")
+	if strings.Contains(statusOutput, "M  src/main.go") || strings.Contains(statusOutput, "A  src/extra.go") {
+		t.Fatalf("expected staged changes to be cleared, got %q", statusOutput)
+	}
+	if !strings.Contains(statusOutput, " M src/main.go") || !strings.Contains(statusOutput, "?? src/extra.go") {
+		t.Fatalf("expected unstaged status after unstage all, got %q", statusOutput)
+	}
+}
+
+func TestProjectConversationWorkspaceGitDiscardRouteRestoresFile(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	targetPath := filepath.Join(fixture.repoPath, "src", "main.go")
+	if err := os.WriteFile(targetPath, []byte("package main\n\nfunc changed() {}\n"), 0o600); err != nil {
+		t.Fatalf("write dirty workspace file: %v", err)
+	}
+
+	stageRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace/git-stage",
+		`{"repo_path":"backend","path":"src/main.go"}`,
+	)
+	if stageRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from stage, got %d: %s", stageRec.Code, stageRec.Body.String())
+	}
+
+	discardRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace/git-discard",
+		`{"repo_path":"backend","path":"src/main.go"}`,
+	)
+	if discardRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from discard, got %d: %s", discardRec.Code, discardRec.Body.String())
+	}
+
+	diffRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/workspace-diff",
+		"",
+	)
+	if diffRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 from diff, got %d: %s", diffRec.Code, diffRec.Body.String())
+	}
+	if strings.Contains(diffRec.Body.String(), `"path":"src/main.go"`) {
+		t.Fatalf("expected discarded file to disappear from diff, got %s", diffRec.Body.String())
+	}
+
+	//nolint:gosec // Test reads a fixture-controlled temp repo file.
+	content, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("read restored file: %v", err)
+	}
+	if string(content) != "package main\n" {
+		t.Fatalf("restored file content = %q", string(content))
+	}
+}
+
 func TestProjectConversationTerminalAttachWebsocketFlow(t *testing.T) {
 	client := openTestEntClient(t)
 	fixture := setupProjectConversationTerminalRouteFixture(t, client)
@@ -2072,6 +2418,20 @@ func setupProjectConversationTerminalRouteFixture(t *testing.T, client *ent.Clie
 		conversation: conversation,
 		repoPath:     repoPath,
 	}
+}
+
+func runConversationGitCommand(t *testing.T, dir string, name string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command(name, args...) // #nosec G204 -- test helper executes fixed commands.
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("%s %s failed: %v\n%s", name, strings.Join(args, " "), err, string(output))
+	}
+	return string(output)
 }
 
 func readConversationTerminalWebsocketFrame(t *testing.T, conn *websocket.Conn) map[string]string {

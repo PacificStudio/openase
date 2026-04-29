@@ -3,6 +3,7 @@
   import type { Agent, Organization, Project, Ticket, Workflow } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { listAgents, listTickets, listWorkflows } from '$lib/api/openase'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { ProjectSection } from '$lib/stores/app-context'
   import * as Command from '$ui/command'
   import { Badge } from '$ui/badge'
@@ -113,7 +114,10 @@
           return
         }
 
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load search data.'
+        error =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : i18nStore.t('search.globalDialog.loadError')
       } finally {
         if (!cancelled) {
           loading = false
@@ -159,20 +163,22 @@
 <Command.Dialog
   bind:open
   bind:value={commandValue}
-  title="Global Search"
-  description="Search pages, tickets, workflows, agents, projects, and commands."
+  title={i18nStore.t('search.globalDialog.title')}
+  description={i18nStore.t('search.globalDialog.description')}
   class="mx-2 max-w-3xl border border-white/10 shadow-2xl sm:mx-auto"
 >
-  <Command.Input placeholder="Search pages, tickets, workflows, agents, and commands..." />
+  <Command.Input placeholder={i18nStore.t('search.globalDialog.searchPlaceholder')} />
   <Command.List class="max-h-[60dvh] sm:max-h-[26rem]">
     <Command.Empty>
       <div class="text-muted-foreground px-4 py-8 text-center text-sm">
-        No search results found.
+        {i18nStore.t('search.globalDialog.empty')}
       </div>
     </Command.Empty>
 
     {#if loading}
-      <div class="text-muted-foreground px-4 py-3 text-sm">Loading project search index…</div>
+      <div class="text-muted-foreground px-4 py-3 text-sm">
+        {i18nStore.t('search.globalDialog.loading')}
+      </div>
     {/if}
 
     {#if error}

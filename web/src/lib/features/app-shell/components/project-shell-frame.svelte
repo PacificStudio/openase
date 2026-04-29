@@ -8,6 +8,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
   import { cn } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { Snippet } from 'svelte'
   import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '$ui/sheet'
   import ProjectShellProjectAssistant from './project-shell-project-assistant.svelte'
@@ -39,6 +40,7 @@
     isNewTicketEnabled = false,
     settingsEnabled = false,
     settingsHref = '',
+    restartTourEnabled = false,
     userDisplayName = '',
     userPrimaryEmail = '',
     userAvatarURL = '',
@@ -49,6 +51,7 @@
     onCreateOrg,
     onCreateProject,
     onOpenSettings,
+    onRestartTour,
     onLogout,
     onToggleSidebar,
     onOpenProjectAssistant,
@@ -79,6 +82,7 @@
     isNewTicketEnabled?: boolean
     settingsEnabled?: boolean
     settingsHref?: string
+    restartTourEnabled?: boolean
     userDisplayName?: string
     userPrimaryEmail?: string
     userAvatarURL?: string
@@ -89,6 +93,7 @@
     onCreateOrg?: () => void
     onCreateProject?: () => void
     onOpenSettings?: () => void
+    onRestartTour?: () => void
     onLogout?: () => void
     onToggleSidebar?: () => void
     onOpenProjectAssistant?: (initialPrompt?: string) => void
@@ -119,6 +124,7 @@
     newTicketEnabled={isNewTicketEnabled}
     {settingsEnabled}
     {settingsHref}
+    {restartTourEnabled}
     {userDisplayName}
     {userPrimaryEmail}
     {userAvatarURL}
@@ -129,6 +135,7 @@
     {onCreateOrg}
     {onCreateProject}
     {onOpenSettings}
+    {onRestartTour}
     {onLogout}
     onOpenMobileNav={() => appStore.openMobileSidebar()}
     {onOpenProjectAssistant}
@@ -144,8 +151,8 @@
       >
         <SheetContent side="left" class="w-[280px] p-0" showCloseButton={false}>
           <SheetHeader class="sr-only">
-            <SheetTitle>Navigation</SheetTitle>
-            <SheetDescription>Project navigation menu</SheetDescription>
+            <SheetTitle>{i18nStore.t('layout.openNavigation')}</SheetTitle>
+            <SheetDescription>{i18nStore.t('layout.projects')}</SheetDescription>
           </SheetHeader>
           <Sidebar
             collapsed={false}

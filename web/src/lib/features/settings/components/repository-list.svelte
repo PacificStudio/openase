@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ProjectRepoRecord } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Button } from '$ui/button'
   import { Plus } from '@lucide/svelte'
   import RepositoryRowCard from './repository-row-card.svelte'
@@ -26,14 +27,16 @@
 <div class="space-y-4">
   <div class="flex items-center justify-between gap-3">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Project repositories</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.repositories.list.title')}
+      </h3>
       <p class="text-muted-foreground mt-0.5 text-xs">
-        Repositories backing ticket repo scopes and workspace preparation.
+        {i18nStore.t('settings.repositories.list.description')}
       </p>
     </div>
     <Button size="sm" onclick={onCreate}>
       <Plus class="mr-1.5 size-3.5" />
-      New repo
+      {i18nStore.t('settings.repositories.list.actions.newRepo')}
     </Button>
   </div>
 
@@ -57,7 +60,7 @@
     <div
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
     >
-      No repositories configured yet. Add the first repository to get started.
+      {i18nStore.t('settings.repositories.list.messages.empty')}
     </div>
   {:else}
     <div class="space-y-2">

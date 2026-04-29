@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto, preloadCode, preloadData } from '$app/navigation'
   import type { Organization, Project } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { organizationPath, projectPath, type ProjectSection } from '$lib/stores/app-context'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
@@ -82,7 +83,7 @@
   </DropdownMenu.Trigger>
   <DropdownMenu.Content class="w-56">
     <DropdownMenu.Label class="flex items-center justify-between">
-      <span>Organizations</span>
+      <span>{i18nStore.t('layout.organizations')}</span>
       {#if onCreateOrg}
         <button
           type="button"
@@ -91,7 +92,7 @@
             e.stopPropagation()
             onCreateOrg()
           }}
-          title="Create organization"
+          title={i18nStore.t('layout.createOrganization')}
         >
           <Plus class="size-3.5" />
         </button>
@@ -116,7 +117,9 @@
         </DropdownMenu.Item>
       {/each}
     {:else}
-      <DropdownMenu.Item disabled>No organizations available</DropdownMenu.Item>
+      <DropdownMenu.Item disabled
+        >{i18nStore.t('layout.noOrganizationsAvailable')}</DropdownMenu.Item
+      >
     {/if}
   </DropdownMenu.Content>
 </DropdownMenu.Root>
@@ -136,7 +139,9 @@
         </a>
       {/snippet}
     </Tooltip.Trigger>
-    <Tooltip.Content side="bottom" class="text-xs">Org settings</Tooltip.Content>
+    <Tooltip.Content side="bottom" class="text-xs"
+      >{i18nStore.t('layout.orgSettings')}</Tooltip.Content
+    >
   </Tooltip.Root>
 {/if}
 
@@ -155,7 +160,7 @@
         </a>
       {/snippet}
     </Tooltip.Trigger>
-    <Tooltip.Content side="bottom" class="text-xs">Admin</Tooltip.Content>
+    <Tooltip.Content side="bottom" class="text-xs">{i18nStore.t('layout.admin')}</Tooltip.Content>
   </Tooltip.Root>
 {/if}
 
@@ -172,10 +177,10 @@
       <Tooltip.Content side="bottom" class="max-w-64 text-xs">
         {projectHealthLabel ||
           (projectHealth === 'healthy'
-            ? 'All systems healthy'
+            ? i18nStore.t('layout.projectHealthHealthy')
             : projectHealth === 'degraded'
-              ? 'Project has warnings'
-              : 'Project has critical issues')}
+              ? i18nStore.t('layout.projectHealthDegraded')
+              : i18nStore.t('layout.projectHealthCritical'))}
       </Tooltip.Content>
     </Tooltip.Root>
   {/if}
@@ -184,7 +189,7 @@
       {#snippet child({ props })}
         <Button {...props} variant="ghost" size="sm" class="text-foreground gap-1 text-xs">
           <span class={projectName ? 'font-medium' : 'text-muted-foreground'}>
-            {projectName || 'Select project'}
+            {projectName || i18nStore.t('layout.selectProject')}
           </span>
           <ChevronDown class="size-3" />
         </Button>
@@ -192,7 +197,7 @@
     </DropdownMenu.Trigger>
     <DropdownMenu.Content class="w-64">
       <DropdownMenu.Label class="flex items-center justify-between">
-        <span>Projects</span>
+        <span>{i18nStore.t('layout.projects')}</span>
         {#if onCreateProject}
           <button
             type="button"
@@ -201,7 +206,7 @@
               e.stopPropagation()
               onCreateProject()
             }}
-            title="Create project"
+            title={i18nStore.t('layout.createProject')}
           >
             <Plus class="size-3.5" />
           </button>
@@ -229,7 +234,7 @@
           </DropdownMenu.Item>
         {/each}
       {:else}
-        <DropdownMenu.Item disabled>No projects available</DropdownMenu.Item>
+        <DropdownMenu.Item disabled>{i18nStore.t('layout.noProjectsAvailable')}</DropdownMenu.Item>
       {/if}
     </DropdownMenu.Content>
   </DropdownMenu.Root>

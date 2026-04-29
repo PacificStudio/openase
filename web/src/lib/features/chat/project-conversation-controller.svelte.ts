@@ -1,6 +1,7 @@
 import { type ProjectConversation } from '$lib/api/chat'
 import type { AgentProvider } from '$lib/api/contracts'
 import type { ProjectAIFocus } from './project-ai-focus'
+import { createProjectConversationControllerApi } from './project-conversation-controller-api'
 import { projectConversationHasPendingInterrupt } from './project-conversation-controller-helpers'
 import { createProjectConversationControllerOperations } from './project-conversation-controller-operations'
 import {
@@ -222,77 +223,66 @@ export function createProjectConversationController(
 
   ensureTabExists()
 
-  return {
+  return createProjectConversationControllerApi({
     snapshot,
-    get providers() {
-      return providers
-    },
-    get conversations() {
-      return conversations
-    },
-    get tabs() {
+    getProviders: () => providers,
+    getConversations: () => conversations,
+    getTabs: () => {
       void revision
       return tabs
     },
-    get activeTabId() {
-      return activeTabId
-    },
-    get activeTab() {
+    getActiveTabId: () => activeTabId,
+    getActiveTab: () => {
       void revision
       return getActiveTab()
     },
-    get providerId() {
-      return getActiveProviderId()
-    },
-    get phase() {
+    getProviderId: () => getActiveProviderId(),
+    getPhase: () => {
       void revision
       return getActiveTab()?.phase ?? 'idle'
     },
-    get selectedProvider() {
-      return providers.find((provider) => provider.id === getActiveProviderId()) ?? null
-    },
-    get busy() {
-      return (getActiveTab()?.phase ?? 'idle') !== 'idle'
-    },
-    get pending() {
+    getSelectedProvider: () =>
+      providers.find((provider) => provider.id === getActiveProviderId()) ?? null,
+    getBusy: () => (getActiveTab()?.phase ?? 'idle') !== 'idle',
+    getPending: () => {
       void revision
       const activeTab = getActiveTab()
       return activeTab ? isProjectConversationTabPending(activeTab) : false
     },
-    get conversationId() {
+    getConversationId: () => {
       void revision
       return getActiveTab()?.conversationId ?? ''
     },
-    get entries() {
+    getEntries: () => {
       void revision
       return getActiveTab()?.entries ?? []
     },
-    get draft() {
+    getDraft: () => {
       void revision
       return getActiveTab()?.draft ?? ''
     },
-    get queuedTurns() {
+    getQueuedTurns: () => {
       void revision
       return getActiveTab()?.queuedTurns ?? []
     },
-    get workspaceDiff() {
+    getWorkspaceDiff: () => {
       void revision
       return getActiveTab()?.workspaceDiff ?? null
     },
-    get workspaceDiffLoading() {
+    getWorkspaceDiffLoading: () => {
       void revision
       return getActiveTab()?.workspaceDiffLoading ?? false
     },
-    get workspaceDiffError() {
+    getWorkspaceDiffError: () => {
       void revision
       return getActiveTab()?.workspaceDiffError ?? ''
     },
-    get hasPendingInterrupt() {
+    getHasPendingInterrupt: () => {
       void revision
       const activeTab = getActiveTab()
       return activeTab ? projectConversationHasPendingInterrupt(activeTab.entries) : false
     },
-    get inputDisabled() {
+    getInputDisabled: () => {
       void revision
       const activeTab = getActiveTab()
       return (
@@ -302,7 +292,7 @@ export function createProjectConversationController(
         projectConversationHasPendingInterrupt(activeTab.entries)
       )
     },
-    get sendDisabled() {
+    getSendDisabled: () => {
       void revision
       const activeTab = getActiveTab()
       return (
@@ -313,15 +303,15 @@ export function createProjectConversationController(
         projectConversationHasPendingInterrupt(activeTab.entries)
       )
     },
-    get canQueueTurn() {
+    getCanQueueTurn: () => {
       void revision
       return canQueueOnTab(getActiveTab())
     },
-    get providerSelectionDisabled() {
+    getProviderSelectionDisabled: () => {
       void revision
       const activeTab = getActiveTab()
       return activeTab ? isProjectConversationTabPending(activeTab) : false
     },
-    ...actions,
-  }
+    actions,
+  })
 }

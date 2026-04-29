@@ -3,6 +3,7 @@
   import Send from '@lucide/svelte/icons/send'
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     creating = false,
@@ -14,6 +15,8 @@
 
   let body = $state('')
   let expanded = $state(false)
+  const modifierKeySymbol =
+    typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'
 
   async function handleCreate() {
     const next = body.trim()
@@ -44,7 +47,7 @@
     <Textarea
       rows={expanded ? 4 : 1}
       bind:value={body}
-      placeholder="Leave a comment (Markdown supported)…"
+      placeholder={i18nStore.t('ticketDetail.timelineComposer.placeholder')}
       disabled={creating}
       onfocus={() => (expanded = true)}
       onkeydown={handleKeydown}
@@ -53,7 +56,9 @@
     {#if expanded}
       <div class="mt-2 flex items-center justify-between">
         <span class="text-muted-foreground text-[11px]">
-          {navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to send
+          {i18nStore.t('ticketDetail.timelineComposer.shortcut', {
+            modifier: modifierKeySymbol,
+          })}
         </span>
         <Button
           size="sm"
@@ -62,7 +67,9 @@
           disabled={!body.trim() || creating}
         >
           <Send class="size-3" />
-          {creating ? 'Posting…' : 'Comment'}
+          {creating
+            ? i18nStore.t('ticketDetail.timelineComposer.actions.posting')
+            : i18nStore.t('ticketDetail.timelineComposer.actions.comment')}
         </Button>
       </div>
     {/if}

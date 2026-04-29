@@ -3,6 +3,8 @@
   import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
   import { formatRelativeTime } from '$lib/utils'
+  import { ticketsT } from '$lib/features/tickets'
+  import TicketRunErrorCard from './ticket-run-error-card.svelte'
   import {
     connectionLabel,
     connectionTone,
@@ -42,13 +44,13 @@
   <div class="flex items-start justify-between gap-4">
     <div class="space-y-1">
       <div class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-        Run Detail
+        {ticketsT('tickets.transcript.header')}
       </div>
       <h3 class="text-sm font-semibold">
         {#if run}
-          Attempt {run.attemptNumber} transcript
+          {ticketsT('tickets.transcript.attemptTitle', { attemptNumber: run.attemptNumber })}
         {:else}
-          Run transcript
+          {ticketsT('tickets.transcript.title')}
         {/if}
       </h3>
       <p
@@ -58,9 +60,11 @@
         {#if run}
           {run.currentStepSummary ||
             run.currentStepStatus ||
-            `Started ${formatRelativeTime(run.createdAt)}`}
+            ticketsT('tickets.transcript.startedRelative', {
+              relativeTime: formatRelativeTime(run.createdAt),
+            })}
         {:else}
-          Select a run to inspect its execution transcript.
+          {ticketsT('tickets.transcript.selectRun')}
         {/if}
       </p>
     </div>
@@ -81,12 +85,14 @@
           class="h-8 text-xs"
           onclick={() => void onJumpToLive?.()}
         >
-          Jump to live
+          {ticketsT('tickets.transcript.jumpToLive')}
         </Button>
       {/if}
       {#if run}
         {#if latestRunId === run.id}
-          <Badge variant="outline" class="h-6 px-2.5 text-[11px]">Live</Badge>
+          <Badge variant="outline" class="h-6 px-2.5 text-[11px]">
+            {ticketsT('tickets.transcript.live')}
+          </Badge>
         {/if}
         <Badge variant="outline" class={`h-6 px-2.5 text-[11px] ${statusTone(run)}`}>
           {statusLabel(run)}
@@ -99,20 +105,42 @@
     <div class="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
       <Badge variant="outline" class="h-5 px-2 text-[10px]">{run.agentName}</Badge>
       <Badge variant="outline" class="h-5 px-2 text-[10px]">{run.provider}</Badge>
-      <span class="text-muted-foreground">Started {formatRelativeTime(run.createdAt)}</span>
+      <span class="text-muted-foreground">
+        {ticketsT('tickets.transcript.startedRelative', {
+          relativeTime: formatRelativeTime(run.createdAt),
+        })}
+      </span>
       {#if run.status === 'completed' && run.completedAt}
-        <span class="text-muted-foreground">Completed {formatRelativeTime(run.completedAt)}</span>
+        <span class="text-muted-foreground">
+          {ticketsT('tickets.transcript.completedRelative', {
+            relativeTime: formatRelativeTime(run.completedAt),
+          })}
+        </span>
       {:else if run.status === 'ended' && run.terminalAt}
-        <span class="text-muted-foreground">Ended {formatRelativeTime(run.terminalAt)}</span>
+        <span class="text-muted-foreground">
+          {ticketsT('tickets.transcript.endedRelative', {
+            relativeTime: formatRelativeTime(run.terminalAt),
+          })}
+        </span>
       {:else if run.lastHeartbeatAt}
-        <span class="text-muted-foreground">Updated {formatRelativeTime(run.lastHeartbeatAt)}</span>
+        <span class="text-muted-foreground">
+          {ticketsT('tickets.transcript.updatedRelative', {
+            relativeTime: formatRelativeTime(run.lastHeartbeatAt),
+          })}
+        </span>
       {/if}
     </div>
   {/if}
 
   {#if loading}
-    <div class="text-muted-foreground mt-3 text-xs">Loading transcript…</div>
+    <div class="text-muted-foreground mt-3 text-xs">
+      {ticketsT('tickets.transcript.loading')}
+    </div>
   {/if}
+
+  <div class="mt-3">
+    <TicketRunErrorCard {run} />
+  </div>
 
   {#if canResumeRetry && onResumeRetry}
     <div class="mt-3">
@@ -123,7 +151,9 @@
         disabled={resumingRetry}
         onclick={() => void onResumeRetry()}
       >
-        {resumingRetry ? 'Continuing...' : 'Continue Retry'}
+        {resumingRetry
+          ? ticketsT('tickets.transcript.continuing')
+          : ticketsT('tickets.transcript.continueRetry')}
       </Button>
     </div>
   {/if}

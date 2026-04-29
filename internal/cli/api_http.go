@@ -13,6 +13,8 @@ import (
 	"strings"
 	"unicode"
 
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
+	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/spf13/pflag"
 )
 
@@ -92,6 +94,13 @@ func (options apiCommandOptions) resolveResource() (apiCommandContext, error) {
 	return options.resolveWithResourceBase(true)
 }
 
+func (options apiCommandOptions) resolveForOperation(method string, path string) (apiCommandContext, error) {
+	if httpapi.HasAgentPlatformRoute(method, path) {
+		return options.resolve()
+	}
+	return options.resolveResource()
+}
+
 func normalizeResourceAPIBaseURL(baseURL string) string {
 	parsed, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil {
@@ -102,6 +111,18 @@ func normalizeResourceAPIBaseURL(baseURL string) string {
 		parsed.RawPath = ""
 	}
 	return parsed.String()
+}
+
+func defaultAPIURLFromEnvironment() string {
+	controlPlaneURL := strings.TrimSpace(os.Getenv(controlplaneurl.EnvMachineControlPlaneURL))
+	if controlPlaneURL == "" {
+		return defaultAPIURL
+	}
+	apiURL, err := controlplaneurl.APIBaseURLFromControlPlaneURL(controlPlaneURL, false)
+	if err != nil {
+		return defaultAPIURL
+	}
+	return apiURL
 }
 
 func (ctx apiCommandContext) do(ctx2 context.Context, deps apiCommandDeps, request apiRequest) (apiResponse, error) {
@@ -286,7 +307,7 @@ func (options apiCommandOptions) resolveHumanSessionState() (*humanSessionState,
 }
 
 func (options apiCommandOptions) resolveWithResourceBase(normalizeResourceBase bool) (apiCommandContext, error) {
-	baseURL := strings.TrimRight(strings.TrimSpace(firstNonEmpty(options.apiURL, os.Getenv("OPENASE_API_URL"), defaultAPIURL)), "/")
+	baseURL := strings.TrimRight(strings.TrimSpace(firstNonEmpty(options.apiURL, os.Getenv("OPENASE_API_URL"), defaultAPIURLFromEnvironment())), "/")
 	if baseURL == "" {
 		return apiCommandContext{}, fmt.Errorf("api url must not be empty")
 	}

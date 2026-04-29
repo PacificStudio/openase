@@ -10,8 +10,13 @@ import (
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
+	entchatconversation "github.com/BetterAndBetterII/openase/ent/chatconversation"
+	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	entprojectconversationrun "github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
@@ -127,6 +132,30 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 	return r.GetAgentProvider(ctx, item.ID)
 }
 
+func (r *EntRepository) DeleteAgentProvider(ctx context.Context, id uuid.UUID) (domain.AgentProvider, error) {
+	item, err := r.client.AgentProvider.Query().
+		Where(entagentprovider.ID(id)).
+		WithMachine().
+		Only(ctx)
+	if err != nil {
+		return domain.AgentProvider{}, mapReadError("get agent provider before delete", err)
+	}
+
+	conflict, err := r.agentProviderDeleteConflict(ctx, id)
+	if err != nil {
+		return domain.AgentProvider{}, err
+	}
+	if conflict != nil {
+		return domain.AgentProvider{}, conflict
+	}
+
+	if err := r.client.AgentProvider.DeleteOneID(id).Exec(ctx); err != nil {
+		return domain.AgentProvider{}, mapWriteError("delete agent provider", err)
+	}
+
+	return mapAgentProvider(item), nil
+}
+
 func (r *EntRepository) ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error) {
 	exists, err := r.client.Project.Query().
 		Where(entproject.ID(projectID)).
@@ -177,6 +206,34 @@ func (r *EntRepository) ListAgentRuns(ctx context.Context, projectID uuid.UUID) 
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list agent runs: %w", err)
+	}
+
+	return mapAgentRuns(items), nil
+}
+
+func (r *EntRepository) ListTicketRuns(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]domain.AgentRun, error) {
+	exists, err := r.client.Ticket.Query().
+		Where(
+			entticket.ID(ticketID),
+			entticket.ProjectIDEQ(projectID),
+		).
+		Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check ticket before listing agent runs: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	items, err := r.client.AgentRun.Query().
+		Where(
+			entagentrun.TicketIDEQ(ticketID),
+			entagentrun.HasTicketWith(entticket.ProjectIDEQ(projectID)),
+		).
+		Order(ent.Desc(entagentrun.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list ticket agent runs: %w", err)
 	}
 
 	return mapAgentRuns(items), nil
@@ -367,6 +424,198 @@ func (r *EntRepository) agentDeleteConflict(ctx context.Context, agentID uuid.UU
 	return conflict, nil
 }
 
+func (r *EntRepository) agentProviderDeleteConflict(
+	ctx context.Context,
+	providerID uuid.UUID,
+) (*domain.AgentProviderDeleteConflict, error) {
+	orgDefault, err := r.client.Organization.Query().
+		Where(entorganization.DefaultAgentProviderIDEQ(providerID)).
+		Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check organization default provider for delete: %w", err)
+	}
+
+	projectDefaults, err := r.client.Project.Query().
+		Where(entproject.DefaultAgentProviderIDEQ(providerID)).
+		Order(entproject.ByName()).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list project default provider references for delete: %w", err)
+	}
+
+	agents, err := r.client.Agent.Query().
+		Where(entagent.ProviderIDEQ(providerID)).
+		WithProject().
+		WithWorkflows(func(query *ent.WorkflowQuery) {
+			query.Order(entworkflow.ByName())
+		}).
+		Order(entagent.ByName()).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list provider agents for delete: %w", err)
+	}
+
+	agentRuns, err := r.client.AgentRun.Query().
+		Where(entagentrun.ProviderIDEQ(providerID)).
+		Order(ent.Desc(entagentrun.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list provider agent runs for delete: %w", err)
+	}
+
+	chatConversations, err := r.client.ChatConversation.Query().
+		Where(entchatconversation.ProviderIDEQ(providerID)).
+		WithProject().
+		Order(ent.Desc(entchatconversation.FieldLastActivityAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list provider chat conversations for delete: %w", err)
+	}
+
+	conversationPrincipals, err := r.client.ProjectConversationPrincipal.Query().
+		Where(entprojectconversationprincipal.ProviderIDEQ(providerID)).
+		Order(ent.Desc(entprojectconversationprincipal.FieldUpdatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list provider conversation principals for delete: %w", err)
+	}
+
+	conversationRuns, err := r.client.ProjectConversationRun.Query().
+		Where(entprojectconversationrun.ProviderIDEQ(providerID)).
+		Order(ent.Desc(entprojectconversationrun.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list provider conversation runs for delete: %w", err)
+	}
+
+	if !orgDefault &&
+		len(projectDefaults) == 0 &&
+		len(agents) == 0 &&
+		len(agentRuns) == 0 &&
+		len(chatConversations) == 0 &&
+		len(conversationPrincipals) == 0 &&
+		len(conversationRuns) == 0 {
+		return nil, nil
+	}
+
+	projectNames := make(map[uuid.UUID]string)
+	for _, item := range projectDefaults {
+		projectNames[item.ID] = item.Name
+	}
+	for _, item := range agents {
+		if item.Edges.Project != nil {
+			projectNames[item.Edges.Project.ID] = item.Edges.Project.Name
+		}
+	}
+	for _, item := range chatConversations {
+		if item.Edges.Project != nil {
+			projectNames[item.Edges.Project.ID] = item.Edges.Project.Name
+		}
+	}
+
+	projectIDsNeedingNames := make([]uuid.UUID, 0, len(conversationPrincipals)+len(conversationRuns))
+	for _, item := range conversationPrincipals {
+		if _, ok := projectNames[item.ProjectID]; !ok {
+			projectIDsNeedingNames = append(projectIDsNeedingNames, item.ProjectID)
+		}
+	}
+	for _, item := range conversationRuns {
+		if _, ok := projectNames[item.ProjectID]; !ok {
+			projectIDsNeedingNames = append(projectIDsNeedingNames, item.ProjectID)
+		}
+	}
+	if len(projectIDsNeedingNames) > 0 {
+		projectList, err := r.client.Project.Query().
+			Where(entproject.IDIn(projectIDsNeedingNames...)).
+			All(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list projects for provider delete references: %w", err)
+		}
+		for _, item := range projectList {
+			projectNames[item.ID] = item.Name
+		}
+	}
+
+	conflict := &domain.AgentProviderDeleteConflict{
+		ProviderID:             providerID,
+		OrganizationDefault:    orgDefault,
+		ProjectDefaults:        make([]domain.ProviderProjectReference, 0, len(projectDefaults)),
+		Agents:                 make([]domain.ProviderAgentReference, 0, len(agents)),
+		AgentRuns:              make([]domain.AgentRunReference, 0, len(agentRuns)),
+		ChatConversations:      make([]domain.ProviderConversationReference, 0, len(chatConversations)),
+		ConversationPrincipals: make([]domain.ProviderConversationPrincipalReference, 0, len(conversationPrincipals)),
+		ConversationRuns:       make([]domain.ProviderConversationRunReference, 0, len(conversationRuns)),
+	}
+
+	for _, item := range projectDefaults {
+		conflict.ProjectDefaults = append(conflict.ProjectDefaults, domain.ProviderProjectReference{
+			ID:   item.ID,
+			Name: item.Name,
+		})
+	}
+	for _, item := range agents {
+		projectName := ""
+		projectID := uuid.UUID{}
+		if item.Edges.Project != nil {
+			projectID = item.Edges.Project.ID
+			projectName = item.Edges.Project.Name
+		}
+		workflows := make([]domain.ProviderWorkflowReference, 0, len(item.Edges.Workflows))
+		for _, workflow := range item.Edges.Workflows {
+			workflows = append(workflows, domain.ProviderWorkflowReference{
+				ID:   workflow.ID,
+				Name: workflow.Name,
+			})
+		}
+		conflict.Agents = append(conflict.Agents, domain.ProviderAgentReference{
+			ID:          item.ID,
+			ProjectID:   projectID,
+			ProjectName: projectName,
+			Name:        item.Name,
+			Workflows:   workflows,
+		})
+	}
+	for _, item := range agentRuns {
+		conflict.AgentRuns = append(conflict.AgentRuns, domain.AgentRunReference{
+			ID:       item.ID,
+			TicketID: item.TicketID,
+			Status:   item.Status.String(),
+		})
+	}
+	for _, item := range chatConversations {
+		projectName := ""
+		if item.Edges.Project != nil {
+			projectName = item.Edges.Project.Name
+		}
+		conflict.ChatConversations = append(conflict.ChatConversations, domain.ProviderConversationReference{
+			ID:          item.ID,
+			ProjectID:   item.ProjectID,
+			ProjectName: projectName,
+			Status:      item.Status,
+		})
+	}
+	for _, item := range conversationPrincipals {
+		conflict.ConversationPrincipals = append(conflict.ConversationPrincipals, domain.ProviderConversationPrincipalReference{
+			ID:           item.ID,
+			ProjectID:    item.ProjectID,
+			ProjectName:  projectNames[item.ProjectID],
+			Name:         item.Name,
+			Status:       item.Status.String(),
+			RuntimeState: item.RuntimeState.String(),
+		})
+	}
+	for _, item := range conversationRuns {
+		conflict.ConversationRuns = append(conflict.ConversationRuns, domain.ProviderConversationRunReference{
+			ID:          item.ID,
+			ProjectID:   item.ProjectID,
+			ProjectName: projectNames[item.ProjectID],
+			Status:      item.Status.String(),
+		})
+	}
+
+	return conflict, nil
+}
+
 func mapAgentProviders(items []*ent.AgentProvider) []domain.AgentProvider {
 	providers := make([]domain.AgentProvider, 0, len(items))
 	for _, item := range items {
@@ -383,6 +632,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 	var machineSSHUser *string
 	var machineWorkspaceRoot *string
 	var machineAgentCLIPath *string
+	var machineAgentCLIPaths domain.MachineAgentCLIPaths
 	machineResources := map[string]any{}
 	if item.Edges.Machine != nil {
 		machineName = item.Edges.Machine.Name
@@ -391,6 +641,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		machineSSHUser = optionalString(item.Edges.Machine.SSHUser)
 		machineWorkspaceRoot = optionalString(item.Edges.Machine.WorkspaceRoot)
 		machineAgentCLIPath = optionalString(item.Edges.Machine.AgentCliPath)
+		machineAgentCLIPaths = domain.MachineAgentCLIPathsFromRaw(item.Edges.Machine.AgentCliPaths)
 		machineResources = cloneAnyMap(item.Edges.Machine.Resources)
 	}
 
@@ -404,6 +655,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		MachineSSHUser:        machineSSHUser,
 		MachineWorkspaceRoot:  machineWorkspaceRoot,
 		MachineAgentCLIPath:   machineAgentCLIPath,
+		MachineAgentCLIPaths:  machineAgentCLIPaths,
 		MachineResources:      machineResources,
 		Name:                  item.Name,
 		AdapterType:           toDomainAgentProviderAdapterType(item.AdapterType),

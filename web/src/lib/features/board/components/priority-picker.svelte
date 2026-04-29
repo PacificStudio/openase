@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Popover from '$ui/popover'
   import { formatBoardPriorityLabel, type BoardPriority } from '../priority'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { BoardTicket } from '../types'
   import PriorityIcon from './priority-icon.svelte'
 
@@ -41,7 +42,7 @@
     class="hover:bg-muted inline-flex shrink-0 items-center justify-center rounded p-0.5 transition-colors"
     {disabled}
     onclick={(e: MouseEvent) => e.stopPropagation()}
-    aria-label="Change priority"
+    aria-label={i18nStore.t('board.priorityPicker.ariaLabel')}
   >
     <PriorityIcon priority={ticket.priority} />
   </Popover.Trigger>

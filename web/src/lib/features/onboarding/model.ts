@@ -5,105 +5,29 @@ import type {
   OnboardingStepId,
   ProjectBootstrapPreset,
 } from './types'
+import type { AppLocale } from '$lib/i18n'
+import { presetText } from './preset-copy'
+import { stepList, stepText } from './step-copy'
 
-const stepDefinitions: Omit<OnboardingStep, 'status'>[] = [
-  {
-    id: 'github_token',
-    label: 'Connect GitHub',
-    description: 'Configure a GitHub token for repository access',
-    purpose:
-      'This lets OpenASE create repositories, inspect namespaces, and verify which GitHub identity the project will use for future automation.',
-    configHighlights: [
-      'The token is stored at project scope so later GitHub actions reuse the same identity.',
-      'Verification checks both token health and the exact GitHub account OpenASE will act as.',
-    ],
-    skipRisks: [
-      'Repository creation and repository search in onboarding will be blocked.',
-      'Later steps may look configured, but agents still will not have a working code host identity.',
-      'Using the wrong token can attach the project to the wrong GitHub account.',
-    ],
-  },
-  {
-    id: 'repo',
-    label: 'Create or link a repository',
-    description: 'Add at least one Git repository to the project',
-    purpose:
-      'This defines the codebase an agent will read from, write to, and scope tickets against during execution.',
-    configHighlights: [
-      'You can either create a fresh GitHub repository or link an existing codebase.',
-      'The repository URL and default branch decide where new work starts from.',
-    ],
-    skipRisks: [
-      'Agents have nowhere to clone from or open pull requests against.',
-      'Tickets may be created without a repository scope, which weakens execution context.',
-      'You will need extra manual setup before any coding workflow can start.',
-    ],
-  },
-  {
-    id: 'provider',
-    label: 'Select and configure an AI provider',
-    description: 'Configure at least one available AI execution engine',
-    purpose:
-      'This chooses the execution engine that actually runs agents, such as Codex, Claude Code, or Gemini CLI.',
-    configHighlights: [
-      'Availability checks confirm that the machine, model, and credentials are genuinely ready.',
-      'The selected default provider is what onboarding uses when it creates the first agent.',
-    ],
-    skipRisks: [
-      'OpenASE cannot launch agents if no healthy provider is available.',
-      'Bootstrap may fail later because the default provider is missing or offline.',
-      'Provider cost, capability, and auth tradeoffs remain unclear until you configure one.',
-    ],
-  },
-  {
-    id: 'agent_workflow',
-    label: 'Create an agent and workflow',
-    description: 'Automatically create the first working agent and workflow',
-    purpose:
-      'This wires a role, a provider, and ticket pickup rules together so the project can execute work automatically.',
-    configHighlights: [
-      'OpenASE picks a starter role from the project status and binds it to the default provider.',
-      'The workflow decides which statuses the agent can pick up and what counts as finished.',
-    ],
-    skipRisks: [
-      'Tickets can pile up with no agent configured to claim them.',
-      'Even with repos and providers ready, orchestration will not start automatically.',
-      'Manual workflow setup later is possible, but easier to misconfigure.',
-    ],
-  },
-  {
-    id: 'first_ticket',
-    label: 'Create the first ticket',
-    description: 'Submit the first task so an agent can start working',
-    purpose:
-      'This gives the orchestrator a real unit of work so you can verify the full setup end to end.',
-    configHighlights: [
-      'The initial status determines whether the workflow can auto-pick the ticket.',
-      'An optional repository scope narrows the task to the most relevant codebase.',
-    ],
-    skipRisks: [
-      'Setup may look complete, but nothing will execute because there is no queued work.',
-      'A later ticket created with the wrong status may never be picked up.',
-      'You lose the fastest way to confirm the automation pipeline is actually working.',
-    ],
-  },
-  {
-    id: 'ai_discovery',
-    label: 'Try Project AI',
-    description: 'Use Project AI to refine the next steps for the project',
-    purpose:
-      'This shows how Project AI can turn the current project context into follow-up tasks and planning help.',
-    configHighlights: [
-      'It uses the project, repositories, and tickets you just configured as context for suggestions.',
-      'This is the fastest handoff from initial setup into ongoing planning and backlog expansion.',
-    ],
-    skipRisks: [
-      'You miss the guided transition from setup into the next wave of project work.',
-      'New users may underuse Project AI and do more manual triage than necessary.',
-      'This step is lower risk than the execution steps above, but it still improves adoption.',
-    ],
-  },
+const stepIds: OnboardingStepId[] = [
+  'github_token',
+  'repo',
+  'provider',
+  'agent_workflow',
+  'first_ticket',
+  'ai_discovery',
 ]
+
+function buildStepDefinitions(locale: AppLocale): Omit<OnboardingStep, 'status'>[] {
+  return stepIds.map((id) => ({
+    id,
+    label: stepText(locale, id, 'label'),
+    description: stepText(locale, id, 'description'),
+    purpose: stepText(locale, id, 'purpose'),
+    configHighlights: stepList(locale, id, 'configHighlights'),
+    skipRisks: stepList(locale, id, 'skipRisks'),
+  }))
+}
 
 export function isStepCompleted(step: OnboardingStepId, data: OnboardingData): boolean {
   switch (step) {
@@ -130,11 +54,14 @@ export function isStepCompleted(step: OnboardingStepId, data: OnboardingData): b
   }
 }
 
-export function buildOnboardingSteps(data: OnboardingData): OnboardingStep[] {
+export function buildOnboardingSteps(
+  data: OnboardingData,
+  locale: AppLocale = 'en',
+): OnboardingStep[] {
   const steps: OnboardingStep[] = []
   let foundActive = false
 
-  for (const def of stepDefinitions) {
+  for (const def of buildStepDefinitions(locale)) {
     const completed = isStepCompleted(def.id, data)
     let status: OnboardingStep['status']
 
@@ -154,9 +81,9 @@ export function buildOnboardingSteps(data: OnboardingData): OnboardingStep[] {
 }
 
 export function currentActiveStep(data: OnboardingData): OnboardingStepId | null {
-  for (const def of stepDefinitions) {
-    if (!isStepCompleted(def.id, data)) {
-      return def.id
+  for (const def of stepIds) {
+    if (!isStepCompleted(def, data)) {
+      return def
     }
   }
   return null
@@ -169,42 +96,42 @@ export function isOnboardingComplete(data: OnboardingData): boolean {
 export const bootstrapPresets: ProjectBootstrapPreset[] = [
   {
     key: 'fullstack',
-    title: 'Write code',
-    subtitle: 'I have a codebase and want to ship features.',
-    roleName: 'Fullstack Developer',
-    roleSlug: 'fullstack-developer',
-    workflowType: 'Fullstack Developer',
-    pickupStatusName: 'Todo',
-    finishStatusName: 'Done',
-    agentNameSuggestion: 'fullstack-dev-01',
-    exampleTicketTitle: 'Implement user authentication',
-    exampleTicketDescription: 'Add login/logout and protect routes that require a signed-in user.',
+    title: presetText('fullstack', 'title'),
+    subtitle: presetText('fullstack', 'subtitle'),
+    roleName: presetText('fullstack', 'roleName'),
+    roleSlug: presetText('fullstack', 'roleSlug'),
+    workflowType: presetText('fullstack', 'workflowType'),
+    pickupStatusName: presetText('fullstack', 'pickupStatusName'),
+    finishStatusName: presetText('fullstack', 'finishStatusName'),
+    agentNameSuggestion: presetText('fullstack', 'agentNameSuggestion'),
+    exampleTicketTitle: presetText('fullstack', 'exampleTicketTitle'),
+    exampleTicketDescription: presetText('fullstack', 'exampleTicketDescription'),
   },
   {
     key: 'pm',
-    title: 'Plan the project',
-    subtitle: 'I need to figure out what to build first.',
-    roleName: 'Product Manager',
-    roleSlug: 'product-manager',
-    workflowType: 'Product Manager',
-    pickupStatusName: 'Todo',
-    finishStatusName: 'Done',
-    agentNameSuggestion: 'product-manager-01',
-    exampleTicketTitle: 'Draft the initial product requirements',
-    exampleTicketDescription: 'Outline scope, goals, and the first set of acceptance criteria.',
+    title: presetText('pm', 'title'),
+    subtitle: presetText('pm', 'subtitle'),
+    roleName: presetText('pm', 'roleName'),
+    roleSlug: presetText('pm', 'roleSlug'),
+    workflowType: presetText('pm', 'workflowType'),
+    pickupStatusName: presetText('pm', 'pickupStatusName'),
+    finishStatusName: presetText('pm', 'finishStatusName'),
+    agentNameSuggestion: presetText('pm', 'agentNameSuggestion'),
+    exampleTicketTitle: presetText('pm', 'exampleTicketTitle'),
+    exampleTicketDescription: presetText('pm', 'exampleTicketDescription'),
   },
   {
     key: 'researcher',
-    title: 'Explore ideas',
-    subtitle: "I'm not sure where to start yet.",
-    roleName: 'Research Ideation',
-    roleSlug: 'research-ideation',
-    workflowType: 'Research Ideation',
-    pickupStatusName: 'Todo',
-    finishStatusName: 'Done',
-    agentNameSuggestion: 'researcher-01',
-    exampleTicketTitle: 'Explore options and recommend a direction',
-    exampleTicketDescription: 'Compare two or three approaches and pick the most viable one.',
+    title: presetText('researcher', 'title'),
+    subtitle: presetText('researcher', 'subtitle'),
+    roleName: presetText('researcher', 'roleName'),
+    roleSlug: presetText('researcher', 'roleSlug'),
+    workflowType: presetText('researcher', 'workflowType'),
+    pickupStatusName: presetText('researcher', 'pickupStatusName'),
+    finishStatusName: presetText('researcher', 'finishStatusName'),
+    agentNameSuggestion: presetText('researcher', 'agentNameSuggestion'),
+    exampleTicketTitle: presetText('researcher', 'exampleTicketTitle'),
+    exampleTicketDescription: presetText('researcher', 'exampleTicketDescription'),
   },
 ]
 

@@ -1,13 +1,17 @@
 <script lang="ts">
-  import { ApiError } from '$lib/api/client'
   import type { ScheduledJob } from '$lib/api/contracts'
   import {
     createScheduledJob,
     deleteScheduledJob,
     listScheduledJobs,
+    listProjectRepos,
     triggerScheduledJob,
     updateScheduledJob,
   } from '$lib/api/openase'
+  import {
+    mapProjectRepoOptions,
+    type RepoScopeOption as TicketRepoOption,
+  } from '$lib/features/repo-scope-selection'
   import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { toastStore } from '$lib/stores/toast.svelte'
   import WorkflowScheduledJobEditor from './workflow-scheduled-job-editor.svelte'
@@ -21,14 +25,19 @@
     scheduledJobDraftFromRecord,
     type ScheduledJobDraft,
   } from './workflow-scheduled-jobs'
+  import {
+    scheduledJobToggleMessageKeys,
+    showScheduledJobError,
+  } from './workflow-scheduled-jobs-panel-helpers'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     projectId,
     statuses,
     loading: parentLoading = false,
     showHeader = true,
-    title = 'Scheduled Jobs',
-    description = 'Manage recurring ticket creation for project statuses.',
+    title = '',
+    description = '',
   }: {
     projectId: string
     statuses: WorkflowStatusOption[]
@@ -39,16 +48,17 @@
   } = $props()
 
   let jobs = $state<ScheduledJob[]>([])
+  let repoOptions = $state<TicketRepoOption[]>([])
   let loadingJobs = $state(false)
-  const loading = $derived(parentLoading || loadingJobs)
+  let loadingRepos = $state(false)
+  const loading = $derived(parentLoading || loadingJobs || loadingRepos)
   let saving = $state(false)
   let deleting = $state(false)
   let triggering = $state(false)
   let actionJobId = $state<string | null>(null)
   let editorOpen = $state(false)
   let selectedJobId = $state('')
-  let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft(''))
-
+  let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft('', []))
   const selectedJob = $derived(jobs.find((job) => job.id === selectedJobId) ?? null)
   const enabledCount = $derived(jobs.filter((j) => j.is_enabled).length)
 
@@ -68,13 +78,38 @@
   })
 
   $effect(() => {
+    const nextRepoOptions = repoOptions
+    const validRepoIds = new Set(nextRepoOptions.map((repo) => repo.id))
+    const filteredRepoIds = draft.ticketRepoIds.filter((repoId) => validRepoIds.has(repoId))
+    const filteredBranchOverrides = Object.fromEntries(
+      Object.entries(draft.ticketRepoBranchOverrides).filter(([repoId]) =>
+        validRepoIds.has(repoId),
+      ),
+    )
+    const fallbackRepoIds =
+      filteredRepoIds.length > 0 || nextRepoOptions.length !== 1
+        ? filteredRepoIds
+        : [nextRepoOptions[0].id]
+
+    if (
+      filteredRepoIds.length !== draft.ticketRepoIds.length ||
+      Object.keys(filteredBranchOverrides).length !==
+        Object.keys(draft.ticketRepoBranchOverrides).length ||
+      fallbackRepoIds.length !== filteredRepoIds.length
+    ) {
+      draft = {
+        ...draft,
+        ticketRepoIds: fallbackRepoIds,
+        ticketRepoBranchOverrides: filteredBranchOverrides,
+      }
+    }
+  })
+
+  $effect(() => {
     if (!projectId) return
-
     let cancelled = false
-
-    const load = async () => {
+    const loadJobs = async () => {
       loadingJobs = true
-
       try {
         const payload = await listScheduledJobs(projectId)
         if (cancelled) return
@@ -82,61 +117,65 @@
       } catch (caughtError) {
         if (cancelled) return
         jobs = []
-        showApiError(caughtError, 'Failed to load scheduled jobs.')
+        showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.load')
       } finally {
         if (!cancelled) loadingJobs = false
       }
     }
 
-    void load()
+    const loadRepos = async () => {
+      loadingRepos = true
+      try {
+        const payload = await listProjectRepos(projectId)
+        if (cancelled) return
+        repoOptions = mapProjectRepoOptions(payload.repos)
+      } catch (caughtError) {
+        if (cancelled) return
+        repoOptions = []
+        showScheduledJobError(
+          caughtError,
+          'settings.workflowScheduledJobs.errors.loadProjectRepositories',
+        )
+      } finally {
+        if (!cancelled) loadingRepos = false
+      }
+    }
 
+    void Promise.all([loadJobs(), loadRepos()])
     return () => {
       cancelled = true
     }
   })
 
-  function openNewJob() {
+  const openNewJob = () => {
     selectedJobId = ''
-    draft = emptyScheduledJobDraft(statuses[0]?.id ?? '')
+    draft = emptyScheduledJobDraft(statuses[0]?.id ?? '', repoOptions)
     editorOpen = true
   }
-
-  function openEditJob(job: ScheduledJob) {
+  const openEditJob = (job: ScheduledJob) => {
     selectedJobId = job.id
-    draft = scheduledJobDraftFromRecord(job, statuses)
+    draft = scheduledJobDraftFromRecord(job, statuses, repoOptions)
     editorOpen = true
   }
-
-  function handleEditorClose(open: boolean) {
+  const handleEditorClose = (open: boolean) => {
     if (!open) {
       selectedJobId = ''
-      draft = emptyScheduledJobDraft(statuses[0]?.id ?? '')
+      draft = emptyScheduledJobDraft(statuses[0]?.id ?? '', repoOptions)
     }
   }
-
-  async function refreshJobs() {
-    const payload = await listScheduledJobs(projectId)
-    jobs = payload.scheduled_jobs
-  }
-
-  function showApiError(caughtError: unknown, fallback: string) {
-    toastStore.error(caughtError instanceof ApiError ? caughtError.detail : fallback)
-  }
-
+  const refreshJobs = async () => (jobs = (await listScheduledJobs(projectId)).scheduled_jobs)
   async function handleSubmit() {
-    const parsed = parseScheduledJobDraft(draft, statuses)
+    const parsed = parseScheduledJobDraft(draft, statuses, repoOptions)
     if (!parsed.ok) {
       toastStore.error(parsed.error)
       return
     }
-
     saving = true
-
     try {
       if (selectedJob) {
         await updateScheduledJob(selectedJob.id, parsed.value)
         await refreshJobs()
-        toastStore.success('Scheduled job updated.')
+        toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.updated'))
       } else {
         const payload = await createScheduledJob(projectId, parsed.value)
         await refreshJobs()
@@ -144,11 +183,12 @@
         draft = scheduledJobDraftFromRecord(
           jobs.find((j) => j.id === payload.scheduled_job.id)!,
           statuses,
+          repoOptions,
         )
-        toastStore.success('Scheduled job created.')
+        toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.created'))
       }
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to save scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.save')
     } finally {
       saving = false
     }
@@ -156,17 +196,15 @@
 
   async function handleDelete() {
     if (!selectedJob) return
-
     deleting = true
-
     try {
       await deleteScheduledJob(selectedJob.id)
       editorOpen = false
       selectedJobId = ''
       await refreshJobs()
-      toastStore.success('Scheduled job deleted.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.deleted'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to delete scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
       deleting = false
     }
@@ -174,13 +212,18 @@
 
   async function handleToggleEnabled(job: ScheduledJob) {
     actionJobId = job.id
-
     try {
       await updateScheduledJob(job.id, { is_enabled: !job.is_enabled })
       await refreshJobs()
-      toastStore.success(job.is_enabled ? 'Job disabled.' : 'Job enabled.')
+      toastStore.success(
+        i18nStore.t(
+          job.is_enabled
+            ? scheduledJobToggleMessageKeys.disabled
+            : scheduledJobToggleMessageKeys.enabled,
+        ),
+      )
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to update job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.toggle')
     } finally {
       actionJobId = null
     }
@@ -188,13 +231,12 @@
 
   async function handleTriggerJob(job: ScheduledJob) {
     actionJobId = job.id
-
     try {
       await triggerScheduledJob(job.id)
       await refreshJobs()
-      toastStore.success('Scheduled job triggered.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.triggered'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to trigger scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
       actionJobId = null
     }
@@ -202,15 +244,13 @@
 
   async function handleTriggerFromEditor() {
     if (!selectedJob) return
-
     triggering = true
-
     try {
       await triggerScheduledJob(selectedJob.id)
       await refreshJobs()
-      toastStore.success('Scheduled job triggered.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.triggered'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to trigger scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
       triggering = false
     }
@@ -218,7 +258,6 @@
 
   async function handleDeleteJob(job: ScheduledJob) {
     actionJobId = job.id
-
     try {
       await deleteScheduledJob(job.id)
       if (selectedJobId === job.id) {
@@ -226,41 +265,65 @@
         selectedJobId = ''
       }
       await refreshJobs()
-      toastStore.success('Scheduled job deleted.')
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.deleted'))
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to delete scheduled job.')
+      showScheduledJobError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
       actionJobId = null
     }
   }
 
-  function handleDraftFieldChange(field: keyof ScheduledJobDraft, value: string | boolean) {
-    draft = { ...draft, [field]: value }
+  const handleDraftFieldChange = (field: keyof ScheduledJobDraft, value: string | boolean) =>
+    (draft = { ...draft, [field]: value })
+
+  function handleToggleDraftRepoScope(repoId: string) {
+    draft = {
+      ...draft,
+      ticketRepoIds: draft.ticketRepoIds.includes(repoId)
+        ? draft.ticketRepoIds.filter((value) => value !== repoId)
+        : [...draft.ticketRepoIds, repoId],
+    }
+  }
+
+  function handleDraftRepoBranchOverride(repoId: string, value: string) {
+    draft = {
+      ...draft,
+      ticketRepoBranchOverrides: {
+        ...draft.ticketRepoBranchOverrides,
+        [repoId]: value,
+      },
+    }
   }
 </script>
 
 <div class="flex h-full min-h-0 flex-col">
   {#if showHeader}
-    <WorkflowScheduledJobsHeader {title} {description} onCreate={openNewJob} />
+    <WorkflowScheduledJobsHeader
+      title={title || i18nStore.t('settings.workflowScheduledJobs.heading')}
+      description={description || i18nStore.t('settings.workflowScheduledJobs.description')}
+      onCreate={openNewJob}
+    />
   {/if}
-
   <div class="flex-1 overflow-y-auto p-4">
     {#if loading}
       <WorkflowScheduledJobsLoading />
     {:else}
       {#if jobs.length > 0}
-        <WorkflowScheduledJobsSummary total={jobs.length} enabled={enabledCount} />
+        <div data-tour="scheduled-jobs-summary">
+          <WorkflowScheduledJobsSummary total={jobs.length} enabled={enabledCount} />
+        </div>
       {/if}
-
-      <WorkflowScheduledJobList
-        {jobs}
-        {actionJobId}
-        onNewJob={openNewJob}
-        onEditJob={openEditJob}
-        onToggleEnabled={handleToggleEnabled}
-        onTriggerJob={handleTriggerJob}
-        onDeleteJob={handleDeleteJob}
-      />
+      <div data-tour="scheduled-jobs-list">
+        <WorkflowScheduledJobList
+          {jobs}
+          {actionJobId}
+          onNewJob={openNewJob}
+          onEditJob={openEditJob}
+          onToggleEnabled={handleToggleEnabled}
+          onTriggerJob={handleTriggerJob}
+          onDeleteJob={handleDeleteJob}
+        />
+      </div>
     {/if}
   </div>
 </div>
@@ -269,6 +332,7 @@
   bind:open={editorOpen}
   {projectId}
   {draft}
+  {repoOptions}
   {selectedJob}
   statusOptions={statuses}
   {saving}
@@ -279,4 +343,6 @@
   onDelete={handleDelete}
   onTrigger={handleTriggerFromEditor}
   onOpenChange={handleEditorClose}
+  onToggleRepoScope={handleToggleDraftRepoScope}
+  onUpdateRepoBranchOverride={handleDraftRepoBranchOverride}
 />

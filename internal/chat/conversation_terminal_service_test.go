@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,8 @@ import (
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	"github.com/google/uuid"
 )
+
+const conversationTerminalTestEventTimeout = 2 * time.Second
 
 type fakeConversationTerminalProcess struct {
 	reader *io.PipeReader
@@ -131,6 +134,9 @@ func TestConversationTerminalServiceCreateSessionResolvesRepoCWD(t *testing.T) {
 
 	session, err := service.CreateSession(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID, input)
 	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("pty unsupported in this test environment: %v", err)
+		}
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 	wantCWD := filepath.Join(fixture.repoPaths["backend"], "src")
@@ -191,6 +197,9 @@ func TestConversationTerminalServiceAttachStreamsAndCleansUp(t *testing.T) {
 	}
 	session, err := service.CreateSession(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID, input)
 	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("pty unsupported in this test environment: %v", err)
+		}
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 	if _, err := service.AttachSession(UserID("user:conversation"), fixture.conversation.ID, session.ID, "wrong-token"); !errors.Is(err, ErrConversationTerminalAttachForbidden) {
@@ -252,6 +261,9 @@ func TestConversationTerminalServiceDetachAllowsReattachAndReplaysBufferedOutput
 	}
 	session, err := service.CreateSession(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID, input)
 	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("pty unsupported in this test environment: %v", err)
+		}
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 
@@ -328,6 +340,9 @@ func TestConversationTerminalServiceCloseTriggersCleanup(t *testing.T) {
 	input, _ := chatdomain.ParseOpenTerminalSessionInput(chatdomain.OpenTerminalSessionRawInput{Mode: "shell"})
 	session, err := service.CreateSession(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID, input)
 	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("pty unsupported in this test environment: %v", err)
+		}
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 	attachment, err := service.AttachSession(UserID("user:conversation"), fixture.conversation.ID, session.ID, session.AttachToken)
@@ -349,6 +364,212 @@ func TestConversationTerminalServiceCloseTriggersCleanup(t *testing.T) {
 	awaitConversationTerminalCleanup(t, service, fixture.conversation.ID, session.ID)
 }
 
+func TestConversationTerminalServiceSupportsWebsocketRuntime(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceWebsocketFixture(t, []projectConversationWorkspaceRepoFixture{{
+		name: "backend",
+		files: map[string]string{
+			"src/main.go": "package main\n",
+		},
+	}})
+	service := NewConversationTerminalService(nil, fixture.service)
+
+	repoPath := "backend"
+	cwdPath := "src"
+	input, err := chatdomain.ParseOpenTerminalSessionInput(chatdomain.OpenTerminalSessionRawInput{
+		Mode:     "shell",
+		RepoPath: &repoPath,
+		CWDPath:  &cwdPath,
+	})
+	if err != nil {
+		t.Fatalf("ParseOpenTerminalSessionInput() error = %v", err)
+	}
+
+	session, err := service.CreateSession(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID, input)
+	if err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("pty unsupported in this test environment: %v", err)
+		}
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+	if session.CWD != filepath.Join(fixture.repoPaths["backend"], "src") {
+		t.Fatalf("session cwd = %q", session.CWD)
+	}
+
+	attachment, err := service.AttachSession(
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		session.ID,
+		session.AttachToken,
+	)
+	if err != nil {
+		t.Fatalf("AttachSession() error = %v", err)
+	}
+	if ready := requireConversationTerminalEvent(t, attachment.Events); ready.Type != "ready" {
+		t.Fatalf("ready event = %+v", ready)
+	}
+
+	if err := attachment.Resize(120, 40); err != nil {
+		t.Fatalf("Resize() error = %v", err)
+	}
+	if err := attachment.WriteInput([]byte("printf 'REMOTE_OK\\n'; exit\n")); err != nil {
+		t.Fatalf("WriteInput() error = %v", err)
+	}
+
+	output := collectConversationTerminalOutput(t, attachment.Events, "REMOTE_OK")
+	if !strings.Contains(output, "REMOTE_OK") {
+		t.Fatalf("unexpected websocket terminal output %q", output)
+	}
+
+	exit := awaitConversationTerminalExit(t, attachment.Events)
+	if exit.Type != "exit" || exit.ExitCode != 0 {
+		t.Fatalf("exit event = %+v", exit)
+	}
+	awaitConversationTerminalCleanup(t, service, fixture.conversation.ID, session.ID)
+}
+
+type fakeRemoteConversationCommandSession struct {
+	stdinReader  *io.PipeReader
+	stdinWriter  *io.PipeWriter
+	stdoutReader *io.PipeReader
+	stdoutWriter *io.PipeWriter
+	stderrReader *io.PipeReader
+	stderrWriter *io.PipeWriter
+	waitCh       chan error
+}
+
+func newFakeRemoteConversationCommandSession() *fakeRemoteConversationCommandSession {
+	stdinReader, stdinWriter := io.Pipe()
+	stdoutReader, stdoutWriter := io.Pipe()
+	stderrReader, stderrWriter := io.Pipe()
+	return &fakeRemoteConversationCommandSession{
+		stdinReader:  stdinReader,
+		stdinWriter:  stdinWriter,
+		stdoutReader: stdoutReader,
+		stdoutWriter: stdoutWriter,
+		stderrReader: stderrReader,
+		stderrWriter: stderrWriter,
+		waitCh:       make(chan error, 1),
+	}
+}
+
+func (s *fakeRemoteConversationCommandSession) CombinedOutput(string) ([]byte, error) {
+	return nil, nil
+}
+func (s *fakeRemoteConversationCommandSession) StdinPipe() (io.WriteCloser, error) {
+	return s.stdinWriter, nil
+}
+func (s *fakeRemoteConversationCommandSession) StdoutPipe() (io.Reader, error) {
+	return s.stdoutReader, nil
+}
+func (s *fakeRemoteConversationCommandSession) StderrPipe() (io.Reader, error) {
+	return s.stderrReader, nil
+}
+func (s *fakeRemoteConversationCommandSession) Start(string) error              { return nil }
+func (s *fakeRemoteConversationCommandSession) StartPTY(string, int, int) error { return nil }
+func (s *fakeRemoteConversationCommandSession) Resize(int, int) error           { return nil }
+func (s *fakeRemoteConversationCommandSession) Signal(string) error             { return nil }
+func (s *fakeRemoteConversationCommandSession) Wait() error                     { return <-s.waitCh }
+func (s *fakeRemoteConversationCommandSession) Close() error {
+	_ = s.stdinWriter.Close()
+	_ = s.stdoutWriter.Close()
+	_ = s.stderrWriter.Close()
+	return nil
+}
+
+func TestRemoteConversationTerminalProcessWaitsForCopiedOutputBeforeExit(t *testing.T) {
+	t.Parallel()
+
+	session := newFakeRemoteConversationCommandSession()
+	reader, writer := io.Pipe()
+	process := &remoteConversationTerminalProcess{
+		session: session,
+		stdin:   session.stdinWriter,
+		merged:  reader,
+		writer:  writer,
+		done:    make(chan struct{}),
+	}
+
+	process.copyWG.Add(2)
+	go process.copyOutput(session.stdoutReader)
+	go process.copyOutput(session.stderrReader)
+	go process.waitLoop()
+
+	outputDone := make(chan string, 1)
+	go func() {
+		payload, _ := io.ReadAll(process.merged)
+		outputDone <- string(payload)
+	}()
+
+	session.waitCh <- nil
+	if _, err := session.stdoutWriter.Write([]byte("REMOTE_OK\n")); err != nil {
+		t.Fatalf("stdout write: %v", err)
+	}
+	_ = session.stdoutWriter.Close()
+	_ = session.stderrWriter.Close()
+
+	if err := process.Wait(); err != nil {
+		t.Fatalf("Wait() error = %v", err)
+	}
+
+	select {
+	case output := <-outputDone:
+		if !strings.Contains(output, "REMOTE_OK") {
+			t.Fatalf("merged output = %q", output)
+		}
+	case <-time.After(conversationTerminalTestEventTimeout):
+		t.Fatal("timed out waiting for merged remote terminal output")
+	}
+}
+
+func collectConversationTerminalOutput(
+	t *testing.T,
+	events <-chan ConversationTerminalEvent,
+	want string,
+) string {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var builder strings.Builder
+	for time.Now().Before(deadline) {
+		event := requireConversationTerminalEvent(t, events)
+		switch event.Type {
+		case "output":
+			builder.Write(event.Data)
+			if strings.Contains(builder.String(), want) {
+				return builder.String()
+			}
+		case "error":
+			t.Fatalf("unexpected terminal error event: %+v", event)
+		case "exit":
+			t.Fatalf("terminal exited before output %q arrived: %+v", want, event)
+		}
+	}
+	t.Fatalf("timed out waiting for terminal output %q", want)
+	return ""
+}
+
+func awaitConversationTerminalExit(
+	t *testing.T,
+	events <-chan ConversationTerminalEvent,
+) ConversationTerminalEvent {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		event := requireConversationTerminalEvent(t, events)
+		switch event.Type {
+		case "exit":
+			return event
+		case "output":
+			continue
+		case "error":
+			t.Fatalf("unexpected terminal error event: %+v", event)
+		}
+	}
+	t.Fatal("timed out waiting for terminal exit")
+	return ConversationTerminalEvent{}
+}
+
 func requireConversationTerminalEvent(t *testing.T, events <-chan ConversationTerminalEvent) ConversationTerminalEvent {
 	t.Helper()
 	select {
@@ -357,7 +578,7 @@ func requireConversationTerminalEvent(t *testing.T, events <-chan ConversationTe
 			t.Fatal("expected terminal event, got closed channel")
 		}
 		return event
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(conversationTerminalTestEventTimeout):
 		t.Fatal("timed out waiting for terminal event")
 		return ConversationTerminalEvent{}
 	}

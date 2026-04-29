@@ -319,8 +319,20 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 	t.Run("scope helpers and parser failures", func(t *testing.T) {
 		gotSupported := SupportedScopes()
 		wantSupported := []string{
+			string(ScopeAgentsCreate),
+			string(ScopeAgentsDelete),
+			string(ScopeAgentsPause),
+			string(ScopeAgentsRead),
 			string(ScopeAgentsInterrupt),
+			string(ScopeAgentsResume),
+			string(ScopeAgentsUpdate),
 			string(ScopeActivityRead),
+			string(ScopeNotificationRulesCreate),
+			string(ScopeNotificationRulesDelete),
+			string(ScopeNotificationRulesList),
+			string(ScopeNotificationRulesUpdate),
+			string(ScopeProjectUpdatesRead),
+			string(ScopeProjectUpdatesWrite),
 			string(ScopeProjectsAddRepo),
 			string(ScopeProjectsUpdate),
 			string(ScopeReposCreate),
@@ -370,9 +382,9 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 		if !slices.Equal(gotSupported, wantSupported) {
 			t.Fatalf("SupportedScopes() = %v, want %v", gotSupported, wantSupported)
 		}
-		wantProjectConversationSupported := make([]string, 0, len(wantSupported)-1)
+		wantProjectConversationSupported := make([]string, 0, len(wantSupported)-2)
 		for _, scope := range wantSupported {
-			if scope == string(ScopeTicketsUpdateSelf) {
+			if scope == string(ScopeTicketsUpdateSelf) || scope == string(ScopeTicketsReportUsage) {
 				continue
 			}
 			wantProjectConversationSupported = append(wantProjectConversationSupported, scope)

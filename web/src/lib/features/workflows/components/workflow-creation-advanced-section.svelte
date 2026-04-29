@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Collapsible from '$ui/collapsible'
   import { ChevronRight } from '@lucide/svelte'
+  import { t } from './i18n'
 
   import type { WorkflowHookDraftValidation, WorkflowHooksDraft } from '../workflow-hooks'
   import WorkflowHooksEditor from './workflow-hooks-editor.svelte'
@@ -31,16 +32,18 @@
         class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
       >
         <ChevronRight class="size-4 transition-transform {open ? 'rotate-90' : ''}" />
-        Advanced
+        {t('workflows.creation.advancedSection.toggle')}
       </button>
     {/snippet}
   </Collapsible.Trigger>
   <Collapsible.Content>
     <div class="mt-3 space-y-4">
       <div class="space-y-1">
-        <div class="text-sm font-medium">Hooks</div>
+        <div class="text-sm font-medium">
+          {t('workflows.creation.advancedSection.hooksTitle')}
+        </div>
         <p class="text-muted-foreground text-xs">
-          Configure optional workflow and ticket lifecycle hooks.
+          {t('workflows.creation.advancedSection.hooksDescription')}
         </p>
       </div>
 

@@ -15,6 +15,8 @@
   import { actionErrorMessage } from '../notification-support'
   import { toastStore } from '$lib/stores/toast.svelte'
   import NotificationChannelDialog from './notification-channel-dialog.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import type { TranslationKey } from '$lib/i18n'
 
   let {
     channels,
@@ -67,17 +69,22 @@
         return
       }
       if (!parsed.value.changed) {
-        toastStore.info('No channel changes to save.')
+        toastStore.info(i18nStore.t('settings.notificationChannel.panel.messages.noChanges'))
         return
       }
       saving = true
       try {
         await onUpdate(editingChannel.id, parsed.value.value)
-        toastStore.success('Channel updated.')
+        toastStore.success(i18nStore.t('settings.notificationChannel.panel.messages.updated'))
         dialogOpen = false
         editingChannel = null
       } catch (caughtError) {
-        toastStore.error(actionErrorMessage(caughtError, 'Failed to update channel.'))
+        toastStore.error(
+          actionErrorMessage(
+            caughtError,
+            i18nStore.t('settings.notificationChannel.panel.errors.update'),
+          ),
+        )
       } finally {
         saving = false
       }
@@ -92,10 +99,15 @@
     saving = true
     try {
       await onCreate(parsed.value)
-      toastStore.success('Channel created.')
+      toastStore.success(i18nStore.t('settings.notificationChannel.panel.messages.created'))
       dialogOpen = false
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to create channel.'))
+      toastStore.error(
+        actionErrorMessage(
+          caughtError,
+          i18nStore.t('settings.notificationChannel.panel.errors.create'),
+        ),
+      )
     } finally {
       saving = false
     }
@@ -106,12 +118,17 @@
     deleting = true
     try {
       await onDelete(editingChannel.id)
-      toastStore.success('Channel deleted.')
+      toastStore.success(i18nStore.t('settings.notificationChannel.panel.messages.deleted'))
       dialogOpen = false
       confirmDeleteOpen = false
       editingChannel = null
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to delete channel.'))
+      toastStore.error(
+        actionErrorMessage(
+          caughtError,
+          i18nStore.t('settings.notificationChannel.panel.errors.delete'),
+        ),
+      )
     } finally {
       deleting = false
     }
@@ -121,9 +138,20 @@
     togglingId = channel.id
     try {
       const updated = await onToggle(channel.id, !channel.is_enabled)
-      toastStore.success(updated.is_enabled ? 'Channel enabled.' : 'Channel disabled.')
+      toastStore.success(
+        i18nStore.t(
+          updated.is_enabled
+            ? NOTIFICATION_CHANNEL_TOGGLE_MESSAGES.enabled
+            : NOTIFICATION_CHANNEL_TOGGLE_MESSAGES.disabled,
+        ),
+      )
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to update channel state.'))
+      toastStore.error(
+        actionErrorMessage(
+          caughtError,
+          i18nStore.t('settings.notificationChannel.panel.errors.state'),
+        ),
+      )
     } finally {
       togglingId = null
     }
@@ -133,31 +161,48 @@
     testing = true
     try {
       await onTest(channel.id)
-      toastStore.success('Test notification sent.')
+      toastStore.success(i18nStore.t('settings.notificationChannel.panel.messages.testSent'))
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to send test notification.'))
+      toastStore.error(
+        actionErrorMessage(
+          caughtError,
+          i18nStore.t('settings.notificationChannel.panel.errors.test'),
+        ),
+      )
     } finally {
       testing = false
     }
   }
 
-  const channelTypeLabels: Record<string, string> = {
-    webhook: 'Webhook',
-    telegram: 'Telegram',
-    slack: 'Slack',
-    wecom: 'WeCom',
+  const CHANNEL_TYPE_LABEL_KEYS: Record<NotificationChannel['type'], TranslationKey> = {
+    webhook: 'settings.notificationChannel.types.webhook',
+    telegram: 'settings.notificationChannel.types.telegram',
+    slack: 'settings.notificationChannel.types.slack',
+    wecom: 'settings.notificationChannel.types.wecom',
   }
+
+  const NOTIFICATION_CHANNEL_TOGGLE_MESSAGES: Record<'enabled' | 'disabled', TranslationKey> = {
+    enabled: 'settings.notificationChannel.panel.messages.enabled',
+    disabled: 'settings.notificationChannel.panel.messages.disabled',
+  }
+
+  const channelTypeLabel = (type: NotificationChannel['type']) =>
+    i18nStore.t(CHANNEL_TYPE_LABEL_KEYS[type])
 </script>
 
 <div class="space-y-4">
   <div class="flex items-center justify-between gap-4">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Channels</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.notificationChannel.panel.labels.heading')}
+      </h3>
       <p class="text-muted-foreground mt-0.5 text-xs">
-        Organization-level delivery endpoints shared across projects.
+        {i18nStore.t('settings.notificationChannel.panel.labels.description')}
       </p>
     </div>
-    <Button variant="outline" size="sm" onclick={openNew}>Add channel</Button>
+    <Button variant="outline" size="sm" onclick={openNew}>
+      {i18nStore.t('settings.notificationChannel.panel.actions.add')}
+    </Button>
   </div>
 
   {#if channels.length === 0}
@@ -178,11 +223,15 @@
           d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"
         />
       </svg>
-      <p class="text-muted-foreground text-sm">No channels configured.</p>
-      <p class="text-muted-foreground text-xs">
-        Add a channel to start receiving notifications via Webhook, Slack, Telegram, or WeCom.
+      <p class="text-muted-foreground text-sm">
+        {i18nStore.t('settings.notificationChannel.panel.messages.noChannels')}
       </p>
-      <Button variant="outline" size="sm" class="mt-2" onclick={openNew}>Add channel</Button>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t('settings.notificationChannel.panel.messages.addHint')}
+      </p>
+      <Button variant="outline" size="sm" class="mt-2" onclick={openNew}>
+        {i18nStore.t('settings.notificationChannel.panel.actions.add')}
+      </Button>
     </div>
   {:else}
     <div class="grid gap-3 sm:grid-cols-2">
@@ -193,11 +242,13 @@
               <div class="flex items-center gap-2">
                 <span class="truncate text-sm font-medium">{channel.name}</span>
                 <Badge variant="outline" class="shrink-0 text-[10px] uppercase">
-                  {channelTypeLabels[channel.type] ?? channel.type}
+                  {channelTypeLabel(channel.type)}
                 </Badge>
               </div>
               <p class="text-muted-foreground mt-1 text-xs">
-                {channel.is_enabled ? 'Receiving notifications' : 'Paused'}
+                {channel.is_enabled
+                  ? i18nStore.t('settings.notificationChannel.panel.labels.enabled')
+                  : i18nStore.t('settings.notificationChannel.panel.labels.paused')}
               </p>
             </div>
             <Switch
@@ -213,7 +264,7 @@
               class="h-7 px-2 text-xs"
               onclick={() => openEdit(channel)}
             >
-              Edit
+              {i18nStore.t('settings.notificationChannel.panel.actions.edit')}
             </Button>
             <Button
               variant="ghost"
@@ -222,7 +273,9 @@
               disabled={testing}
               onclick={() => handleTest(channel)}
             >
-              {testing ? 'Sending…' : 'Send test'}
+              {testing
+                ? i18nStore.t('settings.notificationChannel.panel.actions.sending')
+                : i18nStore.t('settings.notificationChannel.panel.actions.sendTest')}
             </Button>
           </div>
         </div>

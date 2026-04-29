@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -1871,6 +1872,49 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("expected rendered harness to contain %q, got:\n%s", want, rendered)
 		}
+	}
+}
+
+func TestWorkflowServiceRetireAllowsRetiredBoundAgent(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	repoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+
+	created, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Cleanup Workflow",
+		Type:                TypeCoding,
+		HarnessContent:      "# Cleanup\n",
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            true,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if _, err := client.Agent.UpdateOneID(fixture.agentID).
+		SetRuntimeControlState(entagent.RuntimeControlStateRetired).
+		Save(ctx); err != nil {
+		t.Fatalf("retire bound agent: %v", err)
+	}
+
+	retired, err := service.Retire(ctx, created.ID, "tester")
+	if err != nil {
+		t.Fatalf("Retire() with retired bound agent error = %v", err)
+	}
+	if retired.IsActive {
+		t.Fatalf("Retire() should deactivate workflow, got %+v", retired)
+	}
+	if retired.AgentID == nil || *retired.AgentID != fixture.agentID {
+		t.Fatalf("Retire() should preserve bound agent reference, got %+v", retired.AgentID)
 	}
 }
 

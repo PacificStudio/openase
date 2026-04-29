@@ -2,6 +2,7 @@
   import '@xterm/xterm/css/xterm.css'
   import { cn } from '$lib/utils'
   import { AlertCircle, LoaderCircle, Plus, SquareTerminal, X } from '@lucide/svelte'
+  import { chatT } from './i18n'
   import type { TerminalManager } from './terminal-manager.svelte'
 
   let {
@@ -71,7 +72,7 @@
             e.stopPropagation()
             manager.removeInstance(inst.id)
           }}
-          aria-label="Close terminal"
+          aria-label={chatT('chat.terminal.close')}
         >
           <X class="size-2" />
         </button>
@@ -80,7 +81,7 @@
     <button
       type="button"
       class="text-muted-foreground hover:text-foreground hover:bg-muted ml-0.5 flex size-6 items-center justify-center rounded-sm transition-colors"
-      aria-label="New terminal"
+      aria-label={chatT('chat.terminal.new')}
       onclick={handleNewTerminal}
     >
       <Plus class="size-3" />

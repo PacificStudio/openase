@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { PageScaffold } from '$lib/components/layout'
-  import { currentHashSelection, writeHashSelection } from '$lib/utils/hash-state'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import { writeHashSelection } from '$lib/utils/hash-state'
   import type { SettingsSection } from '../types'
-  import { settingsSections } from '../types'
+  import { resolveSettingsSectionHash } from '../types'
   import AgentSettings from './agent-settings.svelte'
-  import AccessSettings from './access-settings.svelte'
   import ArchivedTicketsSettings from './archived-tickets-settings.svelte'
   import SettingsNav from './settings-nav.svelte'
   import GeneralSettings from './general-settings.svelte'
@@ -22,7 +22,7 @@
   }
 
   function syncSectionFromHash() {
-    activeSection = currentHashSelection(settingsSections, 'general')
+    activeSection = resolveSettingsSectionHash(window.location.hash, 'general')
   }
 
   onMount(() => {
@@ -49,11 +49,11 @@
   })
 </script>
 
-<PageScaffold title="Settings">
+<PageScaffold title={i18nStore.t('settings.page.title')} helpSection="settings">
   <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
     <SettingsNav active={activeSection} onSelect={handleSelect} />
 
-    <div class="min-w-0 flex-1">
+    <div class="min-w-0 flex-1" data-tour="settings-content-panel">
       {#if activeSection === 'general'}
         <GeneralSettings />
       {:else if activeSection === 'statuses'}
@@ -64,8 +64,6 @@
         <AgentSettings />
       {:else if activeSection === 'notifications'}
         <NotificationSettings />
-      {:else if activeSection === 'access'}
-        <AccessSettings />
       {:else if activeSection === 'security'}
         <SecuritySettings />
       {:else if activeSection === 'archived'}

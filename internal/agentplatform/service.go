@@ -20,12 +20,20 @@ import (
 const TokenPrefix = domain.TokenPrefix
 
 const (
+	ScopeAgentsRead                    = domain.ScopeAgentsRead
+	ScopeAgentsCreate                  = domain.ScopeAgentsCreate
+	ScopeAgentsUpdate                  = domain.ScopeAgentsUpdate
+	ScopeAgentsDelete                  = domain.ScopeAgentsDelete
+	ScopeAgentsPause                   = domain.ScopeAgentsPause
+	ScopeAgentsResume                  = domain.ScopeAgentsResume
 	ScopeAgentsInterrupt               = domain.ScopeAgentsInterrupt
 	ScopeTicketsCreate                 = domain.ScopeTicketsCreate
 	ScopeTicketsList                   = domain.ScopeTicketsList
 	ScopeTicketsUpdate                 = domain.ScopeTicketsUpdate
 	ScopeTicketsReportUsage            = domain.ScopeTicketsReportUsage
 	ScopeTicketsUpdateSelf             = domain.ScopeTicketsUpdateSelf
+	ScopeProjectUpdatesRead            = domain.ScopeProjectUpdatesRead
+	ScopeProjectUpdatesWrite           = domain.ScopeProjectUpdatesWrite
 	ScopeProjectsUpdate                = domain.ScopeProjectsUpdate
 	ScopeProjectsAddRepo               = domain.ScopeProjectsAddRepo
 	ScopeActivityRead                  = domain.ScopeActivityRead
@@ -48,6 +56,10 @@ const (
 	ScopeSkillsEnable                  = domain.ScopeSkillsEnable
 	ScopeSkillsDisable                 = domain.ScopeSkillsDisable
 	ScopeSkillsBind                    = domain.ScopeSkillsBind
+	ScopeNotificationRulesList         = domain.ScopeNotificationRulesList
+	ScopeNotificationRulesCreate       = domain.ScopeNotificationRulesCreate
+	ScopeNotificationRulesUpdate       = domain.ScopeNotificationRulesUpdate
+	ScopeNotificationRulesDelete       = domain.ScopeNotificationRulesDelete
 	ScopeStatusesList                  = domain.ScopeStatusesList
 	ScopeStatusesCreate                = domain.ScopeStatusesCreate
 	ScopeStatusesUpdate                = domain.ScopeStatusesUpdate
@@ -92,8 +104,20 @@ var (
 		ScopeTicketsUpdateSelf,
 	}
 	supportedAgentScopes = []Scope{
+		ScopeAgentsCreate,
+		ScopeAgentsDelete,
+		ScopeAgentsPause,
+		ScopeAgentsRead,
 		ScopeAgentsInterrupt,
+		ScopeAgentsResume,
+		ScopeAgentsUpdate,
 		ScopeActivityRead,
+		ScopeNotificationRulesCreate,
+		ScopeNotificationRulesDelete,
+		ScopeNotificationRulesList,
+		ScopeNotificationRulesUpdate,
+		ScopeProjectUpdatesRead,
+		ScopeProjectUpdatesWrite,
 		ScopeProjectsAddRepo,
 		ScopeProjectsUpdate,
 		ScopeReposCreate,
@@ -362,6 +386,10 @@ func SupportedScopes() []string {
 
 func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
 	return scopeStrings(supportedScopesForPrincipalKind(kind))
+}
+
+func NormalizeSupportedScopesForPrincipalKind(kind PrincipalKind, raw []string) []string {
+	return domain.NormalizeSupportedScopesForPrincipalKind(kind, raw)
 }
 
 func PrivilegedScopes() []string {

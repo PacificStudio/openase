@@ -101,10 +101,40 @@ Disabled 模式下的设置表单支持：
 
 1. `Save draft` 会把 OIDC 草稿持久化到配置文件，但不会改变当前运行中的 auth mode。
 2. `Test configuration` 会执行 provider discovery，并返回可操作的 endpoint 诊断信息与 warning。
-3. `Enable OIDC` 会再次验证 discovery，然后写入 `auth.mode=oidc` 并返回下一步指引。
-4. 当前版本仍然需要重启服务，新的 configured mode 才会成为 active mode。
+3. `Enable OIDC` 会再次验证 discovery，然后写入 `auth.mode=oidc` 并返回 activation 状态与下一步指引。
+4. 只有当 activation 响应明确提示需要重启时，才需要额外重启服务。
 
 Project Settings -> Security 在兼容期内仍然存在，但它只负责项目级安全配置与迁移提示，不能再继续充当实例级 auth control plane。
+
+## 运维检查清单
+
+### 切换模式前
+
+- 确认对外 base URL、TLS 方案以及 OIDC redirect 注册。
+- 确定首批 `bootstrap_admin_emails`，以及首次登录后期望落地的实例 / 组织 / 项目绑定。
+- 先确认恢复路径。如果登录失败，可先执行 `openase auth break-glass disable-oidc`，再通过本地 bootstrap link 重新进入。
+
+### 启用流程
+
+1. 在实例仍运行于 `auth.mode=disabled` 时打开 `/admin/auth`。
+2. 保存 OIDC 草稿，并确认 active mode 仍然是 `disabled`。
+3. 执行 `Test configuration`，检查 discovery 诊断与 warning。
+4. 执行 `Enable OIDC`，按返回的 activation 状态与下一步指引继续操作。
+5. 使用 bootstrap admin 账号完成第一次浏览器登录，并确认其获得 `instance_admin`。
+
+### 启用后验证
+
+- `/admin/auth` 展示了正确的 issuer、auth mode 摘要与 bootstrap 指引。
+- `/admin` 展示了预期的 session inventory、恢复说明与用户目录可见性。
+- `/orgs/:orgId/admin/*` 暴露了组织成员、邀请与组织级绑定管理。
+- Project Settings -> `#access` 展示了项目级绑定与有效 project access。
+- Project Settings -> `#security` 仍然只承载项目自有凭证与运行时加固。
+
+### 回退
+
+- 如果 OIDC 登录或授权失败，将 `auth.mode` 改回 `disabled`，或使用上面的 break-glass CLI 路径。
+- 保留已保存的 OIDC 草稿，修复 provider 或 RBAC 问题后再重试。
+- 回退过程绝不能依赖伪造本地 OIDC 用户。
 
 ## 浏览器流程
 
@@ -281,8 +311,9 @@ AI 会话归属始终派生自服务端定义的主体：
 
 浏览器本地随机 ID 和 `X-OpenASE-Chat-User` 请求头不再是权威 owner 输入。
 
-当 `auth.mode=disabled` 时，持久 Project Conversation 会切换到服务端定义的本地稳定主体：`local-user:default`。
+当 `auth.mode=disabled` 时，持久 Project Conversation 当前仍使用兼容旧数据的本地 owner：`local-user:default`。
 
+- 这个值应视为 disabled 模式规范主体 `local_instance_admin:default` 的兼容别名
 - 这样可以让会话归属跨前端 dev server 端口与浏览器本地存储重置保持稳定
 - `localStorage` 仅保留标签布局和草稿等 UI 恢复职责，不再作为持久会话 owner 的真相来源
 - 该模式明确是本地单用户 / 共享实例 fallback，不是多用户隔离模型
@@ -307,7 +338,7 @@ AI 会话归属始终派生自服务端定义的主体：
 - 当前已认证用户
 - session inventory，包括当前设备识别与撤销动作
 - 浏览器访问相关的 auth 审计时间线
-- 稳定的 Project Conversation owner 语义（OIDC 下为 `user:<user-id>`，关闭认证时为 `local-user:default`）
+- 稳定的 Project Conversation owner 语义（OIDC 下为 `user:<user-id>`，关闭认证时为 `local-user:default`，作为本地主体的当前兼容别名）
 - 有效角色和权限
 - 人类权限与可 mint agent scopes 的区别
 - 实例 / 组织 / 项目角色绑定管理

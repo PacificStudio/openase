@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ChevronRight, Play, CheckCircle, AlertCircle, Info, Loader } from '@lucide/svelte'
   import { cn } from '$lib/utils'
+  import { ticketsT } from '$lib/features/tickets'
   import type { TicketRunTranscriptBlock } from '../types'
 
   let { block }: { block: Extract<TicketRunTranscriptBlock, { kind: 'task_status' }> } = $props()
@@ -88,7 +89,7 @@
       {#if block.raw && Object.keys(block.raw).length > 0}
         <details class="mt-1">
           <summary class="text-muted-foreground hover:text-foreground cursor-pointer"
-            >Raw payload</summary
+            >{ticketsT('tickets.transcript.rawPayload')}</summary
           >
           <pre
             class="bg-muted/60 mt-1 max-h-48 overflow-auto rounded-md px-2.5 py-1.5 font-mono text-[11px] leading-5 whitespace-pre-wrap">{JSON.stringify(

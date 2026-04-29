@@ -44,6 +44,8 @@ Build the embedded frontend and Go binary together from the repo root:
 make build-web
 ```
 
+For fresh cloud hosts, treat frontend compilation as the memory-hungry step. A machine with 8 GB RAM is the smoother path; on a 4 GB droplet, add swap before running `make build-web` if you want the first build to complete reliably.
+
 The equivalent explicit commands are:
 
 ```bash
@@ -200,16 +202,13 @@ Launch the interactive terminal setup:
 ./bin/openase setup
 ```
 
-The default flow stays inside the terminal and does not open a browser. It walks through:
+The default flow stays inside the terminal and does not open a browser during setup itself. It walks through:
 
 - choosing a database source:
-  - start a local Docker PostgreSQL automatically
+  - start a local Docker PostgreSQL automatically when Docker is already installed and your user can access the daemon
   - enter an existing PostgreSQL connection manually by supplying host, port, database, user, password, and `sslmode`
 - validating the chosen database connection inside setup
 - checking local CLI availability and version probes for `git`, `codex`, `claude`, and other built-in provider CLIs
-- choosing the browser auth mode:
-  - `disabled`
-  - `oidc`, with in-flow prompts for issuer URL, client ID, client secret, redirect URL, scopes, and bootstrap admins
 - choosing how OpenASE should run after setup:
   - config-only
   - install/update the current-user managed service: `systemd --user` on Linux, `launchd` on macOS
@@ -227,7 +226,7 @@ Successful setup does all of the following:
 - does not require a repo path, repo URL, default branch, or mode selection
 - does not scaffold repo-local `.openase/` assets during setup
 - can install the managed OpenASE service directly when the local platform supports `systemd --user` or `launchd`
-- can write runnable OIDC browser-login settings directly into the generated config
+- leaves browser sign-in in local bootstrap mode after setup; enable OIDC later through the runtime security settings when you are ready
 
 When you choose Docker-backed PostgreSQL, setup uses predictable defaults:
 
@@ -241,11 +240,7 @@ Setup generates the PostgreSQL password automatically, validates the container-b
 
 If Docker is unavailable to your user account, setup does not fall back to another local database mode. In that case, bring your own PostgreSQL first and choose the manual connection path.
 
-If you choose OIDC mode during setup, the flow points to the dual-mode IAM
-contract ([`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md))
-and the OIDC setup guide ([`docs/en/human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)).
-The runtime is intended for standard OIDC providers such as Auth0 or Azure
-Entra ID.
+After setup, browser sign-in uses a local bootstrap link by default. If you later want managed browser login, enable OIDC from the running instance and then follow the dual-mode IAM contract ([`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)) and the OIDC setup guide ([`docs/en/human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)). The runtime is intended for standard OIDC providers such as Auth0 or Azure Entra ID.
 
 ## 5. Start OpenASE
 
@@ -366,3 +361,114 @@ curl -fsS http://127.0.0.1:19836/api/v1/healthz
 - If `all-in-one` fails with `bind: address already in use`, inspect the current listener with `lsof -nP -iTCP:<port> -sTCP:LISTEN`.
 - When running from a local `.env`, keep the file permissions tight, for example `chmod 600 ~/.openase/.env`.
 - Local log files are typically kept under `~/.openase/logs/`.
+
+## Appendix A. Installing Prerequisites
+
+### Go 1.26+
+
+```bash
+# Download (adjust version and OS/arch as needed)
+wget https://go.dev/dl/go1.26.1.linux-amd64.tar.gz
+
+# Extract to /usr/local (requires sudo)
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go1.26.1.linux-amd64.tar.gz
+
+# Add to PATH — append to ~/.bashrc or ~/.zshrc
+export PATH=$PATH:/usr/local/go/bin
+
+# Verify
+go version   # go1.26.1 linux/amd64
+```
+
+Alternatively, use a project-local toolchain:
+
+```bash
+export PATH=$PWD/.tooling/go/bin:$HOME/.local/go1.26.1/bin:$PATH
+```
+
+### Node.js 22 LTS or 24 LTS & pnpm (build-time only)
+
+Node.js is only needed to build the frontend. It is **not required at runtime**.
+
+Use an LTS release: **Node 22 LTS** is the default recommendation, and **Node 24 LTS** is also expected to work. Avoid odd-numbered non-LTS releases such as **Node 23** — the frontend dependency set includes `engines` constraints that can cause `pnpm` to reject versions like `v23.11.1`.
+
+```bash
+# Option A: via nvm (recommended)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.bashrc
+nvm install 22
+nvm use 22
+
+# Option B: via package manager (Ubuntu/Debian)
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Enable corepack for pnpm
+# On Ubuntu/Debian package-manager installs, this commonly needs sudo because
+# the Node.js install lives under a root-owned prefix.
+sudo corepack enable
+
+# Verify
+node --version   # v22.x.x
+pnpm --version   # 10.x.x (via corepack)
+```
+
+### PostgreSQL
+
+You have two choices — let OpenASE setup start a Docker-backed PostgreSQL automatically, or install one yourself. There is no third setup-managed "user-space local database" path. If your user cannot access Docker, prepare PostgreSQL yourself before running `openase setup`.
+
+**Option A: Docker (recommended for local dev)**
+
+```bash
+# Install Docker if not present
+sudo apt-get update && sudo apt-get install -y docker.io
+sudo usermod -aG docker $USER
+newgrp docker   # or re-login
+
+# OpenASE setup will create the container for you automatically
+```
+
+**Option B: Bring Your Own PostgreSQL**
+
+```bash
+# macOS via Homebrew
+brew install postgresql@16
+brew services start postgresql@16
+psql postgres://localhost:5432/postgres?sslmode=disable -c "SELECT 1;"
+```
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y postgresql postgresql-client
+
+# Create database and user
+sudo -u postgres psql -c "CREATE USER openase WITH PASSWORD 'openase';"
+sudo -u postgres psql -c "CREATE DATABASE openase OWNER openase;"
+
+# Verify
+psql postgres://openase:openase@localhost:5432/openase?sslmode=disable -c "SELECT 1;"
+```
+
+### Git & other tools
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install -y git make curl wget
+
+# Verify
+git --version
+make --version
+```
+
+### (Optional) AI Agent CLIs
+
+OpenASE setup auto-detects these if present on `PATH`:
+
+| Agent | Install |
+|-------|---------|
+| **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
+| **Codex** | `npm install -g @openai/codex` |
+| **Gemini CLI** | `npm install -g @google/gemini-cli` |
+
+These can also be installed later — setup will seed detected providers.

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import { pageTitle } from '$lib/i18n'
   import { goto } from '$app/navigation'
   import {
     buildLocalBootstrapRedeemPath,
@@ -28,8 +30,7 @@
   async function continueWithLocalBootstrap() {
     const bundle = parseLocalBootstrapAuthorizationBundle(localBootstrapBundle, data.returnTo)
     if (!bundle) {
-      localBootstrapError =
-        'Paste the CLI JSON, text output, or URL from `openase auth bootstrap create-link`.'
+      localBootstrapError = i18nStore.t('auth.localBootstrapParseError')
       return
     }
     localBootstrapError = ''
@@ -38,7 +39,7 @@
 </script>
 
 <svelte:head>
-  <title>Login - OpenASE</title>
+  <title>{pageTitle(i18nStore.t('auth.loginPageTitle'), i18nStore.locale)}</title>
 </svelte:head>
 
 <div class="bg-background flex min-h-screen items-center justify-center px-6 py-12">
@@ -46,8 +47,8 @@
     <!-- Header -->
     <div class="text-center">
       <img src="/favicon.svg" alt="" class="mx-auto mb-4 size-10" />
-      <h1 class="text-2xl font-bold tracking-tight">OpenASE</h1>
-      <p class="text-muted-foreground mt-2 text-sm">Sign in to continue</p>
+      <h1 class="text-2xl font-bold tracking-tight">{i18nStore.t('common.appName')}</h1>
+      <p class="text-muted-foreground mt-2 text-sm">{i18nStore.t('auth.signInToContinue')}</p>
     </div>
 
     <!-- OIDC login -->
@@ -56,7 +57,7 @@
         <a href={loginHref} class="block">
           <Button class="w-full gap-2" size="lg">
             <LogIn class="size-4" />
-            Continue with OIDC
+            {i18nStore.t('auth.continueWithOIDC')}
           </Button>
         </a>
         {#if data.authSession.issuerURL}
@@ -71,7 +72,7 @@
     {#if supportsOIDC && supportsLocalBootstrap}
       <div class="flex items-center gap-3">
         <div class="bg-border h-px flex-1"></div>
-        <span class="text-muted-foreground text-xs">or</span>
+        <span class="text-muted-foreground text-xs">{i18nStore.t('auth.or')}</span>
         <div class="bg-border h-px flex-1"></div>
       </div>
     {/if}
@@ -82,7 +83,7 @@
         {#if !supportsOIDC}
           <div class="flex items-center justify-center gap-2">
             <Terminal class="text-muted-foreground size-4" />
-            <span class="text-sm font-medium">Local Bootstrap</span>
+            <span class="text-sm font-medium">{i18nStore.t('auth.localBootstrap')}</span>
           </div>
         {/if}
 
@@ -95,7 +96,7 @@
             id="local-bootstrap-bundle"
             value={localBootstrapBundle}
             class="min-h-24 font-mono text-xs"
-            placeholder={'Paste authorization bundle here...'}
+            placeholder={i18nStore.t('auth.pasteBundlePlaceholder')}
             oninput={(event) =>
               (localBootstrapBundle = (event.currentTarget as HTMLTextAreaElement).value)}
           />
@@ -107,7 +108,7 @@
             variant={supportsOIDC ? 'outline' : 'default'}
             onclick={() => void continueWithLocalBootstrap()}
           >
-            Authorize
+            {i18nStore.t('auth.authorize')}
           </Button>
         </div>
       </div>
@@ -118,7 +119,7 @@
       <div
         class="text-destructive rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm"
       >
-        No auth method available.
+        {i18nStore.t('auth.noAuthMethodAvailable')}
       </div>
     {/if}
   </div>

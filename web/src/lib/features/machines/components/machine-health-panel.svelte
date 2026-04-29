@@ -1,23 +1,35 @@
 <script lang="ts">
-  import { CircleCheck, CircleX, CircleHelp, GitBranch, Terminal, Globe } from '@lucide/svelte'
-  import { formatRelativeTime } from '$lib/utils'
+  import { CircleCheck, CircleHelp, CircleX, GitBranch, Globe, Terminal } from '@lucide/svelte'
   import { Badge } from '$ui/badge'
-  import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
+  import type { MachineSSHBootstrapResult } from '$lib/api/contracts'
   import { buildMachineSetupGuide } from '../machine-setup'
-  import type { TruthyState } from './machine-health-panel-view'
+  import type {
+    MachineItem,
+    MachineProbeResult,
+    MachineReachabilityMode,
+    MachineSnapshot,
+  } from '../types'
   import {
     buildAuditRows,
+    buildLevelCards,
     buildStatCards,
     checkedAtLabel,
+    levelState,
     runtimeLabel,
     stateBadgeVariant,
     stateLabel,
     toTruthyState,
-    levelState,
+    type TruthyState,
   } from './machine-health-panel-view'
   import MachineGpuTable from './machine-gpu-table.svelte'
+  import MachineHealthAuditPanel from './machine-health-audit-panel.svelte'
   import MachineHealthHeader from './machine-health-header.svelte'
+  import MachineHealthRuntimeTable from './machine-health-runtime-table.svelte'
+  import MachineHealthSetupPanel from './machine-health-setup-panel.svelte'
   import MachineProbeCard from './machine-probe-card.svelte'
+  import { machineErrorMessage, runMachineSSHBootstrap } from './machines-page-api'
 
   const truthyIcon: Record<TruthyState, typeof CircleCheck> = {
     yes: CircleCheck,
@@ -54,9 +66,67 @@
   } = $props()
 
   const statCards = $derived(snapshot ? buildStatCards(snapshot) : [])
+  const levelCards = $derived(
+    snapshot
+      ? buildLevelCards(snapshot, machine?.reachability_mode as MachineReachabilityMode | undefined)
+      : [],
+  )
   const runtimeRows = $derived(snapshot?.agentEnvironment ?? [])
   const auditRows = $derived(snapshot ? buildAuditRows(snapshot) : [])
   const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
+  const hasTrouble = $derived(
+    (snapshot?.monitorErrors?.length ?? 0) > 0 ||
+      levelCards.some((card) => card.state === 'error') ||
+      (machine?.reachability_mode === 'reverse_connect' &&
+        Boolean(machine?.daemon_status) &&
+        machine?.daemon_status?.session_state !== 'connected'),
+  )
+
+  let setupExpanded = $state(false)
+  $effect(() => {
+    if (hasTrouble) setupExpanded = true
+  })
+
+  const repairBootstrapTopology = $derived.by(() => {
+    if (!machine?.id || !machine?.ssh_helper_enabled) return null
+    if (machine.reachability_mode === 'reverse_connect') {
+      return 'reverse-connect'
+    }
+    if (machine.reachability_mode === 'direct_connect' && machine.execution_mode === 'websocket') {
+      return 'remote-listener'
+    }
+    return null
+  })
+  const showBootstrapRepair = $derived(Boolean(hasTrouble && repairBootstrapTopology))
+
+  let bootstrapRunning = $state(false)
+  let bootstrapResult = $state<MachineSSHBootstrapResult | null>(null)
+  let bootstrapError = $state('')
+
+  async function handleBootstrapRepair() {
+    if (!machine?.id || !repairBootstrapTopology) return
+    bootstrapRunning = true
+    bootstrapResult = null
+    bootstrapError = ''
+    try {
+      bootstrapResult = await runMachineSSHBootstrap(machine.id, {
+        topology: repairBootstrapTopology,
+      })
+      toastStore.success(
+        bootstrapResult.summary ||
+          i18nStore.t('machines.machineHealthPanel.bootstrapRepair.successFallback'),
+      )
+      onRefresh?.()
+    } catch (caughtError) {
+      bootstrapError = machineErrorMessage(
+        caughtError,
+        i18nStore.t('machines.machineHealthPanel.bootstrapRepair.failureFallback'),
+      )
+      toastStore.error(bootstrapError)
+    } finally {
+      bootstrapRunning = false
+    }
+  }
 </script>
 
 <div class="space-y-4">
@@ -66,57 +136,20 @@
     <div
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-center text-sm"
     >
-      No monitor snapshot is available for this machine yet.
+      {i18nStore.t('machines.machineHealthPanel.emptyState')}
     </div>
   {:else}
-    <div class="border-border bg-card rounded-xl border">
-      <div
-        class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div class="min-w-0">
-          <h4 class="text-foreground text-sm font-semibold">Setup guidance</h4>
-          <p class="text-muted-foreground mt-1 text-xs">{setupGuide.topologySummary}</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{setupGuide.topologyLabel}</Badge>
-          <Badge variant="outline">{setupGuide.stateLabel}</Badge>
-        </div>
-      </div>
-
-      <div class="grid gap-3 px-4 py-4 lg:grid-cols-3">
-        <div class="space-y-1.5">
-          <p class="text-foreground text-sm font-medium">{setupGuide.runtimeLabel}</p>
-          <p class="text-muted-foreground text-xs leading-relaxed">{setupGuide.runtimeSummary}</p>
-        </div>
-        <div class="space-y-1.5">
-          <p class="text-foreground text-sm font-medium">{setupGuide.helperLabel}</p>
-          <p class="text-muted-foreground text-xs leading-relaxed">{setupGuide.helperSummary}</p>
-        </div>
-        <div class="space-y-1.5">
-          <p class="text-foreground text-sm font-medium">Next steps</p>
-          <ul class="text-muted-foreground space-y-1.5 text-xs leading-relaxed">
-            {#each setupGuide.nextSteps as step, index (`${step}-${index}`)}
-              <li>{step}</li>
-            {/each}
-          </ul>
-        </div>
-      </div>
-
-      {#if setupGuide.commands.length > 0}
-        <div class="border-border grid gap-3 border-t px-4 py-4">
-          {#each setupGuide.commands as command (command.title)}
-            <div class="rounded-lg border border-dashed px-3.5 py-3">
-              <p class="text-foreground text-sm font-medium">{command.title}</p>
-              <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-                {command.description}
-              </p>
-              <pre
-                class="bg-muted/60 text-foreground mt-3 overflow-x-auto rounded-md px-3 py-2 text-xs whitespace-pre-wrap">{command.command}</pre>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
+    <MachineHealthSetupPanel
+      {setupGuide}
+      {hasTrouble}
+      {setupExpanded}
+      {showBootstrapRepair}
+      {bootstrapRunning}
+      {bootstrapResult}
+      {bootstrapError}
+      onToggle={() => (setupExpanded = !setupExpanded)}
+      onBootstrapRepair={handleBootstrapRepair}
+    />
 
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {#each statCards as card (card.label)}
@@ -128,9 +161,24 @@
       {/each}
     </div>
 
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {#each levelCards as card (card.id)}
+        <div class="border-border bg-card rounded-xl border px-4 py-3">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-foreground text-sm font-medium">{card.label}</p>
+            <Badge variant={stateBadgeVariant(card.state)}>{stateLabel(card.state)}</Badge>
+          </div>
+          <p class="text-foreground mt-2 text-sm font-semibold">{card.value}</p>
+          <p class="text-muted-foreground mt-1 text-xs">{card.meta}</p>
+        </div>
+      {/each}
+    </div>
+
     {#if snapshot.monitorErrors.length > 0}
       <div class="border-destructive/40 bg-destructive/10 rounded-xl border px-4 py-3">
-        <p class="text-destructive text-sm font-medium">Monitor warnings</p>
+        <p class="text-destructive text-sm font-medium">
+          {i18nStore.t('machines.machineHealthPanel.heading.monitorWarnings')}
+        </p>
         <ul class="text-destructive mt-2 space-y-1 text-xs">
           {#each snapshot.monitorErrors as error, index (`${error}-${index}`)}
             <li>{error}</li>
@@ -141,56 +189,16 @@
 
     {#if runtimeRows.length > 0}
       {@const l4State = levelState(snapshot.monitor.l4)}
-      <div class="border-border bg-card rounded-xl border">
-        <div
-          class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div class="flex items-center gap-2">
-            <h4 class="text-foreground text-sm font-semibold">Runtime providers</h4>
-            <Badge variant={stateBadgeVariant(l4State)}>{stateLabel(l4State)}</Badge>
-          </div>
-          <span class="text-muted-foreground text-xs">
-            {checkedAtLabel(snapshot.agentEnvironmentCheckedAt)}
-          </span>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-border text-muted-foreground border-b text-left text-xs">
-                <th class="px-4 py-2 font-medium">Runtime</th>
-                <th class="px-4 py-2 font-medium">Installed</th>
-                <th class="px-4 py-2 font-medium">Auth</th>
-                <th class="px-4 py-2 font-medium">Ready</th>
-                <th class="px-4 py-2 font-medium">Version</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each runtimeRows as runtime (runtime.name)}
-                {@const installedState = toTruthyState(runtime.installed)}
-                {@const readyState = toTruthyState(runtime.ready)}
-                {@const InstalledIcon = truthyIcon[installedState]}
-                {@const ReadyIcon = truthyIcon[readyState]}
-                <tr class="border-border/60 border-b last:border-0">
-                  <td class="px-4 py-3 font-medium">{runtimeLabel(runtime)}</td>
-                  <td class="px-4 py-3">
-                    <InstalledIcon class="size-4 {truthyColorClass[installedState]}" />
-                  </td>
-                  <td class="px-4 py-3 text-xs">
-                    {[runtime.authStatus, runtime.authMode].filter(Boolean).join(' · ') ||
-                      'Unknown'}
-                  </td>
-                  <td class="px-4 py-3">
-                    <ReadyIcon class="size-4 {truthyColorClass[readyState]}" />
-                  </td>
-                  <td class="text-muted-foreground px-4 py-3 text-xs"
-                    >{runtime.version ?? 'Unknown'}</td
-                  >
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <MachineHealthRuntimeTable
+        {runtimeRows}
+        checkedLabel={checkedAtLabel(snapshot.agentEnvironmentCheckedAt)}
+        badgeVariant={stateBadgeVariant(l4State)}
+        badgeLabel={stateLabel(l4State)}
+        {truthyIcon}
+        {truthyColorClass}
+        {runtimeLabel}
+        {toTruthyState}
+      />
     {/if}
 
     {#if snapshot.gpus.length > 0}
@@ -199,84 +207,15 @@
 
     {#if snapshot.fullAudit}
       {@const l5State = levelState(snapshot.monitor.l5)}
-      <div class="border-border bg-card rounded-xl border">
-        <div
-          class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div class="flex items-center gap-2">
-            <h4 class="text-foreground text-sm font-semibold">Tooling audit</h4>
-            <Badge variant={stateBadgeVariant(l5State)}>{stateLabel(l5State)}</Badge>
-          </div>
-          <span class="text-muted-foreground text-xs">
-            {checkedAtLabel(snapshot.fullAudit.checkedAt)}
-          </span>
-        </div>
-        <div class="divide-border divide-y">
-          {#each auditRows as row (row.kind)}
-            {@const RowIcon = auditRowIcons[row.kind]}
-            <div class="flex items-start gap-3 px-4 py-3">
-              <div
-                class="bg-muted mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md"
-              >
-                <RowIcon class="text-muted-foreground size-3.5" />
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <span class="text-foreground text-sm font-medium">{row.label}</span>
-                  {#if row.kind === 'git'}
-                    {@const Icon = truthyIcon[row.installed]}
-                    <div class="flex items-center gap-1 {truthyColorClass[row.installed]}">
-                      <Icon class="size-3.5" />
-                      <span class="text-xs font-medium">
-                        {row.installed === 'yes'
-                          ? 'Installed'
-                          : row.installed === 'no'
-                            ? 'Missing'
-                            : 'Unknown'}
-                      </span>
-                    </div>
-                  {:else if row.kind === 'gh-cli'}
-                    {@const Icon = truthyIcon[row.installed]}
-                    <div class="flex items-center gap-1 {truthyColorClass[row.installed]}">
-                      <Icon class="size-3.5" />
-                      <span class="text-xs font-medium">
-                        {row.installed === 'yes'
-                          ? 'Installed'
-                          : row.installed === 'no'
-                            ? 'Missing'
-                            : 'Unknown'}
-                      </span>
-                    </div>
-                    <Badge variant="outline" class="text-[10px]">Observational</Badge>
-                  {/if}
-                </div>
-                <div class="text-muted-foreground mt-1 text-xs">
-                  {#if row.kind === 'git'}
-                    {row.identity ?? 'No git identity recorded'}
-                  {:else if row.kind === 'gh-cli'}
-                    {row.authStatus ?? 'No auth status recorded'}
-                  {:else if row.kind === 'network'}
-                    <div class="mt-1 flex items-center gap-3">
-                      {#each row.endpoints as endpoint (endpoint.name)}
-                        {@const EpIcon = truthyIcon[endpoint.reachable]}
-                        <div class="flex items-center gap-1">
-                          <EpIcon class="size-3 {truthyColorClass[endpoint.reachable]}" />
-                          <span>{endpoint.name}</span>
-                        </div>
-                      {/each}
-                    </div>
-                    {#if row.auditTimestamp}
-                      <div class="mt-1 text-[11px]">
-                        Captured {formatRelativeTime(row.auditTimestamp)}
-                      </div>
-                    {/if}
-                  {/if}
-                </div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
+      <MachineHealthAuditPanel
+        {auditRows}
+        checkedLabel={checkedAtLabel(snapshot.fullAudit.checkedAt)}
+        badgeVariant={stateBadgeVariant(l5State)}
+        badgeLabel={stateLabel(l5State)}
+        {truthyIcon}
+        {truthyColorClass}
+        {auditRowIcons}
+      />
     {/if}
   {/if}
 

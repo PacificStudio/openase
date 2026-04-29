@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { NotificationRule } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Switch } from '$ui/switch'
@@ -92,7 +93,9 @@
         {stats.active}/{stats.total} active
       </Badge>
     {:else}
-      <span class="text-muted-foreground ml-auto text-xs">No rules</span>
+      <span class="text-muted-foreground ml-auto text-xs">
+        {i18nStore.t('settings.notificationEvents.noRules')}
+      </span>
     {/if}
   </button>
 
@@ -119,7 +122,9 @@
               <p class="text-muted-foreground mt-0.5 text-xs">
                 &rarr; {rule.channel.name}
                 {#if !rule.channel.is_enabled}
-                  <span class="text-amber-500">(channel disabled)</span>
+                  <span class="text-amber-500">
+                    {i18nStore.t('settings.notificationEvents.channelDisabled')}
+                  </span>
                 {/if}
               </p>
             {/if}
@@ -132,7 +137,7 @@
               class="h-7 px-2 text-xs"
               onclick={() => onEditRule(rule)}
             >
-              Edit
+              {i18nStore.t('settings.notificationEventGroup.actions.edit')}
             </Button>
             <Switch
               checked={rule.is_enabled}
@@ -146,7 +151,7 @@
               class="text-muted-foreground h-7 px-2 text-xs"
               onclick={() => onNewRule(event.eventType)}
             >
-              + Add rule
+              {i18nStore.t('settings.notificationEventGroup.actions.addRule')}
             </Button>
           {/if}
         </div>

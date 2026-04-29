@@ -1,12 +1,14 @@
 package machinetransport
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -18,9 +20,11 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
 	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	"github.com/creack/pty"
 	"github.com/google/uuid"
 )
 
@@ -52,7 +56,8 @@ func marshalRuntimePayload(value any) (json.RawMessage, error) {
 }
 
 type runtimeProtocolClient struct {
-	send runtimeEnvelopeSender
+	send     runtimeEnvelopeSender
+	apiRelay func(context.Context, runtimecontract.APIRelayRequest) (runtimecontract.APIRelayResponse, error)
 
 	requestMu sync.Mutex
 	requests  map[string]chan runtimecontract.Envelope
@@ -73,6 +78,7 @@ type runtimeProtocolClient struct {
 func newRuntimeProtocolClient(send runtimeEnvelopeSender) *runtimeProtocolClient {
 	return &runtimeProtocolClient{
 		send:     send,
+		apiRelay: defaultRuntimeAPIRelayHandler,
 		requests: map[string]chan runtimecontract.Envelope{},
 		sessions: map[string]*runtimeManagedClientSession{},
 		pending:  map[string][]runtimecontract.Envelope{},
@@ -121,6 +127,8 @@ func (c *runtimeProtocolClient) HandleEnvelope(envelope runtimecontract.Envelope
 		default:
 		}
 		return nil
+	case runtimecontract.MessageTypeRequest:
+		return c.handleIncomingRequest(envelope)
 	case runtimecontract.MessageTypeEvent:
 		switch envelope.Operation {
 		case runtimecontract.OperationSessionOutput:
@@ -166,6 +174,7 @@ func (c *runtimeProtocolClient) ensureHello(ctx context.Context) error {
 			runtimecontract.OperationSessionClose,
 			runtimecontract.OperationProcessStart,
 			runtimecontract.OperationProcessStatus,
+			runtimecontract.OperationAPIRelay,
 		},
 	})
 	if err != nil {
@@ -256,6 +265,87 @@ func (c *runtimeProtocolClient) request(ctx context.Context, operation runtimeco
 		return runtimecontract.Envelope{}, err
 	}
 	return c.sendRequest(ctx, runtimecontract.MessageTypeRequest, operation, payload)
+}
+
+func (c *runtimeProtocolClient) handleIncomingRequest(envelope runtimecontract.Envelope) error {
+	if c == nil || c.send == nil {
+		return fmt.Errorf("runtime protocol client unavailable")
+	}
+	if envelope.Operation != runtimecontract.OperationAPIRelay {
+		return fmt.Errorf("runtime client request %q is not supported", envelope.Operation)
+	}
+	request, err := runtimecontract.DecodePayload[runtimecontract.APIRelayRequest](envelope)
+	if err != nil {
+		return c.send(context.Background(), runtimecontract.Envelope{
+			Version:   runtimecontract.ProtocolVersion,
+			Type:      runtimecontract.MessageTypeResponse,
+			RequestID: envelope.RequestID,
+			Operation: envelope.Operation,
+			Error: &runtimecontract.ErrorPayload{
+				Code:      runtimecontract.ErrorCodeInvalidRequest,
+				Class:     runtimecontract.ErrorClassMisconfiguration,
+				Message:   err.Error(),
+				Retryable: false,
+			},
+		})
+	}
+	handler := c.apiRelay
+	if handler == nil {
+		handler = defaultRuntimeAPIRelayHandler
+	}
+	response, err := handler(context.Background(), request)
+	if err != nil {
+		return c.send(context.Background(), runtimecontract.Envelope{
+			Version:   runtimecontract.ProtocolVersion,
+			Type:      runtimecontract.MessageTypeResponse,
+			RequestID: envelope.RequestID,
+			Operation: envelope.Operation,
+			Error: &runtimecontract.ErrorPayload{
+				Code:      runtimecontract.ErrorCodeTransportUnavailable,
+				Class:     runtimecontract.ErrorClassTransient,
+				Message:   err.Error(),
+				Retryable: true,
+			},
+		})
+	}
+	payload, err := marshalRuntimePayload(response)
+	if err != nil {
+		return err
+	}
+	return c.send(context.Background(), runtimecontract.Envelope{
+		Version:   runtimecontract.ProtocolVersion,
+		Type:      runtimecontract.MessageTypeResponse,
+		RequestID: envelope.RequestID,
+		Operation: envelope.Operation,
+		Payload:   payload,
+	})
+}
+
+func defaultRuntimeAPIRelayHandler(ctx context.Context, request runtimecontract.APIRelayRequest) (runtimecontract.APIRelayResponse, error) {
+	httpRequest, err := http.NewRequestWithContext(ctx, strings.ToUpper(strings.TrimSpace(request.Method)), strings.TrimSpace(request.URL), bytes.NewReader(request.Body))
+	if err != nil {
+		return runtimecontract.APIRelayResponse{}, fmt.Errorf("build runtime api relay request: %w", err)
+	}
+	for key, values := range request.Headers {
+		for _, value := range values {
+			httpRequest.Header.Add(key, value)
+		}
+	}
+	response, err := http.DefaultClient.Do(httpRequest)
+	if err != nil {
+		return runtimecontract.APIRelayResponse{}, fmt.Errorf("perform runtime api relay request: %w", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return runtimecontract.APIRelayResponse{}, fmt.Errorf("read runtime api relay response: %w", err)
+	}
+	return runtimecontract.APIRelayResponse{
+		StatusCode: response.StatusCode,
+		Status:     response.Status,
+		Headers:    map[string][]string(response.Header.Clone()),
+		Body:       body,
+	}, nil
 }
 
 func (c *runtimeProtocolClient) registerSession(sessionID string, session *runtimeManagedClientSession) {
@@ -435,6 +525,8 @@ func (s *runtimeProtocolServer) handleRequest(ctx context.Context, envelope runt
 		return s.handleArtifactSync(ctx, envelope)
 	case runtimecontract.OperationCommandOpen:
 		return s.handleCommandOpen(ctx, envelope)
+	case runtimecontract.OperationSessionResize:
+		return s.handleSessionResize(ctx, envelope)
 	case runtimecontract.OperationProcessStart:
 		return s.handleProcessStart(ctx, envelope)
 	case runtimecontract.OperationSessionInput:
@@ -465,7 +557,7 @@ func (s *runtimeProtocolServer) handleProbe(ctx context.Context, envelope runtim
 	return s.sendResponse(ctx, envelope, runtimecontract.ProbeResponse{
 		CheckedAt:       now.Format(time.RFC3339),
 		Output:          strings.TrimSpace(output),
-		Resources:       buildRuntimeProbeResources(now, output),
+		Resources:       buildRuntimeProbeResources(ctx, now, output),
 		DetectedOS:      detectedOS.String(),
 		DetectedArch:    detectedArch.String(),
 		DetectionStatus: detectionStatus.String(),
@@ -585,7 +677,13 @@ func (s *runtimeProtocolServer) handleCommandOpen(ctx context.Context, envelope 
 	if err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeInvalidRequest, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
-	sessionID, err := s.startSession(shellCommandSpec(payload.Command), "")
+	commandSpec := shellCommandSpec{
+		command: payload.Command,
+		pty:     payload.PTY,
+		cols:    payload.Cols,
+		rows:    payload.Rows,
+	}
+	sessionID, err := s.startSession(commandSpec, "")
 	if err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeProcessStart, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
@@ -621,6 +719,21 @@ func (s *runtimeProtocolServer) handleSessionInput(ctx context.Context, envelope
 	}
 	if err := session.writeInput(payload); err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeSessionNotFound, runtimecontract.ErrorClassTransient, err, true, nil))
+	}
+	return s.sendResponse(ctx, envelope, map[string]any{"ok": true})
+}
+
+func (s *runtimeProtocolServer) handleSessionResize(ctx context.Context, envelope runtimecontract.Envelope) error {
+	payload, err := runtimecontract.DecodePayload[runtimecontract.SessionResizeRequest](envelope)
+	if err != nil {
+		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeInvalidRequest, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
+	}
+	session, ok := s.session(payload.SessionID)
+	if !ok {
+		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeSessionNotFound, runtimecontract.ErrorClassMisconfiguration, fmt.Errorf("runtime session %s is not active", payload.SessionID), false, nil))
+	}
+	if err := session.resize(payload.Cols, payload.Rows); err != nil {
+		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeProcessSignal, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
 	return s.sendResponse(ctx, envelope, map[string]any{"ok": true})
 }
@@ -703,29 +816,51 @@ func (s *runtimeProtocolServer) deleteSession(sessionID string) {
 }
 
 type commandSpec interface {
-	start(context.Context, string, runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, error)
+	start(context.Context, string, runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, *os.File, error)
 }
 
-type shellCommandSpec string
+type shellCommandSpec struct {
+	command string
+	pty     bool
+	cols    int
+	rows    int
+}
 
-func (s shellCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, error) {
-	command := strings.TrimSpace(string(s))
+func (s shellCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, *os.File, error) {
+	command := strings.TrimSpace(s.command)
 	if command == "" {
-		return nil, nil, fmt.Errorf("remote command must not be empty")
+		return nil, nil, nil, fmt.Errorf("remote command must not be empty")
 	}
 	shell, args := listenerShellCommand(command)
 	cmd := exec.CommandContext(ctx, shell, args...) // #nosec G204 -- runtime contract intentionally runs orchestrator-provided shell commands.
+	if s.pty {
+		// Let creack/pty own Setsid/Setctty for terminal shells. Reusing the
+		// non-PTY Setpgid path can make fork/exec fail with EPERM on listener
+		// hosts even though PTYs are otherwise available.
+		cmd.SysProcAttr = nil
+		size, err := runtimePTYSize(s.cols, s.rows)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		ptmx, err := pty.StartWithSize(cmd, size)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		//nolint:gosec // PTY stream forwarding must continue asynchronously for the lifetime of the session.
+		go runtimeCopyPTYOutput(ctx, sessionID, ptmx, send)
+		return cmd, ptmx, ptmx, nil
+	}
 	cmd.SysProcAttr = runtimeProcessSysProcAttr()
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	cmd.Stdout = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stdout", send: send}
 	cmd.Stderr = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stderr", send: send}
 	if err := cmd.Start(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return cmd, stdin, nil
+	return cmd, stdin, nil, nil
 }
 
 type processCommandSpec struct {
@@ -735,10 +870,10 @@ type processCommandSpec struct {
 	cwd     string
 }
 
-func (s processCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, error) {
+func (s processCommandSpec) start(ctx context.Context, sessionID string, send runtimeEnvelopeSender) (*exec.Cmd, io.WriteCloser, *os.File, error) {
 	command := strings.TrimSpace(s.command)
 	if command == "" {
-		return nil, nil, fmt.Errorf("agent cli command must not be empty")
+		return nil, nil, nil, fmt.Errorf("agent cli command must not be empty")
 	}
 	cmd := exec.CommandContext(ctx, command, append([]string(nil), s.args...)...) // #nosec G204 -- runtime contract intentionally runs orchestrator-provided processes.
 	cmd.SysProcAttr = runtimeProcessSysProcAttr()
@@ -750,20 +885,20 @@ func (s processCommandSpec) start(ctx context.Context, sessionID string, send ru
 	}
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	cmd.Stdout = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stdout", send: send}
 	cmd.Stderr = runtimeProcessStreamWriter{sessionID: sessionID, stream: "stderr", send: send}
 	if err := cmd.Start(); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return cmd, stdin, nil
+	return cmd, stdin, nil, nil
 }
 
 func (s *runtimeProtocolServer) startSession(spec commandSpec, workingDirectory string) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	sessionID := uuid.NewString()
-	cmd, stdin, err := spec.start(ctx, sessionID, s.send)
+	cmd, stdin, ptyFile, err := spec.start(ctx, sessionID, s.send)
 	if err != nil {
 		cancel()
 		return "", err
@@ -772,6 +907,7 @@ func (s *runtimeProtocolServer) startSession(spec commandSpec, workingDirectory 
 		id:       sessionID,
 		cmd:      cmd,
 		stdin:    stdin,
+		ptyFile:  ptyFile,
 		cancel:   cancel,
 		send:     s.send,
 		onFinish: s.deleteSession,
@@ -789,6 +925,7 @@ type runtimeProcessSession struct {
 
 	cmd      *exec.Cmd
 	stdin    io.WriteCloser
+	ptyFile  *os.File
 	cancel   context.CancelFunc
 	send     runtimeEnvelopeSender
 	onFinish func(string)
@@ -861,6 +998,17 @@ func (s *runtimeProcessSession) writeInput(payload runtimecontract.SessionInputR
 	return err
 }
 
+func (s *runtimeProcessSession) resize(cols int, rows int) error {
+	if s.ptyFile == nil {
+		return fmt.Errorf("runtime session does not support pty resize")
+	}
+	size, err := runtimePTYSize(cols, rows)
+	if err != nil {
+		return err
+	}
+	return pty.Setsize(s.ptyFile, size)
+}
+
 func (s *runtimeProcessSession) signal(raw string) error {
 	if s.cmd == nil || s.cmd.Process == nil {
 		return fmt.Errorf("runtime session process is not running")
@@ -894,12 +1042,55 @@ func (s *runtimeProcessSession) stop() {
 	if s.stdin != nil {
 		_ = s.stdin.Close()
 	}
+	if s.ptyFile != nil {
+		_ = s.ptyFile.Close()
+	}
 	if s.cmd != nil && s.cmd.Process != nil {
 		if runtime.GOOS == "windows" {
 			_ = s.cmd.Process.Kill()
 			return
 		}
 		_ = syscall.Kill(-s.cmd.Process.Pid, syscall.SIGKILL)
+	}
+}
+
+func runtimePTYSize(cols int, rows int) (*pty.Winsize, error) {
+	if cols <= 0 || rows <= 0 {
+		return nil, fmt.Errorf("pty size must use positive cols and rows")
+	}
+	if cols > 65535 || rows > 65535 {
+		return nil, fmt.Errorf("pty size must not exceed 65535")
+	}
+	return &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}, nil
+}
+
+func runtimeCopyPTYOutput(ctx context.Context, sessionID string, ptmx *os.File, send runtimeEnvelopeSender) {
+	if ptmx == nil || send == nil {
+		return
+	}
+	buffer := make([]byte, 4096)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		count, err := ptmx.Read(buffer)
+		if count > 0 {
+			_ = send(context.Background(), runtimecontract.Envelope{
+				Version:   runtimecontract.ProtocolVersion,
+				Type:      runtimecontract.MessageTypeEvent,
+				Operation: runtimecontract.OperationSessionOutput,
+				Payload: mustRuntimePayload(runtimecontract.SessionOutputEvent{
+					SessionID:  sessionID,
+					Stream:     "stdout",
+					DataBase64: base64.StdEncoding.EncodeToString(append([]byte(nil), buffer[:count]...)),
+				}),
+			})
+		}
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -970,7 +1161,7 @@ func runtimeErrorPayload(
 	}
 }
 
-func buildRuntimeProbeResources(checkedAt time.Time, output string) map[string]any {
+func buildRuntimeProbeResources(ctx context.Context, checkedAt time.Time, output string) map[string]any {
 	detectedOS, detectedArch, detectionStatus := machineprobe.DetectPlatformFromProbeOutput(output)
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	resources := map[string]any{
@@ -990,6 +1181,64 @@ func buildRuntimeProbeResources(checkedAt time.Time, output string) map[string]a
 		resources["kernel"] = strings.TrimSpace(lines[2])
 	}
 	resources["platform_family"] = runtime.GOOS
+
+	collector := sshinfra.NewMonitorCollector(nil)
+	localMachine := domain.Machine{Host: domain.LocalMachineHost, Name: domain.LocalMachineName}
+	if system, err := collector.CollectSystemResources(ctx, localMachine); err == nil {
+		resources["cpu_cores"] = system.CPUCores
+		resources["cpu_usage_percent"] = system.CPUUsagePercent
+		resources["memory_total_gb"] = system.MemoryTotalGB
+		resources["memory_used_gb"] = system.MemoryUsedGB
+		resources["memory_available_gb"] = system.MemoryAvailableGB
+		resources["disk_total_gb"] = system.DiskTotalGB
+		resources["disk_available_gb"] = system.DiskAvailableGB
+	}
+	if agentEnvironment, err := collector.CollectAgentEnvironment(ctx, localMachine); err == nil {
+		resources["agent_dispatchable"] = agentEnvironment.Dispatchable
+		resources["agent_environment_checked_at"] = agentEnvironment.CollectedAt.UTC().Format(time.RFC3339)
+		environmentSummary := make(map[string]any, len(agentEnvironment.CLIs))
+		for _, cli := range agentEnvironment.CLIs {
+			environmentSummary[cli.Name] = map[string]any{
+				"installed":   cli.Installed,
+				"version":     cli.Version,
+				"auth_status": string(cli.AuthStatus),
+				"auth_mode":   string(cli.AuthMode),
+				"ready":       cli.Ready,
+			}
+		}
+		resources["agent_environment"] = environmentSummary
+	}
+	if fullAudit, err := collector.CollectFullAudit(ctx, localMachine); err == nil {
+		fullAuditSummary := map[string]any{
+			"checked_at": fullAudit.CollectedAt.UTC().Format(time.RFC3339),
+			"git": map[string]any{
+				"installed":  fullAudit.Git.Installed,
+				"user_name":  fullAudit.Git.UserName,
+				"user_email": fullAudit.Git.UserEmail,
+			},
+			"gh_cli": map[string]any{
+				"installed":   fullAudit.GitHubCLI.Installed,
+				"auth_status": string(fullAudit.GitHubCLI.AuthStatus),
+			},
+			"github_token_probe": map[string]any{
+				"state":       string(fullAudit.GitHubTokenProbe.State),
+				"configured":  fullAudit.GitHubTokenProbe.Configured,
+				"valid":       fullAudit.GitHubTokenProbe.Valid,
+				"permissions": append([]string(nil), fullAudit.GitHubTokenProbe.Permissions...),
+				"repo_access": string(fullAudit.GitHubTokenProbe.RepoAccess),
+				"last_error":  fullAudit.GitHubTokenProbe.LastError,
+			},
+			"network": map[string]any{
+				"github_reachable": fullAudit.Network.GitHubReachable,
+				"pypi_reachable":   fullAudit.Network.PyPIReachable,
+				"npm_reachable":    fullAudit.Network.NPMReachable,
+			},
+		}
+		if fullAudit.GitHubTokenProbe.CheckedAt != nil {
+			fullAuditSummary["github_token_probe"].(map[string]any)["checked_at"] = fullAudit.GitHubTokenProbe.CheckedAt.UTC().Format(time.RFC3339)
+		}
+		resources["full_audit"] = fullAuditSummary
+	}
 	return resources
 }
 

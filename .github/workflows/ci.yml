@@ -10,11 +10,12 @@ permissions:
 jobs:
   changes:
     name: Detect Changes
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     outputs:
       go_changed: ${{ steps.detect.outputs.go_changed }}
       web_changed: ${{ steps.detect.outputs.web_changed }}
       desktop_changed: ${{ steps.detect.outputs.desktop_changed }}
+      installer_changed: ${{ steps.detect.outputs.installer_changed }}
       openapi_check_changed: ${{ steps.detect.outputs.openapi_check_changed }}
       frontend_api_audit_changed: ${{ steps.detect.outputs.frontend_api_audit_changed }}
 
@@ -54,6 +55,7 @@ jobs:
           go_changed=false
           web_changed=false
           desktop_changed=false
+          installer_changed=false
           openapi_check_changed=false
           frontend_api_audit_changed=false
 
@@ -63,6 +65,7 @@ jobs:
                 go_changed=true
                 web_changed=true
                 desktop_changed=true
+                installer_changed=true
                 openapi_check_changed=true
                 ;;
               *.go|go.mod|go.sum|api/*)
@@ -73,7 +76,11 @@ jobs:
               Makefile)
                 go_changed=true
                 desktop_changed=true
+                installer_changed=true
                 openapi_check_changed=true
+                ;;
+              scripts/install.sh|scripts/ci/test_installer.py|scripts/ci/installer_smoke.sh|scripts/ci/install_matrix_smoke.sh|internal/cli/setup.go|internal/cli/setup_test.go|internal/setup/*)
+                installer_changed=true
                 ;;
               scripts/ci/*)
                 go_changed=true
@@ -99,12 +106,13 @@ jobs:
           printf 'go_changed=%s\n' "${go_changed}" >> "${GITHUB_OUTPUT}"
           printf 'web_changed=%s\n' "${web_changed}" >> "${GITHUB_OUTPUT}"
           printf 'desktop_changed=%s\n' "${desktop_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'installer_changed=%s\n' "${installer_changed}" >> "${GITHUB_OUTPUT}"
           printf 'openapi_check_changed=%s\n' "${openapi_check_changed}" >> "${GITHUB_OUTPUT}"
           printf 'frontend_api_audit_changed=%s\n' "${frontend_api_audit_changed}" >> "${GITHUB_OUTPUT}"
 
   openapi-check:
     name: OpenAPI Check
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.openapi_check_changed == 'true'
 
@@ -138,25 +146,18 @@ jobs:
         run: |
           mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
 
-      - name: Configure Go Toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cached_go_bin="/home/docker/actions-runner/_work/_tool/go/1.26.1/x64/bin"
-          if [[ -d "${cached_go_bin}" ]]; then
-            echo "${cached_go_bin}" >> "${GITHUB_PATH}"
-          fi
-
-          command -v go
-          go version
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
 
       - name: Verify Generated OpenAPI Artifacts
         run: make openapi-check-ci
 
   frontend-api-audit-check:
     name: Frontend API Audit Check
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.frontend_api_audit_changed == 'true'
 
@@ -180,7 +181,7 @@ jobs:
         run: make frontend-api-audit-check
   frontend:
     name: Frontend Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.web_changed == 'true'
     defaults:
@@ -264,9 +265,114 @@ jobs:
         if: always()
         run: rm -rf test-results ../.playwright-artifacts
 
+  installer:
+    name: Installer Tests (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.outputs.installer_changed == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux
+            runner: ubuntu-latest
+          - label: macos
+            runner: macos-14
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Run Hermetic Installer Tests
+        run: make installer-test
+
+  installer-smoke:
+    name: Installer Smoke (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.outputs.installer_changed == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux
+            runner: ubuntu-latest
+          - label: macos
+            runner: macos-14
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Run Installer Smoke Test
+        shell: bash
+        run: ./scripts/ci/installer_smoke.sh
+
+  install-matrix:
+    name: Install Matrix (${{ matrix.install_path }} / ${{ matrix.pg_mode }})
+    needs: changes
+    if: needs.changes.outputs.installer_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        install_path:
+          - installer_script
+          - source_build
+          - release_binary
+        pg_mode:
+          - docker
+          - system
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Run Install Matrix Smoke
+        shell: bash
+        run: |
+          ./scripts/ci/install_matrix_smoke.sh \
+            --install-path "${{ matrix.install_path }}" \
+            --pg-mode "${{ matrix.pg_mode }}"
+
   desktop:
     name: Desktop Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: changes
     if: needs.changes.outputs.desktop_changed == 'true'
@@ -320,7 +426,7 @@ jobs:
 
   backend:
     name: Backend Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
       - changes
@@ -385,8 +491,8 @@ jobs:
               now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
               printf '%s\n' "${now}" > "${heartbeat_file}"
               printf '[backend-heartbeat] %s make check still running\n' "${now}"
-              # Keep a low-frequency heartbeat so quiet success-path test runs do
-              # not look stalled to the self-hosted runner watchdog.
+              # Keep a low-frequency heartbeat so quiet success-path test runs
+              # still show progress in CI logs.
             done
           }
 
@@ -484,7 +590,7 @@ jobs:
 
   go-lint:
     name: Go Lint
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.go_changed == 'true'
 

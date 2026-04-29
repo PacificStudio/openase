@@ -9,10 +9,25 @@
   import { Sheet, SheetContent, SheetHeader, SheetTitle } from '$ui/sheet'
   import { Textarea } from '$ui/textarea'
   import { Plus, Search } from '@lucide/svelte'
+  import type { TranslationKey } from '$lib/i18n'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import SkillDetailSheet from './skill-detail-sheet.svelte'
   import SkillSettingsCard from './skill-settings-card.svelte'
 
   type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
+
+  const filterOptions: { value: SkillFilter; labelKey: TranslationKey }[] = [
+    { value: 'all', labelKey: 'settings.skills.filters.all' },
+    { value: 'builtin', labelKey: 'settings.skills.filters.builtin' },
+    { value: 'custom', labelKey: 'settings.skills.filters.custom' },
+    { value: 'disabled', labelKey: 'settings.skills.filters.disabled' },
+  ]
+
+  function defaultSkillTemplate() {
+    return `# ${i18nStore.t('settings.skills.sheet.defaults.heading')}\n\n${i18nStore.t(
+      'settings.skills.sheet.defaults.body',
+    )}\n`
+  }
 
   let loading = $state(false)
   let workflows = $state<Workflow[]>([])
@@ -28,7 +43,7 @@
   let createOpen = $state(false)
   let createName = $state('')
   let createDescription = $state('')
-  let createContent = $state('# New Skill\n\nDescribe the workflow here.\n')
+  let createContent = $state(defaultSkillTemplate())
   let createEnabled = $state(true)
   let creating = $state(false)
 
@@ -77,7 +92,9 @@
       } catch (caughtError) {
         if (!cancelled) {
           toastStore.error(
-            caughtError instanceof ApiError ? caughtError.detail : 'Failed to load skills.',
+            caughtError instanceof ApiError
+              ? caughtError.detail
+              : i18nStore.t('settings.skills.errors.load'),
           )
         }
       } finally {
@@ -113,7 +130,7 @@
   function openCreate() {
     createName = ''
     createDescription = ''
-    createContent = '# New Skill\n\nDescribe the workflow here.\n'
+    createContent = defaultSkillTemplate()
     createEnabled = true
     createOpen = true
   }
@@ -122,11 +139,11 @@
     const projectId = currentProjectId
     if (!projectId) return
     if (!createName.trim()) {
-      toastStore.error('Skill name is required.')
+      toastStore.error(i18nStore.t('settings.skills.errors.nameRequired'))
       return
     }
     if (!createContent.trim()) {
-      toastStore.error('Skill content is required.')
+      toastStore.error(i18nStore.t('settings.skills.errors.contentRequired'))
       return
     }
 
@@ -140,10 +157,12 @@
       })
       await reloadSkills()
       createOpen = false
-      toastStore.success('Created skill.')
+      toastStore.success(i18nStore.t('settings.skills.messages.created'))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create skill.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.skills.errors.create'),
       )
     } finally {
       creating = false
@@ -154,18 +173,20 @@
 <div class="space-y-5">
   <div class="flex items-start justify-between gap-4">
     <div>
-      <h2 class="text-foreground text-base font-semibold">Skills Library</h2>
+      <h2 class="text-foreground text-base font-semibold">
+        {i18nStore.t('settings.skills.heading')}
+      </h2>
       <p class="text-muted-foreground mt-1 text-sm">
-        Manage reusable skills, versions, and workflow bindings.
+        {i18nStore.t('settings.skills.description')}
       </p>
     </div>
     {#if !loading}
       <div class="text-muted-foreground flex items-center gap-2 text-xs">
-        <span>{counts.total} skills</span>
+        <span>{i18nStore.t('settings.skills.stats.total', { count: counts.total })}</span>
         <span class="text-muted-foreground/40">/</span>
-        <span>{counts.enabled} enabled</span>
+        <span>{i18nStore.t('settings.skills.stats.enabled', { count: counts.enabled })}</span>
         <span class="text-muted-foreground/40">/</span>
-        <span>{counts.bound} bound</span>
+        <span>{i18nStore.t('settings.skills.stats.bound', { count: counts.bound })}</span>
       </div>
     {/if}
   </div>
@@ -173,24 +194,28 @@
   <div class="flex flex-wrap items-center gap-2">
     <div class="relative min-w-48 flex-1">
       <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-      <Input bind:value={query} placeholder="Search skills…" class="pl-9" />
+      <Input
+        bind:value={query}
+        placeholder={i18nStore.t('settings.skills.placeholders.search')}
+        class="pl-9"
+      />
     </div>
     <div class="flex items-center gap-1.5">
-      {#each ['all', 'builtin', 'custom', 'disabled'] as item}
+      {#each filterOptions as option}
         <Button
           type="button"
           size="sm"
-          variant={filter === item ? 'secondary' : 'ghost'}
+          variant={filter === option.value ? 'secondary' : 'ghost'}
           class="h-8 text-xs capitalize"
-          onclick={() => (filter = item as SkillFilter)}
+          onclick={() => (filter = option.value)}
         >
-          {item}
+          {i18nStore.t(option.labelKey)}
         </Button>
       {/each}
     </div>
     <Button size="sm" class="h-8 gap-1.5" onclick={openCreate}>
       <Plus class="size-3.5" />
-      New Skill
+      {i18nStore.t('settings.skills.buttons.newSkill')}
     </Button>
   </div>
 
@@ -215,8 +240,8 @@
   {:else if filteredSkills.length === 0}
     <div class="text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm">
       {skills.length === 0
-        ? 'No skills yet. Create one to get started.'
-        : 'No skills match your filters.'}
+        ? i18nStore.t('settings.skills.messages.empty')
+        : i18nStore.t('settings.skills.messages.noFilters')}
     </div>
   {:else}
     <div class="divide-border divide-y rounded-lg border">
@@ -241,9 +266,13 @@
   <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
     <SheetHeader class="border-border shrink-0 border-b px-6 py-4 text-left">
       <div class="flex items-center justify-between gap-4 pr-10">
-        <SheetTitle class="text-base">New Skill</SheetTitle>
+        <SheetTitle class="text-base">
+          {i18nStore.t('settings.skills.sheet.title')}
+        </SheetTitle>
         <Button size="sm" onclick={() => void handleCreate()} disabled={creating}>
-          {creating ? 'Creating…' : 'Create'}
+          {creating
+            ? i18nStore.t('settings.skills.sheet.buttons.creating')
+            : i18nStore.t('settings.skills.sheet.buttons.create')}
         </Button>
       </div>
     </SheetHeader>
@@ -252,22 +281,22 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-1.5">
           <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-            Name
+            {i18nStore.t('settings.skills.sheet.labels.name')}
           </span>
           <Input
             bind:value={createName}
-            placeholder="deploy-docker"
+            placeholder={i18nStore.t('settings.skills.placeholders.name')}
             class="h-9 text-sm"
             disabled={creating}
           />
         </div>
         <div class="space-y-1.5">
           <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-            Description
+            {i18nStore.t('settings.skills.sheet.labels.description')}
           </span>
           <Input
             bind:value={createDescription}
-            placeholder="Human-readable description"
+            placeholder={i18nStore.t('settings.skills.placeholders.description')}
             class="h-9 text-sm"
             disabled={creating}
           />
@@ -276,7 +305,7 @@
 
       <div class="space-y-1.5">
         <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-          SKILL.md
+          {i18nStore.t('settings.skills.sheet.labels.skillMd')}
         </span>
         <Textarea
           bind:value={createContent}
@@ -287,7 +316,7 @@
 
       <label class="flex items-center gap-2 text-sm">
         <input bind:checked={createEnabled} type="checkbox" disabled={creating} />
-        Enable immediately
+        {i18nStore.t('settings.skills.sheet.labels.enable')}
       </label>
     </div>
   </SheetContent>

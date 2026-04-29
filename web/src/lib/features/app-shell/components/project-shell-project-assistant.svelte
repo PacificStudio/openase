@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ProjectConversationPanel, type ProjectAIFocus } from '$lib/features/chat'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
   import { cn } from '$lib/utils'
   import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '$ui/sheet'
@@ -67,8 +68,10 @@
       showCloseButton={false}
     >
       <SheetHeader class="sr-only">
-        <SheetTitle>Project AI</SheetTitle>
-        <SheetDescription>AI assistant for the current project</SheetDescription>
+        <SheetTitle>{i18nStore.t('project.shell.projectAssistant.title')}</SheetTitle>
+        <SheetDescription>
+          {i18nStore.t('project.shell.projectAssistant.sheetDescription')}
+        </SheetDescription>
       </SheetHeader>
       <div class="flex min-h-0 flex-1 flex-col">
         <ProjectConversationPanel
@@ -76,8 +79,8 @@
           {defaultProviderId}
           context={{ projectId, projectName }}
           {focus}
-          title="Project AI"
-          placeholder="Ask anything about this project…"
+          title={i18nStore.t('project.shell.projectAssistant.title')}
+          placeholder={i18nStore.t('project.shell.projectAssistant.placeholder')}
           {initialPrompt}
           {onClose}
         />
@@ -101,8 +104,8 @@
         {defaultProviderId}
         context={{ projectId, projectName }}
         {focus}
-        title="Project AI"
-        placeholder="Ask anything about this project…"
+        title={i18nStore.t('project.shell.projectAssistant.title')}
+        placeholder={i18nStore.t('project.shell.projectAssistant.placeholder')}
         {initialPrompt}
         {onClose}
       />

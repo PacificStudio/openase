@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -361,6 +362,21 @@ func TestRunSetupFlowOIDCAndLaunchdManagedService(t *testing.T) {
 	}
 	if strings.Contains(text, "systemctl --user") {
 		t.Fatalf("output should not contain systemd hints: %q", text)
+	}
+}
+
+func TestSetupApplyCommandRejectsInvalidJSON(t *testing.T) {
+	inputPath := filepath.Join(t.TempDir(), "invalid.json")
+	if err := os.WriteFile(inputPath, []byte("{"), 0o600); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", inputPath, err)
+	}
+
+	command := newSetupApplyCommand()
+	command.SetArgs([]string{"--input", inputPath})
+
+	err := command.Execute()
+	if err == nil || !strings.Contains(err.Error(), "decode setup apply request") {
+		t.Fatalf("Execute() error = %v, want decode setup apply request failure", err)
 	}
 }
 

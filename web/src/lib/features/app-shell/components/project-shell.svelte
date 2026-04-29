@@ -3,6 +3,7 @@
   import { loadAppContext } from '$lib/api/app-context'
   import { getProject } from '$lib/api/openase'
   import type { ProjectAIFocus } from '$lib/features/chat'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import {
     isProjectDashboardRefreshEvent,
     readProjectDashboardRefreshSections,
@@ -13,6 +14,12 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
   import { type AppRouteContext, type ProjectSection } from '$lib/stores/app-context'
+  import {
+    startProductTour,
+    startPageTour,
+    hasPageTourBeenShown,
+    isPageSection,
+  } from '$lib/features/tour'
   import type { Snippet } from 'svelte'
   import ProjectShellFrame from './project-shell-frame.svelte'
   import {
@@ -69,6 +76,21 @@
   })
 
   $effect(() => {
+    const section = data.currentSection
+    const projectId = appStore.currentProject?.id
+    if (!projectId || !isPageSection(section)) return
+    if (hasPageTourBeenShown(section, projectId)) return
+
+    const timer = setTimeout(() => {
+      if (appStore.currentProject?.id !== projectId) return
+      if (appStore.currentSection !== section) return
+      startPageTour(section, projectId, i18nStore.t)
+    }, 700)
+
+    return () => clearTimeout(timer)
+  })
+
+  $effect(() => {
     syncResolvedRouteContext(routeContext)
   })
 
@@ -97,7 +119,9 @@
       } catch (caughtError) {
         if (cancelled) return
         appStore.appContextError =
-          caughtError instanceof Error ? caughtError.message : 'Failed to refresh app context.'
+          caughtError instanceof Error
+            ? caughtError.message
+            : i18nStore.t('settings.general.errors.saveFailure')
       } finally {
         if (!cancelled) {
           appStore.appContextLoading = false
@@ -161,7 +185,7 @@
         } while (queuedRefresh && !cancelled)
       } catch (caughtError) {
         if (!cancelled) {
-          console.error('Failed to refresh project after passive project event:', caughtError)
+          console.error(i18nStore.t('settings.general.errors.saveFailure'), caughtError)
         }
       } finally {
         refreshInFlight = false
@@ -209,6 +233,12 @@
       appStore.closeMobileSidebar()
     }
     projectAssistantOpen = true
+  }
+
+  function handleRestartTour() {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+    startProductTour(projectId, i18nStore.t)
   }
 
   $effect(() => {
@@ -299,6 +329,7 @@
   {isNewTicketEnabled}
   {settingsEnabled}
   {settingsHref}
+  restartTourEnabled={Boolean(appStore.currentProject?.id)}
   userDisplayName={currentUser?.displayName ?? ''}
   userPrimaryEmail={currentUser?.primaryEmail ?? ''}
   userAvatarURL={currentUser?.avatarURL ?? ''}
@@ -309,6 +340,7 @@
   onCreateOrg={handleCreateOrg}
   onCreateProject={handleCreateProject}
   onOpenSettings={handleOpenSettings}
+  onRestartTour={handleRestartTour}
   onLogout={handleLogoutClick}
   onToggleSidebar={handleToggleSidebar}
   onOpenProjectAssistant={handleOpenProjectAssistant}

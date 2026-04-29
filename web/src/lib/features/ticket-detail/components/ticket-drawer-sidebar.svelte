@@ -22,6 +22,7 @@
     TicketRepoOption,
     TicketRun,
   } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     ticket,
@@ -105,6 +106,7 @@
 
 <div
   class="border-border w-full shrink-0 border-t md:sticky md:top-0 md:w-72 md:self-start md:border-t-0 md:border-l"
+  data-tour="ticket-detail-sidebar"
 >
   <div class="flex flex-col gap-4 px-4 py-4">
     <TicketRuntimeStateCard
@@ -119,36 +121,41 @@
 
     <section class="space-y-3">
       <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-        Details
+        {i18nStore.t('ticketDetail.drawer.details.title')}
       </span>
       <div class="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2.5 text-xs">
         {#if ticket.workflow}
           <div class="text-muted-foreground flex items-center gap-1.5">
             <Workflow class="size-3.5" />
-            <span>Workflow</span>
+            <span>{i18nStore.t('ticketDetail.drawer.details.workflow')}</span>
           </div>
           <div class="text-foreground break-words">{ticket.workflow.name}</div>
         {/if}
 
         <div class="text-muted-foreground flex items-center gap-1.5">
           <Bot class="size-3.5" />
-          <span>Agent</span>
+          <span>{i18nStore.t('ticketDetail.drawer.details.agent')}</span>
         </div>
         <div class="flex items-center gap-1.5">
           {#if ticket.assignedAgent}
-            <span class="inline-block size-1.5 rounded-full bg-green-400" title="Online"></span>
+            <span
+              class="inline-block size-1.5 rounded-full bg-green-400"
+              title={i18nStore.t('ticketDetail.drawer.details.status.online')}
+            ></span>
             <span class="text-foreground break-words">{ticket.assignedAgent.name}</span>
             <Badge variant="outline" class="h-4 shrink-0 py-0 text-[10px]">
               {ticket.assignedAgent.provider}
             </Badge>
           {:else}
-            <span class="text-muted-foreground italic">Unassigned</span>
+            <span class="text-muted-foreground italic">
+              {i18nStore.t('ticketDetail.drawer.details.status.unassigned')}
+            </span>
           {/if}
         </div>
 
         <div class="text-muted-foreground flex items-center gap-1.5">
           <DollarSign class="size-3.5" />
-          <span>Cost</span>
+          <span>{i18nStore.t('ticketDetail.drawer.details.cost')}</span>
         </div>
         <div class="flex items-center gap-2">
           <span class={cn('text-foreground', costOverBudget && 'text-red-400')}>
@@ -159,7 +166,7 @@
 
         <div class="text-muted-foreground flex items-center gap-1.5">
           <RotateCcw class="size-3.5" />
-          <span>Attempts</span>
+          <span>{i18nStore.t('ticketDetail.drawer.details.attempts')}</span>
         </div>
         <div class="text-foreground">{ticket.attemptCount}</div>
 
@@ -174,13 +181,13 @@
 
         <div class="text-muted-foreground flex items-center gap-1.5">
           <User class="size-3.5" />
-          <span>Created by</span>
+          <span>{i18nStore.t('ticketDetail.drawer.details.createdBy')}</span>
         </div>
         <div class="text-foreground break-all">{ticket.createdBy}</div>
 
         <div class="text-muted-foreground flex items-center gap-1.5">
           <Calendar class="size-3.5" />
-          <span>Created</span>
+          <span>{i18nStore.t('ticketDetail.drawer.details.created')}</span>
         </div>
         <div class="text-foreground">{formatRelativeTime(ticket.createdAt)}</div>
       </div>

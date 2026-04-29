@@ -73,15 +73,15 @@ func (s *ProjectConversationService) SyncWorkspace(
 	if err != nil {
 		return ProjectConversationWorkspaceMetadata{}, err
 	}
-	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
+	project, err := s.core.catalog.GetProject(ctx, conversation.ProjectID)
 	if err != nil {
 		return ProjectConversationWorkspaceMetadata{}, fmt.Errorf("get project for workspace sync: %w", err)
 	}
-	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+	providerItem, err := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return ProjectConversationWorkspaceMetadata{}, fmt.Errorf("get provider for workspace sync: %w", err)
 	}
-	machine, err := s.catalog.GetMachine(ctx, providerItem.MachineID)
+	machine, err := s.core.catalog.GetMachine(ctx, providerItem.MachineID)
 	if err != nil {
 		return ProjectConversationWorkspaceMetadata{}, fmt.Errorf("get machine for workspace sync: %w", err)
 	}
@@ -200,7 +200,7 @@ func (s *ProjectConversationService) listConversationWorkspaceRepoBindingChanges
 		if err != nil {
 			return nil, fmt.Errorf("build activity filter for workspace repo sync: %w", err)
 		}
-		page, err := s.catalog.ListActivityEvents(ctx, input)
+		page, err := s.core.catalog.ListActivityEvents(ctx, input)
 		if err != nil {
 			return nil, fmt.Errorf("list project activity for workspace repo sync: %w", err)
 		}

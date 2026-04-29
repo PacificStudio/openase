@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { Separator } from '$ui/separator'
   import { Clock3, Layers3, RotateCcw } from '@lucide/svelte'
+  import { t } from './i18n'
   import type {
     ScopeGroup,
     WorkflowAgentOption,
@@ -91,14 +92,14 @@
       buildPickupStatusBlockedReasonMap(workflows, workflow.id),
       buildSelfStatusBlockedReasonMap(
         draft.finishStatusIds,
-        'Already selected as a finish status in this workflow.',
+        t('workflows.creation.dialog.statusBlock.finishSelected'),
       ),
     ),
   )
   const finishBlockedReasonMap = $derived(
     buildSelfStatusBlockedReasonMap(
       draft.pickupStatusIds,
-      'Already selected as a pickup status in this workflow.',
+      t('workflows.creation.dialog.statusBlock.pickupSelected'),
     ),
   )
 
@@ -183,22 +184,23 @@
       <Separator />
 
       <div class="space-y-2">
-        <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Limits</span
-        >
+        <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          {t('workflows.detail.panel.limits')}
+        </span>
         <div class="bg-muted/40 divide-border space-y-0 divide-y rounded-md border px-3 py-0.5">
           <WorkflowNumberField
             id="workflow-max-concurrent"
-            label="Max Concurrent"
+            label={t('workflows.detail.panel.fields.maxConcurrent')}
             value={draft.maxConcurrent}
             icon={Layers3}
-            placeholder="Unlimited"
+            placeholder={t('workflows.detail.panel.placeholders.unlimited')}
             min="1"
             disabled={saving || deleting}
             oninput={(value) => updateDraftField('maxConcurrent', value)}
           />
           <WorkflowNumberField
             id="workflow-max-retry"
-            label="Max Retry"
+            label={t('workflows.detail.panel.fields.maxRetry')}
             value={draft.maxRetryAttempts}
             icon={RotateCcw}
             min="0"
@@ -207,7 +209,7 @@
           />
           <WorkflowNumberField
             id="workflow-timeout"
-            label="Timeout (min)"
+            label={t('workflows.detail.panel.fields.timeout')}
             value={draft.timeoutMinutes}
             icon={Clock3}
             min="1"
@@ -216,7 +218,7 @@
           />
           <WorkflowNumberField
             id="workflow-stall-timeout"
-            label="Stall Timeout (min)"
+            label={t('workflows.detail.panel.fields.stallTimeout')}
             value={draft.stallTimeoutMinutes}
             icon={Clock3}
             min="1"
@@ -230,7 +232,7 @@
 
       <div class="space-y-4">
         <WorkflowStatusChipSelector
-          label="Pickup Statuses"
+          label={t('workflows.detail.panel.statuses.pickup')}
           statuses={selectableStatuses}
           selectedStatusIds={draft.pickupStatusIds}
           disabledReasonById={pickupBlockedReasonMap}
@@ -246,7 +248,7 @@
             )}
         />
         <WorkflowStatusChipSelector
-          label="Finish Statuses"
+          label={t('workflows.detail.panel.statuses.finish')}
           statuses={selectableStatuses}
           selectedStatusIds={draft.finishStatusIds}
           disabledReasonById={finishBlockedReasonMap}

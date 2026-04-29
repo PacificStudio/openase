@@ -1,4 +1,5 @@
 import { connectEventStream, type SSEFrame, type StreamConnectionState } from '$lib/api/sse'
+import type { ProjectReconnectRecovery } from './project-reconnect-recovery'
 
 export type ProjectEventEnvelope = {
   topic: string
@@ -20,13 +21,24 @@ export type ProjectDashboardRefreshSection =
 
 type ProjectEventListener = (event: ProjectEventEnvelope) => void
 type ProjectEventStateListener = (state: StreamConnectionState) => void
+type ProjectEventReconnectListener = () => void
+type ProjectEventReconnectRecoveryListener = (recovery: ProjectReconnectRecovery) => void
+
+type ProjectEventSubscriptionOptions = {
+  onReconnect?: ProjectEventReconnectListener
+  onReconnectRecovery?: ProjectEventReconnectRecoveryListener
+}
 
 type Runtime = {
   projectId: string
   retainers: number
   state: StreamConnectionState
+  hasConnected: boolean
+  reconnectSequence: number
   disconnect: (() => void) | null
   eventListeners: Set<ProjectEventListener>
+  reconnectListeners: Set<ProjectEventReconnectListener>
+  reconnectRecoveryListeners: Set<ProjectEventReconnectRecoveryListener>
   stateListeners: Set<ProjectEventStateListener>
 }
 
@@ -60,12 +72,28 @@ export function retainProjectEventBus(
   }
 }
 
-export function subscribeProjectEvents(projectId: string, listener: ProjectEventListener) {
+export function subscribeProjectEvents(
+  projectId: string,
+  listener: ProjectEventListener,
+  options: ProjectEventSubscriptionOptions = {},
+) {
   const runtime = getRuntime(projectId)
   runtime.eventListeners.add(listener)
+  if (options.onReconnect) {
+    runtime.reconnectListeners.add(options.onReconnect)
+  }
+  if (options.onReconnectRecovery) {
+    runtime.reconnectRecoveryListeners.add(options.onReconnectRecovery)
+  }
 
   return () => {
     runtime.eventListeners.delete(listener)
+    if (options.onReconnect) {
+      runtime.reconnectListeners.delete(options.onReconnect)
+    }
+    if (options.onReconnectRecovery) {
+      runtime.reconnectRecoveryListeners.delete(options.onReconnectRecovery)
+    }
     cleanupRuntime(runtime)
   }
 }
@@ -88,15 +116,12 @@ export function isProjectUpdateEvent(event: Pick<ProjectEventEnvelope, 'type' | 
   return event.topic === 'activity.events' && event.type.startsWith('project_update_')
 }
 
-export function isTicketRunProjectEvent(event: Pick<ProjectEventEnvelope, 'topic'>) {
-  return event.topic === 'ticket.run.events'
-}
+export const isTicketRunProjectEvent = (event: Pick<ProjectEventEnvelope, 'topic'>) =>
+  event.topic === 'ticket.run.events'
 
-export function isProjectDashboardRefreshEvent(
+export const isProjectDashboardRefreshEvent = (
   event: Pick<ProjectEventEnvelope, 'topic' | 'type'>,
-) {
-  return event.topic === projectDashboardRefreshTopic && event.type === projectDashboardRefreshType
-}
+) => event.topic === projectDashboardRefreshTopic && event.type === projectDashboardRefreshType
 
 export function readProjectDashboardRefreshSections(
   event: Pick<ProjectEventEnvelope, 'payload'>,
@@ -127,13 +152,9 @@ export function projectEventAffectsTicketDetailReferences(
   event: Pick<ProjectEventEnvelope, 'topic' | 'type' | 'payload'>,
   ticketId: string,
 ) {
-  if (event.topic === 'ticket.events') {
+  if (event.topic === 'ticket.events')
     return readNestedString(event.payload, ['ticket', 'id']) !== ticketId
-  }
-
-  if (event.topic !== 'activity.events') {
-    return false
-  }
+  if (event.topic !== 'activity.events') return false
 
   const eventType = readNestedString(event.payload, ['event', 'event_type']) ?? event.type
   return (
@@ -182,8 +203,12 @@ function getRuntime(projectId: string): Runtime {
     projectId,
     retainers: 0,
     state: 'idle',
+    hasConnected: false,
+    reconnectSequence: 0,
     disconnect: null,
     eventListeners: new Set(),
+    reconnectListeners: new Set(),
+    reconnectRecoveryListeners: new Set(),
     stateListeners: new Set(),
   }
   runtimes.set(projectId, created)
@@ -208,7 +233,24 @@ function ensureRuntimeConnection(runtime: Runtime) {
       }
     },
     onStateChange: (state) => {
+      const reconnected = state === 'live' && runtime.hasConnected
+      if (state === 'live') {
+        runtime.hasConnected = true
+      } else if (state === 'idle') {
+        runtime.hasConnected = false
+        runtime.reconnectSequence = 0
+      }
       setRuntimeState(runtime, state)
+      if (reconnected) {
+        runtime.reconnectSequence += 1
+        const recovery = { sequence: runtime.reconnectSequence }
+        for (const listener of [...runtime.reconnectListeners]) {
+          listener()
+        }
+        for (const listener of [...runtime.reconnectRecoveryListeners]) {
+          listener(recovery)
+        }
+      }
     },
     onError: (error) => {
       console.error('Project event bus error:', error)
@@ -222,9 +264,8 @@ function cleanupRuntime(runtime: Runtime) {
     runtime.disconnect === null &&
     runtime.eventListeners.size === 0 &&
     runtime.stateListeners.size === 0
-  ) {
+  )
     runtimes.delete(runtime.projectId)
-  }
 }
 
 function setRuntimeState(runtime: Runtime, state: StreamConnectionState) {

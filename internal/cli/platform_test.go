@@ -92,6 +92,8 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 	var authHeader string
 	var path string
 	var payload map[string]any
+	repoScopeOne := "550e8400-e29b-41d4-a716-446655440010"
+	repoScopeTwo := "550e8400-e29b-41d4-a716-446655440011"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method = r.Method
@@ -117,6 +119,8 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 		"create",
 		"--title", "Follow-up",
 		"--description", "split out tests",
+		"--repo-scope", repoScopeOne,
+		"--repo-scope", repoScopeTwo + ":feature/multi-repo",
 		"--status-id", "550e8400-e29b-41d4-a716-446655440000",
 		"--priority", "high",
 		"--type", "bugfix",
@@ -155,6 +159,21 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 		if payload[key] != want {
 			t.Fatalf("expected payload[%q] = %#v, got %#v in %+v", key, want, payload[key], payload)
 		}
+	}
+	repoScopes, ok := payload["repo_scopes"].([]any)
+	if !ok || len(repoScopes) != 2 {
+		t.Fatalf("expected repo_scopes payload, got %+v", payload["repo_scopes"])
+	}
+	firstScope, ok := repoScopes[0].(map[string]any)
+	if !ok || firstScope["repo_id"] != repoScopeOne {
+		t.Fatalf("unexpected first repo scope payload: %+v", repoScopes[0])
+	}
+	if _, ok := firstScope["branch_name"]; ok {
+		t.Fatalf("expected first repo scope to omit branch_name, got %+v", firstScope)
+	}
+	secondScope, ok := repoScopes[1].(map[string]any)
+	if !ok || secondScope["repo_id"] != repoScopeTwo || secondScope["branch_name"] != "feature/multi-repo" {
+		t.Fatalf("unexpected second repo scope payload: %+v", repoScopes[1])
 	}
 	if !strings.Contains(stdout.String(), `"title": "Follow-up"`) {
 		t.Fatalf("expected pretty JSON output, got %q", stdout.String())

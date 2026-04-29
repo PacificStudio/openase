@@ -8,6 +8,7 @@ func (s *Server) registerCatalogAgentRoutes(api *echo.Group) {
 	api.POST("/orgs/:orgId/providers", s.createAgentProvider)
 	api.GET("/providers/:providerId", s.getAgentProvider)
 	api.PATCH("/providers/:providerId", s.patchAgentProvider)
+	api.DELETE("/providers/:providerId", s.deleteAgentProvider)
 	api.GET("/projects/:projectId/agents", s.listAgents)
 	api.GET("/projects/:projectId/agent-runs", s.listAgentRuns)
 	api.POST("/projects/:projectId/agents", s.createAgent)

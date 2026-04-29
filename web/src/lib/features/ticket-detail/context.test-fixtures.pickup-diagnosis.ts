@@ -8,7 +8,7 @@ export const detailPickupDiagnosisFixture: NonNullable<TicketDetailPayload['pick
   reasons: [
     {
       code: 'running_current_run',
-      message: 'Current run is still attached to the ticket.',
+      message: 'Current run is still attached to the ticket.', // i18n-exempt fixture message
       severity: 'info',
     },
   ],

@@ -226,12 +226,71 @@ func TestParseProjectConversationWorkspaceSearchRequest(t *testing.T) {
 	}
 }
 
+func TestParseProjectConversationWorkspaceRepoRefsRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseProjectConversationWorkspaceRepoRefsRequest(" openase ")
+	if err != nil {
+		t.Fatalf("parseProjectConversationWorkspaceRepoRefsRequest() error = %v", err)
+	}
+	if request.RepoPath.String() != "openase" {
+		t.Fatalf("unexpected repo refs request = %#v", request)
+	}
+}
+
+func TestParseProjectConversationWorkspaceGitGraphRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseProjectConversationWorkspaceGitGraphRequest(" openase ", " 55 ")
+	if err != nil {
+		t.Fatalf("parseProjectConversationWorkspaceGitGraphRequest() error = %v", err)
+	}
+	if request.RepoPath.String() != "openase" || request.Window.Limit != 55 {
+		t.Fatalf("unexpected git graph request = %#v", request)
+	}
+}
+
+func TestParseProjectConversationWorkspaceCheckoutRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseProjectConversationWorkspaceCheckoutRequest(
+		rawProjectConversationWorkspaceCheckoutRequest{
+			RepoPath:               "openase",
+			TargetKind:             "remote_tracking_branch",
+			TargetName:             "origin/feature/workspace-git",
+			CreateTrackingBranch:   true,
+			LocalBranchName:        "feature/workspace-git",
+			ExpectedCleanWorkspace: true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseProjectConversationWorkspaceCheckoutRequest() error = %v", err)
+	}
+	if request.RepoPath.String() != "openase" ||
+		string(request.Target.Kind) != "remote_tracking_branch" ||
+		request.Target.BranchName.String() != "origin/feature/workspace-git" ||
+		request.Target.LocalBranchName == nil ||
+		request.Target.LocalBranchName.String() != "feature/workspace-git" ||
+		!request.ExpectedCleanWorkspace {
+		t.Fatalf("unexpected checkout request = %#v", request)
+	}
+}
+
 func TestParseProjectConversationWorkspaceSearchRequestRejectsEmptyQuery(t *testing.T) {
 	t.Parallel()
 
 	_, err := parseProjectConversationWorkspaceSearchRequest("openase", "   ", "")
 	if err == nil {
 		t.Fatal("expected empty query error")
+	}
+}
+
+func TestParseProjectConversationWorkspaceGitGraphRequestRejectsLargeLimit(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseProjectConversationWorkspaceGitGraphRequest("openase", "999")
+	if err == nil {
+		t.Fatal("expected large limit error")
 	}
 }
 

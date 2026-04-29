@@ -3,15 +3,18 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
-	"net/url"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
 	machinechanneldomain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
@@ -27,6 +30,14 @@ type machineChannelTokenResponse struct {
 	ControlPlaneURL string            `json:"control_plane_url,omitempty"`
 	Environment     map[string]string `json:"environment,omitempty"`
 }
+
+const (
+	envMachineListenerAddress     = "OPENASE_MACHINE_LISTENER_ADDRESS"
+	envMachineListenerPath        = "OPENASE_MACHINE_LISTENER_PATH"
+	envMachineListenerBearerToken = "OPENASE_MACHINE_LISTENER_BEARER_TOKEN"
+	defaultMachineListenerAddress = "0.0.0.0:19837"
+	defaultMachineListenerPath    = "/openase/runtime"
+)
 
 func newMachineAgentCommand() *cobra.Command {
 	command := &cobra.Command{
@@ -54,6 +65,7 @@ heartbeats until the process stops.
 `),
 	}
 	command.AddCommand(newMachineAgentRunCommand())
+	command.AddCommand(newMachineAgentListenCommand())
 	return command
 }
 
@@ -97,6 +109,12 @@ API base such as http://127.0.0.1:19836/api/v1, or a direct websocket endpoint.
 					resolvedOpenASEBinaryPath = executablePath
 				}
 			}
+			agentCLIPaths, err := machinechanneldomain.ParseDaemonAgentCLIPathsJSON(
+				os.Getenv(machinechanneldomain.EnvMachineAgentCLIPathsJSON),
+			)
+			if err != nil {
+				return err
+			}
 
 			config, err := machinechanneldomain.ParseDaemonConfig(
 				firstNonEmpty(machineID, os.Getenv(machinechanneldomain.EnvMachineID)),
@@ -106,6 +124,7 @@ API base such as http://127.0.0.1:19836/api/v1, or a direct websocket endpoint.
 				firstNonZeroDuration(reconnectBackoff, machinechannelservice.DefaultReconnectBackoff),
 				resolvedOpenASEBinaryPath,
 				agentCLIPath,
+				agentCLIPaths,
 			)
 			if err != nil {
 				return err
@@ -122,6 +141,90 @@ API base such as http://127.0.0.1:19836/api/v1, or a direct websocket endpoint.
 	command.Flags().DurationVar(&reconnectBackoff, "reconnect-backoff", machinechannelservice.DefaultReconnectBackoff, "Reconnect backoff after connection loss.")
 	command.Flags().StringVar(&openaseBinaryPath, "openase-binary-path", "", "Absolute path to the OpenASE binary. Defaults to the current executable.")
 	command.Flags().StringVar(&agentCLIPath, "agent-cli-path", "", "Absolute path to the preferred agent CLI binary to advertise to the control plane.")
+	return command
+}
+
+func newMachineAgentListenCommand() *cobra.Command {
+	var (
+		listenAddress string
+		listenPath    string
+		bearerToken   string
+	)
+
+	command := &cobra.Command{
+		Use:   "listen",
+		Short: "Serve a websocket runtime listener for direct remote-listener topology.",
+		Long: strings.TrimSpace(`
+Serve a websocket runtime listener for direct remote-listener topology.
+
+Use this on remote machines that should expose an inbound websocket endpoint to
+the OpenASE control plane. The listener serves the Remote Runtime v1 websocket
+contract and optionally protects the endpoint with a static bearer token.
+`),
+		Example: strings.TrimSpace(`
+  openase machine-agent listen \
+    --listen-address 0.0.0.0:19837 \
+    --path /openase/runtime \
+    --bearer-token listener-secret
+
+  OPENASE_MACHINE_LISTENER_ADDRESS=0.0.0.0:19837 \
+  OPENASE_MACHINE_LISTENER_PATH=/openase/runtime \
+  OPENASE_MACHINE_LISTENER_BEARER_TOKEN=listener-secret \
+  openase machine-agent listen
+`),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			relayManager := machinetransport.NewRuntimeLocalRelayManagerForCLI()
+			if _, relayURL, err := machinetransport.StartRuntimeLocalRelayServerForCLI(cmd.Context(), relayManager, os.Getenv(machinechanneldomain.EnvMachineLocalRelayAddress)); err != nil {
+				return err
+			} else {
+				_ = relayURL
+			}
+			resolvedAddress := firstNonEmpty(listenAddress, os.Getenv(envMachineListenerAddress))
+			if strings.TrimSpace(resolvedAddress) == "" {
+				resolvedAddress = defaultMachineListenerAddress
+			}
+			resolvedPath := firstNonEmpty(listenPath, os.Getenv(envMachineListenerPath))
+			if strings.TrimSpace(resolvedPath) == "" {
+				resolvedPath = defaultMachineListenerPath
+			}
+			if !strings.HasPrefix(resolvedPath, "/") {
+				resolvedPath = "/" + strings.TrimPrefix(resolvedPath, "/")
+			}
+			resolvedToken := firstNonEmpty(bearerToken, os.Getenv(envMachineListenerBearerToken))
+
+			mux := http.NewServeMux()
+			mux.Handle(resolvedPath, machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{
+				BearerToken: resolvedToken,
+				APIRelay:    relayManager,
+			}))
+			server := &http.Server{
+				Addr:              resolvedAddress,
+				Handler:           mux,
+				ReadHeaderTimeout: 5 * time.Second,
+			}
+
+			listener, err := net.Listen("tcp", resolvedAddress)
+			if err != nil {
+				return fmt.Errorf("listen on %s: %w", resolvedAddress, err)
+			}
+
+			go func() {
+				<-cmd.Context().Done()
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = server.Shutdown(shutdownCtx)
+			}()
+
+			if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				return fmt.Errorf("serve websocket listener on %s%s: %w", resolvedAddress, resolvedPath, err)
+			}
+			return nil
+		},
+	}
+
+	command.Flags().StringVar(&listenAddress, "listen-address", defaultMachineListenerAddress, "Listen address for the websocket runtime listener. Defaults to OPENASE_MACHINE_LISTENER_ADDRESS.")
+	command.Flags().StringVar(&listenPath, "path", defaultMachineListenerPath, "HTTP path for the websocket runtime listener. Defaults to OPENASE_MACHINE_LISTENER_PATH.")
+	command.Flags().StringVar(&bearerToken, "bearer-token", "", "Optional static bearer token required for listener websocket handshakes. Defaults to OPENASE_MACHINE_LISTENER_BEARER_TOKEN.")
 	return command
 }
 
@@ -277,21 +380,7 @@ correct machine-bound reverse websocket credential is revoked.
 }
 
 func resolveControlPlaneURL(cfg config.Config, explicit string) (string, error) {
-	trimmed := strings.TrimSpace(explicit)
-	if trimmed != "" {
-		if _, err := url.ParseRequestURI(trimmed); err != nil {
-			return "", fmt.Errorf("parse control-plane-url: %w", err)
-		}
-		return strings.TrimRight(trimmed, "/"), nil
-	}
-
-	host := strings.TrimSpace(cfg.Server.Host)
-	switch host {
-	case "", "0.0.0.0", "::", "[::]":
-		host = "127.0.0.1"
-	}
-
-	return "http://" + net.JoinHostPort(host, fmt.Sprintf("%d", cfg.Server.Port)), nil
+	return controlplaneurl.ResolveControlPlaneURL(explicit, cfg.Server.Host, cfg.Server.Port)
 }
 
 func parseEnvDuration(key string) time.Duration {

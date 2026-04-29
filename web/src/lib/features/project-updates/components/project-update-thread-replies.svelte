@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { Send } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { ProjectUpdateThread } from '../types'
   import ProjectUpdateCommentItem from './project-update-comment-item.svelte'
 
@@ -47,8 +48,10 @@
             type="text"
             bind:value={commentDraft}
             onkeydown={onCommentKeydown}
-            placeholder="Reply..."
-            aria-label={`Reply to ${thread.title}`}
+            placeholder={i18nStore.t('projectUpdates.thread.comment.placeholder')}
+            aria-label={i18nStore.t('projectUpdates.thread.comment.ariaReplyTo', {
+              threadTitle: thread.title,
+            })}
             class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-none"
           />
           <button
@@ -61,7 +64,7 @@
             )}
             disabled={!commentDraft.trim() || creatingComment}
             onclick={onCreateComment}
-            aria-label="Send reply"
+            aria-label={i18nStore.t('projectUpdates.thread.comment.ariaSend')}
           >
             <Send class="size-3" />
           </button>

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import type { TranslationKey } from '$lib/i18n'
   import { cn, formatRelativeTime, truncate } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import {
     RotateCcw,
@@ -54,11 +56,27 @@
 
   const anomalyConfig: Record<
     string,
-    { label: string; variant: 'destructive' | 'secondary'; icon: typeof RotateCcw }
+    {
+      labelKey: TranslationKey
+      variant: 'destructive' | 'secondary'
+      icon: typeof RotateCcw
+    }
   > = {
-    retry: { label: 'Retry paused', variant: 'secondary', icon: RotateCcw },
-    awaiting_approval: { label: 'Needs approval', variant: 'secondary', icon: ShieldAlert },
-    budget_exhausted: { label: 'Budget exhausted', variant: 'destructive', icon: Wallet },
+    retry: {
+      labelKey: 'board.ticketCard.anomalies.retryPaused',
+      variant: 'secondary',
+      icon: RotateCcw,
+    },
+    awaiting_approval: {
+      labelKey: 'board.ticketCard.anomalies.awaitingApproval',
+      variant: 'secondary',
+      icon: ShieldAlert,
+    },
+    budget_exhausted: {
+      labelKey: 'board.ticketCard.anomalies.budgetExhausted',
+      variant: 'destructive',
+      icon: Wallet,
+    },
   }
 
   let suppressClickUntil = 0
@@ -169,7 +187,7 @@
             viewBox="0 0 16 16"
             class="absolute right-0 bottom-1 size-2.5 text-red-500"
             role="img"
-            aria-label="Blocked"
+            aria-label={i18nStore.t('board.ticketCard.status.blocked')}
           >
             <polygon points="5,1 11,1 15,5 15,11 11,15 5,15 1,11 1,5" fill="currentColor" />
             <rect x="4" y="7" width="8" height="2" rx="0.5" fill="white" />
@@ -180,11 +198,13 @@
         <div class="flex items-center gap-1.5">
           <span class="text-muted-foreground text-xs font-medium">{ticket.identifier}</span>
           {#if isPendingMove}
-            <span class="text-muted-foreground text-[10px]">Moving…</span>
+            <span class="text-muted-foreground text-[10px]">
+              {i18nStore.t('board.ticketCard.status.moving')}
+            </span>
           {/if}
           <div
             class="text-muted-foreground/50 ml-auto flex items-center"
-            title="Right-click for actions"
+            title={i18nStore.t('board.ticketCard.contextMenuHint')}
           >
             <GripVertical class="text-muted-foreground/50 size-3.5 shrink-0" />
           </div>
@@ -215,21 +235,30 @@
         {#if config}
           <Badge variant={config.variant} class="h-4 gap-1 text-[10px]">
             <config.icon class="size-2.5" />
-            {config.label}
+            {i18nStore.t(config.labelKey)}
           </Badge>
         {/if}
       {/if}
 
       {#if ticket.runtimePhase === 'executing'}
-        <span class="inline-flex items-center text-emerald-500" title="Executing">
+        <span
+          class="inline-flex items-center text-emerald-500"
+          title={i18nStore.t('board.ticketCard.runtime.executing')}
+        >
           <Cog class="size-3 animate-spin" />
         </span>
       {:else if ticket.runtimePhase === 'ready'}
-        <span class="inline-flex items-center text-emerald-500" title="Ready">
+        <span
+          class="inline-flex items-center text-emerald-500"
+          title={i18nStore.t('board.ticketCard.runtime.ready')}
+        >
           <Cog class="size-3" />
         </span>
       {:else if ticket.runtimePhase === 'launching'}
-        <span class="inline-flex items-center text-amber-500" title="Launching">
+        <span
+          class="inline-flex items-center text-amber-500"
+          title={i18nStore.t('board.ticketCard.runtime.launching')}
+        >
           <Loader class="size-3 animate-spin [animation-duration:2s]" />
         </span>
       {:else if ticket.runtimePhase === 'failed'}
@@ -250,7 +279,10 @@
             </Tooltip.Root>
           </Tooltip.Provider>
         {:else}
-          <span class="inline-flex items-center text-red-500" title="Failed">
+          <span
+            class="inline-flex items-center text-red-500"
+            title={i18nStore.t('board.ticketCard.runtime.failed')}
+          >
             <CircleX class="size-3" />
           </span>
         {/if}

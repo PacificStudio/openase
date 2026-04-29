@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import type { StreamConnectionState } from '$lib/api/sse'
+  import { ticketsT } from '$lib/features/tickets'
   import TicketRunTranscriptHeader from './ticket-run-transcript-header.svelte'
   import TicketRunTranscriptDiffCard from './ticket-run-transcript-diff-card.svelte'
   import TicketRunTranscriptInterruptCard from './ticket-run-transcript-interrupt-card.svelte'
@@ -200,7 +201,9 @@
               <div class="flex items-center gap-2">
                 {#if block.kind === 'assistant_message' || block.kind === 'terminal_output'}
                   {#if block.streaming}
-                    <span class={blockMutedTextClass(block)}>Streaming</span>
+                    <span class={blockMutedTextClass(block)}>
+                      {ticketsT('tickets.transcript.streaming')}
+                    </span>
                   {/if}
                 {/if}
                 {#if blockTimestamp(block)}

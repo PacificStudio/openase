@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import * as Popover from '$ui/popover'
   import type { BoardStatusOption, BoardTicket } from '../types'
   import StageIcon from './stage-icon.svelte'
@@ -32,7 +33,7 @@
     class="hover:bg-muted inline-flex shrink-0 items-center justify-center rounded p-0.5 transition-colors"
     {disabled}
     onclick={(e: MouseEvent) => e.stopPropagation()}
-    aria-label="Change status"
+    aria-label={i18nStore.t('board.statusPicker.ariaLabel')}
   >
     <StageIcon stage={ticket.stage} color={ticket.statusColor} />
   </Popover.Trigger>

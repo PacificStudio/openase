@@ -1,8 +1,15 @@
 <script lang="ts">
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
   import { ShieldCheck } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   import GitHubCredentialScopeCard from './security-settings-github-scope-card.svelte'
+  import {
+    formatDisplayText,
+    parseDeferredCapability,
+    parseGitHubCredentialSource,
+    parseGitHubProbeState,
+  } from './security-settings-display'
 
   type Security = SecuritySettingsResponse['security']
   type GitHubSlot = Security['github']['organization']
@@ -21,9 +28,14 @@
     onManualTokenChange: (value: string) => void
   } = $props()
 
-  const deviceFlowSummary = $derived(
-    security.deferred.find((item) => item.key === 'github-device-flow')?.summary ??
-      'GitHub Device Flow remains deferred.',
+  const deviceFlowDisplay = $derived(
+    parseDeferredCapability(security.deferred, 'github-device-flow'),
+  )
+  const effectiveStatusLabel = $derived(
+    formatDisplayText(parseGitHubProbeState(security.github.effective), i18nStore.t),
+  )
+  const effectiveSourceLabel = $derived(
+    formatDisplayText(parseGitHubCredentialSource(security.github.effective.source), i18nStore.t),
   )
 
   function effectiveStatusDot(slot: GitHubSlot): string {
@@ -33,14 +45,13 @@
     return 'bg-amber-500'
   }
 
-  function effectiveLabel(slot: GitHubSlot): string {
-    if (!slot.configured) return 'Not configured'
-    return slot.probe.state.replaceAll('_', ' ')
-  }
-
   function scopeSourceLabel(slot: GitHubSlot): string {
-    if (slot.scope === 'organization') return 'Org default'
-    if (slot.scope === 'project') return 'Project override'
+    if (slot.scope === 'organization') {
+      return i18nStore.t('settings.security.github.outbound.scopeLabels.org')
+    }
+    if (slot.scope === 'project') {
+      return i18nStore.t('settings.security.github.outbound.scopeLabels.project')
+    }
     return ''
   }
 
@@ -61,7 +72,9 @@
 <div class="space-y-4">
   <div class="flex items-center gap-2">
     <ShieldCheck class="text-muted-foreground size-4" />
-    <h3 class="text-sm font-semibold">GitHub outbound credentials</h3>
+    <h3 class="text-sm font-semibold">
+      {i18nStore.t('settings.security.github.outbound.heading')}
+    </h3>
   </div>
 
   <!-- Effective credential status bar -->
@@ -71,19 +84,19 @@
         <span
           class={`inline-block size-2 shrink-0 rounded-full ${effectiveStatusDot(security.github.effective)}`}
         ></span>
-        <span class="text-sm font-medium capitalize"
-          >{effectiveLabel(security.github.effective)}</span
-        >
+        <span class="text-sm font-medium capitalize">{effectiveStatusLabel}</span>
       </div>
       {#if security.github.effective.configured}
         <span class="text-muted-foreground text-xs">
           {scopeSourceLabel(security.github.effective)}
           {#if security.github.effective.source}
-            · {security.github.effective.source.replaceAll('_', ' ')}
+            · {effectiveSourceLabel}
           {/if}
         </span>
       {:else}
-        <span class="text-muted-foreground text-xs">No credential configured.</span>
+        <span class="text-muted-foreground text-xs">
+          {i18nStore.t('settings.security.github.outbound.messages.noCredential')}
+        </span>
       {/if}
       {#if security.github.effective.probe.last_error}
         <span class="text-destructive text-xs">{security.github.effective.probe.last_error}</span>
@@ -101,7 +114,11 @@
           <span>{security.github.effective.probe.permissions.join(', ')}</span>
         {/if}
         {#if formatCheckedAt(security.github.effective.probe.checked_at)}
-          <span>Checked {formatCheckedAt(security.github.effective.probe.checked_at)}</span>
+          <span>
+            {i18nStore.t('settings.security.github.outbound.labels.checked', {
+              checkedAt: formatCheckedAt(security.github.effective.probe.checked_at),
+            })}
+          </span>
         {/if}
       </div>
     {/if}
@@ -117,6 +134,13 @@
   />
 
   <p class="text-muted-foreground text-xs">
-    <span class="font-medium">Device Flow</span> — {deviceFlowSummary}
+    <span class="font-medium">
+      {i18nStore.t('settings.security.github.outbound.deviceFlowLabel')}
+    </span>{' '}
+    — {#if deviceFlowDisplay}
+      {formatDisplayText(deviceFlowDisplay.summary, i18nStore.t)}
+    {:else}
+      {i18nStore.t('settings.security.github.outbound.deviceFlowSummaryFallback')}
+    {/if}
   </p>
 </div>

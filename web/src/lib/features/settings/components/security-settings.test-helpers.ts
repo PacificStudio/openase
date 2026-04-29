@@ -2,14 +2,19 @@ import { authStore } from '$lib/stores/auth.svelte'
 
 export function currentProject() {
   return {
-    id: '9f34ff64-f08b-4a06-b555-f47b34957860',
-    organization_id: 'org-1',
-    name: 'Atlas',
-    slug: 'atlas',
-    description: '',
-    status: 'active',
+    /* i18n-exempt */ id: '9f34ff64-f08b-4a06-b555-f47b34957860',
+    /* i18n-exempt */ organization_id: 'org-1',
+    /* i18n-exempt */ name: 'Atlas',
+    /* i18n-exempt */ slug: 'atlas',
+    /* i18n-exempt */ description: '',
+    /* i18n-exempt */ status: 'active',
     default_agent_provider_id: null,
-    project_ai_platform_access_allowed: ['projects.update', 'projects.add_repo'],
+    project_ai_platform_access_allowed: [
+      'project_updates.read',
+      'project_updates.write',
+      'projects.update',
+      'projects.add_repo',
+    ],
     accessible_machine_ids: [],
     max_concurrent_agents: 4,
   }
@@ -17,11 +22,11 @@ export function currentProject() {
 
 export function currentOrg() {
   return {
-    id: 'org-1',
-    name: 'Acme',
-    slug: 'acme',
+    /* i18n-exempt */ id: 'org-1',
+    /* i18n-exempt */ name: 'Acme',
+    /* i18n-exempt */ slug: 'acme',
     default_agent_provider_id: '',
-    status: 'active',
+    /* i18n-exempt */ status: 'active',
   }
 }
 
@@ -29,33 +34,33 @@ export function configuredSecurity() {
   return {
     project_id: currentProject().id,
     auth: {
-      active_mode: authStore.authMode || 'disabled',
-      configured_mode: authStore.authMode || 'disabled',
+      active_mode: authStore.authMode || /* i18n-exempt */ 'disabled',
+      configured_mode: authStore.authMode || /* i18n-exempt */ 'disabled',
       issuer_url: authStore.issuerURL || '',
-      local_principal: 'local_instance_admin:default',
+      /* i18n-exempt */ local_principal: 'local_instance_admin:default',
       mode_summary:
         authStore.authMode === 'oidc'
-          ? 'OIDC is active. Browser sessions, RBAC, cached users, memberships, invitations, and auth audit diagnostics are enforced from this control plane.'
-          : 'OIDC is inactive. Browser access on this machine goes through local bootstrap links until you enable OIDC, and the saved OIDC draft remains available for rollout.',
+          ? /* i18n-exempt */ 'OIDC is active. Browser sessions, RBAC, cached users, memberships, invitations, and auth audit diagnostics are enforced from this control plane.'
+          : /* i18n-exempt */ 'OIDC is inactive. Browser access on this machine goes through local bootstrap links until you enable OIDC, and the saved OIDC draft remains available for rollout.',
       recommended_mode:
         authStore.authMode === 'oidc'
-          ? 'Use OIDC for multi-user or networked deployments, then keep bootstrap admin emails narrow after first login.'
-          : 'Use local bootstrap for personal or recovery access, and enable OIDC when you need managed multi-user browser login.',
-      public_exposure_risk: 'local_only',
+          ? /* i18n-exempt */ 'Use OIDC for multi-user or networked deployments, then keep bootstrap admin emails narrow after first login.'
+          : /* i18n-exempt */ 'Use local bootstrap for personal or recovery access, and enable OIDC when you need managed multi-user browser login.',
+      public_exposure_risk: /* i18n-exempt */ 'local_only',
       warnings: [
-        'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
+        /* i18n-exempt */ 'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
       ],
       next_steps: [
-        'Create a local bootstrap link for administrators who still need browser access on this machine.',
-        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for managed multi-user browser login.',
-        'If an OIDC rollout locks you out, run `openase auth break-glass disable-oidc` locally before creating a fresh bootstrap link.',
+        /* i18n-exempt */ 'Create a local bootstrap link for administrators who still need browser access on this machine.',
+        /* i18n-exempt */ 'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for managed multi-user browser login.',
+        /* i18n-exempt */ 'If an OIDC rollout locks you out, run `openase auth break-glass disable-oidc` locally before creating a fresh bootstrap link.',
       ],
-      config_path: '/home/test/.openase/config.yaml',
+      /* i18n-exempt */ config_path: '/home/test/.openase/config.yaml',
       bootstrap_state: {
         status: 'configured',
         admin_emails: ['admin@example.com'],
         summary:
-          '1 bootstrap admin email(s) will receive instance_admin on first successful OIDC login.',
+          /* i18n-exempt */ '1 bootstrap admin email(s) will receive instance_admin on first successful OIDC login.',
       },
       session_policy: {
         session_ttl: '8h0m0s',
@@ -64,7 +69,7 @@ export function configuredSecurity() {
       last_validation: {
         status: 'ok',
         message:
-          'OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.',
+          /* i18n-exempt */ 'OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.',
         checked_at: '2026-04-07T04:12:00Z',
         issuer_url: 'https://idp.example.com',
         authorization_endpoint: 'https://idp.example.com/authorize',
@@ -84,22 +89,22 @@ export function configuredSecurity() {
       },
       docs: [
         {
-          title: 'Mode selection guide',
+          title: /* i18n-exempt */ 'Mode selection guide',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
           summary:
-            'Plan local bootstrap access, OIDC rollout, and instance_admin bootstrap coverage.',
+            /* i18n-exempt */ 'Plan local bootstrap access, OIDC rollout, and instance_admin bootstrap coverage.',
         },
         {
-          title: 'Dual-mode contract',
+          title: /* i18n-exempt */ 'Dual-mode contract',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
           summary:
-            'Read the access-control contract, YAML import behavior, and local recovery paths.',
+            /* i18n-exempt */ 'Read the access-control contract, YAML import behavior, and local recovery paths.',
         },
         {
-          title: 'IAM rollout checklist',
+          title: /* i18n-exempt */ 'IAM rollout checklist',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
           summary:
-            'Roll out IAM with validation checks plus a documented break-glass recovery procedure.',
+            /* i18n-exempt */ 'Roll out IAM with validation checks plus a documented break-glass recovery procedure.',
         },
       ],
     },
@@ -108,15 +113,21 @@ export function configuredSecurity() {
       environment_variable: 'OPENASE_AGENT_TOKEN',
       token_prefix: 'ase_agent_',
       default_scopes: ['tickets.create', 'tickets.list'],
-      supported_project_scopes: ['projects.update', 'projects.add_repo'],
+      supported_project_scopes: [
+        'project_updates.read',
+        'project_updates.write',
+        'projects.update',
+        'projects.add_repo',
+      ],
       supported_scope_groups: [
         {
           category: 'projects',
-          scopes: ['projects.update', 'projects.add_repo'],
-        },
-        {
-          category: 'tickets',
-          scopes: ['tickets.update.self'],
+          scopes: [
+            'project_updates.read',
+            'project_updates.write',
+            'projects.update',
+            'projects.add_repo',
+          ],
         },
       ],
     },
@@ -183,21 +194,22 @@ export function configuredSecurity() {
       rollout_checklist: [
         {
           key: 'provider-inline-secrets',
-          title: 'Migrate inline provider auth_config secrets',
+          title: /* i18n-exempt */ 'Migrate inline provider auth_config secrets',
           status: 'pending',
-          summary: 'Move legacy inline provider auth_config secrets into scoped secrets.',
+          summary:
+            /* i18n-exempt */ 'Move legacy inline provider auth_config secrets into scoped secrets.',
         },
         {
           key: 'machine-env-secrets',
-          title: 'Migrate machine env var secrets',
+          title: /* i18n-exempt */ 'Migrate machine env var secrets',
           status: 'pending',
-          summary: 'Replace secret-like machine env_vars before rollout.',
+          summary: /* i18n-exempt */ 'Replace secret-like machine env_vars before rollout.',
         },
         {
           key: 'audit-trail',
-          title: 'Verify secret activity events',
+          title: /* i18n-exempt */ 'Verify secret activity events',
           status: 'done',
-          summary: 'Secret lifecycle events are published to activity.',
+          summary: /* i18n-exempt */ 'Secret lifecycle events are published to activity.',
         },
       ],
     },
@@ -205,13 +217,13 @@ export function configuredSecurity() {
       status: 'reserved',
       rules_count: 0,
       summary:
-        'Approval policy storage is reserved for future second-factor or approver requirements and stays separate from RBAC grants.',
+        /* i18n-exempt */ 'Approval policy storage is reserved for future second-factor or approver requirements and stays separate from RBAC grants.',
     },
     deferred: [
       {
         key: 'github-device-flow',
-        title: 'GitHub Device Flow',
-        summary: 'Deferred until OAuth app wiring is available.',
+        title: /* i18n-exempt */ 'GitHub Device Flow',
+        summary: /* i18n-exempt */ 'Deferred until OAuth app wiring is available.',
       },
     ],
   }
@@ -226,7 +238,7 @@ export function disabledSecurity() {
       configured_mode: 'disabled',
       issuer_url: '',
       warnings: [
-        'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
+        /* i18n-exempt */ 'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
       ],
     },
   }

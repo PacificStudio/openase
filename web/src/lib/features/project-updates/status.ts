@@ -1,9 +1,10 @@
 import type { ProjectUpdateStatus } from './types'
+import { projectUpdatesT } from './i18n'
 
 export const projectUpdateStatusOptions: Array<{ value: ProjectUpdateStatus; label: string }> = [
-  { value: 'on_track', label: 'On track' },
-  { value: 'at_risk', label: 'At risk' },
-  { value: 'off_track', label: 'Off track' },
+  { value: 'on_track', label: projectUpdatesT('projectUpdates.status.onTrack') },
+  { value: 'at_risk', label: projectUpdatesT('projectUpdates.status.atRisk') },
+  { value: 'off_track', label: projectUpdatesT('projectUpdates.status.offTrack') },
 ]
 
 export function projectUpdateStatusLabel(status: ProjectUpdateStatus) {

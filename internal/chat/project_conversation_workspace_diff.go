@@ -13,7 +13,7 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
-	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	"github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/google/uuid"
 )
@@ -21,6 +21,7 @@ import (
 type ProjectConversationWorkspaceDiff struct {
 	ConversationID uuid.UUID
 	WorkspacePath  string
+	Preparing      bool
 	Dirty          bool
 	ReposChanged   int
 	FilesChanged   int
@@ -42,10 +43,13 @@ type ProjectConversationWorkspaceRepoDiff struct {
 }
 
 type ProjectConversationWorkspaceFileDiff struct {
-	Path    string
-	Status  ProjectConversationWorkspaceFileStatus
-	Added   int
-	Removed int
+	Path     string
+	OldPath  string
+	Status   ProjectConversationWorkspaceFileStatus
+	Staged   bool
+	Unstaged bool
+	Added    int
+	Removed  int
 }
 
 type ProjectConversationWorkspaceFileStatus string
@@ -63,6 +67,7 @@ var errProjectConversationWorkspaceLocationUnavailable = errors.New("project con
 type projectConversationWorkspaceLocation struct {
 	machine       catalogdomain.Machine
 	workspacePath string
+	preparing     bool
 	repos         []projectConversationWorkspaceRepoLocation
 	syncPrompt    *ProjectConversationWorkspaceSyncPrompt
 	missingRepos  map[string]ProjectConversationWorkspaceMissingRepo
@@ -96,11 +101,11 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 		return ProjectConversationWorkspaceDiff{}, err
 	}
 
-	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
+	project, err := s.core.catalog.GetProject(ctx, conversation.ProjectID)
 	if err != nil {
 		return ProjectConversationWorkspaceDiff{}, fmt.Errorf("get project for workspace diff: %w", err)
 	}
-	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+	providerItem, err := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return ProjectConversationWorkspaceDiff{}, fmt.Errorf("get provider for workspace diff: %w", err)
 	}
@@ -117,8 +122,12 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 	summary := ProjectConversationWorkspaceDiff{
 		ConversationID: conversationID,
 		WorkspacePath:  location.workspacePath,
+		Preparing:      location.preparing,
 		Repos:          make([]ProjectConversationWorkspaceRepoDiff, 0, len(location.repos)),
 		SyncPrompt:     location.syncPrompt,
+	}
+	if location.preparing {
+		return summary, nil
 	}
 
 	for _, repo := range location.repos {
@@ -149,7 +158,7 @@ func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
 ) (projectConversationWorkspaceLocation, error) {
-	machine, err := s.catalog.GetMachine(ctx, providerItem.MachineID)
+	machine, err := s.core.catalog.GetMachine(ctx, providerItem.MachineID)
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, fmt.Errorf("get chat provider machine for workspace diff: %w", err)
 	}
@@ -159,7 +168,7 @@ func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 		return projectConversationWorkspaceLocation{}, err
 	}
 
-	projectRepos, err := s.catalog.ListProjectRepos(ctx, project.ID)
+	projectRepos, err := s.core.catalog.ListProjectRepos(ctx, project.ID)
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, fmt.Errorf("list project repos for workspace diff: %w", err)
 	}
@@ -175,10 +184,18 @@ func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, err
 	}
+	preparing, err := s.shouldTreatWorkspaceAsPreparing(ctx, conversation, syncPrompt)
+	if err != nil {
+		return projectConversationWorkspaceLocation{}, err
+	}
+	if preparing {
+		syncPrompt = nil
+	}
 
 	return projectConversationWorkspaceLocation{
 		machine:       machine,
 		workspacePath: workspacePath,
+		preparing:     preparing,
 		repos:         repos,
 		syncPrompt:    syncPrompt,
 		missingRepos:  missingRepos,
@@ -216,13 +233,7 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 	machine catalogdomain.Machine,
 	repo projectConversationWorkspaceRepoLocation,
 ) (ProjectConversationWorkspaceRepoDiff, error) {
-	branch, err := workspaceinfra.ReadWorkspaceGitBranch(ctx, repo.repoPath, func(
-		ctx context.Context,
-		args []string,
-		allowExitCodeOne bool,
-	) ([]byte, error) {
-		return s.runProjectConversationGitCommand(ctx, machine, args, allowExitCodeOne)
-	})
+	currentRef, err := s.readConversationWorkspaceCurrentRef(ctx, machine, repo.repoPath)
 	if err != nil {
 		if errors.Is(err, workspaceinfra.ErrGitWorkspaceUnavailable) {
 			return ProjectConversationWorkspaceRepoDiff{}, nil
@@ -269,7 +280,7 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 	repoSummary := ProjectConversationWorkspaceRepoDiff{
 		Name:   repo.name,
 		Path:   repo.relativePath,
-		Branch: branch,
+		Branch: projectConversationWorkspaceBranchDisplayName(currentRef),
 		Dirty:  true,
 	}
 	for _, status := range statuses {
@@ -282,10 +293,13 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 		}
 
 		file := ProjectConversationWorkspaceFileDiff{
-			Path:    status.path,
-			Status:  mapProjectConversationWorkspaceFileStatus(status.code),
-			Added:   stat.added,
-			Removed: stat.removed,
+			Path:     status.path,
+			OldPath:  status.oldPath,
+			Status:   mapProjectConversationWorkspaceFileStatus(status.code),
+			Staged:   projectConversationGitStatusHasStaged(status.code),
+			Unstaged: projectConversationGitStatusHasUnstaged(status.code),
+			Added:    stat.added,
+			Removed:  stat.removed,
 		}
 		files = append(files, file)
 		repoSummary.Added += file.Added
@@ -347,29 +361,17 @@ func (s *ProjectConversationService) runProjectConversationGitCommand(
 		}
 		return output, nil
 	}
-	if s == nil || s.sshPool == nil {
-		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
-	}
-
-	client, err := s.sshPool.Get(ctx, machine)
-	if err != nil {
-		return nil, err
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("open ssh session for workspace diff: %w", err)
-	}
-	defer func() { _ = session.Close() }()
-
 	quoted := make([]string, 0, len(args))
 	for _, arg := range args {
-		quoted = append(quoted, sshinfra.ShellQuote(arg))
+		quoted = append(quoted, projectConversationShellQuote(arg))
 	}
-	output, err := session.CombinedOutput("sh -lc " + sshinfra.ShellQuote(strings.Join(quoted, " ")))
-	if err != nil && (!allowExitCodeOne || !strings.Contains(err.Error(), "exit status 1")) {
-		return output, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
-	}
-	return output, nil
+	return s.runProjectConversationRemoteCommand(
+		ctx,
+		machine,
+		"sh -lc "+projectConversationShellQuote(strings.Join(quoted, " ")),
+		allowExitCodeOne,
+		"workspace git command",
+	)
 }
 
 func parseProjectConversationGitStatusEntries(raw []byte) ([]projectConversationGitStatusEntry, error) {
@@ -466,11 +468,58 @@ func mapProjectConversationWorkspaceFileStatus(code string) ProjectConversationW
 	}
 }
 
+func projectConversationGitStatusHasStaged(code string) bool {
+	trimmed := strings.TrimSpace(code)
+	if trimmed == "" || code == "??" {
+		return false
+	}
+	if len(code) == 0 {
+		return false
+	}
+	return code[0] != ' '
+}
+
+func projectConversationGitStatusHasUnstaged(code string) bool {
+	if code == "??" {
+		return true
+	}
+	if len(code) < 2 {
+		return false
+	}
+	return code[1] != ' '
+}
+
 func projectConversationCommandExitedWithCode(err error, code int) bool {
 	var exitErr *exec.ExitError
-	return errors.As(err, &exitErr) && exitErr.ExitCode() == code
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == code {
+		return true
+	}
+	var runtimeExit machinetransport.ProcessExitError
+	if errors.As(err, &runtimeExit) && runtimeExit.ExitStatus() == code {
+		return true
+	}
+	return strings.Contains(strings.TrimSpace(err.Error()), fmt.Sprintf("exit status %d", code))
 }
 
 func projectConversationWorkspaceMayNotExistYet(conversation chatdomain.Conversation) bool {
 	return conversation.LastTurnID == nil && conversation.ProviderThreadID == nil
+}
+
+func (s *ProjectConversationService) shouldTreatWorkspaceAsPreparing(
+	ctx context.Context,
+	conversation chatdomain.Conversation,
+	syncPrompt *ProjectConversationWorkspaceSyncPrompt,
+) (bool, error) {
+	if s == nil || s.core.entries == nil || syncPrompt == nil || !projectConversationWorkspaceMayNotExistYet(conversation) {
+		return false, nil
+	}
+	_, err := s.core.entries.GetActiveTurn(ctx, conversation.ID)
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, chatdomain.ErrNotFound):
+		return false, nil
+	default:
+		return false, fmt.Errorf("inspect active turn for workspace preparation: %w", err)
+	}
 }

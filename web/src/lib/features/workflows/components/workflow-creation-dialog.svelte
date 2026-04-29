@@ -9,7 +9,6 @@
   import { resolveTemplateStatusSelection } from '../model'
   import {
     createWorkflowHooksDraft,
-    parseWorkflowHooksDraft,
     validateWorkflowHooksDraft,
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
@@ -17,7 +16,6 @@
     buildDispatcherFinishStatusIds,
     buildPickupStatusBlockedReasonMap,
     buildSelfStatusBlockedReasonMap,
-    findOverlappingStatusIds,
     mergeStatusBlockedReasonMaps,
     toggleWorkflowStatusSelection,
   } from '../workflow-lifecycle'
@@ -33,7 +31,17 @@
     REQUIRED_WORKFLOW_SKILL_NAME,
   } from '../workflow-requirements'
   import WorkflowCreationAdvancedSection from './workflow-creation-advanced-section.svelte'
+  import WorkflowStagesExplainer from './workflow-stages-explainer.svelte'
   import WorkflowStatusChipGroup from './workflow-status-chip-group.svelte'
+  import { maybeStartWorkflowCreationTour } from './workflow-creation-tour'
+  import {
+    buildWorkflowCreationPayload,
+    validateWorkflowCreationInputs,
+  } from './workflow-creation-submit'
+  import { tick } from 'svelte'
+  import { CircleHelp } from '@lucide/svelte'
+  import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     open = $bindable(false),
@@ -65,37 +73,45 @@
   let finishStatusIds = $state<string[]>([])
   let templateStatusError = $state('')
   let advancedOpen = $state(false)
+  let stagesOpen = $state(false)
   let hookDraft = $state<WorkflowHooksDraft>(createWorkflowHooksDraft())
   let hookError = $state('')
   let wasOpen = false
 
   const selectedAgentLabel = $derived(
-    agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
+    agentOptions.find((option) => option.id === agentId)?.label ??
+      t('workflows.agentSelect.trigger.placeholder'),
   )
   const pickupBlockedReasonMap = $derived(
     mergeStatusBlockedReasonMaps(
       buildPickupStatusBlockedReasonMap(workflows),
       buildSelfStatusBlockedReasonMap(
         finishStatusIds,
-        'Already selected as a finish status in this workflow.',
+        t('workflows.creation.dialog.statusBlock.finishSelected'),
       ),
     ),
   )
   const finishBlockedReasonMap = $derived(
     buildSelfStatusBlockedReasonMap(
       pickupStatusIds,
-      'Already selected as a pickup status in this workflow.',
+      t('workflows.creation.dialog.statusBlock.pickupSelected'),
     ),
   )
   const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
 
+  function t(key: TranslationKey, params?: TranslationParams) {
+    return i18nStore.t(key, params)
+  }
+
   $effect(() => {
     if (open && !wasOpen) {
       name = templateDraft?.name ?? `Workflow ${existingCount + 1}`
-      typeLabel = templateDraft?.workflowType ?? 'Workflow'
+      typeLabel =
+        templateDraft?.workflowType ?? t('workflows.creation.dialog.defaults.workflowTypeLabel')
       agentId = agentOptions[0]?.id ?? ''
       templateStatusError = ''
       advancedOpen = false
+      stagesOpen = true
       hookDraft = createWorkflowHooksDraft()
       hookError = ''
 
@@ -122,75 +138,68 @@
           finishStatusIds = templateSelection.finishStatusIds
         }
       }
+
+      void tick().then(() => {
+        if (open && projectId) maybeStartWorkflowCreationTour(projectId, t)
+      })
     }
 
     wasOpen = open
   })
 
+  function handleStartTour() {
+    if (!projectId) return
+    stagesOpen = true
+    void tick().then(() => maybeStartWorkflowCreationTour(projectId, t, { force: true }))
+  }
+
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
-    if (!projectId) {
-      toastStore.error('Select a project before creating a workflow.')
-      return
-    }
-    if (!name.trim()) {
-      toastStore.error('Workflow name is required.')
-      return
-    }
-    if (!agentId) {
-      toastStore.error('Bound agent is required.')
-      return
-    }
-    if (!typeLabel.trim()) {
-      toastStore.error('Workflow type label is required.')
-      return
-    }
-    if (templateStatusError) {
-      toastStore.error(templateStatusError)
-      return
-    }
-    if (pickupStatusIds.length === 0 || finishStatusIds.length === 0) {
-      toastStore.error('Pickup and finish status are required.')
-      return
-    }
-    if (findOverlappingStatusIds(pickupStatusIds, finishStatusIds).length > 0) {
-      toastStore.error('Pickup and finish statuses must be mutually exclusive.')
-      return
-    }
-
-    const parsedHooks = parseWorkflowHooksDraft(hookDraft)
-    if (!parsedHooks.ok) {
-      hookError = parsedHooks.error
-      advancedOpen = true
+    const validation = validateWorkflowCreationInputs(
+      {
+        projectId,
+        name,
+        typeLabel,
+        agentId,
+        templateStatusError,
+        pickupStatusIds,
+        finishStatusIds,
+        hookDraft,
+      },
+      t,
+    )
+    if (!validation.ok) {
+      if (validation.openAdvanced) {
+        hookError = validation.error
+        advancedOpen = true
+      } else {
+        toastStore.error(validation.error)
+      }
       return
     }
 
     saving = true
-
     try {
       const payload = await createWorkflowWithBinding(
         projectId,
-        {
+        buildWorkflowCreationPayload({
           agentId,
-          name: name.trim(),
-          workflowType: typeLabel.trim(),
-          roleSlug: templateDraft?.roleSlug ?? '',
-          roleName: templateDraft?.roleName ?? name.trim(),
-          roleDescription: templateDraft?.roleDescription ?? '',
-          platformAccessAllowed: templateDraft?.platformAccessAllowed ?? [],
-          skillNames: templateDraft?.skillNames ?? [],
-          harnessPath: templateDraft?.harnessPath ?? null,
+          name,
+          typeLabel,
           pickupStatusIds,
           finishStatusIds,
-          hooks: parsedHooks.value,
-        },
+          hooks: validation.hooks,
+          templateDraft,
+        }),
         statuses,
         templateDraft?.content ?? builtinRoleContent,
       )
       onCreated?.(payload)
       open = false
     } catch (caughtError) {
-      toastStore.error(describeWorkflowApiError(caughtError, 'Failed to create workflow.'))
+      toastStore.error(
+        describeWorkflowApiError(caughtError, t('workflows.creation.dialog.errors.creationFailed')),
+      )
     } finally {
       saving = false
     }
@@ -200,36 +209,50 @@
 <Dialog.Root bind:open>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>Create Workflow</Dialog.Title>
-      <Dialog.Description>
-        Bind a workflow to an explicit agent definition before it can dispatch.
-      </Dialog.Description>
+      <div class="flex items-start justify-between gap-2">
+        <div class="space-y-1">
+          <Dialog.Title>{t('workflows.creation.dialog.title')}</Dialog.Title>
+          <Dialog.Description>{t('workflows.creation.dialog.description')}</Dialog.Description>
+        </div>
+        <button
+          type="button"
+          onclick={handleStartTour}
+          class="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors"
+        >
+          <CircleHelp class="size-3.5" />
+          {t('workflows.creation.dialog.guide.replay')}
+        </button>
+      </div>
     </Dialog.Header>
 
     <form class="flex min-h-0 flex-1 flex-col gap-6" onsubmit={handleSubmit}>
       <Dialog.Body class="space-y-4">
-        <div class="space-y-2">
-          <Label for="workflow-create-name">Name</Label>
+        <div class="space-y-2" data-tour="workflow-create-name">
+          <Label for="workflow-create-name">
+            {t('workflows.creation.dialog.labels.name')}
+          </Label>
           <Input
             id="workflow-create-name"
             bind:value={name}
             disabled={saving}
-            placeholder="Workflow name"
+            placeholder={t('workflows.creation.dialog.placeholders.name')}
           />
         </div>
 
-        <div class="space-y-2">
-          <Label for="workflow-create-type">Type Label</Label>
+        <div class="space-y-2" data-tour="workflow-create-type">
+          <Label for="workflow-create-type">
+            {t('workflows.creation.dialog.labels.typeLabel')}
+          </Label>
           <Input
             id="workflow-create-type"
             bind:value={typeLabel}
             disabled={saving}
-            placeholder="Fullstack Developer"
+            placeholder={t('workflows.creation.dialog.placeholders.typeLabel')}
           />
         </div>
 
-        <div class="space-y-2">
-          <Label>Bound Agent</Label>
+        <div class="space-y-2" data-tour="workflow-create-agent">
+          <Label>{t('workflows.creation.dialog.labels.boundAgent')}</Label>
           <Select.Root
             type="single"
             value={agentId}
@@ -246,50 +269,59 @@
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          <WorkflowStatusChipGroup
-            label="Pickup Statuses"
-            {statuses}
-            selectedIds={pickupStatusIds}
-            disabled={saving}
-            disabledReasonById={pickupBlockedReasonMap}
-            onToggle={(statusId) =>
-              (pickupStatusIds = toggleWorkflowStatusSelection(
-                pickupStatusIds,
-                statusId,
-                pickupBlockedReasonMap,
-              ))}
-          />
-
-          <WorkflowStatusChipGroup
-            label="Finish Statuses"
-            {statuses}
-            selectedIds={finishStatusIds}
-            disabled={saving}
-            disabledReasonById={finishBlockedReasonMap}
-            onToggle={(statusId) =>
-              (finishStatusIds = toggleWorkflowStatusSelection(
-                finishStatusIds,
-                statusId,
-                finishBlockedReasonMap,
-              ))}
-          />
+          <div data-tour="workflow-create-pickup">
+            <WorkflowStatusChipGroup
+              label={t('workflows.creation.dialog.labels.pickupStatuses')}
+              {statuses}
+              selectedIds={pickupStatusIds}
+              disabled={saving}
+              disabledReasonById={pickupBlockedReasonMap}
+              onToggle={(statusId) =>
+                (pickupStatusIds = toggleWorkflowStatusSelection(
+                  pickupStatusIds,
+                  statusId,
+                  pickupBlockedReasonMap,
+                ))}
+            />
+          </div>
+          <div data-tour="workflow-create-finish">
+            <WorkflowStatusChipGroup
+              label={t('workflows.creation.dialog.labels.finishStatuses')}
+              {statuses}
+              selectedIds={finishStatusIds}
+              disabled={saving}
+              disabledReasonById={finishBlockedReasonMap}
+              onToggle={(statusId) =>
+                (finishStatusIds = toggleWorkflowStatusSelection(
+                  finishStatusIds,
+                  statusId,
+                  finishBlockedReasonMap,
+                ))}
+            />
+          </div>
         </div>
 
         {#if templateStatusError}
           <p class="text-destructive text-xs">{templateStatusError}</p>
         {/if}
+
+        <WorkflowStagesExplainer bind:open={stagesOpen} />
+
         <div class="bg-muted/40 rounded-md border px-3 py-2 text-xs leading-relaxed">
-          <span class="font-medium">System-enforced runtime access.</span>
-          New workflows always include
+          <span class="font-medium">
+            {t('workflows.creation.dialog.runtimeAccess.heading')}
+          </span>
+          {t('workflows.creation.dialog.runtimeAccess.description.prefix')}
           <code class="bg-background rounded px-1 py-0.5 font-mono"
             >{REQUIRED_WORKFLOW_PLATFORM_SCOPE}</code
           >
-          and the
+          {t('workflows.creation.dialog.runtimeAccess.description.middle')}
           <code class="bg-background rounded px-1 py-0.5 font-mono"
             >{REQUIRED_WORKFLOW_SKILL_NAME}</code
           >
-          skill. The platform adds both automatically and keeps them locked.
+          {t('workflows.creation.dialog.runtimeAccess.description.suffix')}
         </div>
+
         <WorkflowCreationAdvancedSection
           bind:open={advancedOpen}
           draft={hookDraft}
@@ -305,7 +337,9 @@
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || !projectId || !!templateStatusError}>
-          {saving ? 'Creating…' : 'Create workflow'}
+          {saving
+            ? t('workflows.creation.dialog.actions.creating')
+            : t('workflows.creation.dialog.actions.create')}
         </Button>
       </Dialog.Footer>
     </form>

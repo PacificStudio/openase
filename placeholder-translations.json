@@ -1,0 +1,1422 @@
+{
+  "chat.assistant.placeholder": {
+    "en": "Chat Assistant Placeholder",
+    "zh": "聊天助手占位文本"
+  },
+  "chat.assistant.sheetDescription": {
+    "en": "Chat Assistant Sheet Description",
+    "zh": "聊天助手面板描述"
+  },
+  "chat.assistant.title": {
+    "en": "Chat Assistant Title",
+    "zh": "聊天助手标题"
+  },
+  "chat.binaryFileNotice": {
+    "en": "Chat Binary File Notice",
+    "zh": "聊天二进制文件提示"
+  },
+  "chat.binaryFileReadOnly": {
+    "en": "Chat Binary File Read Only",
+    "zh": "聊天二进制文件读取仅"
+  },
+  "chat.browse": {
+    "en": "Chat Browse",
+    "zh": "聊天浏览"
+  },
+  "chat.cancelQueuedMessage": {
+    "en": "Chat Cancel Queued Message",
+    "zh": "聊天取消排队中消息"
+  },
+  "chat.cleanWorkspace": {
+    "en": "Chat Clean Workspace",
+    "zh": "聊天清理工作区"
+  },
+  "chat.closePanel": {
+    "en": "Chat Close Panel",
+    "zh": "聊天关闭面板"
+  },
+  "chat.closeTab": {
+    "en": "Chat Close Tab",
+    "zh": "聊天关闭标签页"
+  },
+  "chat.closeWorkspaceBrowser": {
+    "en": "Chat Close Workspace Browser",
+    "zh": "聊天关闭工作区浏览器"
+  },
+  "chat.composerPlaceholder": {
+    "en": "Chat Composer Placeholder",
+    "zh": "聊天撰写占位文本"
+  },
+  "chat.confirmDeleteConversation": {
+    "en": "Chat Confirm Delete Conversation",
+    "zh": "聊天确认删除会话"
+  },
+  "chat.confirmDeleteWorkspaceChanges": {
+    "en": "Chat Confirm Delete Workspace Changes",
+    "zh": "聊天确认删除工作区更改"
+  },
+  "chat.confirmInterruptAgent": {
+    "en": "Chat Confirm Interrupt Agent",
+    "zh": "聊天确认中断代理"
+  },
+  "chat.conversationDeletedSuccess": {
+    "en": "Chat Conversation Deleted Success",
+    "zh": "聊天会话已删除成功"
+  },
+  "chat.conversationHistory": {
+    "en": "Chat Conversation History",
+    "zh": "聊天会话历史"
+  },
+  "chat.conversationTabLabel": {
+    "en": "Chat Conversation Tab Label",
+    "zh": "聊天会话标签页标签"
+  },
+  "chat.copyWorkspacePath": {
+    "en": "Chat Copy Workspace Path",
+    "zh": "聊天复制工作区路径"
+  },
+  "chat.deleteConversationFailed": {
+    "en": "Chat Delete Conversation Failed",
+    "zh": "聊天删除会话失败"
+  },
+  "chat.deleteConversationLabel": {
+    "en": "Chat Delete Conversation Label",
+    "zh": "聊天删除会话标签"
+  },
+  "chat.deleteConversationTitle": {
+    "en": "Chat Delete Conversation Title",
+    "zh": "聊天删除会话标题"
+  },
+  "chat.diff.label": {
+    "en": "Chat Diff Label",
+    "zh": "聊天差异标签"
+  },
+  "chat.diff.structured": {
+    "en": "Chat Diff Structured",
+    "zh": "聊天差异结构化"
+  },
+  "chat.diff.structuredBundle": {
+    "en": "Chat Diff Structured Bundle",
+    "zh": "聊天差异结构化捆绑包"
+  },
+  "chat.disableLineWrap": {
+    "en": "Chat Disable Line Wrap",
+    "zh": "聊天禁用行换行"
+  },
+  "chat.dontSave": {
+    "en": "Chat Dont Save",
+    "zh": "聊天不保存"
+  },
+  "chat.enableLineWrap": {
+    "en": "Chat Enable Line Wrap",
+    "zh": "聊天启用行换行"
+  },
+  "chat.errors.answerInterrupt": {
+    "en": "Chat Errors Answer Interrupt",
+    "zh": "聊天错误回复中断"
+  },
+  "chat.errors.sendMessage": {
+    "en": "Chat Errors Send Message",
+    "zh": "聊天错误发送消息"
+  },
+  "chat.errors.stopTurn": {
+    "en": "Chat Errors Stop Turn",
+    "zh": "聊天错误停止轮次"
+  },
+  "chat.explorer.changesTitle": {
+    "en": "Chat Explorer Changes Title",
+    "zh": "聊天资源管理更改标题"
+  },
+  "chat.explorer.emptyDirectory": {
+    "en": "Chat Explorer Empty Directory",
+    "zh": "聊天资源管理空目录"
+  },
+  "chat.explorer.loadingFiles": {
+    "en": "Chat Explorer Loading Files",
+    "zh": "聊天资源管理加载中文件"
+  },
+  "chat.explorer.title": {
+    "en": "Chat Explorer Title",
+    "zh": "聊天资源管理标题"
+  },
+  "chat.failedToSyncWorkspace": {
+    "en": "Chat Failed To Sync Workspace",
+    "zh": "聊天失败to同步工作区"
+  },
+  "chat.fileChangedWhileEditing": {
+    "en": "Chat File Changed While Editing",
+    "zh": "聊天文件已更改期间编辑中"
+  },
+  "chat.fileTooLargeReadOnly": {
+    "en": "Chat File Too Large Read Only",
+    "zh": "聊天文件也较大读取仅"
+  },
+  "chat.focus.boundToWorkflow": {
+    "en": "Chat Focus Bound To Workflow",
+    "zh": "聊天聚焦已绑定to工作流"
+  },
+  "chat.focus.label.machine": {
+    "en": "Chat Focus Label Machine",
+    "zh": "聊天聚焦标签机器"
+  },
+  "chat.focus.label.skill": {
+    "en": "Chat Focus Label Skill",
+    "zh": "聊天聚焦标签技能"
+  },
+  "chat.focus.label.ticket": {
+    "en": "Chat Focus Label Ticket",
+    "zh": "聊天聚焦标签工单"
+  },
+  "chat.focus.label.workflow": {
+    "en": "Chat Focus Label Workflow",
+    "zh": "聊天聚焦标签工作流"
+  },
+  "chat.focus.label.workspaceFile": {
+    "en": "Chat Focus Label Workspace File",
+    "zh": "聊天聚焦标签工作区文件"
+  },
+  "chat.focus.notBoundToWorkflow": {
+    "en": "Chat Focus Not Bound To Workflow",
+    "zh": "聊天聚焦不已绑定to工作流"
+  },
+  "chat.focus.saved": {
+    "en": "Chat Focus Saved",
+    "zh": "聊天聚焦已保存"
+  },
+  "chat.focus.unsavedDraft": {
+    "en": "Chat Focus Unsaved Draft",
+    "zh": "聊天聚焦未保存草稿"
+  },
+  "chat.genericReadOnlyFile": {
+    "en": "Chat Generic Read Only File",
+    "zh": "聊天通用读取仅文件"
+  },
+  "chat.hideBrowser": {
+    "en": "Chat Hide Browser",
+    "zh": "聊天隐藏浏览器"
+  },
+  "chat.historyLabel": {
+    "en": "Chat History Label",
+    "zh": "聊天历史标签"
+  },
+  "chat.interrupt.answerPlaceholder": {
+    "en": "Chat Interrupt Answer Placeholder",
+    "zh": "聊天中断回复占位文本"
+  },
+  "chat.interruptAgent": {
+    "en": "Chat Interrupt Agent",
+    "zh": "聊天中断代理"
+  },
+  "chat.interruptFailed": {
+    "en": "Chat Interrupt Failed",
+    "zh": "聊天中断失败"
+  },
+  "chat.interruptRequestedNotification": {
+    "en": "Chat Interrupt Requested Notification",
+    "zh": "聊天中断已请求通知"
+  },
+  "chat.keepMyDraft": {
+    "en": "Chat Keep My Draft",
+    "zh": "聊天保留我的草稿"
+  },
+  "chat.loadingEllipsis": {
+    "en": "Chat Loading Ellipsis",
+    "zh": "聊天加载中省略"
+  },
+  "chat.loadingProviders": {
+    "en": "Chat Loading Providers",
+    "zh": "聊天加载中提供者"
+  },
+  "chat.loadingProvidersFailed": {
+    "en": "Chat Loading Providers Failed",
+    "zh": "聊天加载中提供者失败"
+  },
+  "chat.missingReposLabel": {
+    "en": "Chat Missing Repos Label",
+    "zh": "聊天缺失仓库标签"
+  },
+  "chat.newConversation": {
+    "en": "Chat New Conversation",
+    "zh": "聊天新建会话"
+  },
+  "chat.newTab": {
+    "en": "Chat New Tab",
+    "zh": "聊天新建标签页"
+  },
+  "chat.noChatProvider": {
+    "en": "Chat No Chat Provider",
+    "zh": "聊天无聊天提供者"
+  },
+  "chat.noConversationsYet": {
+    "en": "Chat No Conversations Yet",
+    "zh": "聊天无会话尚未"
+  },
+  "chat.noRepoChanges": {
+    "en": "Chat No Repo Changes",
+    "zh": "聊天无仓库更改"
+  },
+  "chat.openConversationLabel": {
+    "en": "Chat Open Conversation Label",
+    "zh": "聊天打开会话标签"
+  },
+  "chat.projectContextUnavailable": {
+    "en": "Chat Project Context Unavailable",
+    "zh": "聊天项目上下文不可用"
+  },
+  "chat.providerSelect.ariaLabel": {
+    "en": "Chat Provider Select ARIA Label",
+    "zh": "聊天提供者选择ARIA标签"
+  },
+  "chat.providerSelect.noModel": {
+    "en": "Chat Provider Select No Model",
+    "zh": "聊天提供者选择无模型"
+  },
+  "chat.queuedStatusPaused": {
+    "en": "Chat Queued Status Paused",
+    "zh": "聊天排队中状态已暂停"
+  },
+  "chat.queuedStatusQueued": {
+    "en": "Chat Queued Status Queued",
+    "zh": "聊天排队中状态排队中"
+  },
+  "chat.reasoningKindLabel": {
+    "en": "Chat Reasoning Kind Label",
+    "zh": "聊天推理类型标签"
+  },
+  "chat.refreshWorkspaceBrowser": {
+    "en": "Chat Refresh Workspace Browser",
+    "zh": "聊天刷新工作区浏览器"
+  },
+  "chat.reloadSavedVersion": {
+    "en": "Chat Reload Saved Version",
+    "zh": "聊天重新加载已保存版本"
+  },
+  "chat.removeFocus": {
+    "en": "Chat Remove Focus",
+    "zh": "聊天移除聚焦"
+  },
+  "chat.repoChangedPlural": {
+    "en": "Chat Repo Changed Plural",
+    "zh": "聊天仓库已更改复数"
+  },
+  "chat.repoChangedSingular": {
+    "en": "Chat Repo Changed Singular",
+    "zh": "聊天仓库已更改单数"
+  },
+  "chat.requestLabel": {
+    "en": "Chat Request Label",
+    "zh": "聊天请求标签"
+  },
+  "chat.resetConversation": {
+    "en": "Chat Reset Conversation",
+    "zh": "聊天重置会话"
+  },
+  "chat.revert": {
+    "en": "Chat Revert",
+    "zh": "聊天还原"
+  },
+  "chat.save": {
+    "en": "Chat Save",
+    "zh": "聊天保存"
+  },
+  "chat.saveChangesDescription": {
+    "en": "Chat Save Changes Description",
+    "zh": "聊天保存更改描述"
+  },
+  "chat.saveChangesTitle": {
+    "en": "Chat Save Changes Title",
+    "zh": "聊天保存更改标题"
+  },
+  "chat.saving": {
+    "en": "Chat Saving",
+    "zh": "聊天保存中"
+  },
+  "chat.selectFileHelp": {
+    "en": "Chat Select File Help",
+    "zh": "聊天选择文件帮助"
+  },
+  "chat.selectRepoHelp": {
+    "en": "Chat Select Repo Help",
+    "zh": "聊天选择仓库帮助"
+  },
+  "chat.sendMessage": {
+    "en": "Chat Send Message",
+    "zh": "聊天发送消息"
+  },
+  "chat.status.turnCompleted": {
+    "en": "Chat Status Turn Completed",
+    "zh": "聊天状态轮次已完成"
+  },
+  "chat.status.turnFailed": {
+    "en": "Chat Status Turn Failed",
+    "zh": "聊天状态轮次失败"
+  },
+  "chat.status.turnInterrupted": {
+    "en": "Chat Status Turn Interrupted",
+    "zh": "聊天状态轮次中断"
+  },
+  "chat.status.turnStopped": {
+    "en": "Chat Status Turn Stopped",
+    "zh": "聊天状态轮次已停止"
+  },
+  "chat.statusMessageConnectingStream": {
+    "en": "Chat Status Message Connecting Stream",
+    "zh": "聊天状态消息连接中流"
+  },
+  "chat.statusMessageCreatingConversation": {
+    "en": "Chat Status Message Creating Conversation",
+    "zh": "聊天状态消息创建中会话"
+  },
+  "chat.statusMessageInputRequired": {
+    "en": "Chat Status Message Input Required",
+    "zh": "聊天状态消息输入必填"
+  },
+  "chat.statusMessageResetting": {
+    "en": "Chat Status Message Resetting",
+    "zh": "聊天状态消息重置中"
+  },
+  "chat.statusMessageRestoring": {
+    "en": "Chat Status Message Restoring",
+    "zh": "聊天状态消息恢复中"
+  },
+  "chat.statusMessageStoppingTurn": {
+    "en": "Chat Status Message Stopping Turn",
+    "zh": "聊天状态消息停止中轮次"
+  },
+  "chat.statusMessageSubmittingTurn": {
+    "en": "Chat Status Message Submitting Turn",
+    "zh": "聊天状态消息提交中轮次"
+  },
+  "chat.statusMessageWaitingReply": {
+    "en": "Chat Status Message Waiting Reply",
+    "zh": "聊天状态消息等待回复"
+  },
+  "chat.statusOpen": {
+    "en": "Chat Status Open",
+    "zh": "聊天状态打开"
+  },
+  "chat.stopReply": {
+    "en": "Chat Stop Reply",
+    "zh": "聊天停止回复"
+  },
+  "chat.switchingModelHint": {
+    "en": "Chat Switching Model Hint",
+    "zh": "聊天切换中模型提示"
+  },
+  "chat.syncPromptDescriptionMissingRepos": {
+    "en": "Chat Sync Prompt Description Missing Repos",
+    "zh": "聊天同步提示描述缺失仓库"
+  },
+  "chat.syncPromptDescriptionRepoBindingChanged": {
+    "en": "Chat Sync Prompt Description Repo Binding Changed",
+    "zh": "聊天同步提示描述仓库绑定已更改"
+  },
+  "chat.syncPromptLabelMultiple": {
+    "en": "Chat Sync Prompt Label Multiple",
+    "zh": "聊天同步提示标签多个"
+  },
+  "chat.syncPromptLabelSingle": {
+    "en": "Chat Sync Prompt Label Single",
+    "zh": "聊天同步提示标签单个"
+  },
+  "chat.syncRepos": {
+    "en": "Chat Sync Repos",
+    "zh": "聊天同步仓库"
+  },
+  "chat.syncing": {
+    "en": "Chat Syncing",
+    "zh": "聊天同步中"
+  },
+  "chat.syncingRepos": {
+    "en": "Chat Syncing Repos",
+    "zh": "聊天同步中仓库"
+  },
+  "chat.tabStatusInputRequired": {
+    "en": "Chat Tab Status Input Required",
+    "zh": "聊天标签页状态输入必填"
+  },
+  "chat.tabStatusRestored": {
+    "en": "Chat Tab Status Restored",
+    "zh": "聊天标签页状态已恢复"
+  },
+  "chat.tabStatusRunning": {
+    "en": "Chat Tab Status Running",
+    "zh": "聊天标签页状态运行中"
+  },
+  "chat.tabs.confirmClose.actions.cancel": {
+    "en": "Chat Tabs Confirm Close Actions Cancel",
+    "zh": "聊天标签页确认关闭操作取消"
+  },
+  "chat.tabs.confirmClose.actions.closeAnyway": {
+    "en": "Chat Tabs Confirm Close Actions Close Anyway",
+    "zh": "聊天标签页确认关闭操作关闭无论如何"
+  },
+  "chat.tabs.confirmClose.description": {
+    "en": "Chat Tabs Confirm Close Description",
+    "zh": "聊天标签页确认关闭描述"
+  },
+  "chat.tabs.confirmClose.title": {
+    "en": "Chat Tabs Confirm Close Title",
+    "zh": "聊天标签页确认关闭标题"
+  },
+  "chat.task.claudeSessionStatus": {
+    "en": "Chat Task Claude Session Status",
+    "zh": "聊天任务Claude会话状态"
+  },
+  "chat.task.codexThreadStatus": {
+    "en": "Chat Task Codex Thread Status",
+    "zh": "聊天任务Codex线程状态"
+  },
+  "chat.task.notification": {
+    "en": "Chat Task Notification",
+    "zh": "聊天任务通知"
+  },
+  "chat.task.progress": {
+    "en": "Chat Task Progress",
+    "zh": "聊天任务进度"
+  },
+  "chat.task.reasoningUpdate": {
+    "en": "Chat Task Reasoning Update",
+    "zh": "聊天任务推理更新"
+  },
+  "chat.task.started": {
+    "en": "Chat Task Started",
+    "zh": "聊天任务已启动"
+  },
+  "chat.terminal.close": {
+    "en": "Chat Terminal Close",
+    "zh": "聊天终端关闭"
+  },
+  "chat.terminal.errors.create": {
+    "en": "Chat Terminal Errors Create",
+    "zh": "聊天终端错误创建"
+  },
+  "chat.terminal.errors.parse": {
+    "en": "Chat Terminal Errors Parse",
+    "zh": "聊天终端错误解析"
+  },
+  "chat.terminal.new": {
+    "en": "Chat Terminal New",
+    "zh": "聊天终端新建"
+  },
+  "chat.terminal.title": {
+    "en": "Chat Terminal Title",
+    "zh": "聊天终端标题"
+  },
+  "chat.toggleTerminal": {
+    "en": "Chat Toggle Terminal",
+    "zh": "聊天切换终端"
+  },
+  "chat.transcript.roles.assistant": {
+    "en": "Chat Transcript Roles Assistant",
+    "zh": "聊天记录角色助手"
+  },
+  "chat.transcript.thinking": {
+    "en": "Chat Transcript Thinking",
+    "zh": "聊天记录思考"
+  },
+  "chat.turnCost": {
+    "en": "Chat Turn Cost",
+    "zh": "聊天轮次费用"
+  },
+  "chat.unsavedChanges": {
+    "en": "Chat Unsaved Changes",
+    "zh": "聊天未保存更改"
+  },
+  "chat.unsupportedEncodingReadOnly": {
+    "en": "Chat Unsupported Encoding Read Only",
+    "zh": "聊天不支持编码读取仅"
+  },
+  "chat.workspace.errors.load": {
+    "en": "Chat Workspace Errors Load",
+    "zh": "聊天工作区错误加载"
+  },
+  "chat.workspace.errors.loadFileDetails": {
+    "en": "Chat Workspace Errors Load File Details",
+    "zh": "聊天工作区错误加载文件详情"
+  },
+  "chat.workspace.errors.save": {
+    "en": "Chat Workspace Errors Save",
+    "zh": "聊天工作区错误保存"
+  },
+  "chat.workspaceBrowserNoConversation": {
+    "en": "Chat Workspace Browser No Conversation",
+    "zh": "聊天工作区浏览器无会话"
+  },
+  "chat.workspaceBrowserUnavailable": {
+    "en": "Chat Workspace Browser Unavailable",
+    "zh": "聊天工作区浏览器不可用"
+  },
+  "chat.workspaceChangesLabel": {
+    "en": "Chat Workspace Changes Label",
+    "zh": "聊天工作区更改标签"
+  },
+  "chat.workspaceLabel": {
+    "en": "Chat Workspace Label",
+    "zh": "聊天工作区标签"
+  },
+  "chat.workspaceLiveUpdateNotice": {
+    "en": "Chat Workspace Live Update Notice",
+    "zh": "聊天工作区实时更新提示"
+  },
+  "chat.workspaceLoading": {
+    "en": "Chat Workspace Loading",
+    "zh": "聊天工作区加载中"
+  },
+  "chat.workspaceProvisionNotice": {
+    "en": "Chat Workspace Provision Notice",
+    "zh": "聊天工作区预配置提示"
+  },
+  "chat.workspaceSyncDescriptionBindingChanged": {
+    "en": "Chat Workspace Sync Description Binding Changed",
+    "zh": "聊天工作区同步描述绑定已更改"
+  },
+  "chat.workspaceSyncDescriptionMissingRepos": {
+    "en": "Chat Workspace Sync Description Missing Repos",
+    "zh": "聊天工作区同步描述缺失仓库"
+  },
+  "chat.workspaceSyncRequired": {
+    "en": "Chat Workspace Sync Required",
+    "zh": "聊天工作区同步必填"
+  },
+  "chat.workspaceSyncTitleBindingChanged": {
+    "en": "Chat Workspace Sync Title Binding Changed",
+    "zh": "聊天工作区同步标题绑定已更改"
+  },
+  "chat.workspaceSyncTitleMissingRepos": {
+    "en": "Chat Workspace Sync Title Missing Repos",
+    "zh": "聊天工作区同步标题缺失仓库"
+  },
+  "projectUpdates.commentAddFailed": {
+    "en": "Project Updates Comment Add Failed",
+    "zh": "项目更新评论添加失败"
+  },
+  "projectUpdates.commentAddSuccess": {
+    "en": "Project Updates Comment Add Success",
+    "zh": "项目更新评论添加成功"
+  },
+  "projectUpdates.commentDeleteFailed": {
+    "en": "Project Updates Comment Delete Failed",
+    "zh": "项目更新评论删除失败"
+  },
+  "projectUpdates.commentDeleteSuccess": {
+    "en": "Project Updates Comment Delete Success",
+    "zh": "项目更新评论删除成功"
+  },
+  "projectUpdates.commentEditFailed": {
+    "en": "Project Updates Comment Edit Failed",
+    "zh": "项目更新评论编辑失败"
+  },
+  "projectUpdates.commentEditSuccess": {
+    "en": "Project Updates Comment Edit Success",
+    "zh": "项目更新评论编辑成功"
+  },
+  "projectUpdates.deleteFailed": {
+    "en": "Project Updates Delete Failed",
+    "zh": "项目更新删除失败"
+  },
+  "projectUpdates.deleteSuccess": {
+    "en": "Project Updates Delete Success",
+    "zh": "项目更新删除成功"
+  },
+  "projectUpdates.editFailed": {
+    "en": "Project Updates Edit Failed",
+    "zh": "项目更新编辑失败"
+  },
+  "projectUpdates.editSuccess": {
+    "en": "Project Updates Edit Success",
+    "zh": "项目更新编辑成功"
+  },
+  "projectUpdates.editedLabel": {
+    "en": "Project Updates Edited Label",
+    "zh": "项目更新已编辑标签"
+  },
+  "projectUpdates.loadFailed": {
+    "en": "Project Updates Load Failed",
+    "zh": "项目更新加载失败"
+  },
+  "projectUpdates.loadOlderFailed": {
+    "en": "Project Updates Load Older Failed",
+    "zh": "项目更新加载更早失败"
+  },
+  "projectUpdates.postFailed": {
+    "en": "Project Updates Post Failed",
+    "zh": "项目更新发布失败"
+  },
+  "projectUpdates.postSuccess": {
+    "en": "Project Updates Post Success",
+    "zh": "项目更新发布成功"
+  },
+  "ticketDetail.commentHistory.actions.history": {
+    "en": "Ticket Detail Comment History Actions History",
+    "zh": "工单详情评论历史操作历史"
+  },
+  "ticketDetail.commentHistory.actions.loading": {
+    "en": "Ticket Detail Comment History Actions Loading",
+    "zh": "工单详情评论历史操作加载中"
+  },
+  "ticketDetail.commentHistory.actions.view": {
+    "en": "Ticket Detail Comment History Actions View",
+    "zh": "工单详情评论历史操作查看"
+  },
+  "ticketDetail.commentHistory.badge.latest": {
+    "en": "Ticket Detail Comment History Badge Latest",
+    "zh": "工单详情评论历史徽章最新"
+  },
+  "ticketDetail.commentHistory.dialog.description": {
+    "en": "Ticket Detail Comment History Dialog Description",
+    "zh": "工单详情评论历史对话框描述"
+  },
+  "ticketDetail.commentHistory.dialog.title": {
+    "en": "Ticket Detail Comment History Dialog Title",
+    "zh": "工单详情评论历史对话框标题"
+  },
+  "ticketDetail.commentHistory.error.failed": {
+    "en": "Ticket Detail Comment History Error Failed",
+    "zh": "工单详情评论历史错误失败"
+  },
+  "ticketDetail.commentHistory.error.unavailable": {
+    "en": "Ticket Detail Comment History Error Unavailable",
+    "zh": "工单详情评论历史错误不可用"
+  },
+  "ticketDetail.commentHistory.revisionLabel": {
+    "en": "Ticket Detail Comment History Revision Label",
+    "zh": "工单详情评论历史修订标签"
+  },
+  "ticketDetail.commentHistory.status.loading": {
+    "en": "Ticket Detail Comment History Status Loading",
+    "zh": "工单详情评论历史状态加载中"
+  },
+  "ticketDetail.commentHistory.status.noBody": {
+    "en": "Ticket Detail Comment History Status No Body",
+    "zh": "工单详情评论历史状态无正文"
+  },
+  "ticketDetail.commentHistory.status.noHistory": {
+    "en": "Ticket Detail Comment History Status No History",
+    "zh": "工单详情评论历史状态无历史"
+  },
+  "ticketDetail.commentThread.actions.cancel": {
+    "en": "Ticket Detail Comment Thread Actions Cancel",
+    "zh": "工单详情评论线程操作取消"
+  },
+  "ticketDetail.commentThread.actions.collapseComment": {
+    "en": "Ticket Detail Comment Thread Actions Collapse Comment",
+    "zh": "工单详情评论线程操作折叠评论"
+  },
+  "ticketDetail.commentThread.actions.deleteComment": {
+    "en": "Ticket Detail Comment Thread Actions Delete Comment",
+    "zh": "工单详情评论线程操作删除评论"
+  },
+  "ticketDetail.commentThread.actions.editComment": {
+    "en": "Ticket Detail Comment Thread Actions Edit Comment",
+    "zh": "工单详情评论线程操作编辑评论"
+  },
+  "ticketDetail.commentThread.actions.expandComment": {
+    "en": "Ticket Detail Comment Thread Actions Expand Comment",
+    "zh": "工单详情评论线程操作展开评论"
+  },
+  "ticketDetail.commentThread.actions.save": {
+    "en": "Ticket Detail Comment Thread Actions Save",
+    "zh": "工单详情评论线程操作保存"
+  },
+  "ticketDetail.commentThread.actions.saving": {
+    "en": "Ticket Detail Comment Thread Actions Saving",
+    "zh": "工单详情评论线程操作保存中"
+  },
+  "ticketDetail.commentThread.badge.deleted": {
+    "en": "Ticket Detail Comment Thread Badge Deleted",
+    "zh": "工单详情评论线程徽章已删除"
+  },
+  "ticketDetail.commentThread.confirmDelete": {
+    "en": "Ticket Detail Comment Thread Confirm Delete",
+    "zh": "工单详情评论线程确认删除"
+  },
+  "ticketDetail.commentThread.status.collapsed": {
+    "en": "Ticket Detail Comment Thread Status Collapsed",
+    "zh": "工单详情评论线程状态已折叠"
+  },
+  "ticketDetail.commentThread.status.deletedCollapsed": {
+    "en": "Ticket Detail Comment Thread Status Deleted Collapsed",
+    "zh": "工单详情评论线程状态已删除已折叠"
+  },
+  "ticketDetail.commentThread.status.empty": {
+    "en": "Ticket Detail Comment Thread Status Empty",
+    "zh": "工单详情评论线程状态空"
+  },
+  "ticketDetail.dependencies.actions.add": {
+    "en": "Ticket Detail Dependencies Actions Add",
+    "zh": "工单详情依赖操作添加"
+  },
+  "ticketDetail.dependencies.actions.adding": {
+    "en": "Ticket Detail Dependencies Actions Adding",
+    "zh": "工单详情依赖操作添加中"
+  },
+  "ticketDetail.dependencies.actions.back": {
+    "en": "Ticket Detail Dependencies Actions Back",
+    "zh": "工单详情依赖操作返回"
+  },
+  "ticketDetail.dependencies.actions.noMatches": {
+    "en": "Ticket Detail Dependencies Actions No Matches",
+    "zh": "工单详情依赖操作无匹配"
+  },
+  "ticketDetail.dependencies.actions.remove": {
+    "en": "Ticket Detail Dependencies Actions Remove",
+    "zh": "工单详情依赖操作移除"
+  },
+  "ticketDetail.dependencies.actions.searchPlaceholder": {
+    "en": "Ticket Detail Dependencies Actions Search Placeholder",
+    "zh": "工单详情依赖操作搜索占位文本"
+  },
+  "ticketDetail.dependencies.badge.blocked": {
+    "en": "Ticket Detail Dependencies Badge Blocked",
+    "zh": "工单详情依赖徽章被阻塞"
+  },
+  "ticketDetail.dependencies.title": {
+    "en": "Ticket Detail Dependencies Title",
+    "zh": "工单详情依赖标题"
+  },
+  "ticketDetail.descriptionTimeline.actions.cancel": {
+    "en": "Ticket Detail Description Timeline Actions Cancel",
+    "zh": "工单详情描述时间线操作取消"
+  },
+  "ticketDetail.descriptionTimeline.actions.edit": {
+    "en": "Ticket Detail Description Timeline Actions Edit",
+    "zh": "工单详情描述时间线操作编辑"
+  },
+  "ticketDetail.descriptionTimeline.actions.save": {
+    "en": "Ticket Detail Description Timeline Actions Save",
+    "zh": "工单详情描述时间线操作保存"
+  },
+  "ticketDetail.descriptionTimeline.actions.saving": {
+    "en": "Ticket Detail Description Timeline Actions Saving",
+    "zh": "工单详情描述时间线操作保存中"
+  },
+  "ticketDetail.descriptionTimeline.badge": {
+    "en": "Ticket Detail Description Timeline Badge",
+    "zh": "工单详情描述时间线徽章"
+  },
+  "ticketDetail.descriptionTimeline.empty": {
+    "en": "Ticket Detail Description Timeline Empty",
+    "zh": "工单详情描述时间线空"
+  },
+  "ticketDetail.descriptionTimeline.opened": {
+    "en": "Ticket Detail Description Timeline Opened",
+    "zh": "工单详情描述时间线已打开"
+  },
+  "ticketDetail.discussion.actions.cancel": {
+    "en": "Ticket Detail Discussion Actions Cancel",
+    "zh": "工单详情讨论操作取消"
+  },
+  "ticketDetail.discussion.actions.comment": {
+    "en": "Ticket Detail Discussion Actions Comment",
+    "zh": "工单详情讨论操作评论"
+  },
+  "ticketDetail.discussion.actions.delete": {
+    "en": "Ticket Detail Discussion Actions Delete",
+    "zh": "工单详情讨论操作删除"
+  },
+  "ticketDetail.discussion.actions.edit": {
+    "en": "Ticket Detail Discussion Actions Edit",
+    "zh": "工单详情讨论操作编辑"
+  },
+  "ticketDetail.discussion.actions.posting": {
+    "en": "Ticket Detail Discussion Actions Posting",
+    "zh": "工单详情讨论操作发布中"
+  },
+  "ticketDetail.discussion.actions.save": {
+    "en": "Ticket Detail Discussion Actions Save",
+    "zh": "工单详情讨论操作保存"
+  },
+  "ticketDetail.discussion.actions.saving": {
+    "en": "Ticket Detail Discussion Actions Saving",
+    "zh": "工单详情讨论操作保存中"
+  },
+  "ticketDetail.discussion.confirmDelete": {
+    "en": "Ticket Detail Discussion Confirm Delete",
+    "zh": "工单详情讨论确认删除"
+  },
+  "ticketDetail.discussion.description": {
+    "en": "Ticket Detail Discussion Description",
+    "zh": "工单详情讨论描述"
+  },
+  "ticketDetail.discussion.editedLabel": {
+    "en": "Ticket Detail Discussion Edited Label",
+    "zh": "工单详情讨论已编辑标签"
+  },
+  "ticketDetail.discussion.empty": {
+    "en": "Ticket Detail Discussion Empty",
+    "zh": "工单详情讨论空"
+  },
+  "ticketDetail.discussion.formatAuthorUnknown": {
+    "en": "Ticket Detail Discussion Format Author Unknown",
+    "zh": "工单详情讨论格式作者未知"
+  },
+  "ticketDetail.discussion.placeholder": {
+    "en": "Ticket Detail Discussion Placeholder",
+    "zh": "工单详情讨论占位文本"
+  },
+  "ticketDetail.discussion.title": {
+    "en": "Ticket Detail Discussion Title",
+    "zh": "工单详情讨论标题"
+  },
+  "ticketDetail.drawer.defaultDescription": {
+    "en": "Ticket Detail Drawer Default Description",
+    "zh": "工单详情侧边栏默认描述"
+  },
+  "ticketDetail.drawer.defaultTitle": {
+    "en": "Ticket Detail Drawer Default Title",
+    "zh": "工单详情侧边栏默认标题"
+  },
+  "ticketDetail.drawer.details.agent": {
+    "en": "Ticket Detail Drawer Details Agent",
+    "zh": "工单详情侧边栏详情代理"
+  },
+  "ticketDetail.drawer.details.attempts": {
+    "en": "Ticket Detail Drawer Details Attempts",
+    "zh": "工单详情侧边栏详情尝试次数"
+  },
+  "ticketDetail.drawer.details.cost": {
+    "en": "Ticket Detail Drawer Details Cost",
+    "zh": "工单详情侧边栏详情费用"
+  },
+  "ticketDetail.drawer.details.created": {
+    "en": "Ticket Detail Drawer Details Created",
+    "zh": "工单详情侧边栏详情已创建"
+  },
+  "ticketDetail.drawer.details.createdBy": {
+    "en": "Ticket Detail Drawer Details Created By",
+    "zh": "工单详情侧边栏详情已创建按"
+  },
+  "ticketDetail.drawer.details.status.online": {
+    "en": "Ticket Detail Drawer Details Status Online",
+    "zh": "工单详情侧边栏详情状态在线"
+  },
+  "ticketDetail.drawer.details.status.unassigned": {
+    "en": "Ticket Detail Drawer Details Status Unassigned",
+    "zh": "工单详情侧边栏详情状态未分配"
+  },
+  "ticketDetail.drawer.details.title": {
+    "en": "Ticket Detail Drawer Details Title",
+    "zh": "工单详情侧边栏详情标题"
+  },
+  "ticketDetail.drawer.details.workflow": {
+    "en": "Ticket Detail Drawer Details Workflow",
+    "zh": "工单详情侧边栏详情工作流"
+  },
+  "ticketDetail.externalLink.form.actions.add": {
+    "en": "Ticket Detail External Link Form Actions Add",
+    "zh": "工单详情外部链接表单操作添加"
+  },
+  "ticketDetail.externalLink.form.actions.adding": {
+    "en": "Ticket Detail External Link Form Actions Adding",
+    "zh": "工单详情外部链接表单操作添加中"
+  },
+  "ticketDetail.externalLink.form.actions.cancel": {
+    "en": "Ticket Detail External Link Form Actions Cancel",
+    "zh": "工单详情外部链接表单操作取消"
+  },
+  "ticketDetail.externalLink.form.description": {
+    "en": "Ticket Detail External Link Form Description",
+    "zh": "工单详情外部链接表单描述"
+  },
+  "ticketDetail.externalLink.form.externalId": {
+    "en": "Ticket Detail External Link Form External Id",
+    "zh": "工单详情外部链接表单外部ID"
+  },
+  "ticketDetail.externalLink.form.externalIdPlaceholder": {
+    "en": "Ticket Detail External Link Form External Id Placeholder",
+    "zh": "工单详情外部链接表单外部ID占位文本"
+  },
+  "ticketDetail.externalLink.form.optional": {
+    "en": "Ticket Detail External Link Form Optional",
+    "zh": "工单详情外部链接表单可选"
+  },
+  "ticketDetail.externalLink.form.status": {
+    "en": "Ticket Detail External Link Form Status",
+    "zh": "工单详情外部链接表单状态"
+  },
+  "ticketDetail.externalLink.form.title": {
+    "en": "Ticket Detail External Link Form Title",
+    "zh": "工单详情外部链接表单标题"
+  },
+  "ticketDetail.externalLink.form.titlePlaceholder": {
+    "en": "Ticket Detail External Link Form Title Placeholder",
+    "zh": "工单详情外部链接表单标题占位文本"
+  },
+  "ticketDetail.externalLink.form.type": {
+    "en": "Ticket Detail External Link Form Type",
+    "zh": "工单详情外部链接表单类型"
+  },
+  "ticketDetail.externalLink.form.typePlaceholder": {
+    "en": "Ticket Detail External Link Form Type Placeholder",
+    "zh": "工单详情外部链接表单类型占位文本"
+  },
+  "ticketDetail.externalLink.form.url": {
+    "en": "Ticket Detail External Link Form URL",
+    "zh": "工单详情外部链接表单URL"
+  },
+  "ticketDetail.externalLink.form.urlPlaceholder": {
+    "en": "Ticket Detail External Link Form URL Placeholder",
+    "zh": "工单详情外部链接表单URL占位文本"
+  },
+  "ticketDetail.externalLink.status.closed": {
+    "en": "Ticket Detail External Link Status Closed",
+    "zh": "工单详情外部链接状态已关闭"
+  },
+  "ticketDetail.externalLink.status.draft": {
+    "en": "Ticket Detail External Link Status Draft",
+    "zh": "工单详情外部链接状态草稿"
+  },
+  "ticketDetail.externalLink.status.inProgress": {
+    "en": "Ticket Detail External Link Status In Progress",
+    "zh": "工单详情外部链接状态在进度"
+  },
+  "ticketDetail.externalLink.status.merged": {
+    "en": "Ticket Detail External Link Status Merged",
+    "zh": "工单详情外部链接状态已合并"
+  },
+  "ticketDetail.externalLink.status.none": {
+    "en": "Ticket Detail External Link Status None",
+    "zh": "工单详情外部链接状态无"
+  },
+  "ticketDetail.externalLink.status.open": {
+    "en": "Ticket Detail External Link Status Open",
+    "zh": "工单详情外部链接状态打开"
+  },
+  "ticketDetail.externalLinks.actions.add": {
+    "en": "Ticket Detail External Links Actions Add",
+    "zh": "工单详情外部链接操作添加"
+  },
+  "ticketDetail.externalLinks.dialog.description": {
+    "en": "Ticket Detail External Links Dialog Description",
+    "zh": "工单详情外部链接对话框描述"
+  },
+  "ticketDetail.externalLinks.dialog.title": {
+    "en": "Ticket Detail External Links Dialog Title",
+    "zh": "工单详情外部链接对话框标题"
+  },
+  "ticketDetail.externalLinks.title": {
+    "en": "Ticket Detail External Links Title",
+    "zh": "工单详情外部链接标题"
+  },
+  "ticketDetail.fieldEditor.actions.save": {
+    "en": "Ticket Detail Field Editor Actions Save",
+    "zh": "工单详情字段编辑器操作保存"
+  },
+  "ticketDetail.fieldEditor.actions.saving": {
+    "en": "Ticket Detail Field Editor Actions Saving",
+    "zh": "工单详情字段编辑器操作保存中"
+  },
+  "ticketDetail.fieldEditor.description": {
+    "en": "Ticket Detail Field Editor Description",
+    "zh": "工单详情字段编辑器描述"
+  },
+  "ticketDetail.fieldEditor.descriptionLabel": {
+    "en": "Ticket Detail Field Editor Description Label",
+    "zh": "工单详情字段编辑器描述标签"
+  },
+  "ticketDetail.fieldEditor.title": {
+    "en": "Ticket Detail Field Editor Title",
+    "zh": "工单详情字段编辑器标题"
+  },
+  "ticketDetail.hooks.empty": {
+    "en": "Ticket Detail Hooks Empty",
+    "zh": "工单详情Hooks空"
+  },
+  "ticketDetail.hooks.status.fail": {
+    "en": "Ticket Detail Hooks Status Fail",
+    "zh": "工单详情Hooks状态失败"
+  },
+  "ticketDetail.hooks.status.pass": {
+    "en": "Ticket Detail Hooks Status Pass",
+    "zh": "工单详情Hooks状态通过"
+  },
+  "ticketDetail.hooks.status.running": {
+    "en": "Ticket Detail Hooks Status Running",
+    "zh": "工单详情Hooks状态运行中"
+  },
+  "ticketDetail.hooks.status.timeout": {
+    "en": "Ticket Detail Hooks Status Timeout",
+    "zh": "工单详情Hooks状态超时"
+  },
+  "ticketDetail.hooks.title": {
+    "en": "Ticket Detail Hooks Title",
+    "zh": "工单详情Hooks标题"
+  },
+  "ticketDetail.repoScope.actions.copyBranch": {
+    "en": "Ticket Detail Repo Scope Actions Copy Branch",
+    "zh": "工单详情仓库作用域操作复制分支"
+  },
+  "ticketDetail.repoScope.actions.delete": {
+    "en": "Ticket Detail Repo Scope Actions Delete",
+    "zh": "工单详情仓库作用域操作删除"
+  },
+  "ticketDetail.repoScope.actions.deleting": {
+    "en": "Ticket Detail Repo Scope Actions Deleting",
+    "zh": "工单详情仓库作用域操作删除中"
+  },
+  "ticketDetail.repoScope.actions.edit": {
+    "en": "Ticket Detail Repo Scope Actions Edit",
+    "zh": "工单详情仓库作用域操作编辑"
+  },
+  "ticketDetail.repoScope.actions.more": {
+    "en": "Ticket Detail Repo Scope Actions More",
+    "zh": "工单详情仓库作用域操作更多"
+  },
+  "ticketDetail.repoScope.ciStatus.fail": {
+    "en": "Ticket Detail Repo Scope CI Status Fail",
+    "zh": "工单详情仓库作用域CI状态失败"
+  },
+  "ticketDetail.repoScope.ciStatus.pass": {
+    "en": "Ticket Detail Repo Scope CI Status Pass",
+    "zh": "工单详情仓库作用域CI状态通过"
+  },
+  "ticketDetail.repoScope.ciStatus.pending": {
+    "en": "Ticket Detail Repo Scope CI Status Pending",
+    "zh": "工单详情仓库作用域CI状态待定"
+  },
+  "ticketDetail.repoScope.ciStatus.running": {
+    "en": "Ticket Detail Repo Scope CI Status Running",
+    "zh": "工单详情仓库作用域CI状态运行中"
+  },
+  "ticketDetail.repoScope.dialog.description": {
+    "en": "Ticket Detail Repo Scope Dialog Description",
+    "zh": "工单详情仓库作用域对话框描述"
+  },
+  "ticketDetail.repoScope.dialog.title": {
+    "en": "Ticket Detail Repo Scope Dialog Title",
+    "zh": "工单详情仓库作用域对话框标题"
+  },
+  "ticketDetail.repoScope.form.actions.cancel": {
+    "en": "Ticket Detail Repo Scope Form Actions Cancel",
+    "zh": "工单详情仓库作用域表单操作取消"
+  },
+  "ticketDetail.repoScope.form.actions.save": {
+    "en": "Ticket Detail Repo Scope Form Actions Save",
+    "zh": "工单详情仓库作用域表单操作保存"
+  },
+  "ticketDetail.repoScope.form.actions.saving": {
+    "en": "Ticket Detail Repo Scope Form Actions Saving",
+    "zh": "工单详情仓库作用域表单操作保存中"
+  },
+  "ticketDetail.repoScope.form.baseBranch": {
+    "en": "Ticket Detail Repo Scope Form Base Branch",
+    "zh": "工单详情仓库作用域表单基础分支"
+  },
+  "ticketDetail.repoScope.form.branchOverride": {
+    "en": "Ticket Detail Repo Scope Form Branch Override",
+    "zh": "工单详情仓库作用域表单分支覆盖"
+  },
+  "ticketDetail.repoScope.form.branchOverridePlaceholder": {
+    "en": "Ticket Detail Repo Scope Form Branch Override Placeholder",
+    "zh": "工单详情仓库作用域表单分支覆盖占位文本"
+  },
+  "ticketDetail.repoScope.form.prUrl": {
+    "en": "Ticket Detail Repo Scope Form PR URL",
+    "zh": "工单详情仓库作用域表单PRURL"
+  },
+  "ticketDetail.repoScope.form.prUrlPlaceholder": {
+    "en": "Ticket Detail Repo Scope Form PR URL Placeholder",
+    "zh": "工单详情仓库作用域表单PRURL占位文本"
+  },
+  "ticketDetail.repoScope.labels.baseBranch": {
+    "en": "Ticket Detail Repo Scope Labels Base Branch",
+    "zh": "工单详情仓库作用域标签基础分支"
+  },
+  "ticketDetail.repoScope.labels.noPr": {
+    "en": "Ticket Detail Repo Scope Labels No PR",
+    "zh": "工单详情仓库作用域标签无PR"
+  },
+  "ticketDetail.repoScope.labels.override": {
+    "en": "Ticket Detail Repo Scope Labels Override",
+    "zh": "工单详情仓库作用域标签覆盖"
+  },
+  "ticketDetail.repoScope.labels.prDefault": {
+    "en": "Ticket Detail Repo Scope Labels PR Default",
+    "zh": "工单详情仓库作用域标签PR默认"
+  },
+  "ticketDetail.repoScope.prStatus.closed": {
+    "en": "Ticket Detail Repo Scope PR Status Closed",
+    "zh": "工单详情仓库作用域PR状态已关闭"
+  },
+  "ticketDetail.repoScope.prStatus.draft": {
+    "en": "Ticket Detail Repo Scope PR Status Draft",
+    "zh": "工单详情仓库作用域PR状态草稿"
+  },
+  "ticketDetail.repoScope.prStatus.merged": {
+    "en": "Ticket Detail Repo Scope PR Status Merged",
+    "zh": "工单详情仓库作用域PR状态已合并"
+  },
+  "ticketDetail.repoScope.prStatus.open": {
+    "en": "Ticket Detail Repo Scope PR Status Open",
+    "zh": "工单详情仓库作用域PR状态打开"
+  },
+  "ticketDetail.runHistory.actions.retryLoadingRuns": {
+    "en": "Ticket Detail Run History Actions Retry Loading Runs",
+    "zh": "工单详情运行历史操作重试加载中运行"
+  },
+  "ticketDetail.runHistory.empty": {
+    "en": "Ticket Detail Run History Empty",
+    "zh": "工单详情运行历史空"
+  },
+  "ticketDetail.runHistory.loadingRuns": {
+    "en": "Ticket Detail Run History Loading Runs",
+    "zh": "工单详情运行历史加载中运行"
+  },
+  "ticketDetail.runHistoryAttempt.actions.continuing": {
+    "en": "Ticket Detail Run History Attempt Actions Continuing",
+    "zh": "工单详情运行历史尝试操作继续"
+  },
+  "ticketDetail.runHistoryAttempt.actions.hiddenEvents": {
+    "en": "Ticket Detail Run History Attempt Actions Hidden Events",
+    "zh": "工单详情运行历史尝试操作隐藏事件"
+  },
+  "ticketDetail.runHistoryAttempt.actions.jumpToLive": {
+    "en": "Ticket Detail Run History Attempt Actions Jump To Live",
+    "zh": "工单详情运行历史尝试操作跳转to实时"
+  },
+  "ticketDetail.runHistoryAttempt.actions.loadingEarlierEvents": {
+    "en": "Ticket Detail Run History Attempt Actions Loading Earlier Events",
+    "zh": "工单详情运行历史尝试操作加载中更早事件"
+  },
+  "ticketDetail.runHistoryAttempt.actions.resumeRetry": {
+    "en": "Ticket Detail Run History Attempt Actions Resume Retry",
+    "zh": "工单详情运行历史尝试操作恢复重试"
+  },
+  "ticketDetail.runHistoryAttempt.actions.viewAttempt": {
+    "en": "Ticket Detail Run History Attempt Actions View Attempt",
+    "zh": "工单详情运行历史尝试操作查看尝试"
+  },
+  "ticketDetail.runHistoryAttempt.loadingTranscript": {
+    "en": "Ticket Detail Run History Attempt Loading Transcript",
+    "zh": "工单详情运行历史尝试加载中记录"
+  },
+  "ticketDetail.runHistoryAttempt.status.waiting": {
+    "en": "Ticket Detail Run History Attempt Status Waiting",
+    "zh": "工单详情运行历史尝试状态等待"
+  },
+  "ticketDetail.runtime.agentState.paused": {
+    "en": "Ticket Detail Runtime Agent State Paused",
+    "zh": "工单详情运行时代理状态已暂停"
+  },
+  "ticketDetail.runtime.detail.agent": {
+    "en": "Ticket Detail Runtime Detail Agent",
+    "zh": "工单详情运行时详情代理"
+  },
+  "ticketDetail.runtime.detail.agent.unbound": {
+    "en": "Ticket Detail Runtime Detail Agent Unbound",
+    "zh": "工单详情运行时详情代理未绑定"
+  },
+  "ticketDetail.runtime.detail.capacity": {
+    "en": "Ticket Detail Runtime Detail Capacity",
+    "zh": "工单详情运行时详情容量"
+  },
+  "ticketDetail.runtime.detail.dependencies": {
+    "en": "Ticket Detail Runtime Detail Dependencies",
+    "zh": "工单详情运行时详情依赖"
+  },
+  "ticketDetail.runtime.detail.provider": {
+    "en": "Ticket Detail Runtime Detail Provider",
+    "zh": "工单详情运行时详情提供者"
+  },
+  "ticketDetail.runtime.detail.retry": {
+    "en": "Ticket Detail Runtime Detail Retry",
+    "zh": "工单详情运行时详情重试"
+  },
+  "ticketDetail.runtime.detail.workflow": {
+    "en": "Ticket Detail Runtime Detail Workflow",
+    "zh": "工单详情运行时详情工作流"
+  },
+  "ticketDetail.runtime.summary.assigned.label": {
+    "en": "Ticket Detail Runtime Summary Assigned Label",
+    "zh": "工单详情运行时摘要已分配标签"
+  },
+  "ticketDetail.runtime.summary.assigned.message": {
+    "en": "Ticket Detail Runtime Summary Assigned Message",
+    "zh": "工单详情运行时摘要已分配消息"
+  },
+  "ticketDetail.runtime.summary.blocked.label": {
+    "en": "Ticket Detail Runtime Summary Blocked Label",
+    "zh": "工单详情运行时摘要被阻塞标签"
+  },
+  "ticketDetail.runtime.summary.blocked.message": {
+    "en": "Ticket Detail Runtime Summary Blocked Message",
+    "zh": "工单详情运行时摘要被阻塞消息"
+  },
+  "ticketDetail.runtime.summary.completed.label": {
+    "en": "Ticket Detail Runtime Summary Completed Label",
+    "zh": "工单详情运行时摘要已完成标签"
+  },
+  "ticketDetail.runtime.summary.completed.message": {
+    "en": "Ticket Detail Runtime Summary Completed Message",
+    "zh": "工单详情运行时摘要已完成消息"
+  },
+  "ticketDetail.runtime.summary.failed.label": {
+    "en": "Ticket Detail Runtime Summary Failed Label",
+    "zh": "工单详情运行时摘要失败标签"
+  },
+  "ticketDetail.runtime.summary.failed.message": {
+    "en": "Ticket Detail Runtime Summary Failed Message",
+    "zh": "工单详情运行时摘要失败消息"
+  },
+  "ticketDetail.runtime.summary.launching.label": {
+    "en": "Ticket Detail Runtime Summary Launching Label",
+    "zh": "工单详情运行时摘要启动中标签"
+  },
+  "ticketDetail.runtime.summary.launching.message": {
+    "en": "Ticket Detail Runtime Summary Launching Message",
+    "zh": "工单详情运行时摘要启动中消息"
+  },
+  "ticketDetail.runtime.summary.running.label": {
+    "en": "Ticket Detail Runtime Summary Running Label",
+    "zh": "工单详情运行时摘要运行中标签"
+  },
+  "ticketDetail.runtime.summary.running.message": {
+    "en": "Ticket Detail Runtime Summary Running Message",
+    "zh": "工单详情运行时摘要运行中消息"
+  },
+  "ticketDetail.runtime.summary.unavailable.label": {
+    "en": "Ticket Detail Runtime Summary Unavailable Label",
+    "zh": "工单详情运行时摘要不可用标签"
+  },
+  "ticketDetail.runtime.summary.unavailable.message": {
+    "en": "Ticket Detail Runtime Summary Unavailable Message",
+    "zh": "工单详情运行时摘要不可用消息"
+  },
+  "ticketDetail.runtime.summary.waiting.label": {
+    "en": "Ticket Detail Runtime Summary Waiting Label",
+    "zh": "工单详情运行时摘要等待标签"
+  },
+  "ticketDetail.runtime.summary.waiting.noAgentMessage": {
+    "en": "Ticket Detail Runtime Summary Waiting No Agent Message",
+    "zh": "工单详情运行时摘要等待无代理消息"
+  },
+  "ticketDetail.runtime.summary.waiting.retry.message": {
+    "en": "Ticket Detail Runtime Summary Waiting Retry Message",
+    "zh": "工单详情运行时摘要等待重试消息"
+  },
+  "ticketDetail.runtime.workflowState.active": {
+    "en": "Ticket Detail Runtime Workflow State Active",
+    "zh": "工单详情运行时工作流状态活动"
+  },
+  "ticketDetail.runtime.workflowState.inactive": {
+    "en": "Ticket Detail Runtime Workflow State Inactive",
+    "zh": "工单详情运行时工作流状态非活跃"
+  },
+  "ticketDetail.summary.agent": {
+    "en": "Ticket Detail Summary Agent",
+    "zh": "工单详情摘要代理"
+  },
+  "ticketDetail.summary.attempts": {
+    "en": "Ticket Detail Summary Attempts",
+    "zh": "工单详情摘要尝试次数"
+  },
+  "ticketDetail.summary.cost": {
+    "en": "Ticket Detail Summary Cost",
+    "zh": "工单详情摘要费用"
+  },
+  "ticketDetail.summary.created": {
+    "en": "Ticket Detail Summary Created",
+    "zh": "工单详情摘要已创建"
+  },
+  "ticketDetail.summary.createdBy": {
+    "en": "Ticket Detail Summary Created By",
+    "zh": "工单详情摘要已创建按"
+  },
+  "ticketDetail.summary.status.online": {
+    "en": "Ticket Detail Summary Status Online",
+    "zh": "工单详情摘要状态在线"
+  },
+  "ticketDetail.summary.status.unassigned": {
+    "en": "Ticket Detail Summary Status Unassigned",
+    "zh": "工单详情摘要状态未分配"
+  },
+  "ticketDetail.summary.workflow": {
+    "en": "Ticket Detail Summary Workflow",
+    "zh": "工单详情摘要工作流"
+  },
+  "ticketDetail.timelineComposer.actions.comment": {
+    "en": "Ticket Detail Timeline Composer Actions Comment",
+    "zh": "工单详情时间线撰写操作评论"
+  },
+  "ticketDetail.timelineComposer.actions.posting": {
+    "en": "Ticket Detail Timeline Composer Actions Posting",
+    "zh": "工单详情时间线撰写操作发布中"
+  },
+  "ticketDetail.timelineComposer.placeholder": {
+    "en": "Ticket Detail Timeline Composer Placeholder",
+    "zh": "工单详情时间线撰写占位文本"
+  },
+  "ticketDetail.timelineComposer.shortcut": {
+    "en": "Ticket Detail Timeline Composer Shortcut",
+    "zh": "工单详情时间线撰写快捷键"
+  },
+  "ticketDetail.tokenUsage.actions.breakdown": {
+    "en": "Ticket Detail Token Usage Actions Breakdown",
+    "zh": "工单详情Token使用量操作细分"
+  },
+  "ticketDetail.tokenUsage.actions.retry": {
+    "en": "Ticket Detail Token Usage Actions Retry",
+    "zh": "工单详情Token使用量操作重试"
+  },
+  "ticketDetail.tokenUsage.attempt": {
+    "en": "Ticket Detail Token Usage Attempt",
+    "zh": "工单详情Token使用量尝试"
+  },
+  "ticketDetail.tokenUsage.empty": {
+    "en": "Ticket Detail Token Usage Empty",
+    "zh": "工单详情Token使用量空"
+  },
+  "ticketDetail.tokenUsage.loading": {
+    "en": "Ticket Detail Token Usage Loading",
+    "zh": "工单详情Token使用量加载中"
+  },
+  "ticketDetail.tokenUsage.metric.cacheCreation": {
+    "en": "Ticket Detail Token Usage Metric Cache Creation",
+    "zh": "工单详情Token使用量指标缓存创建"
+  },
+  "ticketDetail.tokenUsage.metric.cachedInput": {
+    "en": "Ticket Detail Token Usage Metric Cached Input",
+    "zh": "工单详情Token使用量指标已缓存输入"
+  },
+  "ticketDetail.tokenUsage.metric.candidate": {
+    "en": "Ticket Detail Token Usage Metric Candidate",
+    "zh": "工单详情Token使用量指标候选"
+  },
+  "ticketDetail.tokenUsage.metric.input": {
+    "en": "Ticket Detail Token Usage Metric Input",
+    "zh": "工单详情Token使用量指标输入"
+  },
+  "ticketDetail.tokenUsage.metric.output": {
+    "en": "Ticket Detail Token Usage Metric Output",
+    "zh": "工单详情Token使用量指标输出"
+  },
+  "ticketDetail.tokenUsage.metric.prompt": {
+    "en": "Ticket Detail Token Usage Metric Prompt",
+    "zh": "工单详情Token使用量指标提示"
+  },
+  "ticketDetail.tokenUsage.metric.reasoning": {
+    "en": "Ticket Detail Token Usage Metric Reasoning",
+    "zh": "工单详情Token使用量指标推理"
+  },
+  "ticketDetail.tokenUsage.metric.tool": {
+    "en": "Ticket Detail Token Usage Metric Tool",
+    "zh": "工单详情Token使用量指标工具"
+  },
+  "ticketDetail.tokenUsage.title": {
+    "en": "Ticket Detail Token Usage Title",
+    "zh": "工单详情Token使用量标题"
+  },
+  "ticketDetail.tokenUsage.totalLabel": {
+    "en": "Ticket Detail Token Usage Total Label",
+    "zh": "工单详情Token使用量总计标签"
+  },
+  "ticketDetail.tokenUsage.unknownAdapter": {
+    "en": "Ticket Detail Token Usage Unknown Adapter",
+    "zh": "工单详情Token使用量未知适配器"
+  },
+  "ticketDetail.tokenUsage.unknownModel": {
+    "en": "Ticket Detail Token Usage Unknown Model",
+    "zh": "工单详情Token使用量未知模型"
+  }
+}

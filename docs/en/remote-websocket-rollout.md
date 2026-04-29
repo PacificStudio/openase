@@ -246,7 +246,10 @@ openase machine test <machine-uuid>
 openase machine ssh-diagnostics <machine-uuid>
 ```
 
-If you already have SSH helper access, `openase machine ssh-bootstrap <machine-uuid>` is the supported way to upload the current binary and install or refresh the reverse daemon service.
+If you already have SSH helper access, `openase machine ssh-bootstrap <machine-uuid>` is the supported way to upload the current binary and install or refresh the topology-specific service:
+
+- `reverse_connect + websocket` installs or refreshes the reverse daemon service
+- `direct_connect + websocket` installs or refreshes the remote websocket listener service
 
 ### Operator Workflow Changes
 
@@ -295,7 +298,7 @@ This prints shell exports for:
 - `OPENASE_MACHINE_CHANNEL_TOKEN`
 - `OPENASE_MACHINE_CONTROL_PLANE_URL`
 
-### 4. Start The Reverse Websocket Daemon
+### 4. Install The Topology Service Over SSH Or Manually
 
 If the control plane can already reach the machine over SSH, you can use the helper flow instead of copying files manually:
 
@@ -303,11 +306,15 @@ If the control plane can already reach the machine over SSH, you can use the hel
 ./bin/openase machine ssh-bootstrap <machine-uuid>
 ```
 
-This uploads the current `openase` binary, writes the machine-agent environment file, installs the per-user service, and restarts it.
+This uploads the current `openase` binary, writes the topology environment file, installs the per-user service, and restarts it.
+
+For `reverse_connect + websocket`, the helper installs `openase machine-agent run`.
+
+For `direct_connect + websocket`, the helper installs `openase machine-agent listen` and expects the machine record to already expose the advertised websocket endpoint that the control plane should dial.
 
 Manual fallback for operators who are not using the helper:
 
-On the remote machine:
+On the remote machine for reverse-connect:
 
 ```bash
 export OPENASE_MACHINE_ID=<machine-uuid>
@@ -317,6 +324,16 @@ export OPENASE_MACHINE_CONTROL_PLANE_URL=https://openase.example.com
 /usr/local/bin/openase machine-agent run \
   --agent-cli-path /usr/local/bin/codex \
   --openase-binary-path /usr/local/bin/openase
+```
+
+On the remote machine for remote-listener:
+
+```bash
+export OPENASE_MACHINE_LISTENER_ADDRESS=0.0.0.0:19837
+export OPENASE_MACHINE_LISTENER_PATH=/openase/runtime
+export OPENASE_MACHINE_LISTENER_BEARER_TOKEN=<listener-token>
+
+/usr/local/bin/openase machine-agent listen
 ```
 
 Recommended `systemd --user` unit:

@@ -36,7 +36,7 @@ test('project ai provider picker matches the available provider catalog', async 
     },
   })
 
-  await page.getByRole('button', { name: 'Ask AI' }).click()
+  await page.locator('[data-tour="sidebar-ai-assistant"]').click()
   await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
     timeout: 10_000,
   })
@@ -65,7 +65,7 @@ test('project ai creates a new conversation and streams the first reply', async 
     },
   })
 
-  await page.getByRole('button', { name: 'Ask AI' }).click()
+  await page.locator('[data-tour="sidebar-ai-assistant"]').click()
   await expect(page.getByPlaceholder('Ask anything about this project…')).toBeVisible({
     timeout: 10_000,
   })
@@ -92,9 +92,10 @@ test('ticket drawer routes AI through ticket-focused Project AI with a complete 
   projectPath,
 }) => {
   await page.goto(projectPath('tickets'))
-  await expect(page.getByText('ASE-101')).toBeVisible({ timeout: 10_000 })
+  const ticketCard = page.getByRole('button', { name: /ASE-101/i }).first()
+  await expect(ticketCard).toBeVisible({ timeout: 10_000 })
 
-  await page.getByText('ASE-101').click()
+  await ticketCard.click()
   const drawer = page.getByRole('dialog', { name: 'ASE-101' })
   await expect(drawer).toBeVisible({ timeout: 10_000 })
   await page.keyboard.press(PROJECT_AI_SHORTCUT)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
+	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entscheduledjob "github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
@@ -35,6 +36,23 @@ func (r *EntRepository) EnsureProjectExists(ctx context.Context, projectID uuid.
 	}
 
 	return nil
+}
+
+func (r *EntRepository) ListProjectRepoIDs(ctx context.Context, projectID uuid.UUID) ([]uuid.UUID, error) {
+	items, err := r.client.ProjectRepo.Query().
+		Where(entprojectrepo.ProjectID(projectID)).
+		Order(ent.Asc(entprojectrepo.FieldName), ent.Asc(entprojectrepo.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list project repos: %w", err)
+	}
+
+	repoIDs := make([]uuid.UUID, 0, len(items))
+	for _, item := range items {
+		repoIDs = append(repoIDs, item.ID)
+	}
+
+	return repoIDs, nil
 }
 
 func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain.Job, error) {

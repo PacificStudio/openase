@@ -5,6 +5,7 @@
   import { Badge } from '$ui/badge'
   import { Skeleton } from '$ui/skeleton'
   import { Bot, Coins, Ticket as TicketIcon } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type ProjectMetrics = {
     runningAgents: number
@@ -29,7 +30,9 @@
 </script>
 
 <section class="space-y-4">
-  <h2 class="text-foreground text-lg font-semibold">Projects</h2>
+  <h2 class="text-foreground text-lg font-semibold">
+    {i18nStore.t('dashboard.organizationProjectsSection.heading')}
+  </h2>
 
   {#if projects.length > 0}
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -43,7 +46,8 @@
             <div class="min-w-0 flex-1">
               <h3 class="text-foreground truncate text-sm font-semibold">{project.name}</h3>
               <p class="text-muted-foreground mt-1 truncate text-xs">
-                {project.description || 'No description'}
+                {project.description ??
+                  i18nStore.t('dashboard.organizationProjectsSection.messages.noDescription')}
               </p>
             </div>
             <Badge variant="secondary" class="shrink-0 text-[10px]">{project.status}</Badge>
@@ -55,15 +59,24 @@
             >
               <span class="flex items-center gap-1">
                 <Bot class="size-3" />
-                {metrics.runningAgents} agent{metrics.runningAgents !== 1 ? 's' : ''}
+                <span>
+                  {metrics.runningAgents}{' '}
+                  {i18nStore.t('dashboard.organizationProjectsSection.metrics.agentsLabel')}
+                </span>
               </span>
               <span class="flex items-center gap-1">
                 <TicketIcon class="size-3" />
-                {metrics.activeTickets} ticket{metrics.activeTickets !== 1 ? 's' : ''}
+                <span>
+                  {metrics.activeTickets}{' '}
+                  {i18nStore.t('dashboard.organizationProjectsSection.metrics.ticketsLabel')}
+                </span>
               </span>
               <span class="flex items-center gap-1">
                 <Coins class="size-3" />
-                {formatCurrency(metrics.todayCost)} today
+                <span>
+                  {formatCurrency(metrics.todayCost)}{' '}
+                  {i18nStore.t('dashboard.organizationProjectsSection.metrics.todayLabel')}
+                </span>
               </span>
               {#if metrics.lastActivity}
                 <span class="ml-auto">{formatRelativeTime(metrics.lastActivity)}</span>
@@ -85,9 +98,11 @@
       class="border-border hover:border-foreground/20 hover:bg-card w-full rounded-lg border border-dashed px-4 py-12 text-center transition-colors"
       onclick={onCreateProject}
     >
-      <p class="text-muted-foreground text-sm">No projects yet.</p>
+      <p class="text-muted-foreground text-sm">
+        {i18nStore.t('dashboard.organizationProjectsSection.emptyState.title')}
+      </p>
       <p class="text-foreground mt-1 text-sm font-medium">
-        Create your first project to get started
+        {i18nStore.t('dashboard.organizationProjectsSection.emptyState.subtitle')}
       </p>
     </button>
   {/if}

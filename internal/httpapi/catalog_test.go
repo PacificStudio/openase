@@ -23,6 +23,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -35,22 +36,34 @@ import (
 )
 
 type fakeCatalogService struct {
-	organizations        map[uuid.UUID]domain.Organization
-	machines             map[uuid.UUID]domain.Machine
-	projects             map[uuid.UUID]domain.Project
-	tickets              map[uuid.UUID]fakeCatalogTicket
-	projectRepos         map[uuid.UUID]domain.ProjectRepo
-	ticketScopes         map[uuid.UUID]domain.TicketRepoScope
-	providers            map[uuid.UUID]domain.AgentProvider
-	agents               map[uuid.UUID]domain.Agent
-	agentRuns            map[uuid.UUID]domain.AgentRun
-	agentDeleteConflicts map[uuid.UUID]*domain.AgentDeleteConflict
-	activityEvents       []domain.ActivityEvent
-	traceEvents          []domain.AgentTraceEntry
-	stepEvents           []domain.AgentStepEntry
-	rawEvents            []domain.AgentRawEventEntry
-	activityInstances    []domain.AgentActivityInstance
-	transcriptEntries    []domain.AgentTranscriptEntry
+	organizations           map[uuid.UUID]domain.Organization
+	machines                map[uuid.UUID]domain.Machine
+	projects                map[uuid.UUID]domain.Project
+	tickets                 map[uuid.UUID]fakeCatalogTicket
+	projectRepos            map[uuid.UUID]domain.ProjectRepo
+	ticketScopes            map[uuid.UUID]domain.TicketRepoScope
+	providers               map[uuid.UUID]domain.AgentProvider
+	agents                  map[uuid.UUID]domain.Agent
+	agentRuns               map[uuid.UUID]domain.AgentRun
+	providerDeleteConflicts map[uuid.UUID]*domain.AgentProviderDeleteConflict
+	agentDeleteConflicts    map[uuid.UUID]*domain.AgentDeleteConflict
+	activityEvents          []domain.ActivityEvent
+	traceEvents             []domain.AgentTraceEntry
+	stepEvents              []domain.AgentStepEntry
+	rawEvents               []domain.AgentRawEventEntry
+	activityInstances       []domain.AgentActivityInstance
+	transcriptEntries       []domain.AgentTranscriptEntry
+	listAgentRunsErr        error
+	listTicketRunsErr       error
+}
+
+type stubHTTPBootstrapper struct {
+	result machinesetup.BootstrapResult
+	err    error
+}
+
+func (s stubHTTPBootstrapper) Bootstrap(_ context.Context, _ domain.Machine, _ machinesetup.BootstrapInput) (machinesetup.BootstrapResult, error) {
+	return s.result, s.err
 }
 
 type fakeCatalogTicket struct {
@@ -60,23 +73,28 @@ type fakeCatalogTicket struct {
 
 func newFakeCatalogService() *fakeCatalogService {
 	return &fakeCatalogService{
-		organizations:        map[uuid.UUID]domain.Organization{},
-		machines:             map[uuid.UUID]domain.Machine{},
-		projects:             map[uuid.UUID]domain.Project{},
-		tickets:              map[uuid.UUID]fakeCatalogTicket{},
-		projectRepos:         map[uuid.UUID]domain.ProjectRepo{},
-		ticketScopes:         map[uuid.UUID]domain.TicketRepoScope{},
-		providers:            map[uuid.UUID]domain.AgentProvider{},
-		agents:               map[uuid.UUID]domain.Agent{},
-		agentRuns:            map[uuid.UUID]domain.AgentRun{},
-		agentDeleteConflicts: map[uuid.UUID]*domain.AgentDeleteConflict{},
-		activityEvents:       []domain.ActivityEvent{},
-		traceEvents:          []domain.AgentTraceEntry{},
-		stepEvents:           []domain.AgentStepEntry{},
-		rawEvents:            []domain.AgentRawEventEntry{},
-		activityInstances:    []domain.AgentActivityInstance{},
-		transcriptEntries:    []domain.AgentTranscriptEntry{},
+		organizations:           map[uuid.UUID]domain.Organization{},
+		machines:                map[uuid.UUID]domain.Machine{},
+		projects:                map[uuid.UUID]domain.Project{},
+		tickets:                 map[uuid.UUID]fakeCatalogTicket{},
+		projectRepos:            map[uuid.UUID]domain.ProjectRepo{},
+		ticketScopes:            map[uuid.UUID]domain.TicketRepoScope{},
+		providers:               map[uuid.UUID]domain.AgentProvider{},
+		agents:                  map[uuid.UUID]domain.Agent{},
+		agentRuns:               map[uuid.UUID]domain.AgentRun{},
+		providerDeleteConflicts: map[uuid.UUID]*domain.AgentProviderDeleteConflict{},
+		agentDeleteConflicts:    map[uuid.UUID]*domain.AgentDeleteConflict{},
+		activityEvents:          []domain.ActivityEvent{},
+		traceEvents:             []domain.AgentTraceEntry{},
+		stepEvents:              []domain.AgentStepEntry{},
+		rawEvents:               []domain.AgentRawEventEntry{},
+		activityInstances:       []domain.AgentActivityInstance{},
+		transcriptEntries:       []domain.AgentTranscriptEntry{},
 	}
+}
+
+func catalogTestStringPtr(value string) *string {
+	return &value
 }
 
 func TestCatalogCRUDRoutes(t *testing.T) {
@@ -352,6 +370,119 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	}
 }
 
+func TestPatchProjectSanitizesLegacyProjectAIScopesOnUnrelatedUpdate(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	projectID := uuid.New()
+	service.organizations[orgID] = domain.Organization{
+		ID:     orgID,
+		Name:   "Acme Platform",
+		Slug:   "acme-platform",
+		Status: domain.OrganizationStatusActive,
+	}
+	service.projects[projectID] = domain.Project{
+		ID:                             projectID,
+		OrganizationID:                 orgID,
+		Name:                           "OpenASE",
+		Slug:                           "openase",
+		Status:                         domain.ProjectStatusInProgress,
+		ProjectAIPlatformAccessAllowed: []string{"projects.update", "tickets.report_usage"},
+		MaxConcurrentAgents:            2,
+	}
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+projectID.String(),
+		`{"agent_run_summary_prompt":"Summarize blockers first."}`,
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected project patch 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		Project projectResponse `json:"project"`
+	}
+	decodeResponse(t, rec, &payload)
+	if got, want := payload.Project.ProjectAIPlatformAccessAllowed, []string{"projects.update"}; !slices.Equal(got, want) {
+		t.Fatalf("project ai platform access allowed = %v, want %v", got, want)
+	}
+	if payload.Project.AgentRunSummaryPrompt == nil || *payload.Project.AgentRunSummaryPrompt != "Summarize blockers first." {
+		t.Fatalf("expected run summary prompt to update, got %+v", payload.Project)
+	}
+	if got, want := service.projects[projectID].ProjectAIPlatformAccessAllowed, []string{"projects.update"}; !slices.Equal(got, want) {
+		t.Fatalf("stored project ai platform access allowed = %v, want %v", got, want)
+	}
+}
+
+func TestSSHBootstrapRefreshesMachineHealthAfterSuccess(t *testing.T) {
+	catalog := newFakeCatalogService()
+	machineID := uuid.New()
+	orgID := uuid.New()
+	catalog.machines[machineID] = domain.Machine{
+		ID:             machineID,
+		OrganizationID: orgID,
+		Name:           "builder-01",
+		Host:           "10.0.0.50",
+		Port:           22,
+		Status:         domain.MachineStatusOffline,
+		SSHUser:        catalogTestStringPtr("openase"),
+		Resources:      map[string]any{},
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithSSHBootstrapper(stubHTTPBootstrapper{
+			result: machinesetup.BootstrapResult{
+				MachineID:      machineID.String(),
+				MachineName:    "builder-01",
+				Topology:       "remote-listener",
+				ServiceManager: "systemd",
+				ServiceName:    "openase-machine-agent",
+				ServiceStatus:  "active",
+				Summary:        "bootstrap complete",
+			},
+		}),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/machines/"+machineID.String()+"/ssh-bootstrap",
+		`{"topology":"remote-listener"}`,
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected ssh bootstrap 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	updated := catalog.machines[machineID]
+	if updated.Status != domain.MachineStatusOnline {
+		t.Fatalf("expected ssh bootstrap post-refresh to advance machine online, got %+v", updated)
+	}
+}
+
 func TestCatalogRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	service := newFakeCatalogService()
 	server := NewServer(
@@ -563,7 +694,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/machines",
-		`{"name":"gpu-01","host":"10.0.1.10","advertised_endpoint":"wss://gpu-01.example.com/openase","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
+		`{"name":"gpu-01","host":"10.0.1.10","advertised_endpoint":"wss://gpu-01.example.com/openase","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","agent_cli_paths":{"codex-app-server":"/opt/codex/bin/codex","gemini-cli":"/opt/gemini/bin/gemini"},"env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
 	)
 	if createMachineRec.Code != http.StatusCreated {
 		t.Fatalf("expected machine create 201, got %d: %s", createMachineRec.Code, createMachineRec.Body.String())
@@ -573,8 +704,11 @@ func TestMachineRoutes(t *testing.T) {
 		Machine machineResponse `json:"machine"`
 	}
 	decodeResponse(t, createMachineRec, &createMachinePayload)
-	if createMachinePayload.Machine.Status != "maintenance" {
-		t.Fatalf("expected created remote machine to default to maintenance, got %+v", createMachinePayload.Machine)
+	if createMachinePayload.Machine.Status != "offline" {
+		t.Fatalf("expected created remote machine to default to offline, got %+v", createMachinePayload.Machine)
+	}
+	if got := createMachinePayload.Machine.AgentCLIPaths["codex-app-server"]; got != "/opt/codex/bin/codex" {
+		t.Fatalf("expected codex agent_cli_paths to round-trip, got %+v", createMachinePayload.Machine.AgentCLIPaths)
 	}
 	getMachineRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+createMachinePayload.Machine.ID, "")
 	if getMachineRec.Code != http.StatusOK {
@@ -588,13 +722,16 @@ func TestMachineRoutes(t *testing.T) {
 	if getMachinePayload.Machine.ID != createMachinePayload.Machine.ID || getMachinePayload.Machine.Name != "gpu-01" {
 		t.Fatalf("unexpected machine get payload: %+v", getMachinePayload.Machine)
 	}
+	if got := getMachinePayload.Machine.AgentCLIPaths["gemini-cli"]; got != "/opt/gemini/bin/gemini" {
+		t.Fatalf("expected gemini agent_cli_paths in machine get payload, got %+v", getMachinePayload.Machine.AgentCLIPaths)
+	}
 
 	patchMachineRec := performJSONRequest(
 		t,
 		server,
 		http.MethodPatch,
 		"/api/v1/machines/"+createMachinePayload.Machine.ID,
-		`{"status":"online","description":"A100 worker","advertised_endpoint":"wss://gpu-01.example.com/openase"}`,
+		`{"status":"online","description":"A100 worker","advertised_endpoint":"wss://gpu-01.example.com/openase","agent_cli_paths":{"codex-app-server":"/usr/local/bin/codex"}}`,
 	)
 	if patchMachineRec.Code != http.StatusOK {
 		t.Fatalf("expected machine patch 200, got %d: %s", patchMachineRec.Code, patchMachineRec.Body.String())
@@ -606,6 +743,9 @@ func TestMachineRoutes(t *testing.T) {
 	decodeResponse(t, patchMachineRec, &patchMachinePayload)
 	if patchMachinePayload.Machine.Status != "online" || patchMachinePayload.Machine.Description != "A100 worker" {
 		t.Fatalf("unexpected patched machine payload: %+v", patchMachinePayload.Machine)
+	}
+	if got := patchMachinePayload.Machine.AgentCLIPaths["codex-app-server"]; got != "/usr/local/bin/codex" || len(patchMachinePayload.Machine.AgentCLIPaths) != 1 {
+		t.Fatalf("unexpected patched agent_cli_paths payload: %+v", patchMachinePayload.Machine.AgentCLIPaths)
 	}
 
 	testMachineRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/machines/"+createMachinePayload.Machine.ID+"/test", "")
@@ -1640,6 +1780,7 @@ func (f *fakeCatalogService) CreateMachine(_ context.Context, input domain.Creat
 		Status:         input.Status,
 		WorkspaceRoot:  input.WorkspaceRoot,
 		AgentCLIPath:   input.AgentCLIPath,
+		AgentCLIPaths:  domain.CloneMachineAgentCLIPaths(input.AgentCLIPaths),
 		EnvVars:        append([]string(nil), input.EnvVars...),
 		Resources:      map[string]any{},
 	}
@@ -1678,6 +1819,7 @@ func (f *fakeCatalogService) UpdateMachine(_ context.Context, input domain.Updat
 	current.Status = input.Status
 	current.WorkspaceRoot = input.WorkspaceRoot
 	current.AgentCLIPath = input.AgentCLIPath
+	current.AgentCLIPaths = domain.CloneMachineAgentCLIPaths(input.AgentCLIPaths)
 	current.EnvVars = append([]string(nil), input.EnvVars...)
 	f.machines[input.ID] = current
 

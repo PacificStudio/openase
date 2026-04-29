@@ -12,6 +12,8 @@
     MachineWorkspaceState,
   } from '../types'
 
+  import { i18nStore } from '$lib/i18n/store.svelte'
+
   let {
     routeOrgId = '',
     loading = false,
@@ -31,9 +33,11 @@
     saving = false,
     testingMachineId = '',
     deletingMachineId = '',
+    statusUpdatingMachineId = '',
     editorOpen = $bindable(false),
     onRefresh,
     onCreate,
+    onWizardCreated,
     onSearchChange,
     onSelectMachine,
     onDraftChange,
@@ -42,6 +46,7 @@
     onSave,
     onTest,
     onDelete,
+    onToggleMaintenance,
     onReset,
   }: {
     routeOrgId?: string
@@ -62,9 +67,11 @@
     saving?: boolean
     testingMachineId?: string
     deletingMachineId?: string
+    statusUpdatingMachineId?: string
     editorOpen?: boolean
     onRefresh?: () => void
     onCreate?: () => void
+    onWizardCreated?: (machine: MachineItem) => void
     onSearchChange?: (value: string) => void
     onSelectMachine?: (machineId: string) => void
     onDraftChange?: (field: MachineDraftField, value: string) => void
@@ -73,23 +80,28 @@
     onSave?: () => void
     onTest?: (machineId: string) => void
     onDelete?: (machineId: string) => void
+    onToggleMaintenance?: (machineId: string, enabled: boolean) => void
     onReset?: (machineId?: string) => void
   } = $props()
+  const t = i18nStore.t
 </script>
 
 {#snippet actions()}
-  <MachinePageActions
-    {refreshing}
-    refreshDisabled={loading}
-    createDisabled={!routeOrgId}
-    {onRefresh}
-    {onCreate}
-  />
+  <div data-tour="machines-actions">
+    <MachinePageActions
+      {refreshing}
+      refreshDisabled={loading}
+      createDisabled={!routeOrgId}
+      {onRefresh}
+      {onCreate}
+    />
+  </div>
 {/snippet}
 
 <PageScaffold
-  title="Machines"
-  description="Machine topology, helper setup flows, and runtime health."
+  title={t('machines.page.title')}
+  description={t('machines.page.description')}
+  helpSection="machines"
   variant="workspace"
   {actions}
 >
@@ -109,17 +121,21 @@
     {saving}
     {testingMachineId}
     {deletingMachineId}
+    {statusUpdatingMachineId}
     bind:editorOpen
     stateMessage={listMessage}
+    organizationId={routeOrgId || null}
     {onSearchChange}
     {onSelectMachine}
     {onDraftChange}
     {onCreate}
+    {onWizardCreated}
     {onRetry}
     {onRefreshHealth}
     {onSave}
     {onTest}
     {onDelete}
+    {onToggleMaintenance}
     {onReset}
   />
 </PageScaffold>

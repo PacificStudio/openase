@@ -1,3 +1,5 @@
+import { i18nStore } from '$lib/i18n/store.svelte'
+
 export function buildSSHHelperPreview(input: {
   host: string | null | undefined
   sshUser: string | null | undefined
@@ -17,15 +19,15 @@ export function buildSSHHelperPreview(input: {
 export function friendlyTransportLabel(value: string | null | undefined): string {
   switch ((value ?? '').trim()) {
     case 'local':
-      return 'Local runtime'
+      return i18nStore.t('machines.transport.local')
     case 'ssh':
-      return 'SSH helper path'
+      return i18nStore.t('machines.transport.ssh')
     case 'ws_listener':
-      return 'Direct-connect listener'
+      return i18nStore.t('machines.transport.wsListener')
     case 'ws_reverse':
-      return 'Reverse-connect daemon'
+      return i18nStore.t('machines.transport.wsReverse')
     default:
-      return value?.trim() ? value.trim() : 'Unknown transport'
+      return value?.trim() ? value.trim() : i18nStore.t('machines.transport.unknown')
   }
 }
 
@@ -38,12 +40,12 @@ export function normalizeSessionState(value: string | null | undefined): string 
 export function humanizeSessionState(value: string): string {
   switch (value) {
     case 'connected':
-      return 'Connected'
+      return i18nStore.t('machines.sessionState.connected')
     case 'disconnected':
-      return 'Disconnected'
+      return i18nStore.t('machines.sessionState.disconnected')
     case 'unavailable':
-      return 'Unavailable'
+      return i18nStore.t('machines.sessionState.unavailable')
     default:
-      return 'Unknown'
+      return i18nStore.t('machines.sessionState.unknown')
   }
 }

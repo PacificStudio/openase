@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { TranslationKey } from '$lib/i18n'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
@@ -6,7 +7,7 @@
   import { Pencil, Trash2, X } from '@lucide/svelte'
   import ProjectUpdateThreadBody from './project-update-thread-body.svelte'
   import { isProjectUpdateEdited, projectUpdateEditedLabel } from '../metadata'
-  import { projectUpdateStatusLabel } from '../status'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { ProjectUpdateStatus, ProjectUpdateThread } from '../types'
   import {
     projectUpdateStatusConfig,
@@ -55,6 +56,12 @@
   )
   const CurrentEditStatusIcon = $derived(currentEditStatusOption.icon)
 
+  const statusLabelKeys: Record<ProjectUpdateStatus, TranslationKey> = {
+    on_track: 'projectUpdates.status.onTrack',
+    at_risk: 'projectUpdates.status.atRisk',
+    off_track: 'projectUpdates.status.offTrack',
+  }
+
   $effect(() => {
     editingStatus = thread.status
     editingBody = thread.bodyMarkdown || thread.title
@@ -84,7 +91,9 @@
   }
 
   async function handleDeleteThread() {
-    if (deletingThread || !window.confirm('Delete this update?')) return
+    if (deletingThread || !window.confirm(i18nStore.t('projectUpdates.thread.confirmDelete'))) {
+      return
+    }
 
     deletingThread = true
     try {
@@ -137,14 +146,14 @@
           )}
         >
           <CurrentEditStatusIcon class="size-3" />
-          {currentEditStatusOption.label}
+          {i18nStore.t(statusLabelKeys[currentEditStatusOption.value])}
         </Select.Trigger>
         <Select.Content>
           {#each projectUpdateStatusOptions as opt (opt.value)}
             {@const Icon = opt.icon}
             <Select.Item value={opt.value}>
               <Icon class={cn('size-3', opt.textClass)} />
-              {opt.label}
+              {i18nStore.t(statusLabelKeys[opt.value])}
             </Select.Item>
           {/each}
         </Select.Content>
@@ -156,7 +165,9 @@
           onclick={handleSaveThread}
           disabled={!editingBody.trim() || savingThread}
         >
-          {savingThread ? 'Saving...' : 'Save'}
+          {savingThread
+            ? i18nStore.t('projectUpdates.thread.actions.saving')
+            : i18nStore.t('projectUpdates.thread.actions.save')}
         </Button>
         <button
           type="button"
@@ -170,7 +181,7 @@
     <Textarea
       bind:value={editingBody}
       class="min-h-7 w-full resize-none border-none bg-transparent px-1 py-1 text-sm shadow-none focus-visible:ring-0"
-      aria-label={`Edit update body`}
+      aria-label={i18nStore.t('projectUpdates.thread.aria.editBody')}
       rows={2}
     />
   </div>
@@ -221,20 +232,22 @@
                     threadStatusCfg.textClass,
                   )}
                 >
-                  {projectUpdateStatusLabel(thread.status)}
+                  {i18nStore.t(statusLabelKeys[thread.status])}
                 </Select.Trigger>
                 <Select.Content>
                   {#each projectUpdateStatusOptions as opt (opt.value)}
                     {@const Icon = opt.icon}
                     <Select.Item value={opt.value}
-                      ><Icon class={cn('size-3', opt.textClass)} />{opt.label}</Select.Item
+                      ><Icon class={cn('size-3', opt.textClass)} />{i18nStore.t(
+                        statusLabelKeys[opt.value],
+                      )}</Select.Item
                     >
                   {/each}
                 </Select.Content>
               </Select.Root>
             {:else}
               <span class={cn('shrink-0 text-[10px] font-medium', threadStatusCfg.textClass)}
-                >{projectUpdateStatusLabel(thread.status)}</span
+                >{i18nStore.t(statusLabelKeys[thread.status])}</span
               >
             {/if}
             <div
@@ -244,7 +257,7 @@
                 <button
                   type="button"
                   class="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
-                  aria-label="Edit update"
+                  aria-label={i18nStore.t('projectUpdates.thread.aria.editUpdate')}
                   onclick={() => (editingThread = true)}
                 >
                   <Pencil class="size-3" />
@@ -253,7 +266,7 @@
               <button
                 type="button"
                 class="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors"
-                aria-label="Delete update"
+                aria-label={i18nStore.t('projectUpdates.thread.aria.deleteUpdate')}
                 onclick={handleDeleteThread}
                 disabled={thread.isDeleted || deletingThread}
               >
@@ -268,7 +281,9 @@
           isDeleted={thread.isDeleted}
         />
         {#if thread.isDeleted}
-          <p class="text-muted-foreground mt-1 text-xs italic">Deleted</p>
+          <p class="text-muted-foreground mt-1 text-xs italic">
+            {i18nStore.t('projectUpdates.thread.status.deleted')}
+          </p>
         {/if}
         {#if thread.commentCount > 0}
           <button
@@ -277,7 +292,9 @@
             onclick={() => (showComments = !showComments)}
           >
             {thread.commentCount}
-            {thread.commentCount === 1 ? 'reply' : 'replies'}
+            {thread.commentCount === 1
+              ? i18nStore.t('projectUpdates.thread.replies.singular')
+              : i18nStore.t('projectUpdates.thread.replies.plural')}
           </button>
         {/if}
       </div>

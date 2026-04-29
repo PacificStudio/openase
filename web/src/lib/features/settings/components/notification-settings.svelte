@@ -17,6 +17,7 @@
     NotificationRule,
     NotificationRuleEventType,
   } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { Separator } from '$ui/separator'
   import type { ChannelCreateInput, ChannelUpdateInput } from '../notification-channels'
@@ -61,7 +62,7 @@
         error =
           caughtError instanceof ApiError
             ? caughtError.detail
-            : 'Failed to load notification settings.'
+            : i18nStore.t('settings.notifications.errors.load')
       } finally {
         if (!cancelled) {
           loading = false
@@ -79,7 +80,7 @@
   async function refreshChannels() {
     const orgId = appStore.currentOrg?.id
     if (!orgId) {
-      throw new Error('No organization selected.')
+      throw new Error(i18nStore.t('settings.notifications.errors.noOrganizationSelected'))
     }
     const payload = await listNotificationChannels(orgId)
     channels = payload.channels
@@ -88,7 +89,7 @@
   async function refreshRules() {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      throw new Error('No project selected.')
+      throw new Error(i18nStore.t('settings.notifications.errors.noProjectSelected'))
     }
     const payload = await listNotificationRules(projectId)
     rules = payload.rules
@@ -107,12 +108,13 @@
   async function handleCreateChannel(input: ChannelCreateInput): Promise<NotificationChannel> {
     try {
       const orgId = appStore.currentOrg?.id
-      if (!orgId) throw new Error('No organization selected.')
+      if (!orgId)
+        throw new Error(i18nStore.t('settings.notifications.errors.noOrganizationSelected'))
       const payload = await createNotificationChannel(orgId, input)
       await Promise.all([refreshChannels(), refreshRules()])
       return payload.channel
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to create channel.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.createChannel')
     }
   }
 
@@ -125,7 +127,7 @@
       await Promise.all([refreshChannels(), refreshRules()])
       return payload.channel
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to update channel.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.updateChannel')
     }
   }
 
@@ -134,7 +136,7 @@
       await deleteNotificationChannel(channelId)
       await Promise.all([refreshChannels(), refreshRules()])
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to delete channel.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.deleteChannel')
     }
   }
 
@@ -147,7 +149,7 @@
       await Promise.all([refreshChannels(), refreshRules()])
       return payload.channel
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to update channel state.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.updateChannelState')
     }
   }
 
@@ -155,19 +157,20 @@
     try {
       await testNotificationChannel(channelId)
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to send channel test.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.sendChannelTest')
     }
   }
 
   async function handleCreateRule(input: RuleCreateInput): Promise<NotificationRule> {
     try {
       const projectId = appStore.currentProject?.id
-      if (!projectId) throw new Error('No project selected.')
+      if (!projectId)
+        throw new Error(i18nStore.t('settings.notifications.errors.noProjectSelected'))
       const payload = await createNotificationRule(projectId, input)
       await refreshRules()
       return payload.rule
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to create rule.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.createRule')
     }
   }
 
@@ -180,7 +183,7 @@
       await refreshRules()
       return payload.rule
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to update rule.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.updateRule')
     }
   }
 
@@ -189,16 +192,18 @@
       await deleteNotificationRule(ruleId)
       await refreshRules()
     } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to delete rule.')
+      unwrapApiError(caughtError, 'settings.notifications.errors.deleteRule')
     }
   }
 </script>
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Notifications</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.notifications.title')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Configure delivery channels and subscribe to project events. Changes take effect immediately.
+      {i18nStore.t('settings.notifications.description')}
     </p>
   </div>
 
@@ -262,7 +267,7 @@
       </svg>
       <p class="text-destructive text-sm font-medium">{error}</p>
       <p class="text-muted-foreground text-xs">
-        Check your connection and try refreshing the page.
+        {i18nStore.t('settings.notifications.messages.retryHint')}
       </p>
     </div>
   {:else}

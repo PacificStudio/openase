@@ -1,8 +1,15 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
   import type { Agent, AgentProvider, Machine } from '$lib/api/contracts'
-  import { listAgents, listMachines, listProviders, updateProject } from '$lib/api/openase'
+  import {
+    deleteProvider,
+    listAgents,
+    listMachines,
+    listProviders,
+    updateProject,
+  } from '$lib/api/openase'
   import { ProviderCreationDialog } from '$lib/features/catalog-creation'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import {
     buildProviderCards,
     createProviderEditorState,
@@ -14,6 +21,7 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
   import AgentSettingsDefaultsCard from './agent-settings-defaults-card.svelte'
+  import { formatProviderDeleteError } from './agent-settings-provider-delete'
   import { buildProviderOptions, parseDefaultProviderSelection } from './agent-settings-model'
 
   let providers = $state(buildProviderOptions([], []))
@@ -24,6 +32,7 @@
   let loading = $state(false)
   let loadError = $state('')
   let saving = $state(false)
+  let deletingProvider = $state(false)
   let selectedDefaultProviderId = $state('')
   let providerConfigOpen = $state(false)
   let providerCreateOpen = $state(false)
@@ -78,7 +87,9 @@
       } catch (caughtError) {
         if (cancelled) return
         loadError =
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load agent settings.'
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : i18nStore.t('settings.agentSettings.errors.load')
       } finally {
         if (!cancelled) {
           loading = false
@@ -96,7 +107,7 @@
   async function handleSaveDefaultProvider() {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      toastStore.error('Project context is unavailable.')
+      toastStore.error(i18nStore.t('settings.agentSettings.errors.projectContextMissing'))
       return
     }
 
@@ -116,12 +127,18 @@
       const selectedName = providers.find((p) => p.id === parsed.value)?.name
       toastStore.success(
         parsed.value
-          ? `Default agent provider set to ${selectedName ?? 'the selected provider'}.`
-          : 'Project now inherits the organization default provider.',
+          ? i18nStore.t('settings.agentSettings.messages.defaultProviderSet', {
+              provider:
+                selectedName ??
+                i18nStore.t('settings.agentSettings.messages.selectedProviderFallback'),
+            })
+          : i18nStore.t('settings.agentSettings.messages.inheritOrgDefault'),
       )
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save default provider.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.agentSettings.errors.saveDefault'),
       )
     } finally {
       saving = false
@@ -164,6 +181,15 @@
     }
   }
 
+  function removeProvider(providerId: string) {
+    providerEditor.reset()
+    providerConfigOpen = false
+    syncProviderState(providerItems.filter((provider) => provider.id !== providerId))
+    if (selectedDefaultProviderId === providerId) {
+      selectedDefaultProviderId = ''
+    }
+  }
+
   function handleProviderCreated(createdProvider: AgentProvider) {
     syncProviderState([...providerItems, createdProvider])
   }
@@ -171,14 +197,34 @@
   async function handleProviderSave() {
     await providerEditor.save(selectedProvider, applyUpdatedProvider)
   }
+
+  async function handleProviderDelete() {
+    if (!selectedProvider) {
+      toastStore.error('Select a provider to delete.')
+      return
+    }
+
+    deletingProvider = true
+
+    try {
+      const payload = await deleteProvider(selectedProvider.id)
+      removeProvider(selectedProvider.id)
+      toastStore.success(`Deleted provider ${payload.provider.name}.`)
+    } catch (caughtError) {
+      toastStore.error(formatProviderDeleteError(caughtError))
+    } finally {
+      deletingProvider = false
+    }
+  }
 </script>
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Agents</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.agentSettings.title')}
+    </h2>
     <p class="text-muted-foreground mt-1 max-w-3xl text-sm">
-      Configure providers and default routing for this project. Manage agent runtime controls from
-      the Agents page in the sidebar.
+      {i18nStore.t('settings.agentSettings.description')}
     </p>
   </div>
 
@@ -235,16 +281,18 @@
   machines={machineItems}
   draft={providerEditor.draft}
   saving={providerEditor.saving}
+  deleting={deletingProvider}
   onDraftChange={handleProviderDraftChange}
   onSave={handleProviderSave}
+  onDelete={handleProviderDelete}
 />
 
 {#if appStore.currentOrg?.id}
   <ProviderCreationDialog
     orgId={appStore.currentOrg.id}
     bind:open={providerCreateOpen}
-    title="Add provider"
-    description="Register a provider for this organization without leaving the current project settings."
+    title={i18nStore.t('settings.agentSettings.addProviderTitle')}
+    description={i18nStore.t('settings.agentSettings.addProviderDescription')}
     onCreated={handleProviderCreated}
   />
 {/if}

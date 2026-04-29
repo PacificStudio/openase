@@ -5,22 +5,26 @@
   import WorkflowsPageHeaderActions from './workflows-page-header-actions.svelte'
   import WorkflowTemplateGallery from './workflow-template-gallery.svelte'
   import { createWorkflowsPageController } from './workflows-page-controller.svelte'
+  import { t } from './i18n'
 
   const controller = createWorkflowsPageController()
 </script>
 
 {#snippet actions()}
-  <WorkflowsPageHeaderActions
-    canCreate={controller.statuses.length > 0 && controller.agentOptions.length > 0}
-    statusStageHref={controller.settingsHref ? `${controller.settingsHref}#statuses` : null}
-    onCreate={controller.handleCreateWorkflow}
-    onBrowseTemplates={() => (controller.showTemplateGallery = true)}
-  />
+  <div data-tour="workflows-actions">
+    <WorkflowsPageHeaderActions
+      canCreate={controller.statuses.length > 0 && controller.agentOptions.length > 0}
+      statusStageHref={controller.settingsHref ? `${controller.settingsHref}#statuses` : null}
+      onCreate={controller.handleCreateWorkflow}
+      onBrowseTemplates={() => (controller.showTemplateGallery = true)}
+    />
+  </div>
 {/snippet}
 
 <PageScaffold
-  title="Workflows"
-  description="Edit published harnesses and manage workflow lifecycle settings."
+  title={t('workflows.page.title')}
+  description={t('workflows.page.description')}
+  helpSection="workflows"
   variant="workspace"
   {actions}
 >

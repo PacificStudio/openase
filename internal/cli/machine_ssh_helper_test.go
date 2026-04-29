@@ -52,12 +52,15 @@ func TestRunMachineSSHBootstrapUploadsBinaryEnvAndService(t *testing.T) {
 		},
 	}, machineSSHBootstrapInput{
 		Machine: catalogdomain.Machine{
-			ID:             machineID,
-			Name:           "reverse-01",
-			Host:           "10.0.1.11",
-			ConnectionMode: catalogdomain.MachineConnectionModeWSReverse,
-			AgentCLIPath:   &agentCLIPath,
+			ID:               machineID,
+			Name:             "reverse-01",
+			Host:             "10.0.1.11",
+			ReachabilityMode: catalogdomain.MachineReachabilityModeReverseConnect,
+			ExecutionMode:    catalogdomain.MachineExecutionModeWebsocket,
+			ConnectionMode:   catalogdomain.MachineConnectionModeWSReverse,
+			AgentCLIPath:     &agentCLIPath,
 		},
+		Topology:          catalogdomain.MachineWebsocketTopologyReverseConnect,
 		TokenTTL:          24 * time.Hour,
 		ControlPlaneURL:   "https://openase.example.com",
 		HeartbeatInterval: 15 * time.Second,
@@ -66,12 +69,14 @@ func TestRunMachineSSHBootstrapUploadsBinaryEnvAndService(t *testing.T) {
 		t.Fatalf("runMachineSSHBootstrap() error = %v", err)
 	}
 
-	layout := buildMachineSSHLayout("/home/remote")
+	layout := buildMachineSSHLayout("/home/remote", machineAgentServiceName)
 	servicePath, _, _ := buildMachineSSHServiceFile(machineSSHPlatformInfo{
 		RemoteHome:     "/home/remote",
 		ServiceManager: "systemd",
 		UID:            "1000",
 	}, layout, machineSSHServiceInstallInput{
+		ServiceName:       machineAgentServiceName,
+		ServiceLabel:      "OpenASE reverse-connect machine-agent",
 		BinaryPath:        layout.RemoteBinaryPath,
 		EnvironmentFile:   layout.EnvironmentFile,
 		WorkingDirectory:  layout.WorkDir,
@@ -80,6 +85,15 @@ func TestRunMachineSSHBootstrapUploadsBinaryEnvAndService(t *testing.T) {
 		AgentCLIPath:      agentCLIPath,
 		HeartbeatInterval: 15 * time.Second,
 		UID:               "1000",
+	}, []string{
+		"machine-agent",
+		"run",
+		"--openase-binary-path",
+		layout.RemoteBinaryPath,
+		"--agent-cli-path",
+		agentCLIPath,
+		"--heartbeat-interval",
+		"15s",
 	})
 
 	if result.RemoteBinaryPath != layout.RemoteBinaryPath {
@@ -93,6 +107,12 @@ func TestRunMachineSSHBootstrapUploadsBinaryEnvAndService(t *testing.T) {
 	}
 	if result.TokenID != "token-1" {
 		t.Fatalf("TokenID = %q, want token-1", result.TokenID)
+	}
+	if result.Topology != catalogdomain.MachineWebsocketTopologyReverseConnect.String() {
+		t.Fatalf("Topology = %q, want reverse_connect", result.Topology)
+	}
+	if result.ServiceName != machineAgentServiceName {
+		t.Fatalf("ServiceName = %q, want %q", result.ServiceName, machineAgentServiceName)
 	}
 	if got := binaryUploadSession.stdin.String(); got != "openase-binary" {
 		t.Fatalf("binary upload content = %q", got)
@@ -119,6 +139,155 @@ func TestRunMachineSSHBootstrapUploadsBinaryEnvAndService(t *testing.T) {
 	}
 }
 
+func TestRunMachineSSHBootstrapInstallsRemoteListenerTopology(t *testing.T) {
+	ctx := context.Background()
+	machineID := uuid.New()
+	advertisedEndpoint := "wss://listener.example.com/openase/runtime"
+	listenerToken := "listener-secret"
+
+	platformSession := &machineSSHTestSession{
+		combinedOutput: "Linux\n/home/remote\nsystemd\n1000\n",
+	}
+	binaryUploadSession := &machineSSHTestSession{}
+	envUploadSession := &machineSSHTestSession{}
+	serviceUploadSession := &machineSSHTestSession{}
+	restartSession := &machineSSHTestSession{combinedOutput: "active\n"}
+	client := &machineSSHTestClient{sessions: []sshinfra.Session{
+		platformSession,
+		binaryUploadSession,
+		envUploadSession,
+		serviceUploadSession,
+		restartSession,
+	}}
+
+	result, err := runMachineSSHBootstrap(ctx, machineSSHBootstrapDeps{
+		getClient: func(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
+			return client, nil
+		},
+		issueToken: func(context.Context, uuid.UUID, time.Duration, string, string) (machineChannelTokenResponse, error) {
+			t.Fatal("remote-listener bootstrap should not issue a reverse channel token")
+			return machineChannelTokenResponse{}, nil
+		},
+		readLocalFile: func(string) ([]byte, error) { return []byte("openase-binary"), nil },
+		resolveExecutable: func() (string, error) {
+			return "/usr/local/bin/openase", nil
+		},
+	}, machineSSHBootstrapInput{
+		Machine: catalogdomain.Machine{
+			ID:                 machineID,
+			Name:               "listener-01",
+			Host:               "10.0.1.21",
+			ReachabilityMode:   catalogdomain.MachineReachabilityModeDirectConnect,
+			ExecutionMode:      catalogdomain.MachineExecutionModeWebsocket,
+			ConnectionMode:     catalogdomain.MachineConnectionModeWSListener,
+			AdvertisedEndpoint: &advertisedEndpoint,
+			ChannelCredential: catalogdomain.MachineChannelCredential{
+				Kind:    catalogdomain.MachineChannelCredentialKindToken,
+				TokenID: &listenerToken,
+			},
+		},
+		Topology:        catalogdomain.MachineWebsocketTopologyRemoteListener,
+		ListenerAddress: "0.0.0.0:19837",
+		ListenerPath:    "/openase/runtime",
+	})
+	if err != nil {
+		t.Fatalf("runMachineSSHBootstrap(remote-listener) error = %v", err)
+	}
+
+	layout := buildMachineSSHLayout("/home/remote", machineListenerServiceName)
+	if result.ServiceName != machineListenerServiceName {
+		t.Fatalf("ServiceName = %q, want %q", result.ServiceName, machineListenerServiceName)
+	}
+	if result.ConnectionTarget != advertisedEndpoint {
+		t.Fatalf("ConnectionTarget = %q, want %q", result.ConnectionTarget, advertisedEndpoint)
+	}
+	envBody := envUploadSession.stdin.String()
+	if !strings.Contains(envBody, `OPENASE_MACHINE_LISTENER_ADDRESS="0.0.0.0:19837"`) {
+		t.Fatalf("env upload missing listener address: %q", envBody)
+	}
+	if !strings.Contains(envBody, `OPENASE_MACHINE_LISTENER_BEARER_TOKEN="listener-secret"`) {
+		t.Fatalf("env upload missing listener token: %q", envBody)
+	}
+	serviceBody := serviceUploadSession.stdin.String()
+	if !strings.Contains(serviceBody, `ExecStart="/home/remote/.openase/bin/openase" "machine-agent" "listen"`) {
+		t.Fatalf("service upload missing machine-agent listen: %q", serviceBody)
+	}
+	if !strings.Contains(serviceBody, `"--listen-address" "0.0.0.0:19837" "--path" "/openase/runtime"`) {
+		t.Fatalf("service upload missing explicit listener flags: %q", serviceBody)
+	}
+	if restartCommand := restartSession.combinedCommand; !strings.Contains(restartCommand, "mkdir -p") || !strings.Contains(restartCommand, "/home/remote/.openase/logs") {
+		t.Fatalf("restart command should prepare log directories, got %q", restartCommand)
+	}
+	if result.EnvironmentFile != layout.EnvironmentFile {
+		t.Fatalf("EnvironmentFile = %q, want %q", result.EnvironmentFile, layout.EnvironmentFile)
+	}
+}
+
+func TestRunMachineSSHBootstrapWritesScopedAgentCLIPathsEnv(t *testing.T) {
+	ctx := context.Background()
+	machineID := uuid.New()
+
+	platformSession := &machineSSHTestSession{
+		combinedOutput: "Linux\n/home/remote\nsystemd\n1000\n",
+	}
+	binaryUploadSession := &machineSSHTestSession{}
+	envUploadSession := &machineSSHTestSession{}
+	serviceUploadSession := &machineSSHTestSession{}
+	restartSession := &machineSSHTestSession{combinedOutput: "active\n"}
+	client := &machineSSHTestClient{sessions: []sshinfra.Session{
+		platformSession,
+		binaryUploadSession,
+		envUploadSession,
+		serviceUploadSession,
+		restartSession,
+	}}
+
+	_, err := runMachineSSHBootstrap(ctx, machineSSHBootstrapDeps{
+		getClient: func(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
+			return client, nil
+		},
+		issueToken: func(context.Context, uuid.UUID, time.Duration, string, string) (machineChannelTokenResponse, error) {
+			return machineChannelTokenResponse{
+				Token:           "ase_machine_test",
+				TokenID:         "token-1",
+				MachineID:       machineID.String(),
+				ControlPlaneURL: "https://openase.example.com",
+			}, nil
+		},
+		readLocalFile: func(string) ([]byte, error) { return []byte("openase-binary"), nil },
+		resolveExecutable: func() (string, error) {
+			return "/usr/local/bin/openase", nil
+		},
+	}, machineSSHBootstrapInput{
+		Machine: catalogdomain.Machine{
+			ID:               machineID,
+			Name:             "reverse-01",
+			Host:             "10.0.1.11",
+			ReachabilityMode: catalogdomain.MachineReachabilityModeReverseConnect,
+			ExecutionMode:    catalogdomain.MachineExecutionModeWebsocket,
+			ConnectionMode:   catalogdomain.MachineConnectionModeWSReverse,
+			AgentCLIPaths: catalogdomain.MachineAgentCLIPaths{
+				catalogdomain.AgentProviderAdapterTypeCodexAppServer: "/opt/codex/bin/codex",
+				catalogdomain.AgentProviderAdapterTypeGeminiCLI:      "/opt/gemini/bin/gemini",
+			},
+		},
+		Topology: catalogdomain.MachineWebsocketTopologyReverseConnect,
+		TokenTTL: 24 * time.Hour,
+	})
+	if err != nil {
+		t.Fatalf("runMachineSSHBootstrap() error = %v", err)
+	}
+
+	envBody := envUploadSession.stdin.String()
+	if !strings.Contains(envBody, `OPENASE_MACHINE_AGENT_CLI_PATHS_JSON="{\"codex-app-server\":\"/opt/codex/bin/codex\",\"gemini-cli\":\"/opt/gemini/bin/gemini\"}"`) {
+		t.Fatalf("env upload missing scoped agent cli paths: %q", envBody)
+	}
+	serviceBody := serviceUploadSession.stdin.String()
+	if strings.Contains(serviceBody, "--agent-cli-path") {
+		t.Fatalf("service upload should rely on scoped env paths instead of legacy flag: %q", serviceBody)
+	}
+}
+
 func TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues(t *testing.T) {
 	ctx := context.Background()
 	machineID := uuid.New()
@@ -139,13 +308,15 @@ func TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues(t *testin
 			return client, nil
 		},
 	}, catalogdomain.Machine{
-		ID:             machineID,
-		Name:           "reverse-01",
-		Host:           "10.0.1.11",
-		ConnectionMode: catalogdomain.MachineConnectionModeWSReverse,
-		SSHUser:        &sshUser,
-		WorkspaceRoot:  &workspaceRoot,
-		AgentCLIPath:   &agentCLIPath,
+		ID:               machineID,
+		Name:             "reverse-01",
+		Host:             "10.0.1.11",
+		ReachabilityMode: catalogdomain.MachineReachabilityModeReverseConnect,
+		ExecutionMode:    catalogdomain.MachineExecutionModeWebsocket,
+		ConnectionMode:   catalogdomain.MachineConnectionModeWSReverse,
+		SSHUser:          &sshUser,
+		WorkspaceRoot:    &workspaceRoot,
+		AgentCLIPath:     &agentCLIPath,
 		DaemonStatus: catalogdomain.MachineDaemonStatus{
 			Registered: false,
 		},
@@ -178,6 +349,108 @@ func TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues(t *testin
 		t.Fatalf("Summary = %q", result.Summary)
 	}
 }
+
+func TestRunMachineSSHDiagnosticsReportsListenerEndpointIssue(t *testing.T) {
+	ctx := context.Background()
+	machineID := uuid.New()
+	sshUser := "openase"
+
+	client := &machineSSHTestClient{sessions: []sshinfra.Session{
+		&machineSSHTestSession{combinedOutput: "Linux\n/home/remote\nsystemd\n1000\n"},
+		&machineSSHTestSession{},
+		&machineSSHTestSession{},
+		&machineSSHTestSession{combinedOutput: "active\n"},
+	}}
+
+	result, err := runMachineSSHDiagnostics(ctx, machineSSHDiagnosticDeps{
+		getClient: func(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
+			return client, nil
+		},
+		probeListener: func(context.Context, catalogdomain.Machine) error {
+			return errors.New("listener websocket endpoint unreachable for machine listener-01 at wss://listener.example.com/openase/runtime")
+		},
+	}, catalogdomain.Machine{
+		ID:                 machineID,
+		Name:               "listener-01",
+		Host:               "10.0.1.21",
+		ReachabilityMode:   catalogdomain.MachineReachabilityModeDirectConnect,
+		ExecutionMode:      catalogdomain.MachineExecutionModeWebsocket,
+		ConnectionMode:     catalogdomain.MachineConnectionModeWSListener,
+		SSHUser:            &sshUser,
+		AdvertisedEndpoint: stringPtr("wss://listener.example.com/openase/runtime"),
+	})
+	if err != nil {
+		t.Fatalf("runMachineSSHDiagnostics(listener) error = %v", err)
+	}
+
+	if result.Topology != catalogdomain.MachineWebsocketTopologyRemoteListener.String() {
+		t.Fatalf("Topology = %q, want remote_listener", result.Topology)
+	}
+	found := false
+	for _, issue := range result.Issues {
+		if issue.Code == "listener_endpoint_unreachable" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected listener_endpoint_unreachable in %+v", result.Issues)
+	}
+}
+
+func TestRunMachineSSHDiagnosticsChecksScopedAgentCLIPaths(t *testing.T) {
+	ctx := context.Background()
+	machineID := uuid.New()
+	sshUser := "openase"
+
+	client := &machineSSHTestClient{sessions: []sshinfra.Session{
+		&machineSSHTestSession{combinedOutput: "Linux\n/home/remote\nsystemd\n1000\n"},
+		&machineSSHTestSession{},
+		&machineSSHTestSession{},
+		&machineSSHTestSession{combinedOutput: "active\n"},
+		&machineSSHTestSession{combinedOutput: ""},
+		&machineSSHTestSession{combinedOutput: ""},
+	}}
+
+	result, err := runMachineSSHDiagnostics(ctx, machineSSHDiagnosticDeps{
+		getClient: func(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
+			return client, nil
+		},
+	}, catalogdomain.Machine{
+		ID:               machineID,
+		Name:             "reverse-02",
+		Host:             "10.0.1.12",
+		ReachabilityMode: catalogdomain.MachineReachabilityModeReverseConnect,
+		ExecutionMode:    catalogdomain.MachineExecutionModeWebsocket,
+		ConnectionMode:   catalogdomain.MachineConnectionModeWSReverse,
+		SSHUser:          &sshUser,
+		AgentCLIPath:     stringPtr("/usr/local/bin/legacy"),
+		AgentCLIPaths: catalogdomain.MachineAgentCLIPaths{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer: "/opt/codex/bin/codex",
+			catalogdomain.AgentProviderAdapterTypeGeminiCLI:      "/opt/gemini/bin/gemini",
+		},
+		DaemonStatus: catalogdomain.MachineDaemonStatus{
+			Registered: true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("runMachineSSHDiagnostics() error = %v", err)
+	}
+
+	checkNames := make([]string, 0, len(result.Checks))
+	for _, check := range result.Checks {
+		checkNames = append(checkNames, check.Name)
+	}
+	joined := strings.Join(checkNames, ",")
+	if !strings.Contains(joined, "agent_cli_path_codex_app_server") || !strings.Contains(joined, "agent_cli_path_gemini_cli") {
+		t.Fatalf("expected scoped agent cli checks, got %+v", result.Checks)
+	}
+	if strings.Contains(joined, "agent_cli_path,") || joined == "agent_cli_path" {
+		t.Fatalf("expected scoped checks to suppress legacy fallback when agent_cli_paths are present, got %+v", result.Checks)
+	}
+}
+
+func stringPtr(value string) *string { return &value }
 
 type machineSSHTestClient struct {
 	sessions []sshinfra.Session
@@ -227,6 +500,13 @@ func (s *machineSSHTestSession) Start(cmd string) error {
 	return nil
 }
 
+func (s *machineSSHTestSession) StartPTY(cmd string, _ int, _ int) error {
+	s.startCommand = cmd
+	return nil
+}
+
+func (s *machineSSHTestSession) Resize(int, int) error { return nil }
+
 func (s *machineSSHTestSession) Signal(string) error { return nil }
 
 func (s *machineSSHTestSession) Wait() error { return nil }
@@ -238,3 +518,33 @@ type nopWriteCloser struct {
 }
 
 func (nopWriteCloser) Close() error { return nil }
+
+func TestInferMachineListenerAddressFromAdvertisedEndpoint(t *testing.T) {
+	t.Parallel()
+
+	endpoint := "ws://143.198.200.192:19837/openase/runtime"
+	got := inferMachineListenerAddress(catalogdomain.Machine{AdvertisedEndpoint: &endpoint}, "")
+	if got != "0.0.0.0:19837" {
+		t.Fatalf("inferMachineListenerAddress(ipv4) = %q, want %q", got, "0.0.0.0:19837")
+	}
+}
+
+func TestInferMachineListenerAddressKeepsLoopbackAdvertisedEndpoint(t *testing.T) {
+	t.Parallel()
+
+	endpoint := "ws://127.0.0.1:19837/openase/runtime"
+	got := inferMachineListenerAddress(catalogdomain.Machine{AdvertisedEndpoint: &endpoint}, "")
+	if got != "127.0.0.1:19837" {
+		t.Fatalf("inferMachineListenerAddress(loopback) = %q, want %q", got, "127.0.0.1:19837")
+	}
+}
+
+func TestInferMachineListenerAddressUsesExplicitOverride(t *testing.T) {
+	t.Parallel()
+
+	endpoint := "ws://143.198.200.192:19837/openase/runtime"
+	got := inferMachineListenerAddress(catalogdomain.Machine{AdvertisedEndpoint: &endpoint}, "192.0.2.10:19837")
+	if got != "192.0.2.10:19837" {
+		t.Fatalf("inferMachineListenerAddress(explicit) = %q, want %q", got, "192.0.2.10:19837")
+	}
+}

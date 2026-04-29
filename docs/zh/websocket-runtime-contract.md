@@ -1,5 +1,7 @@
 # 统一 WebSocket Runtime 契约
 
+拓扑选型、迁移、守护进程安装与运维灰度指南请见 [`remote-websocket-rollout.md`](./remote-websocket-rollout.md)。本文档仅规范线协议本身。
+
 WebSocket runtime 契约是两种 WebSocket 传输拓扑共享的唯一执行契约：
 
 - `ws_listener`：控制面直接拨号到机器监听端点

@@ -11,6 +11,7 @@
     Terminal,
     X,
   } from '@lucide/svelte'
+  import { chatT } from './i18n'
   import { createProjectConversationTerminalPanelState } from './project-conversation-terminal-panel-state.svelte'
 
   let {
@@ -59,7 +60,7 @@
     <div class="min-w-0">
       <div class="flex items-center gap-2">
         <SquareTerminal class="text-muted-foreground size-4 shrink-0" />
-        <p class="text-sm font-semibold">Shell terminal</p>
+        <p class="text-sm font-semibold">{chatT('chat.terminal.title')}</p>
       </div>
       <p class="text-muted-foreground truncate text-[11px]">
         {terminal.lastLaunchLabel || terminal.contextTarget.label}

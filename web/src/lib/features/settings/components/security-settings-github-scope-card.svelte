@@ -11,6 +11,13 @@
     Trash2,
     Upload,
   } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import {
+    formatDisplayText,
+    parseGitHubCredentialSource,
+    parseGitHubProbeState,
+    parseGitHubRepoAccess,
+  } from './security-settings-display'
 
   type Security = SecuritySettingsResponse['security']
   type GitHubSlot = Security['github']['project_override']
@@ -40,10 +47,13 @@
     return 'bg-amber-500'
   }
 
-  function statusLabel(): string {
-    if (!slot.configured) return 'Not configured'
-    return slot.probe.state.replaceAll('_', ' ')
-  }
+  const statusLabel = $derived(formatDisplayText(parseGitHubProbeState(slot), i18nStore.t))
+  const sourceLabel = $derived(
+    formatDisplayText(parseGitHubCredentialSource(slot.source), i18nStore.t),
+  )
+  const repoAccessLabel = $derived(
+    formatDisplayText(parseGitHubRepoAccess(slot.probe.repo_access), i18nStore.t),
+  )
 
   function formatCheckedAt(value: string | null | undefined): string {
     if (!value) return 'Never'
@@ -70,8 +80,10 @@
   <div class="flex items-center justify-between px-4 py-3">
     <div class="flex items-center gap-2">
       <span class={`inline-block size-2 rounded-full ${statusDot()}`}></span>
-      <span class="text-sm font-medium">Project override</span>
-      <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
+      <span class="text-sm font-medium">
+        {i18nStore.t('settings.security.github.title.projectOverride')}
+      </span>
+      <span class="text-muted-foreground text-xs capitalize">{statusLabel}</span>
     </div>
     {#if slot.configured}
       <div class="flex items-center gap-1">
@@ -81,7 +93,7 @@
           class="size-7"
           onclick={() => onAction('retest')}
           disabled={anyBusy}
-          title="Retest"
+          title={i18nStore.t('settings.security.github.buttons.retest')}
         >
           {#if isBusy('retest')}
             <LoaderCircle class="size-3.5 animate-spin" />
@@ -95,7 +107,7 @@
           class="text-destructive hover:text-destructive size-7"
           onclick={() => onAction('delete')}
           disabled={anyBusy}
-          title="Delete"
+          title={i18nStore.t('settings.security.github.buttons.delete')}
         >
           {#if isBusy('delete')}
             <LoaderCircle class="size-3.5 animate-spin" />
@@ -113,29 +125,41 @@
       <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
         {#if displayLogin()}
           <div>
-            <span class="text-muted-foreground">User</span>
+            <span class="text-muted-foreground"
+              >{i18nStore.t('settings.security.github.labels.user')}</span
+            >
             <div>{displayLogin()}</div>
           </div>
         {/if}
         <div>
-          <span class="text-muted-foreground">Token</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.github.labels.token')}
+          </span>
           <div class="font-mono">{slot.token_preview}</div>
         </div>
         <div>
-          <span class="text-muted-foreground">Source</span>
-          <div>{slot.source ? slot.source.replaceAll('_', ' ') : '—'}</div>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.github.labels.source')}
+          </span>
+          <div>{sourceLabel}</div>
         </div>
         <div>
-          <span class="text-muted-foreground">Repo access</span>
-          <div class="capitalize">{slot.probe.repo_access.replaceAll('_', ' ')}</div>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.github.labels.repoAccess')}
+          </span>
+          <div class="capitalize">{repoAccessLabel}</div>
         </div>
         <div>
-          <span class="text-muted-foreground">Checked</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.github.labels.checked')}
+          </span>
           <div>{formatCheckedAt(slot.probe.checked_at)}</div>
         </div>
         {#if slot.probe.permissions.length}
           <div class="col-span-2">
-            <span class="text-muted-foreground">Permissions</span>
+            <span class="text-muted-foreground">
+              {i18nStore.t('settings.security.github.labels.permissions')}
+            </span>
             <div>{slot.probe.permissions.join(', ')}</div>
           </div>
         {/if}
@@ -146,7 +170,9 @@
     </div>
   {:else if organizationConfigured}
     <div class="border-border border-t px-4 py-3">
-      <p class="text-muted-foreground text-xs">Falls back to the org default.</p>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t('settings.security.github.messages.fallbackToOrg')}
+      </p>
     </div>
   {/if}
 
@@ -159,7 +185,7 @@
           onclick={() => (tokenExpanded = true)}
         >
           <ChevronDown class="size-3" />
-          Rotate token
+          {i18nStore.t('settings.security.github.buttons.rotateToken')}
         </button>
         <span class="text-muted-foreground text-xs">·</span>
         <Button
@@ -174,7 +200,7 @@
           {:else}
             <Upload class="mr-1 size-3" />
           {/if}
-          Import from gh
+          {i18nStore.t('settings.security.github.buttons.importFromGh')}
         </Button>
       </div>
     {:else}
@@ -184,13 +210,13 @@
           onclick={() => (tokenExpanded = false)}
         >
           <ChevronUp class="size-3" />
-          Cancel
+          {i18nStore.t('settings.security.github.buttons.cancel')}
         </button>
       {/if}
       <div class="flex gap-2">
         <Input
           value={tokenValue}
-          placeholder="ghu_xxx or github_pat_xxx"
+          placeholder={i18nStore.t('settings.security.github.placeholders.token')}
           disabled={anyBusy}
           class="h-8 text-xs"
           oninput={(event) => onTokenChange(event.currentTarget.value)}
@@ -201,7 +227,7 @@
           {:else}
             <KeyRound class="mr-1.5 size-3" />
           {/if}
-          Save
+          {i18nStore.t('settings.security.github.buttons.save')}
         </Button>
         <Button
           variant="outline"
@@ -215,7 +241,7 @@
           {:else}
             <Upload class="mr-1.5 size-3" />
           {/if}
-          Import from gh
+          {i18nStore.t('settings.security.github.buttons.importFromGh')}
         </Button>
       </div>
     {/if}

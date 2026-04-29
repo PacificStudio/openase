@@ -2,6 +2,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Search } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { GitHubRepositoryRecord } from '../repositories-model'
 
   let {
@@ -39,7 +40,7 @@
     <input
       type="text"
       value={query}
-      placeholder="Search repositories…"
+      placeholder={i18nStore.t('settings.repositoryGitHubBrowser.placeholders.search')}
       class="placeholder:text-muted-foreground h-9 flex-1 bg-transparent text-sm outline-none"
       oninput={(event) => onQueryChange?.((event.currentTarget as HTMLInputElement).value)}
       onkeydown={(event) => {
@@ -50,7 +51,9 @@
       }}
     />
     {#if loading}
-      <span class="text-muted-foreground shrink-0 text-xs">Searching…</span>
+      <span class="text-muted-foreground shrink-0 text-xs">
+        {i18nStore.t('settings.repositoryGitHubBrowser.status.searching')}
+      </span>
     {/if}
   </div>
 
@@ -59,10 +62,12 @@
   {/if}
 
   {#if loading && repos.length === 0}
-    <div class="text-muted-foreground py-6 text-center text-xs">Loading repositories…</div>
+    <div class="text-muted-foreground py-6 text-center text-xs">
+      {i18nStore.t('settings.repositoryGitHubBrowser.status.loading')}
+    </div>
   {:else if repos.length === 0}
     <div class="text-muted-foreground py-6 text-center text-xs">
-      No repositories matched. Try a different search.
+      {i18nStore.t('settings.repositoryGitHubBrowser.messages.noMatch')}
     </div>
   {:else}
     <div
@@ -87,7 +92,9 @@
             </div>
           </div>
           <span class="text-muted-foreground shrink-0 text-xs">
-            {bindingRepoFullName === repo.full_name ? 'Binding…' : 'Bind'}
+            {bindingRepoFullName === repo.full_name
+              ? i18nStore.t('settings.repositoryGitHubBrowser.status.binding')
+              : i18nStore.t('settings.repositoryGitHubBrowser.actions.bind')}
           </span>
         </button>
       {/each}
@@ -101,7 +108,9 @@
             onclick={onLoadMore}
             disabled={loadingMore}
           >
-            {loadingMore ? 'Loading…' : 'Load more'}
+            {loadingMore
+              ? i18nStore.t('settings.repositoryGitHubBrowser.status.loading')
+              : i18nStore.t('settings.repositoryGitHubBrowser.actions.loadMore')}
           </Button>
         </div>
       {/if}

@@ -1,13 +1,14 @@
 import type { TicketStatus } from '$lib/api/contracts'
+import { statusesT } from './i18n'
 
 export type TicketStatusStage = 'backlog' | 'unstarted' | 'started' | 'completed' | 'canceled'
 
 export const ticketStatusStageOptions: Array<{ value: TicketStatusStage; label: string }> = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'unstarted', label: 'Unstarted' },
-  { value: 'started', label: 'Started' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'canceled', label: 'Canceled' },
+  { value: 'backlog', label: statusesT('statuses.stage.backlog') },
+  { value: 'unstarted', label: statusesT('statuses.stage.unstarted') },
+  { value: 'started', label: statusesT('statuses.stage.started') },
+  { value: 'completed', label: statusesT('statuses.stage.completed') },
+  { value: 'canceled', label: statusesT('statuses.stage.canceled') },
 ]
 
 export type StatusDraft = {
@@ -65,15 +66,15 @@ export function normalizeStatuses(statuses: TicketStatus[]): EditableStatus[] {
 export function parseStatusDraft(raw: StatusDraft): ParseResult<ParsedStatusDraft> {
   const name = raw.name.trim()
   if (!name) {
-    return { ok: false, error: 'Status name is required.' }
+    return { ok: false, error: statusesT('statuses.errors.nameRequired') }
   }
   if (!isTicketStatusStage(raw.stage)) {
-    return { ok: false, error: 'Status stage is required.' }
+    return { ok: false, error: statusesT('statuses.errors.stageRequired') }
   }
 
   const color = raw.color.trim()
   if (!HEX_COLOR_PATTERN.test(color)) {
-    return { ok: false, error: 'Status color must be a 6-digit hex value.' }
+    return { ok: false, error: statusesT('statuses.errors.colorHex') }
   }
 
   const maxActiveRuns = String(raw.maxActiveRuns ?? '').trim()
@@ -92,7 +93,7 @@ export function parseStatusDraft(raw: StatusDraft): ParseResult<ParsedStatusDraf
 
   const parsed = Number(maxActiveRuns)
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    return { ok: false, error: 'Status concurrency must be a whole number greater than 0.' }
+    return { ok: false, error: statusesT('statuses.errors.concurrencyPositive') }
   }
 
   return {

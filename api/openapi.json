@@ -6128,6 +6128,9 @@
                         "conversation_id": {
                           "type": "string"
                         },
+                        "preparing": {
+                          "type": "boolean"
+                        },
                         "repos": {
                           "items": {
                             "properties": {
@@ -6136,6 +6139,35 @@
                               },
                               "branch": {
                                 "type": "string"
+                              },
+                              "current_ref": {
+                                "properties": {
+                                  "branch_full_name": {
+                                    "type": "string"
+                                  },
+                                  "branch_name": {
+                                    "type": "string"
+                                  },
+                                  "cache_key": {
+                                    "type": "string"
+                                  },
+                                  "commit_id": {
+                                    "type": "string"
+                                  },
+                                  "display_name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "short_commit_id": {
+                                    "type": "string"
+                                  },
+                                  "subject": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
                               },
                               "dirty": {
                                 "type": "boolean"
@@ -6331,6 +6363,9 @@
                         "files_changed": {
                           "type": "integer"
                         },
+                        "preparing": {
+                          "type": "boolean"
+                        },
                         "removed": {
                           "type": "integer"
                         },
@@ -6352,14 +6387,23 @@
                                     "added": {
                                       "type": "integer"
                                     },
+                                    "old_path": {
+                                      "type": "string"
+                                    },
                                     "path": {
                                       "type": "string"
                                     },
                                     "removed": {
                                       "type": "integer"
                                     },
+                                    "staged": {
+                                      "type": "boolean"
+                                    },
                                     "status": {
                                       "type": "string"
+                                    },
+                                    "unstaged": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "type": "object"
@@ -6496,6 +6540,211 @@
           }
         },
         "summary": "Get project conversation workspace diff summary",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/checkout": {
+      "post": {
+        "operationId": "checkoutProjectConversationWorkspaceBranch",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "create_tracking_branch": {
+                    "description": "Whether the checkout should create a new local tracking branch. This must be true for remote-tracking targets.",
+                    "type": "boolean"
+                  },
+                  "expected_clean_workspace": {
+                    "description": "When true, the server rejects checkout if the repo has uncommitted workspace changes.",
+                    "type": "boolean"
+                  },
+                  "local_branch_name": {
+                    "description": "Optional explicit local branch name to create when switching from a remote-tracking branch.",
+                    "type": "string"
+                  },
+                  "repo_path": {
+                    "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+                    "type": "string"
+                  },
+                  "target_kind": {
+                    "description": "Checkout target kind. Supported values are local_branch and remote_tracking_branch.",
+                    "type": "string"
+                  },
+                  "target_name": {
+                    "description": "Branch name chosen from the refs listing response. Remote-tracking branches use the short remote form such as origin/main.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Switch one project conversation workspace repo to another branch request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "checkout": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "created_local_branch": {
+                          "type": "string"
+                        },
+                        "current_ref": {
+                          "properties": {
+                            "branch_full_name": {
+                              "type": "string"
+                            },
+                            "branch_name": {
+                              "type": "string"
+                            },
+                            "cache_key": {
+                              "type": "string"
+                            },
+                            "commit_id": {
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "short_commit_id": {
+                              "type": "string"
+                            },
+                            "subject": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Switch one project conversation workspace repo to another branch response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Switch one project conversation workspace repo to another branch",
         "tags": [
           "chat"
         ]
@@ -7535,6 +7784,468 @@
         ]
       }
     },
+    "/api/v1/chat/conversations/{conversationId}/workspace/git-graph": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceGitGraph",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional git graph window size. Defaults to 40 commits and is capped at 120.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "git_graph": {
+                      "properties": {
+                        "commits": {
+                          "items": {
+                            "properties": {
+                              "author_name": {
+                                "type": "string"
+                              },
+                              "authored_at": {
+                                "type": "string"
+                              },
+                              "commit_id": {
+                                "type": "string"
+                              },
+                              "head": {
+                                "type": "boolean"
+                              },
+                              "labels": {
+                                "items": {
+                                  "properties": {
+                                    "current": {
+                                      "type": "boolean"
+                                    },
+                                    "full_name": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "scope": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "parent_ids": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "short_commit_id": {
+                                "type": "string"
+                              },
+                              "subject": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project conversation workspace git graph response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get project conversation workspace git graph",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/repo-refs": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceRepoRefs",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "repo_refs": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "current_ref": {
+                          "properties": {
+                            "branch_full_name": {
+                              "type": "string"
+                            },
+                            "branch_name": {
+                              "type": "string"
+                            },
+                            "cache_key": {
+                              "type": "string"
+                            },
+                            "commit_id": {
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "short_commit_id": {
+                              "type": "string"
+                            },
+                            "subject": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "local_branches": {
+                          "items": {
+                            "properties": {
+                              "ahead": {
+                                "type": "integer"
+                              },
+                              "behind": {
+                                "type": "integer"
+                              },
+                              "commit_id": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              },
+                              "full_name": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string"
+                              },
+                              "short_commit_id": {
+                                "type": "string"
+                              },
+                              "subject": {
+                                "type": "string"
+                              },
+                              "suggested_local_branch_name": {
+                                "type": "string"
+                              },
+                              "upstream_name": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "remote_branches": {
+                          "items": {
+                            "properties": {
+                              "ahead": {
+                                "type": "integer"
+                              },
+                              "behind": {
+                                "type": "integer"
+                              },
+                              "commit_id": {
+                                "type": "string"
+                              },
+                              "current": {
+                                "type": "boolean"
+                              },
+                              "full_name": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string"
+                              },
+                              "short_commit_id": {
+                                "type": "string"
+                              },
+                              "subject": {
+                                "type": "string"
+                              },
+                              "suggested_local_branch_name": {
+                                "type": "string"
+                              },
+                              "upstream_name": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project conversation workspace git refs and branch metadata response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get project conversation workspace git refs and branch metadata",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/v1/chat/conversations/{conversationId}/workspace/search": {
       "get": {
         "operationId": "searchProjectConversationWorkspacePaths",
@@ -7744,6 +8455,9 @@
                         "conversation_id": {
                           "type": "string"
                         },
+                        "preparing": {
+                          "type": "boolean"
+                        },
                         "repos": {
                           "items": {
                             "properties": {
@@ -7752,6 +8466,35 @@
                               },
                               "branch": {
                                 "type": "string"
+                              },
+                              "current_ref": {
+                                "properties": {
+                                  "branch_full_name": {
+                                    "type": "string"
+                                  },
+                                  "branch_name": {
+                                    "type": "string"
+                                  },
+                                  "cache_key": {
+                                    "type": "string"
+                                  },
+                                  "commit_id": {
+                                    "type": "string"
+                                  },
+                                  "display_name": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "short_commit_id": {
+                                    "type": "string"
+                                  },
+                                  "subject": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
                               },
                               "dirty": {
                                 "type": "boolean"
@@ -9734,6 +10477,12 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
                         "channel_credential": {
                           "properties": {
                             "certificate_id": {
@@ -9967,6 +10716,12 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
                         "channel_credential": {
                           "properties": {
                             "certificate_id": {
@@ -10181,6 +10936,14 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "agent_cli_paths": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks.",
+                    "nullable": true,
+                    "type": "object"
+                  },
                   "channel_credential": {
                     "description": "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
                     "nullable": true,
@@ -10332,6 +11095,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {
@@ -10567,6 +11336,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {
@@ -10940,6 +11715,230 @@
         ]
       }
     },
+    "/api/v1/machines/{machineId}/ssh-bootstrap": {
+      "post": {
+        "operationId": "sshBootstrapMachine",
+        "parameters": [
+          {
+            "description": "Machine ID.",
+            "in": "path",
+            "name": "machineId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "control_plane_url": {
+                    "description": "Optional control-plane base URL override written into the remote environment file. Defaults to the incoming request URL.",
+                    "type": "string"
+                  },
+                  "listener_address": {
+                    "description": "Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837.",
+                    "type": "string"
+                  },
+                  "listener_bearer_token": {
+                    "description": "Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present.",
+                    "type": "string"
+                  },
+                  "listener_path": {
+                    "description": "Remote websocket listener HTTP path when installing the remote-listener topology. Defaults to /openase/runtime.",
+                    "type": "string"
+                  },
+                  "token_ttl_seconds": {
+                    "description": "Optional TTL in seconds for the freshly issued machine channel token. Defaults to 24 hours.",
+                    "type": "integer"
+                  },
+                  "topology": {
+                    "description": "Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Run the SSH bootstrap helper in-process on the server request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "result": {
+                      "properties": {
+                        "commands": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "connection_target": {
+                          "type": "string"
+                        },
+                        "environment_file": {
+                          "type": "string"
+                        },
+                        "machine_id": {
+                          "type": "string"
+                        },
+                        "machine_name": {
+                          "type": "string"
+                        },
+                        "remote_binary_path": {
+                          "type": "string"
+                        },
+                        "remote_home": {
+                          "type": "string"
+                        },
+                        "retry_advice": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "rollback_advice": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "service_file": {
+                          "type": "string"
+                        },
+                        "service_manager": {
+                          "type": "string"
+                        },
+                        "service_name": {
+                          "type": "string"
+                        },
+                        "service_status": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "token_id": {
+                          "type": "string"
+                        },
+                        "topology": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Run the SSH bootstrap helper in-process on the server response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Run the SSH bootstrap helper in-process on the server",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/v1/machines/{machineId}/test": {
       "post": {
         "operationId": "testMachineConnection",
@@ -10970,6 +11969,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {
@@ -13800,6 +14805,12 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "agent_cli_paths": {
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "type": "object"
+                          },
                           "channel_credential": {
                             "properties": {
                               "certificate_id": {
@@ -14016,6 +15027,13 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "agent_cli_paths": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks.",
+                    "type": "object"
+                  },
                   "channel_credential": {
                     "description": "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
                     "nullable": true,
@@ -14155,6 +15173,12 @@
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "agent_cli_paths": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
                         },
                         "channel_credential": {
                           "properties": {
@@ -22536,6 +23560,21 @@
                               "priority": {
                                 "type": "string"
                               },
+                              "repo_scopes": {
+                                "items": {
+                                  "properties": {
+                                    "branch_name": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "repo_id": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
                               "status": {
                                 "type": "string"
                               },
@@ -22653,8 +23692,57 @@
                     "type": "string"
                   },
                   "ticket_template": {
-                    "additionalProperties": {},
                     "description": "Ticket template used to create a ticket for each scheduled run.",
+                    "properties": {
+                      "budget_usd": {
+                        "description": "Optional budget cap in USD applied to tickets created by this scheduled job.",
+                        "format": "double",
+                        "nullable": true,
+                        "type": "number"
+                      },
+                      "created_by": {
+                        "description": "Optional audit actor recorded on tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "description": "Optional rendered ticket description template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "priority": {
+                        "description": "Ticket priority applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "repo_scopes": {
+                        "description": "Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID attached to tickets created by this scheduled job.",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "description": "Ticket status name applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "Rendered ticket title template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "Ticket type applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      }
+                    },
                     "type": "object"
                   }
                 },
@@ -22710,6 +23798,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"
@@ -33819,6 +34922,126 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/workspace/reset": {
+      "post": {
+        "operationId": "resetProjectTicketWorkspace",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "reset": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Reset a preserved ticket workspace within a project response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Reset a preserved ticket workspace within a project",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}/token-usage": {
       "get": {
         "operationId": "getProjectTokenUsage",
@@ -36323,6 +37546,535 @@
       }
     },
     "/api/v1/providers/{providerId}": {
+      "delete": {
+        "operationId": "deleteAgentProvider",
+        "parameters": [
+          {
+            "description": "Agent provider ID.",
+            "in": "path",
+            "name": "providerId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "provider": {
+                      "properties": {
+                        "adapter_type": {
+                          "type": "string"
+                        },
+                        "auth_config": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "availability_checked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_reason": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "availability_state": {
+                          "type": "string"
+                        },
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "capabilities": {
+                          "properties": {
+                            "ephemeral_chat": {
+                              "properties": {
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "cli_args": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "cli_command": {
+                          "type": "string"
+                        },
+                        "cli_rate_limit": {
+                          "nullable": true,
+                          "properties": {
+                            "claude_code": {
+                              "nullable": true,
+                              "properties": {
+                                "is_using_overage": {
+                                  "nullable": true,
+                                  "type": "boolean"
+                                },
+                                "overage_disabled_reason": {
+                                  "type": "string"
+                                },
+                                "overage_status": {
+                                  "type": "string"
+                                },
+                                "rate_limit_type": {
+                                  "type": "string"
+                                },
+                                "resets_at": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "surpassed_threshold": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
+                                },
+                                "utilization": {
+                                  "format": "double",
+                                  "nullable": true,
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "codex": {
+                              "nullable": true,
+                              "properties": {
+                                "limit_id": {
+                                  "type": "string"
+                                },
+                                "limit_name": {
+                                  "type": "string"
+                                },
+                                "plan_type": {
+                                  "type": "string"
+                                },
+                                "primary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "secondary": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "resets_at": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "used_percent": {
+                                      "format": "double",
+                                      "nullable": true,
+                                      "type": "number"
+                                    },
+                                    "window_minutes": {
+                                      "format": "int64",
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "gemini": {
+                              "nullable": true,
+                              "properties": {
+                                "auth_type": {
+                                  "type": "string"
+                                },
+                                "buckets": {
+                                  "items": {
+                                    "properties": {
+                                      "model_id": {
+                                        "type": "string"
+                                      },
+                                      "remaining_amount": {
+                                        "type": "string"
+                                      },
+                                      "remaining_fraction": {
+                                        "format": "double",
+                                        "nullable": true,
+                                        "type": "number"
+                                      },
+                                      "reset_time": {
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "token_type": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "limit": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "remaining": {
+                                  "format": "int64",
+                                  "nullable": true,
+                                  "type": "integer"
+                                },
+                                "reset_time": {
+                                  "nullable": true,
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "raw": {
+                              "additionalProperties": {},
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "cli_rate_limit_updated_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "cost_per_input_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "cost_per_output_token": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "machine_host": {
+                          "type": "string"
+                        },
+                        "machine_id": {
+                          "type": "string"
+                        },
+                        "machine_name": {
+                          "type": "string"
+                        },
+                        "machine_ssh_user": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "machine_status": {
+                          "type": "string"
+                        },
+                        "machine_workspace_root": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "max_parallel_runs": {
+                          "type": "integer"
+                        },
+                        "model_max_tokens": {
+                          "type": "integer"
+                        },
+                        "model_name": {
+                          "type": "string"
+                        },
+                        "model_temperature": {
+                          "format": "double",
+                          "type": "number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "permission_profile": {
+                          "type": "string"
+                        },
+                        "pricing_config": {
+                          "properties": {
+                            "default_cache_write_window": {
+                              "type": "string"
+                            },
+                            "model_id": {
+                              "type": "string"
+                            },
+                            "notes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "pricing_mode": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "rates": {
+                              "properties": {
+                                "cache_storage_per_token_hour": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_1h_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cache_write_5m_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "cached_input_read_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "input_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                },
+                                "output_per_token": {
+                                  "format": "double",
+                                  "type": "number"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "source_kind": {
+                              "type": "string"
+                            },
+                            "source_url": {
+                              "type": "string"
+                            },
+                            "source_verified_at": {
+                              "type": "string"
+                            },
+                            "tiers": {
+                              "items": {
+                                "properties": {
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "max_prompt_tokens": {
+                                    "format": "int64",
+                                    "type": "integer"
+                                  },
+                                  "rates": {
+                                    "properties": {
+                                      "cache_storage_per_token_hour": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_1h_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cache_write_5m_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "cached_input_read_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "input_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      },
+                                      "output_per_token": {
+                                        "format": "double",
+                                        "type": "number"
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "version": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Delete an agent provider response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Delete an agent provider",
+        "tags": [
+          "catalog"
+        ]
+      },
       "get": {
         "operationId": "getAgentProvider",
         "parameters": [
@@ -37792,9 +39544,58 @@
                     "type": "string"
                   },
                   "ticket_template": {
-                    "additionalProperties": {},
                     "description": "Ticket template used to create a ticket for each scheduled run.",
                     "nullable": true,
+                    "properties": {
+                      "budget_usd": {
+                        "description": "Optional budget cap in USD applied to tickets created by this scheduled job.",
+                        "format": "double",
+                        "nullable": true,
+                        "type": "number"
+                      },
+                      "created_by": {
+                        "description": "Optional audit actor recorded on tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "description": {
+                        "description": "Optional rendered ticket description template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "priority": {
+                        "description": "Ticket priority applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "repo_scopes": {
+                        "description": "Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope.",
+                        "items": {
+                          "properties": {
+                            "branch_name": {
+                              "description": "Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation.",
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "repo_id": {
+                              "description": "Repository ID attached to tickets created by this scheduled job.",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "status": {
+                        "description": "Ticket status name applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "Rendered ticket title template for each scheduled run.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "Ticket type applied to tickets created by this scheduled job.",
+                        "type": "string"
+                      }
+                    },
                     "type": "object"
                   }
                 },
@@ -37850,6 +39651,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"
@@ -38012,6 +39828,21 @@
                             },
                             "priority": {
                               "type": "string"
+                            },
+                            "repo_scopes": {
+                              "items": {
+                                "properties": {
+                                  "branch_name": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "repo_id": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
                             },
                             "status": {
                               "type": "string"

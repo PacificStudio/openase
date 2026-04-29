@@ -90,7 +90,7 @@ var (
 )
 
 func newAPICommand() *cobra.Command {
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	var options apiCommandOptions
 	var output apiOutputOptions
 	var headers []string
@@ -308,7 +308,7 @@ func newAuthCommand(options *rootOptions) *cobra.Command {
 }
 
 func newAuthLogoutCommand() *cobra.Command {
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	var output apiOutputOptions
 	command := &cobra.Command{
 		Use:   "logout",
@@ -1158,7 +1158,7 @@ machine inspection with ` + "`openase machine list --project-id $OPENASE_PROJECT
   openase project current --project-id $OPENASE_PROJECT_ID --json project.organization_id
 `),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
@@ -1168,7 +1168,7 @@ machine inspection with ` + "`openase machine list --project-id $OPENASE_PROJECT
 				return fmt.Errorf("project id is required via --project-id or OPENASE_PROJECT_ID")
 			}
 
-			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiRequest{
 				Method: http.MethodGet,
 				Path:   "projects/" + urlPathEscape(resolvedProjectID),
 			})
@@ -1223,14 +1223,14 @@ When project context is used, the CLI fetches the project first and derives orga
 `),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
 
 			resolvedOrgID, err := resolveOrganizationIDForMachineCommand(
 				cmd.Context(),
-				apiCommandDeps{httpClient: http.DefaultClient},
+				apiCommandDeps{httpClient: defaultCLIHTTPDoer()},
 				apiContext,
 				firstNonEmpty(firstArg(args), orgID, os.Getenv("OPENASE_ORG_ID")),
 				firstNonEmpty(projectID, os.Getenv("OPENASE_PROJECT_ID")),
@@ -1239,7 +1239,7 @@ When project context is used, the CLI fetches the project first and derives orga
 				return err
 			}
 
-			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiRequest{
 				Method: http.MethodGet,
 				Path:   "orgs/" + urlPathEscape(resolvedOrgID) + "/machines",
 			})
@@ -1289,14 +1289,14 @@ Use Ctrl-C to stop the stream when running interactively.
 `),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
 
 			resolvedOrgID, err := resolveOrganizationIDForMachineCommand(
 				cmd.Context(),
-				apiCommandDeps{httpClient: http.DefaultClient},
+				apiCommandDeps{httpClient: defaultCLIHTTPDoer()},
 				apiContext,
 				firstNonEmpty(firstArg(args), orgID, os.Getenv("OPENASE_ORG_ID")),
 				firstNonEmpty(projectID, os.Getenv("OPENASE_PROJECT_ID")),
@@ -1305,7 +1305,7 @@ Use Ctrl-C to stop the stream when running interactively.
 				return err
 			}
 
-			return apiContext.stream(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiStreamRequest{
+			return apiContext.stream(cmd.Context(), apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiStreamRequest{
 				Method: http.MethodGet,
 				Path:   "orgs/" + urlPathEscape(resolvedOrgID) + "/machines/stream",
 			}, cmd.OutOrStdout())
@@ -1400,6 +1400,7 @@ func newProviderCommand() *cobra.Command {
 	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a provider.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [providerId]", Short: "Update a provider.", Method: http.MethodPatch, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [providerId]", Short: "Delete a provider.", Method: http.MethodDelete, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}}))
 	return command
 }
 
@@ -1535,7 +1536,7 @@ func newStreamNamespaceCommand(use string, short string) *cobra.Command {
 
 func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	command := &cobra.Command{
 		Use:     spec.Use,
 		Short:   contract.summary,
@@ -1554,7 +1555,7 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 
 func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	var fields []string
 	var inputPath string
 	command := &cobra.Command{
@@ -1564,7 +1565,7 @@ func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 		Example: strings.TrimSpace(spec.Example),
 		Args:    cobra.MaximumNArgs(len(spec.PositionalParams)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(spec.Method, spec.Path)
 			if err != nil {
 				return err
 			}
@@ -1622,7 +1623,7 @@ func buildOpenAPIOperationHelp(spec openAPICommandSpec, summary string) string {
 
 func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 	contract := mustOpenAPICommandContract(spec)
-	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	deps := apiCommandDeps{httpClient: defaultCLIHTTPDoer()}
 	command := &cobra.Command{
 		Use:     spec.Use,
 		Short:   contract.summary,
@@ -1665,7 +1666,7 @@ func buildOpenAPIStreamHelp(spec openAPICommandSpec, summary string) string {
 }
 
 func runOpenAPIOperationCommand(cmd *cobra.Command, deps apiCommandDeps, contract openAPICommandContract, args []string) error {
-	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(contract.spec.Method, contract.spec.Path)
 	if err != nil {
 		return err
 	}
@@ -1689,7 +1690,7 @@ func runOpenAPIOperationCommand(cmd *cobra.Command, deps apiCommandDeps, contrac
 }
 
 func runOpenAPIStreamCommand(cmd *cobra.Command, deps apiCommandDeps, contract openAPICommandContract, args []string) error {
-	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveForOperation(contract.spec.Method, contract.spec.Path)
 	if err != nil {
 		return err
 	}
@@ -2412,6 +2413,7 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "get [providerId]", Short: "Get a provider.", Method: http.MethodGet, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
 		{Use: "create [orgId]", Short: "Create a provider.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/providers", PositionalParams: []string{"orgId"}},
 		{Use: "update [providerId]", Short: "Update a provider.", Method: http.MethodPatch, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
+		{Use: "delete [providerId]", Short: "Delete a provider.", Method: http.MethodDelete, Path: "/api/v1/providers/{providerId}", PositionalParams: []string{"providerId"}},
 		{Use: "list [projectId]", Short: "List agents.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}},
 		{Use: "get [agentId]", Short: "Get an agent.", Method: http.MethodGet, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}},
 		{Use: "create [projectId]", Short: "Create an agent.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}},

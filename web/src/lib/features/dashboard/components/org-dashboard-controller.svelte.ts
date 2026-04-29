@@ -8,10 +8,10 @@ import {
   updateProject,
 } from '$lib/api/openase'
 import {
+  createProjectReconnectRecoveryTask,
   isProjectDashboardRefreshEvent,
   readProjectDashboardRefreshSections,
   subscribeProjectEvents,
-  type ProjectDashboardRefreshSection,
 } from '$lib/features/project-events'
 import {
   markProjectOnboardingCompleted,
@@ -21,6 +21,13 @@ import { createProjectUpdatesController } from '$lib/features/project-updates'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
 import {
+  type DashboardSection,
+  emptyDashboardStats,
+  mergeDashboardSections,
+  systemDashboardRefreshIntervalMs,
+  toAdvisorSnapshot,
+} from './org-dashboard-controller-helpers'
+import {
   buildActivityItems,
   buildDashboardStats,
   buildExceptionItems,
@@ -29,47 +36,6 @@ import {
 import { createOrgDashboardControllerApi } from './org-dashboard-controller-api'
 import { loadOrganizationDashboardSummary } from '../organization-summary'
 import type { DashboardStats, HRAdvisorSnapshot, MemorySnapshot, ProjectStatus } from '../types'
-
-const systemDashboardRefreshIntervalMs = 10_000
-const emptyDashboardStats: DashboardStats = {
-  runningAgents: 0,
-  activeTickets: 0,
-  totalTickets: 0,
-  pendingApprovals: 0,
-  ticketSpendToday: 0,
-  ticketSpendTotal: 0,
-  ticketsCreatedToday: 0,
-  ticketsCompletedToday: 0,
-  ticketInputTokens: 0,
-  ticketOutputTokens: 0,
-  agentLifetimeTokens: 0,
-  avgCycleMinutes: 0,
-  prMergeRate: 0,
-}
-
-type DashboardSection = ProjectDashboardRefreshSection | 'memory'
-
-function mergeDashboardSections(
-  current: DashboardSection[],
-  incoming: Iterable<DashboardSection>,
-): DashboardSection[] {
-  const merged = [...current]
-  for (const section of incoming) {
-    if (!merged.includes(section)) merged.push(section)
-  }
-  return merged
-}
-
-const toAdvisorSnapshot = (
-  payload: Awaited<ReturnType<typeof getHRAdvisor>> | null,
-): HRAdvisorSnapshot | null =>
-  payload
-    ? {
-        summary: payload.summary,
-        staffing: payload.staffing,
-        recommendations: payload.recommendations,
-      }
-    : null
 
 export function createOrgDashboardController() {
   let loading = $state(false)
@@ -269,11 +235,26 @@ export function createOrgDashboardController() {
       true,
     )
 
-    const unsubscribeDashboard = subscribeProjectEvents(projectId, (event) => {
-      if (!isProjectDashboardRefreshEvent(event)) return
-      const sections = readProjectDashboardRefreshSections(event)
-      if (sections.length > 0) queueLoad(sections)
-    })
+    const unsubscribeDashboard = subscribeProjectEvents(
+      projectId,
+      (event) => {
+        if (!isProjectDashboardRefreshEvent(event)) return
+        const sections = readProjectDashboardRefreshSections(event)
+        if (sections.length > 0) queueLoad(sections)
+      },
+      {
+        onReconnectRecovery: createProjectReconnectRecoveryTask(() => {
+          queueLoad([
+            'agents',
+            'tickets',
+            'activity',
+            'memory',
+            'hr_advisor',
+            'organization_summary',
+          ])
+        }),
+      },
+    )
 
     const memoryInterval = window.setInterval(() => {
       queueLoad(['memory'])

@@ -9,10 +9,13 @@ LINT_SCRIPT := ./scripts/ci/lint.sh
 OPENASE_MAIN := ./cmd/openase
 OPENASE_BIN := ./bin/openase
 VERSION ?= dev
+FRONTEND_NODE_BIN_DIR ?= $(shell for bin in $$(ls -d "$$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -Vr); do if [ -x "$$bin/node" ] && "$$bin/node" -e 'const [maj, min] = process.versions.node.split(".").map(Number); process.exit((maj >= 24) || (maj === 22 && min >= 12) || (maj === 20 && min >= 19) ? 0 : 1)'; then printf '%s' "$$bin"; break; fi; done)
+WEB_BUILD_MAX_OLD_SPACE_SIZE ?= 4096
+FRONTEND_PNPM = PATH="$$PATH"; if [ -n "$(FRONTEND_NODE_BIN_DIR)" ]; then PATH="$(FRONTEND_NODE_BIN_DIR):$$PATH"; fi; export PATH; $(PNPM)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test test-backend-coverage remote-runtime-container check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build desktop-install desktop-install-browsers desktop-test desktop-build desktop-package desktop-package-smoke desktop-validate build build-web run doctor lint lint-all lint-depguard lint-architecture
+.PHONY: help format fmt-check test test-backend-coverage installer-test installer-smoke install-matrix-smoke remote-runtime-container check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build desktop-install desktop-install-browsers desktop-test desktop-build desktop-package desktop-package-smoke desktop-validate build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -21,6 +24,9 @@ help:
 		'  make fmt-check     Fail if tracked Go files need gofmt' \
 		'  make test          Run the Go test suite' \
 		'  make test-backend-coverage Run full backend tests plus domain/core 100% coverage gate (set OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true for optional overall 75%+ metric)' \
+		'  make installer-test Run the hermetic installer integration tests' \
+		'  make installer-smoke Run the release-installer smoke test' \
+		'  make install-matrix-smoke Run one install-path/database smoke case (set INSTALL_PATH and PG_MODE)' \
 		'  make remote-runtime-container Run the local-only docker compose harness for websocket runtime and SSH helper validation' \
 		'  make check         Run Go formatting and enforced backend coverage checks' \
 		'  make hooks-install Install Git hooks via lefthook' \
@@ -75,6 +81,17 @@ test:
 
 test-backend-coverage:
 	./scripts/ci/backend_coverage.sh
+
+installer-test:
+	python3 ./scripts/ci/test_installer.py
+
+installer-smoke:
+	./scripts/ci/installer_smoke.sh
+
+install-matrix-smoke:
+	@: $${INSTALL_PATH:?set INSTALL_PATH=installer_script|source_build|release_binary}
+	@: $${PG_MODE:?set PG_MODE=docker|system}
+	./scripts/ci/install_matrix_smoke.sh --install-path "$$INSTALL_PATH" --pg-mode "$$PG_MODE"
 
 remote-runtime-container:
 	./scripts/ci/remote_runtime_container_harness.sh $(REMOTE_RUNTIME_CASES)
@@ -139,42 +156,42 @@ frontend-api-audit-check:
 		--fail-on wrapped_but_unused
 
 web-install:
-	$(PNPM) --dir $(WEB_DIR) install --frozen-lockfile --reporter=append-only
+	$(FRONTEND_PNPM) --dir $(WEB_DIR) install --frozen-lockfile --reporter=append-only
 
 web-lint: web-install
-	$(PNPM) --dir $(WEB_DIR) run lint
+	$(FRONTEND_PNPM) --dir $(WEB_DIR) run lint
 
 web-format-check: web-install
-	$(PNPM) --dir $(WEB_DIR) run format:check
+	$(FRONTEND_PNPM) --dir $(WEB_DIR) run format:check
 
 web-check: web-install
-	$(PNPM) --dir $(WEB_DIR) run check
+	$(FRONTEND_PNPM) --dir $(WEB_DIR) run check
 
 web-validate: web-format-check web-lint web-check
 
 web-build: web-install
-	$(PNPM) --dir $(WEB_DIR) run build
+	PATH="$$PATH"; if [ -n "$(FRONTEND_NODE_BIN_DIR)" ]; then PATH="$(FRONTEND_NODE_BIN_DIR):$$PATH"; fi; export PATH; NODE_OPTIONS="$${NODE_OPTIONS:+$$NODE_OPTIONS }--max-old-space-size=$(WEB_BUILD_MAX_OLD_SPACE_SIZE)" $(PNPM) --dir $(WEB_DIR) run build
 
 desktop-install:
-	$(PNPM) --dir $(DESKTOP_DIR) install --frozen-lockfile --reporter=append-only
+	$(FRONTEND_PNPM) --dir $(DESKTOP_DIR) install --frozen-lockfile --reporter=append-only
 
 desktop-install-browsers: desktop-install
-	$(PNPM) --dir $(DESKTOP_DIR) exec playwright install chromium
+	$(FRONTEND_PNPM) --dir $(DESKTOP_DIR) exec playwright install chromium
 
 desktop-test: desktop-install
-	$(PNPM) --dir $(DESKTOP_DIR) run test:unit
+	$(FRONTEND_PNPM) --dir $(DESKTOP_DIR) run test:unit
 
 desktop-build: desktop-install
-	$(PNPM) --dir $(DESKTOP_DIR) run build
+	$(FRONTEND_PNPM) --dir $(DESKTOP_DIR) run build
 
 desktop-package: desktop-install
-	$(PNPM) --dir $(DESKTOP_DIR) run package
+	$(FRONTEND_PNPM) --dir $(DESKTOP_DIR) run package
 
 desktop-package-smoke: desktop-install
-	$(PNPM) --dir $(DESKTOP_DIR) run package:smoke
+	$(FRONTEND_PNPM) --dir $(DESKTOP_DIR) run package:smoke
 
 desktop-validate: desktop-install
-	$(PNPM) --dir $(DESKTOP_DIR) run validate
+	$(FRONTEND_PNPM) --dir $(DESKTOP_DIR) run validate
 
 build:
 	@mkdir -p $(dir $(OPENASE_BIN))

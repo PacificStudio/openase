@@ -1,5 +1,7 @@
 import { appStore } from '$lib/stores/app.svelte'
 
+/* i18n-exempt: fixture payloads describe test resources rather than user-facing UI copy. */
+
 export const agentPayload = {
   agents: [
     {
@@ -34,8 +36,8 @@ export const ticketPayload = {
       id: 'ticket-1',
       identifier: 'ASE-101',
       project_id: 'project-1',
-      title: 'Fix dashboard refresh',
-      description: 'Investigate project dashboard traffic.',
+      title: 'Fix dashboard refresh', // i18n-exempt fixture title
+      description: 'Investigate project dashboard traffic.', // i18n-exempt fixture description
       status_id: 'status-1',
       status_name: 'In Progress',
       priority: 'high',
@@ -69,7 +71,7 @@ export const activityPayload = {
       ticket_id: 'ticket-1',
       agent_id: 'agent-1',
       event_type: 'ticket.updated',
-      message: 'Updated ticket ASE-101',
+      message: 'Updated ticket ASE-101', // i18n-exempt fixture activity message
       metadata: { agent_name: 'Coding Agent' },
       created_at: '2026-04-02T10:00:00Z',
     },
@@ -152,7 +154,7 @@ export function seedOrgDashboardStore() {
     organization_id: 'org-1',
     name: 'Project One',
     slug: 'project-one',
-    description: 'Project dashboard',
+    description: 'Project dashboard', // i18n-exempt fixture project description
     status: 'In Progress',
     default_agent_provider_id: 'provider-1',
     max_concurrent_agents: 1,

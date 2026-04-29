@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import type { ProviderReasoningCapability } from '../types'
@@ -22,7 +23,7 @@
 </script>
 
 <div class="space-y-2">
-  <Label>Reasoning preset</Label>
+  <Label>{i18nStore.t('agents.providerReasoning.label')}</Label>
   {#if capability?.state === 'available'}
     <Select.Root
       type="single"
@@ -34,14 +35,16 @@
         {#if selectedEffort.trim()}
           {formatReasoningEffortLabel(selectedEffort.trim())}
         {:else if capability.defaultEffort}
-          Model default ({formatReasoningEffortLabel(capability.defaultEffort)})
+          {i18nStore.t('agents.providerReasoning.modelDefault', {
+            effort: formatReasoningEffortLabel(capability.defaultEffort),
+          })}
         {:else}
-          Use model default
+          {i18nStore.t('agents.providerReasoning.useModelDefault')}
         {/if}
       </Select.Trigger>
       <Select.Content>
         <Select.Item value={providerDefaultReasoningValue}>
-          Use model default
+          {i18nStore.t('agents.providerReasoning.useModelDefault')}
           {#if capability.defaultEffort}
             ({formatReasoningEffortLabel(capability.defaultEffort)})
           {/if}
@@ -56,7 +59,9 @@
     </p>
     {#if effectiveEffort}
       <p class="text-muted-foreground text-xs">
-        Effective effort: {formatReasoningEffortLabel(effectiveEffort)}.
+        {i18nStore.t('agents.providerReasoning.effectiveEffort', {
+          effort: formatReasoningEffortLabel(effectiveEffort),
+        })}
       </p>
     {/if}
   {:else}

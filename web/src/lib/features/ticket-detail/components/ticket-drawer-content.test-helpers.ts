@@ -93,8 +93,8 @@ export const statusesFixture: TicketStatusOption[] = [
 export const ticketFixture: TicketDetail = {
   id: 'ticket-1',
   identifier: 'ASE-470',
-  title: 'Replace Ticket AI with ticket-focused Project AI',
-  description: 'Route ticket drawer AI through the durable project conversation runtime.',
+  title: 'Replace Ticket AI with ticket-focused Project AI', // i18n-exempt fixture title
+  description: 'Route ticket drawer AI through the durable project conversation runtime.', // i18n-exempt fixture description
   status: statusesFixture[0],
   priority: 'high',
   type: 'feature',
@@ -136,7 +136,7 @@ export const ticketFixture: TicketDetail = {
       id: 'dep-1',
       targetId: 'ticket-2',
       identifier: 'ASE-100',
-      title: 'Finish durable conversation restore',
+      title: 'Finish durable conversation restore', // i18n-exempt fixture title
       relation: 'blocked_by',
       stage: 'started',
     },
@@ -169,7 +169,7 @@ export const timelineFixture: TicketTimelineItem[] = [
     isCollapsible: true,
     isDeleted: false,
     eventType: 'ticket.retry_paused',
-    title: 'ticket.retry_paused',
+    title: 'ticket.retry_paused', // i18n-exempt fixture event key
     bodyText: 'Paused retries after repeated failures.',
     metadata: {},
   },

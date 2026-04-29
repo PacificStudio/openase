@@ -1,9 +1,10 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { formatRelativeTime } from '$lib/utils'
+  import { formatMachineRelativeTime } from '../machine-i18n'
   import { RefreshCw } from '@lucide/svelte'
   import {
+    detectedPlatformFromSnapshot,
     machineDetectedArchLabel,
     machineDetectedOSLabel,
     machineDetectionBadgeClass,
@@ -12,6 +13,7 @@
   } from '../model'
   import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineItem, MachineSnapshot } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     machine,
@@ -28,18 +30,25 @@
   } = $props()
 
   const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
+  const detectedPlatform = $derived(detectedPlatformFromSnapshot(snapshot))
 </script>
 
 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
   <div class="min-w-0 space-y-3">
-    <h3 class="text-foreground text-sm font-semibold">Health snapshot</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {i18nStore.t('machines.machineHealthHeader.heading')}
+    </h3>
     <p class="text-muted-foreground mt-1 text-xs">
       {#if snapshot?.checkedAt}
-        Snapshot collected {formatRelativeTime(snapshot.checkedAt)} and reflects detected machine state.
+        {i18nStore.t('machines.machineHealthHeader.messages.snapshotCollected', {
+          time: formatMachineRelativeTime(snapshot.checkedAt),
+        })}
       {:else if machine?.last_heartbeat_at}
-        Last heartbeat {formatRelativeTime(machine.last_heartbeat_at)}.
+        {i18nStore.t('machines.machineHealthHeader.messages.lastHeartbeat', {
+          time: formatMachineRelativeTime(machine.last_heartbeat_at),
+        })}
       {:else}
-        No heartbeat has been recorded yet.
+        {i18nStore.t('machines.machineHealthHeader.messages.noHeartbeat')}
       {/if}
     </p>
 
@@ -48,8 +57,12 @@
         <Badge variant="outline">{machineReachabilityLabel(machine.reachability_mode)}</Badge>
         <Badge variant="outline">{setupGuide.runtimeLabel}</Badge>
         <Badge variant="outline">{setupGuide.helperLabel}</Badge>
-        <Badge variant="secondary">{machineDetectedOSLabel(machine.detected_os)}</Badge>
-        <Badge variant="secondary">{machineDetectedArchLabel(machine.detected_arch)}</Badge>
+        <Badge variant="secondary"
+          >{machineDetectedOSLabel(machine.detected_os ?? detectedPlatform.os)}</Badge
+        >
+        <Badge variant="secondary"
+          >{machineDetectedArchLabel(machine.detected_arch ?? detectedPlatform.arch)}</Badge
+        >
         <Badge variant="outline" class={machineDetectionBadgeClass(machine.detection_status)}>
           {machineDetectionStatusLabel(machine.detection_status)}
         </Badge>
@@ -69,7 +82,11 @@
   </div>
   <div class="flex items-center gap-2">
     {#if loading || refreshing}
-      <Badge variant="outline">{refreshing ? 'Running checks…' : 'Refreshing…'}</Badge>
+      <Badge variant="outline">
+        {refreshing
+          ? i18nStore.t('machines.machineHealthHeader.badge.runningChecks')
+          : i18nStore.t('machines.machineHealthHeader.badge.refreshing')}
+      </Badge>
     {/if}
     <Button
       variant="outline"
@@ -79,7 +96,9 @@
       disabled={loading || refreshing}
     >
       <RefreshCw class="size-3.5" />
-      {refreshing ? 'Running checks…' : 'Run checks'}
+      {refreshing
+        ? i18nStore.t('machines.machineHealthHeader.badge.runningChecks')
+        : i18nStore.t('machines.machineHealthHeader.action.runChecks')}
     </Button>
   </div>
 </div>

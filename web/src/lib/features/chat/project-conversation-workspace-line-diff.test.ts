@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { computeDraftLineDiff } from './project-conversation-workspace-line-diff'
+import {
+  computeDraftLineDiff,
+  computePatchLineDiff,
+  isWorkspaceFileLineDiffEmpty,
+} from './project-conversation-workspace-line-diff'
 
 describe('computeDraftLineDiff', () => {
   it('returns empty markers when the draft matches the saved file', () => {
@@ -39,5 +43,56 @@ describe('computeDraftLineDiff', () => {
       deletionAbove: [],
       deletionAtEnd: true,
     })
+  })
+
+  it('marks modified and deleted lines from a saved workspace patch', () => {
+    expect(
+      computePatchLineDiff({
+        status: 'modified',
+        diffKind: 'text',
+        diff: '@@ -1,3 +1,3 @@\n line one\n-line two\n+line two changed\n line three\n',
+        content: 'line one\nline two changed\nline three\n',
+      }),
+    ).toEqual({
+      added: [],
+      modified: [2],
+      deletionAbove: [],
+      deletionAtEnd: false,
+    })
+  })
+
+  it('marks all lines as added for newly created files', () => {
+    expect(
+      computePatchLineDiff({
+        status: 'added',
+        diffKind: 'text',
+        diff: '@@ -0,0 +1,2 @@\n+alpha\n+beta\n',
+        content: 'alpha\nbeta\n',
+      }),
+    ).toEqual({
+      added: [1, 2, 3],
+      modified: [],
+      deletionAbove: [],
+      deletionAtEnd: false,
+    })
+  })
+
+  it('detects when line diff markers are empty', () => {
+    expect(
+      isWorkspaceFileLineDiffEmpty({
+        added: [],
+        modified: [],
+        deletionAbove: [],
+        deletionAtEnd: false,
+      }),
+    ).toBe(true)
+    expect(
+      isWorkspaceFileLineDiffEmpty({
+        added: [],
+        modified: [2],
+        deletionAbove: [],
+        deletionAtEnd: false,
+      }),
+    ).toBe(false)
   })
 })
