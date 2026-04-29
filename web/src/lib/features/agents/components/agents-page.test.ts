@@ -21,9 +21,10 @@ vi.mock('$lib/api/sse', () => ({
 
 vi.mock('$lib/features/project-events', () => ({
   createProjectReconnectRecoveryTask: vi.fn(
-    (recover: (recovery: { sequence: number }) => Promise<void> | void) => (recovery: { sequence: number }) => {
-      void recover(recovery)
-    },
+    (recover: (recovery: { sequence: number }) => Promise<void> | void) =>
+      (recovery: { sequence: number }) => {
+        void recover(recovery)
+      },
   ),
   isProjectDashboardRefreshEvent: vi.fn(() => false),
   readProjectDashboardRefreshSections: vi.fn(() => []),
