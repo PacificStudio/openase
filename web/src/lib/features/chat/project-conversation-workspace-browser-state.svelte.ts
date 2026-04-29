@@ -1,16 +1,8 @@
-import {
-  type ProjectConversationWorkspaceDiff,
-  type ProjectConversationWorkspaceGitGraph,
-  type ProjectConversationWorkspaceMetadata,
-  type ProjectConversationWorkspaceRepoRefs,
-} from '$lib/api/chat'
+import { type ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 import { buildProjectConversationWorkspaceBrowserStateView } from './workspace-browser-state-view'
-import {
-  readWorkspaceAutosavePreference,
-  storeWorkspaceAutosavePreference,
-} from './workspace-browser-autosave'
 import { createWorkspaceBrowserTreeState } from './workspace-browser-tree-state.svelte'
 import { createWorkspaceBrowserTabs } from './workspace-browser-tabs.svelte'
+import { createWorkspaceBrowserSessionState } from './workspace-browser-session-state.svelte'
 import { createWorkspaceFileEditorStore } from './project-conversation-workspace-file-editor-state.svelte'
 import { createWorkspaceBrowserActions } from './project-conversation-workspace-browser-actions'
 import { createWorkspaceBrowserLoaders } from './project-conversation-workspace-browser-loaders'
@@ -20,7 +12,6 @@ import {
   workspaceSelectedChangedFiles,
 } from './project-conversation-workspace-browser-file-ops'
 import {
-  areWorkspaceMetadataEqual,
   workspaceTabKey,
   type WorkspaceRecentFile,
   type WorkspaceTab,
@@ -37,20 +28,9 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   getWorkspaceDiff?: () => ProjectConversationWorkspaceDiff | null
   onWorkspaceDiffUpdated?: (workspaceDiff: ProjectConversationWorkspaceDiff | null) => void
 }) {
-  let metadata = $state<ProjectConversationWorkspaceMetadata | null>(null)
-  let metadataLoading = $state(false)
-  let metadataError = $state('')
+  const session = createWorkspaceBrowserSessionState()
   const tree = createWorkspaceBrowserTreeState()
-  let autosaveEnabled = $state(readWorkspaceAutosavePreference())
   let loadRequestID = 0
-  let repoRefs = $state<ProjectConversationWorkspaceRepoRefs | null>(null)
-  let repoRefsLoading = $state(false)
-  let repoRefsError = $state('')
-  let gitGraph = $state<ProjectConversationWorkspaceGitGraph | null>(null)
-  let gitGraphLoading = $state(false)
-  let gitGraphError = $state('')
-  let selectedGitCommitID = $state('')
-  let detailMode = $state<'file' | 'git_graph'>('file')
 
   function loadFile(repoPath: string, filePath: string, options: { silent?: boolean } = {}) {
     return loadWorkspaceFile(
@@ -80,12 +60,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   function getActiveTabFileState(): WorkspaceTabFileState {
     return tabs.getActiveTabFileState()
   }
+
   function currentWorkspaceDiff() {
     return input.getWorkspaceDiff?.() ?? null
   }
-  function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
-    if (!areWorkspaceMetadataEqual(metadata, nextMetadata)) metadata = nextMetadata
-  }
+
   const {
     refreshWorkspaceDiff,
     refreshRepoGitContext,
@@ -104,42 +83,20 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     getTreeNodes: () => tree.treeNodes,
     getExpandedDirs: () => tree.expandedDirs,
     getOpenTabs: () => tabs.openTabs,
-    setMetadataLoading: (loading) => {
-      metadataLoading = loading
-    },
-    setMetadataError: (error) => {
-      metadataError = error
-    },
-    setMetadata,
-    clearMetadata: () => {
-      metadata = null
-    },
-    resetTreeState: () => {
-      tree.reset()
-    },
+    setMetadataLoading: session.setMetadataLoading,
+    setMetadataError: session.setMetadataError,
+    setMetadata: session.setMetadata,
+    clearMetadata: session.clearMetadata,
+    resetTreeState: tree.reset,
     closeAllTabs: tabs.closeAllTabs,
-    setRepoRefsLoading: (loading) => {
-      repoRefsLoading = loading
-    },
-    setRepoRefsError: (error) => {
-      repoRefsError = error
-    },
-    setRepoRefs: (value) => {
-      repoRefs = value
-    },
-    setGitGraphLoading: (loading) => {
-      gitGraphLoading = loading
-    },
-    setGitGraphError: (error) => {
-      gitGraphError = error
-    },
-    setGitGraph: (value) => {
-      gitGraph = value
-    },
-    getSelectedGitCommitID: () => selectedGitCommitID,
-    setSelectedGitCommitID: (commitId) => {
-      selectedGitCommitID = commitId
-    },
+    setRepoRefsLoading: session.setRepoRefsLoading,
+    setRepoRefsError: session.setRepoRefsError,
+    setRepoRefs: session.setRepoRefs,
+    setGitGraphLoading: session.setGitGraphLoading,
+    setGitGraphError: session.setGitGraphError,
+    setGitGraph: session.setGitGraph,
+    getSelectedGitCommitID: () => session.selectedGitCommitID,
+    setSelectedGitCommitID: session.setSelectedGitCommitID,
     setDirLoading: tree.setDirLoading,
     setTreeEntries: tree.setTreeEntries,
     setDirExpanded: tree.setDirExpanded,
@@ -150,7 +107,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     getSelectedRepoPath: () => getActiveTab()?.repoPath ?? '',
     getSelectedFilePath: () => getActiveTab()?.filePath ?? '',
     getRepoRefCacheKey: (repoPath) =>
-      metadata?.repos.find((repo) => repo.path === repoPath)?.currentRef.cacheKey ?? '',
+      session.metadata?.repos.find((repo) => repo.path === repoPath)?.currentRef.cacheKey ?? '',
     getPreview: (repoPath, filePath) => {
       const key = workspaceTabKey({ repoPath, filePath })
       return tabs.tabFileStates.get(key)?.preview ?? null
@@ -163,31 +120,22 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       if (repoPath && filePath) await loadFile(repoPath, filePath, { silent: true })
     },
     refreshWorkspaceDiff,
-    getAutosaveEnabled: () => autosaveEnabled,
+    getAutosaveEnabled: () => session.autosaveEnabled,
   })
 
   function reset() {
-    metadata = null
-    metadataLoading = false
-    metadataError = ''
     tree.reset()
     tabs.resetSelection()
-    repoRefs = null
-    repoRefsLoading = false
-    repoRefsError = ''
-    gitGraph = null
-    gitGraphLoading = false
-    gitGraphError = ''
-    selectedGitCommitID = ''
-    detailMode = 'file'
+    session.reset()
     editorStore.reset()
   }
+
   const workspaceActions = createWorkspaceBrowserActions({
     getConversationId: input.getConversationId,
     currentWorkspaceDiff,
-    getMetadata: () => metadata,
-    setMetadata,
-    getRepoRefs: () => repoRefs,
+    getMetadata: () => session.metadata,
+    setMetadata: session.setMetadata,
+    getRepoRefs: () => session.repoRefs,
     getTreeRepoPath: () => tabs.treeRepoPath,
     setTreeRepoPath: tabs.setTreeRepoPath,
     resetTree: tree.reset,
@@ -195,9 +143,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     getActiveFilePath: () => tabs.activeFilePath(tabs.treeRepoPath),
     getActiveTabKey: () => tabs.activeTabKey,
     reserveRequestID: () => ++loadRequestID,
-    setDetailMode: (mode) => {
-      detailMode = mode
-    },
+    setDetailMode: session.setDetailMode,
     revealFileInTree,
     refreshRepoGitContext,
     refreshRepoGitContextAfterCheckout: async (repoPath) => {
@@ -226,17 +172,15 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     selectPreviousChangedFile,
     reviewPatch,
   } = workspaceActions
-  function setAutosaveEnabled(enabled: boolean) {
-    autosaveEnabled = enabled
-    storeWorkspaceAutosavePreference(enabled)
-  }
+
   function activeFilePath() {
     return tabs.activeFilePath(tabs.treeRepoPath)
   }
+
   return buildProjectConversationWorkspaceBrowserStateView({
-    getMetadata: () => metadata,
-    getMetadataLoading: () => metadataLoading,
-    getMetadataError: () => metadataError,
+    getMetadata: () => session.metadata,
+    getMetadataLoading: () => session.metadataLoading,
+    getMetadataError: () => session.metadataError,
     getTreeNodes: () => tree.treeNodes,
     getExpandedDirs: () => tree.expandedDirs,
     getLoadingDirs: () => tree.loadingDirs,
@@ -244,16 +188,17 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     getActiveTabKey: () => tabs.activeTabKey,
     getTabFileStates: () => tabs.tabFileStates,
     getRecentFiles: () => tabs.recentFiles,
-    getAutosaveEnabled: () => autosaveEnabled,
-    getDetailMode: () => detailMode,
-    getRepoRefs: () => repoRefs,
-    getRepoRefsLoading: () => repoRefsLoading,
-    getRepoRefsError: () => repoRefsError,
-    getGitGraph: () => gitGraph,
-    getGitGraphLoading: () => gitGraphLoading,
-    getGitGraphError: () => gitGraphError,
+    getAutosaveEnabled: () => session.autosaveEnabled,
+    getDetailMode: () => session.detailMode,
+    getRepoRefs: () => session.repoRefs,
+    getRepoRefsLoading: () => session.repoRefsLoading,
+    getRepoRefsError: () => session.repoRefsError,
+    getGitGraph: () => session.gitGraph,
+    getGitGraphLoading: () => session.gitGraphLoading,
+    getGitGraphError: () => session.gitGraphError,
     getSelectedGitCommit: () =>
-      gitGraph?.commits.find((commit) => commit.commitId === selectedGitCommitID) ?? null,
+      session.gitGraph?.commits.find((commit) => commit.commitId === session.selectedGitCommitID) ??
+      null,
     getHasDirtyTabs: () =>
       tabs.openTabs.some(
         (tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true,
@@ -287,11 +232,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     toggleDir,
     openRepo,
     selectFile,
-    selectGitCommit: (commitId: string) => (selectedGitCommitID = commitId),
-    setDetailMode: (mode: 'file' | 'git_graph') => (detailMode = mode),
+    selectGitCommit: session.setSelectedGitCommitID,
+    setDetailMode: session.setDetailMode,
     searchPaths,
     openTab: (repoPath: string, filePath: string) => {
-      detailMode = 'file'
+      session.setDetailMode('file')
       tabs.openTab(repoPath, filePath)
     },
     closeTab: tabs.closeTab,
@@ -303,7 +248,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     refreshWorkspaceDiff,
     checkoutBlockers,
     checkoutBranch,
-    setAutosaveEnabled,
+    setAutosaveEnabled: session.setAutosaveEnabled,
     selectNextChangedFile,
     selectPreviousChangedFile,
     reviewPatch,

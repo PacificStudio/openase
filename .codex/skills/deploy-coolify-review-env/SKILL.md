@@ -109,10 +109,11 @@ Delete the same review environment:
 .codex/skills/deploy-coolify-review-env/scripts/delete_review_env.sh --branch feature/my-change
 ```
 
-Delete ticket-scoped apps inside the shared `review` environment by ticket identifier:
+Delete ticket-scoped apps inside the shared `review` environment by ticket
+identifier:
 
 ```sh
-.codex/skills/deploy-coolify-review-env/scripts/delete_review_env.sh --env-name review --ticket-identifier ASE-184
+.codex/skills/deploy-coolify-review-env/scripts/delete_review_env.sh --env-name review --ticket-identifier ASE-123
 ```
 
 ## Notes
