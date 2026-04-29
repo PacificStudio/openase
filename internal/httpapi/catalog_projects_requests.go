@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
 )
@@ -30,16 +31,19 @@ func parseProjectPatchRequest(
 	patch projectPatchRequest,
 ) (domain.UpdateProject, error) {
 	request := domain.ProjectInput{
-		Name:                           current.Name,
-		Slug:                           current.Slug,
-		Description:                    current.Description,
-		Status:                         current.Status.String(),
-		DefaultAgentProviderID:         uuidToStringPointer(current.DefaultAgentProviderID),
-		ProjectAIPlatformAccessAllowed: cloneStringSlice(current.ProjectAIPlatformAccessAllowed),
-		AccessibleMachineIDs:           uuidSliceToStrings(current.AccessibleMachineIDs),
-		MaxConcurrentAgents:            intPointer(current.MaxConcurrentAgents),
-		AgentRunSummaryPrompt:          stringPointerOrNil(current.AgentRunSummaryPrompt),
-		ProjectAIRetention:             mergeProjectAIRetentionPatch(current.ProjectAIRetention, patch.ProjectAIRetention),
+		Name:                   current.Name,
+		Slug:                   current.Slug,
+		Description:            current.Description,
+		Status:                 current.Status.String(),
+		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
+		ProjectAIPlatformAccessAllowed: agentplatformdomain.NormalizeSupportedScopesForPrincipalKind(
+			agentplatformdomain.PrincipalKindProjectConversation,
+			current.ProjectAIPlatformAccessAllowed,
+		),
+		AccessibleMachineIDs:  uuidSliceToStrings(current.AccessibleMachineIDs),
+		MaxConcurrentAgents:   intPointer(current.MaxConcurrentAgents),
+		AgentRunSummaryPrompt: stringPointerOrNil(current.AgentRunSummaryPrompt),
+		ProjectAIRetention:    mergeProjectAIRetentionPatch(current.ProjectAIRetention, patch.ProjectAIRetention),
 	}
 	if patch.Name != nil {
 		request.Name = *patch.Name

@@ -388,6 +388,10 @@ func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
 	return scopeStrings(supportedScopesForPrincipalKind(kind))
 }
 
+func NormalizeSupportedScopesForPrincipalKind(kind PrincipalKind, raw []string) []string {
+	return domain.NormalizeSupportedScopesForPrincipalKind(kind, raw)
+}
+
 func PrivilegedScopes() []string {
 	return privilegedScopesForPrincipalKind(PrincipalKindTicketAgent)
 }

@@ -8,9 +8,9 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
     adapter_type: 'codex-app-server',
     options: [
       {
-        id: 'gpt-5.4',
-        label: 'gpt-5.4',
-        description: 'Latest frontier agentic coding model.',
+        id: 'gpt-5.5',
+        label: 'gpt-5.5',
+        description: 'Default flagship model for complex reasoning and coding.',
         recommended: true,
         preview: false,
         reasoning: null,
@@ -18,17 +18,17 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
           source_kind: 'official',
           pricing_mode: 'flat',
           provider: 'openai',
-          model_id: 'gpt-5.4',
-          source_url: 'https://platform.openai.com/docs/pricing/',
-          source_verified_at: '2026-04-01',
+          model_id: 'gpt-5.5',
+          source_url: 'https://openai.com/api/pricing/',
+          source_verified_at: '2026-04-29',
           rates: {
-            input_per_token: 0.0000025,
-            output_per_token: 0.000015,
-            cached_input_read_per_token: 0.00000025,
+            input_per_token: 0.000005,
+            output_per_token: 0.00003,
+            cached_input_read_per_token: 0.0000005,
           },
           notes: [],
           tiers: [],
-          version: '2026-04-01',
+          version: '2026-04-29',
         },
       },
     ],
@@ -66,7 +66,7 @@ describe('provider pricing draft suggestions', () => {
       suggestPricingDraftValues({
         modelCatalog: providerModelCatalogFixture,
         adapterType: 'codex-app-server',
-        modelName: 'gpt-5.4',
+        modelName: 'gpt-5.5',
         currentPricingConfig: null,
         currentCostPerInputToken: '0',
         currentCostPerOutputToken: '0',
@@ -74,10 +74,10 @@ describe('provider pricing draft suggestions', () => {
     ).toEqual({
       pricingConfig: expect.objectContaining({
         source_kind: 'official',
-        model_id: 'gpt-5.4',
+        model_id: 'gpt-5.5',
       }),
-      costPerInputToken: '2.5',
-      costPerOutputToken: '15',
+      costPerInputToken: '5',
+      costPerOutputToken: '30',
     })
   })
 
@@ -86,7 +86,7 @@ describe('provider pricing draft suggestions', () => {
       suggestPricingDraftValues({
         modelCatalog: providerModelCatalogFixture,
         adapterType: 'codex-app-server',
-        modelName: 'gpt-5.4',
+        modelName: 'gpt-5.5',
         currentPricingConfig: createCustomFlatPricingConfig(0.000003, 0.000015),
         currentCostPerInputToken: '3',
         currentCostPerOutputToken: '15',
@@ -119,22 +119,22 @@ describe('provider pricing draft suggestions', () => {
       suggestPricingDraftValues({
         modelCatalog: providerModelCatalogFixture,
         adapterType: 'codex-app-server',
-        modelName: 'gpt-5.4-experimental',
+        modelName: 'gpt-5.5-experimental',
         currentPricingConfig: providerModelCatalogFixture[0].options[0].pricing_config,
-        currentCostPerInputToken: '2.5',
-        currentCostPerOutputToken: '15',
+        currentCostPerInputToken: '5',
+        currentCostPerOutputToken: '30',
       }),
     ).toEqual({
       pricingConfig: {
         source_kind: 'custom',
         pricing_mode: 'flat',
         rates: {
-          input_per_token: 0.0000025,
-          output_per_token: 0.000015,
+          input_per_token: 0.000005,
+          output_per_token: 0.00003,
         },
       },
-      costPerInputToken: '2.5',
-      costPerOutputToken: '15',
+      costPerInputToken: '5',
+      costPerOutputToken: '30',
     })
   })
 })
