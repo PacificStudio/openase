@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SkillFile } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import SkillFileEditor from './skill-file-editor.svelte'
   import SkillFileTabs from './skill-file-tabs.svelte'
   import SkillFileTree from './skill-file-tree.svelte'
@@ -53,13 +54,13 @@
   <aside class="border-border w-48 shrink-0 overflow-y-auto border-r p-2">
     <div class="mb-1.5 flex items-center justify-between px-1">
       <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-        Files
+        {i18nStore.t('skills.editorWorkspace.filesHeading')}
       </span>
       <div class="flex items-center gap-0.5">
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-5 items-center justify-center rounded transition-colors"
-          title="New file"
+          title={i18nStore.t('skills.editorWorkspace.actions.newFile')}
           onclick={onCreateFile}
         >
           <FilePlus2 class="size-3.5" />
@@ -67,7 +68,7 @@
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex size-5 items-center justify-center rounded transition-colors"
-          title="New folder"
+          title={i18nStore.t('skills.editorWorkspace.actions.newFolder')}
           onclick={onCreateFolder}
         >
           <FolderPlus class="size-3.5" />

@@ -4,6 +4,7 @@
   import { Button } from '$ui/button'
   import { Power } from '@lucide/svelte'
   import type { WorkflowSummary } from '../types'
+  import { t } from './i18n'
 
   let {
     workflow,
@@ -31,7 +32,11 @@
         <span>v{workflow.version}</span>
         <span class={cn('size-1.5 rounded-full', isActive ? 'bg-emerald-500' : 'bg-neutral-500')}
         ></span>
-        <span>{isActive ? 'Active' : 'Inactive'}</span>
+        <span>
+          {isActive
+            ? t('workflows.detail.header.status.active')
+            : t('workflows.detail.header.status.inactive')}
+        </span>
       </div>
     </div>
     <Button
@@ -42,7 +47,9 @@
       onclick={() => onToggle?.()}
     >
       <Power class="size-4" />
-      {isActive ? 'Deactivate' : 'Activate'}
+      {isActive
+        ? t('workflows.detail.header.actions.deactivate')
+        : t('workflows.detail.header.actions.activate')}
     </Button>
   </div>
   <div class="text-muted-foreground mt-2 text-xs">

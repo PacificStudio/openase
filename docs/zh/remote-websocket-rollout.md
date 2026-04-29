@@ -244,7 +244,10 @@ openase machine test <machine-uuid>
 openase machine ssh-diagnostics <machine-uuid>
 ```
 
-如果已经保留 SSH helper 访问，则应优先使用 `openase machine ssh-bootstrap <machine-uuid>` 上传当前二进制并安装或刷新反向 daemon 服务。
+如果已经保留 SSH helper 访问，则应优先使用 `openase machine ssh-bootstrap <machine-uuid>` 上传当前二进制并安装或刷新与拓扑匹配的服务：
+
+- `reverse_connect + websocket`：安装或刷新反向 daemon 服务
+- `direct_connect + websocket`：安装或刷新远端 websocket listener 服务
 
 ### 运维工作流变化
 
@@ -293,7 +296,7 @@ make build-web
 - `OPENASE_MACHINE_CHANNEL_TOKEN`
 - `OPENASE_MACHINE_CONTROL_PLANE_URL`
 
-### 4. 启动反向 WebSocket 守护进程
+### 4. 通过 SSH 或手工方式安装拓扑服务
 
 如果控制面已经可以通过 SSH 到达机器，可以直接使用 helper 流而不必手工拷贝文件：
 
@@ -301,11 +304,15 @@ make build-web
 ./bin/openase machine ssh-bootstrap <machine-uuid>
 ```
 
-它会上传当前 `openase` 二进制、写入 machine-agent 环境文件、安装用户级服务并重启。
+它会上传当前 `openase` 二进制、写入拓扑环境文件、安装用户级服务并重启。
+
+对于 `reverse_connect + websocket`，helper 会安装 `openase machine-agent run`。
+
+对于 `direct_connect + websocket`，helper 会安装 `openase machine-agent listen`，并要求机器记录已经保存控制面要拨入的 `advertised_endpoint`。
 
 不使用 helper 的运维手工方式如下：
 
-在远程机器上：
+远程机器上的 reverse-connect 手工方式：
 
 ```bash
 export OPENASE_MACHINE_ID=<machine-uuid>
@@ -315,6 +322,16 @@ export OPENASE_MACHINE_CONTROL_PLANE_URL=https://openase.example.com
 /usr/local/bin/openase machine-agent run \
   --agent-cli-path /usr/local/bin/codex \
   --openase-binary-path /usr/local/bin/openase
+```
+
+远程机器上的 remote-listener 手工方式：
+
+```bash
+export OPENASE_MACHINE_LISTENER_ADDRESS=0.0.0.0:19837
+export OPENASE_MACHINE_LISTENER_PATH=/openase/runtime
+export OPENASE_MACHINE_LISTENER_BEARER_TOKEN=<listener-token>
+
+/usr/local/bin/openase machine-agent listen
 ```
 
 推荐的 `systemd --user` 单元：

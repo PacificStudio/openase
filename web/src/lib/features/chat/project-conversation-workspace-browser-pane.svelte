@@ -1,7 +1,11 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import type {
+    ProjectConversationWorkspaceBranchRef,
+    ProjectConversationWorkspaceBranchScope,
+    ProjectConversationWorkspaceCurrentRef,
     ProjectConversationWorkspaceDiffRepo,
+    ProjectConversationWorkspaceGitRemoteOp,
     ProjectConversationWorkspaceRepoMetadata,
   } from '$lib/api/chat'
   import ProjectConversationWorkspaceBrowserDetail from './project-conversation-workspace-browser-detail.svelte'
@@ -16,13 +20,57 @@
     selectedRepoDiff = null,
     runtimeActive = false,
     terminalManager,
+    currentRef = null,
+    localBranches = [],
+    remoteBranches = [],
+    repoRefsLoading = false,
+    repoRefsError = '',
+    checkoutBlockers = [],
+    onCheckoutBranch,
+    onCreateBranchName,
+    onGitRemoteOp,
+    onStageFile,
+    onStageAll,
+    onUnstage,
+    onCommitRepo,
+    onDiscardFile,
+    onCreateBranch,
   }: {
     browser: ProjectConversationWorkspaceBrowserState
     selectedRepo?: ProjectConversationWorkspaceRepoMetadata | null
     selectedRepoDiff?: ProjectConversationWorkspaceDiffRepo | null
     runtimeActive?: boolean
     terminalManager: ReturnType<typeof createTerminalManager>
+    currentRef?: ProjectConversationWorkspaceCurrentRef | null
+    localBranches?: ProjectConversationWorkspaceBranchRef[]
+    remoteBranches?: ProjectConversationWorkspaceBranchRef[]
+    repoRefsLoading?: boolean
+    repoRefsError?: string
+    checkoutBlockers?: string[]
+    onCheckoutBranch?: (request: {
+      targetKind: ProjectConversationWorkspaceBranchScope
+      targetName: string
+      createTrackingBranch: boolean
+      localBranchName?: string
+    }) => Promise<{ ok: boolean; blockers: string[] }>
+    onCreateBranchName?: (branchName: string) => Promise<void>
+    onGitRemoteOp?: (op: ProjectConversationWorkspaceGitRemoteOp) => Promise<void>
+    onStageFile?: (path: string) => Promise<void>
+    onStageAll?: () => Promise<void>
+    onUnstage?: (path?: string) => Promise<void>
+    onCommitRepo?: (message: string) => Promise<void>
+    onDiscardFile?: (path: string) => Promise<void>
+    onCreateBranch?: (commitId: string) => void
   } = $props()
+
+  function handleGraphCheckout(request: {
+    targetKind: ProjectConversationWorkspaceBranchScope
+    targetName: string
+    createTrackingBranch: boolean
+    localBranchName?: string
+  }) {
+    void onCheckoutBranch?.(request)
+  }
 
   const MIN_SIDEBAR_WIDTH = 180
   const MAX_SIDEBAR_WIDTH = 480
@@ -174,6 +222,25 @@
         loadingDirs={browser.loadingDirs}
         selectedFilePath={browser.selectedFilePath}
         recentFiles={browser.recentFiles}
+        {currentRef}
+        {localBranches}
+        {remoteBranches}
+        {repoRefsLoading}
+        {repoRefsError}
+        {checkoutBlockers}
+        gitGraph={browser.gitGraph}
+        gitGraphLoading={browser.gitGraphLoading}
+        gitGraphError={browser.gitGraphError}
+        {onCheckoutBranch}
+        {onCreateBranchName}
+        onGraphCheckoutBranch={handleGraphCheckout}
+        {onGitRemoteOp}
+        {onStageFile}
+        {onStageAll}
+        {onUnstage}
+        {onCommitRepo}
+        {onDiscardFile}
+        {onCreateBranch}
         onSearchPaths={browser.searchPaths}
         onOpenRepo={browser.openRepo}
         onToggleDir={browser.toggleDir}

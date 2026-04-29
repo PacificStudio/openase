@@ -13,10 +13,14 @@ import (
 const (
 	TokenPrefix = "ase_machine_"
 
-	EnvMachineID                = "OPENASE_MACHINE_ID"
-	EnvMachineChannelToken      = "OPENASE_MACHINE_CHANNEL_TOKEN" // #nosec G101 -- environment variable key name, not a credential
-	EnvMachineControlPlaneURL   = "OPENASE_MACHINE_CONTROL_PLANE_URL"
-	EnvMachineHeartbeatInterval = "OPENASE_MACHINE_HEARTBEAT_INTERVAL"
+	EnvMachineID                    = "OPENASE_MACHINE_ID"
+	EnvMachineChannelToken          = "OPENASE_MACHINE_CHANNEL_TOKEN" // #nosec G101 -- environment variable key name, not a credential
+	EnvMachineControlPlaneURL       = "OPENASE_MACHINE_CONTROL_PLANE_URL"
+	EnvMachineHeartbeatInterval     = "OPENASE_MACHINE_HEARTBEAT_INTERVAL"
+	EnvMachineAgentCLIPathsJSON     = "OPENASE_MACHINE_AGENT_CLI_PATHS_JSON"
+	EnvMachineLocalRelayURL         = "OPENASE_MACHINE_LOCAL_RELAY_URL"
+	EnvMachineLocalRelayAddress     = "OPENASE_MACHINE_LOCAL_RELAY_ADDRESS"
+	DefaultMachineLocalRelayAddress = "127.0.0.1:19839"
 )
 
 var (
@@ -59,6 +63,7 @@ type DaemonConfig struct {
 	ReconnectBackoff  time.Duration
 	OpenASEBinaryPath string
 	AgentCLIPath      string
+	AgentCLIPaths     map[string]string
 }
 
 func ParseDaemonConfig(
@@ -69,6 +74,7 @@ func ParseDaemonConfig(
 	reconnectBackoff time.Duration,
 	openaseBinaryPath string,
 	agentCLIPath string,
+	agentCLIPaths map[string]string,
 ) (DaemonConfig, error) {
 	parsedMachineID, err := parseUUID(machineID)
 	if err != nil {
@@ -96,7 +102,41 @@ func ParseDaemonConfig(
 		ReconnectBackoff:  reconnectBackoff,
 		OpenASEBinaryPath: strings.TrimSpace(openaseBinaryPath),
 		AgentCLIPath:      strings.TrimSpace(agentCLIPath),
+		AgentCLIPaths:     cloneTrimmedStringMap(agentCLIPaths),
 	}, nil
+}
+
+func ParseDaemonAgentCLIPathsJSON(raw string) (map[string]string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return nil, fmt.Errorf("parse agent_cli_paths_json: %w", err)
+	}
+	return cloneTrimmedStringMap(parsed), nil
+}
+
+func cloneTrimmedStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]string, len(input))
+	for key, value := range input {
+		trimmedKey := strings.TrimSpace(key)
+		trimmedValue := strings.TrimSpace(value)
+		if trimmedKey == "" || trimmedValue == "" {
+			continue
+		}
+		cloned[trimmedKey] = trimmedValue
+	}
+	if len(cloned) == 0 {
+		return nil
+	}
+	return cloned
 }
 
 type MessageType string
@@ -114,6 +154,8 @@ const (
 	MessageTypeError         MessageType = "error"
 	MessageTypeRetryAfter    MessageType = "retry_after"
 	MessageTypeRuntime       MessageType = "runtime"
+	MessageTypeAPIRequest    MessageType = "api_request"
+	MessageTypeAPIResponse   MessageType = "api_response"
 )
 
 const ProtocolVersion = 1
@@ -138,6 +180,7 @@ type Authenticate struct {
 	Capabilities     []string          `json:"capabilities,omitempty"`
 	ToolInventory    []ToolInfo        `json:"tool_inventory,omitempty"`
 	ResourceSnapshot *ResourceSnapshot `json:"resource_snapshot,omitempty"`
+	WebsocketHealth  *WebsocketHealth  `json:"websocket_health,omitempty"`
 }
 
 type Registered struct {
@@ -153,6 +196,7 @@ type Heartbeat struct {
 	SystemInfo       *SystemInfo       `json:"system_info,omitempty"`
 	ToolInventory    []ToolInfo        `json:"tool_inventory,omitempty"`
 	ResourceSnapshot *ResourceSnapshot `json:"resource_snapshot,omitempty"`
+	WebsocketHealth  *WebsocketHealth  `json:"websocket_health,omitempty"`
 }
 
 type Goodbye struct {
@@ -166,11 +210,12 @@ type ErrorPayload struct {
 }
 
 type SystemInfo struct {
-	Hostname          string `json:"hostname"`
-	OS                string `json:"os"`
-	Arch              string `json:"arch"`
-	OpenASEBinaryPath string `json:"openase_binary_path,omitempty"`
-	AgentCLIPath      string `json:"agent_cli_path,omitempty"`
+	Hostname          string            `json:"hostname"`
+	OS                string            `json:"os"`
+	Arch              string            `json:"arch"`
+	OpenASEBinaryPath string            `json:"openase_binary_path,omitempty"`
+	AgentCLIPath      string            `json:"agent_cli_path,omitempty"`
+	AgentCLIPaths     map[string]string `json:"agent_cli_paths,omitempty"`
 }
 
 type ToolInfo struct {
@@ -223,6 +268,22 @@ type FullAudit struct {
 	Network          NetworkAudit     `json:"network"`
 }
 
+type WebsocketHealthLayer struct {
+	State      string         `json:"state"`
+	Reason     string         `json:"reason,omitempty"`
+	ObservedAt string         `json:"observed_at"`
+	Details    map[string]any `json:"details,omitempty"`
+}
+
+type WebsocketHealth struct {
+	TransportMode string               `json:"transport_mode"`
+	CheckedAt     string               `json:"checked_at"`
+	L2            WebsocketHealthLayer `json:"l2"`
+	L3            WebsocketHealthLayer `json:"l3"`
+	L4            WebsocketHealthLayer `json:"l4"`
+	L5            WebsocketHealthLayer `json:"l5"`
+}
+
 type ResourceSnapshot struct {
 	CollectedAt       string     `json:"collected_at"`
 	CPUCores          int        `json:"cpu_cores"`
@@ -234,6 +295,37 @@ type ResourceSnapshot struct {
 	DiskAvailableGB   float64    `json:"disk_available_gb"`
 	GPUs              []GPUInfo  `json:"gpus,omitempty"`
 	FullAudit         *FullAudit `json:"full_audit,omitempty"`
+}
+
+type APIRelayRequest struct {
+	RequestID string              `json:"request_id"`
+	Method    string              `json:"method"`
+	URL       string              `json:"url"`
+	Headers   map[string][]string `json:"headers,omitempty"`
+	Body      []byte              `json:"body,omitempty"`
+}
+
+type APIRelayResponse struct {
+	RequestID  string              `json:"request_id"`
+	StatusCode int                 `json:"status_code"`
+	Status     string              `json:"status"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       []byte              `json:"body,omitempty"`
+}
+
+type LocalRelayRequest struct {
+	Method  string              `json:"method"`
+	URL     string              `json:"url"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    []byte              `json:"body,omitempty"`
+}
+
+type LocalRelayResponse struct {
+	StatusCode int                 `json:"status_code,omitempty"`
+	Status     string              `json:"status,omitempty"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       []byte              `json:"body,omitempty"`
+	Error      string              `json:"error,omitempty"`
 }
 
 func ParseToken(raw string) (string, error) {
@@ -264,7 +356,9 @@ func ParseEnvelope(raw []byte) (Envelope, error) {
 		MessageTypeToolInventory,
 		MessageTypeError,
 		MessageTypeRetryAfter,
-		MessageTypeRuntime:
+		MessageTypeRuntime,
+		MessageTypeAPIRequest,
+		MessageTypeAPIResponse:
 	default:
 		return Envelope{}, fmt.Errorf("%w: unsupported message type %q", ErrUnexpectedMessage, strings.TrimSpace(string(envelope.Type)))
 	}

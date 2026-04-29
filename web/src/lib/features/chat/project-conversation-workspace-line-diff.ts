@@ -153,3 +153,104 @@ export function computeDraftLineDiff(
     deletionAtEnd,
   }
 }
+
+export function isWorkspaceFileLineDiffEmpty(
+  markers: WorkspaceFileLineDiffMarkers | null,
+): boolean {
+  return (
+    markers == null ||
+    (markers.added.length === 0 &&
+      markers.modified.length === 0 &&
+      markers.deletionAbove.length === 0 &&
+      !markers.deletionAtEnd)
+  )
+}
+
+export function computePatchLineDiff(input: {
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked'
+  diffKind: 'none' | 'text' | 'binary'
+  diff: string
+  content: string
+}): WorkspaceFileLineDiffMarkers {
+  const lineCount = input.content === '' ? 0 : input.content.split('\n').length
+  if (lineCount === 0) {
+    return EMPTY_LINE_DIFF
+  }
+
+  if (input.status === 'added' || input.status === 'untracked') {
+    return {
+      added: Array.from({ length: lineCount }, (_, index) => index + 1),
+      modified: [],
+      deletionAbove: [],
+      deletionAtEnd: false,
+    }
+  }
+  if (input.diffKind !== 'text' || input.diff.trim() === '') {
+    return EMPTY_LINE_DIFF
+  }
+
+  const added = new Set<number>()
+  const modified = new Set<number>()
+  const deletionAbove = new Set<number>()
+  let deletionAtEnd = false
+
+  let currentNewLine = 0
+  let pendingAdds: number[] = []
+  let pendingRemoves = 0
+
+  const flushPending = () => {
+    if (pendingAdds.length === 0 && pendingRemoves === 0) {
+      return
+    }
+    const pairCount = Math.min(pendingAdds.length, pendingRemoves)
+    for (let index = 0; index < pairCount; index += 1) {
+      modified.add(pendingAdds[index])
+    }
+    for (let index = pairCount; index < pendingAdds.length; index += 1) {
+      added.add(pendingAdds[index])
+    }
+    if (pendingRemoves > pendingAdds.length) {
+      if (currentNewLine < lineCount) {
+        deletionAbove.add(currentNewLine + 1)
+      } else {
+        deletionAtEnd = true
+      }
+    }
+    pendingAdds = []
+    pendingRemoves = 0
+  }
+
+  for (const rawLine of input.diff.split('\n')) {
+    if (rawLine.startsWith('@@')) {
+      flushPending()
+      const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(rawLine)
+      if (!match) continue
+      currentNewLine = Number.parseInt(match[1] ?? '1', 10) - 1
+      continue
+    }
+    if (rawLine.startsWith('+++') || rawLine.startsWith('---') || rawLine.startsWith('\\')) {
+      continue
+    }
+    if (rawLine.startsWith('+')) {
+      pendingAdds.push(currentNewLine + 1)
+      currentNewLine += 1
+      continue
+    }
+    if (rawLine.startsWith('-')) {
+      pendingRemoves += 1
+      continue
+    }
+    if (rawLine.startsWith(' ')) {
+      flushPending()
+      currentNewLine += 1
+    }
+  }
+  flushPending()
+
+  return {
+    added: [...added].sort((a, b) => a - b),
+    modified: [...modified].sort((a, b) => a - b),
+    deletionAbove: [...deletionAbove].sort((a, b) => a - b),
+    deletionAtEnd,
+  }
+}

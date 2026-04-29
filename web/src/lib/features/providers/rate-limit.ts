@@ -1,92 +1,14 @@
-import { formatRelativeTime } from '$lib/utils'
 import type { AgentProvider } from '$lib/api/contracts'
+import { providersT } from './i18n'
+import { formatCodexUsedPercent, formatObservedAt } from './provider-rate-limit-core'
+import type {
+  ProviderRateLimitSnapshot,
+  ProviderRateLimitSummary,
+  ProviderRateLimitView,
+  RateLimitWindow,
+} from './provider-rate-limit-core'
 
-export type ProviderRateLimitSnapshot = {
-  provider: string
-  raw: Record<string, unknown>
-  claudeCode?: {
-    status: string
-    rateLimitType?: string | null
-    resetsAt?: string | null
-    utilization?: number | null
-    surpassedThreshold?: number | null
-    overageStatus?: string | null
-    overageDisabledReason?: string | null
-    isUsingOverage?: boolean | null
-  } | null
-  codex?: {
-    limitId?: string | null
-    limitName?: string | null
-    planType?: string | null
-    primary?: {
-      usedPercent?: number | null
-      windowMinutes?: number | null
-      resetsAt?: string | null
-    } | null
-    secondary?: {
-      usedPercent?: number | null
-      windowMinutes?: number | null
-      resetsAt?: string | null
-    } | null
-  } | null
-  gemini?: {
-    authType?: string | null
-    remaining?: number | null
-    limit?: number | null
-    resetTime?: string | null
-    buckets?: Array<{
-      modelId?: string | null
-      tokenType?: string | null
-      remainingAmount?: string | null
-      remainingFraction?: number | null
-      resetTime?: string | null
-    }>
-  } | null
-}
-
-type ProviderRateLimitView = {
-  adapterType: string
-  modelName?: string
-  cliRateLimit?: ProviderRateLimitSnapshot | null
-  cliRateLimitUpdatedAt?: string | null
-}
-
-export type RateLimitWindow = {
-  label: string
-  usedPercent: number
-  windowMinutes?: number | null
-  resetsAt?: string | null
-}
-
-export type ProviderRateLimitSummary = {
-  headline: string
-  detail: string
-  updatedLabel: string
-  windows: RateLimitWindow[]
-  planType?: string | null
-}
-
-function formatObservedAt(value: string | null | undefined): string {
-  if (!value) {
-    return 'Update time unavailable'
-  }
-
-  const observedAt = new Date(value)
-  if (Number.isNaN(observedAt.getTime())) {
-    return 'Update time unavailable'
-  }
-
-  return `Updated ${formatRelativeTime(value)} · ${observedAt.toLocaleString()}`
-}
-
-function formatCodexUsedPercent(value: number | null | undefined): string | null {
-  if (value == null || Number.isNaN(value)) {
-    return null
-  }
-
-  const normalizedValue = value <= 1 ? value * 100 : value
-  return `${normalizedValue.toFixed(1)}% used`
-}
+export type { ProviderRateLimitSummary } from './provider-rate-limit-core'
 
 export function summarizeProviderRateLimit(
   provider: ProviderRateLimitView,
@@ -104,21 +26,31 @@ export function summarizeProviderRateLimit(
       .join(' · ')
     const detailParts = []
     if (snapshot.resetsAt) {
-      detailParts.push(`Resets ${new Date(snapshot.resetsAt).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.resetsAt', {
+          time: new Date(snapshot.resetsAt).toLocaleString(),
+        }),
+      )
     }
     if (snapshot.surpassedThreshold != null) {
-      detailParts.push(`${(snapshot.surpassedThreshold * 100).toFixed(0)}% warning threshold`)
+      detailParts.push(
+        providersT('providers.rateLimit.warningThreshold', {
+          percent: (snapshot.surpassedThreshold * 100).toFixed(0),
+        }),
+      )
     }
     if (snapshot.isUsingOverage) {
-      detailParts.push('Using overage')
+      detailParts.push(providersT('providers.rateLimit.usingOverage'))
     } else if (snapshot.overageStatus) {
-      detailParts.push(`Overage ${snapshot.overageStatus}`)
+      detailParts.push(
+        providersT('providers.rateLimit.overageStatus', { status: snapshot.overageStatus }),
+      )
     }
 
     const windows: RateLimitWindow[] = []
     if (snapshot.utilization != null) {
       windows.push({
-        label: snapshot.rateLimitType || 'Window',
+        label: snapshot.rateLimitType || providersT('providers.rateLimit.window'),
         usedPercent: snapshot.utilization * 100,
         resetsAt: snapshot.resetsAt,
       })
@@ -126,7 +58,7 @@ export function summarizeProviderRateLimit(
 
     return {
       headline,
-      detail: detailParts.join(' · ') || 'Claude rate limit snapshot captured.',
+      detail: detailParts.join(' · ') || providersT('providers.rateLimit.claudeSnapshot'),
       updatedLabel,
       windows,
     }
@@ -149,17 +81,25 @@ export function summarizeProviderRateLimit(
 
     const detailParts = []
     if (primary?.resetsAt) {
-      detailParts.push(`Primary resets ${new Date(primary.resetsAt).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.primaryResets', {
+          time: new Date(primary.resetsAt).toLocaleString(),
+        }),
+      )
     }
     if (snapshot.secondary?.resetsAt) {
-      detailParts.push(`Secondary resets ${new Date(snapshot.secondary.resetsAt).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.secondaryResets', {
+          time: new Date(snapshot.secondary.resetsAt).toLocaleString(),
+        }),
+      )
     }
 
     const windows: RateLimitWindow[] = []
     if (primary?.usedPercent != null) {
       const pct = primary.usedPercent <= 1 ? primary.usedPercent * 100 : primary.usedPercent
       windows.push({
-        label: 'Primary',
+        label: providersT('providers.rateLimit.primaryLabel'),
         usedPercent: pct,
         windowMinutes: primary.windowMinutes,
         resetsAt: primary.resetsAt,
@@ -171,7 +111,7 @@ export function summarizeProviderRateLimit(
           ? snapshot.secondary.usedPercent * 100
           : snapshot.secondary.usedPercent
       windows.push({
-        label: 'Secondary',
+        label: providersT('providers.rateLimit.secondaryLabel'),
         usedPercent: pct,
         windowMinutes: snapshot.secondary.windowMinutes,
         resetsAt: snapshot.secondary.resetsAt,
@@ -179,8 +119,11 @@ export function summarizeProviderRateLimit(
     }
 
     return {
-      headline: headlineParts.join(' · ') || snapshot.limitId || 'codex rate limit',
-      detail: detailParts.join(' · ') || 'Codex rate limit snapshot captured.',
+      headline:
+        headlineParts.join(' · ') ||
+        snapshot.limitId ||
+        providersT('providers.rateLimit.codexHeadline'),
+      detail: detailParts.join(' · ') || providersT('providers.rateLimit.codexSnapshot'),
       updatedLabel,
       windows,
       planType: snapshot.planType,
@@ -208,9 +151,17 @@ export function summarizeProviderRateLimit(
 
     const detailParts = []
     if (snapshot.resetTime) {
-      detailParts.push(`Resets ${new Date(snapshot.resetTime).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.resetsAt', {
+          time: new Date(snapshot.resetTime).toLocaleString(),
+        }),
+      )
     } else if (matchingBucket?.resetTime) {
-      detailParts.push(`Resets ${new Date(matchingBucket.resetTime).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.resetsAt', {
+          time: new Date(matchingBucket.resetTime).toLocaleString(),
+        }),
+      )
     }
     if (matchingBucket?.modelId) {
       detailParts.push(matchingBucket.modelId)
@@ -219,7 +170,7 @@ export function summarizeProviderRateLimit(
     const windows: RateLimitWindow[] = []
     if (geminiUsedPercent != null) {
       windows.push({
-        label: matchingBucket?.modelId || 'Quota',
+        label: matchingBucket?.modelId || providersT('providers.rateLimit.quotaLabel'),
         usedPercent: geminiUsedPercent,
         resetsAt: snapshot.resetTime || matchingBucket?.resetTime,
       })
@@ -227,15 +178,15 @@ export function summarizeProviderRateLimit(
 
     return {
       headline,
-      detail: detailParts.join(' · ') || 'Gemini quota snapshot captured.',
+      detail: detailParts.join(' · ') || providersT('providers.rateLimit.geminiSnapshot'),
       updatedLabel,
       windows,
     }
   }
 
   return {
-    headline: provider.cliRateLimit.provider || 'rate limit',
-    detail: 'Provider-specific rate limit snapshot captured.',
+    headline: provider.cliRateLimit.provider || providersT('providers.rateLimit.defaultHeadline'),
+    detail: providersT('providers.rateLimit.defaultSnapshot'),
     updatedLabel,
     windows: [],
   }
@@ -255,58 +206,61 @@ export function summarizeAgentProviderRateLimit(
     adapterType: provider.adapter_type,
     modelName: provider.model_name,
     cliRateLimitUpdatedAt: provider.cli_rate_limit_updated_at ?? null,
-    cliRateLimit: {
-      provider: provider.cli_rate_limit.provider ?? '',
-      raw: { ...(provider.cli_rate_limit.raw ?? {}) },
-      claudeCode: provider.cli_rate_limit.claude_code
-        ? {
-            status: provider.cli_rate_limit.claude_code.status ?? '',
-            rateLimitType: provider.cli_rate_limit.claude_code.rate_limit_type ?? null,
-            resetsAt: provider.cli_rate_limit.claude_code.resets_at ?? null,
-            utilization: provider.cli_rate_limit.claude_code.utilization ?? null,
-            surpassedThreshold: provider.cli_rate_limit.claude_code.surpassed_threshold ?? null,
-            overageStatus: provider.cli_rate_limit.claude_code.overage_status ?? null,
-            overageDisabledReason:
-              provider.cli_rate_limit.claude_code.overage_disabled_reason ?? null,
-            isUsingOverage: provider.cli_rate_limit.claude_code.is_using_overage ?? null,
-          }
-        : null,
-      codex: provider.cli_rate_limit.codex
-        ? {
-            limitId: provider.cli_rate_limit.codex.limit_id ?? null,
-            limitName: provider.cli_rate_limit.codex.limit_name ?? null,
-            planType: provider.cli_rate_limit.codex.plan_type ?? null,
-            primary: provider.cli_rate_limit.codex.primary
-              ? {
-                  usedPercent: provider.cli_rate_limit.codex.primary.used_percent ?? null,
-                  windowMinutes: provider.cli_rate_limit.codex.primary.window_minutes ?? null,
-                  resetsAt: provider.cli_rate_limit.codex.primary.resets_at ?? null,
-                }
-              : null,
-            secondary: provider.cli_rate_limit.codex.secondary
-              ? {
-                  usedPercent: provider.cli_rate_limit.codex.secondary.used_percent ?? null,
-                  windowMinutes: provider.cli_rate_limit.codex.secondary.window_minutes ?? null,
-                  resetsAt: provider.cli_rate_limit.codex.secondary.resets_at ?? null,
-                }
-              : null,
-          }
-        : null,
-      gemini: provider.cli_rate_limit.gemini
-        ? {
-            authType: provider.cli_rate_limit.gemini.auth_type ?? null,
-            remaining: provider.cli_rate_limit.gemini.remaining ?? null,
-            limit: provider.cli_rate_limit.gemini.limit ?? null,
-            resetTime: provider.cli_rate_limit.gemini.reset_time ?? null,
-            buckets: (provider.cli_rate_limit.gemini.buckets ?? []).map((bucket) => ({
-              modelId: bucket.model_id ?? null,
-              tokenType: bucket.token_type ?? null,
-              remainingAmount: bucket.remaining_amount ?? null,
-              remainingFraction: bucket.remaining_fraction ?? null,
-              resetTime: bucket.reset_time ?? null,
-            })),
-          }
-        : null,
-    },
+    cliRateLimit: mapSnapshot(provider.cli_rate_limit),
   })
+}
+
+function mapSnapshot(raw: NonNullable<AgentProvider['cli_rate_limit']>): ProviderRateLimitSnapshot {
+  return {
+    provider: raw.provider ?? '',
+    raw: { ...(raw.raw ?? {}) },
+    claudeCode: raw.claude_code
+      ? {
+          status: raw.claude_code.status ?? '',
+          rateLimitType: raw.claude_code.rate_limit_type ?? null,
+          resetsAt: raw.claude_code.resets_at ?? null,
+          utilization: raw.claude_code.utilization ?? null,
+          surpassedThreshold: raw.claude_code.surpassed_threshold ?? null,
+          overageStatus: raw.claude_code.overage_status ?? null,
+          overageDisabledReason: raw.claude_code.overage_disabled_reason ?? null,
+          isUsingOverage: raw.claude_code.is_using_overage ?? null,
+        }
+      : null,
+    codex: raw.codex
+      ? {
+          limitId: raw.codex.limit_id ?? null,
+          limitName: raw.codex.limit_name ?? null,
+          planType: raw.codex.plan_type ?? null,
+          primary: raw.codex.primary
+            ? {
+                usedPercent: raw.codex.primary.used_percent ?? null,
+                windowMinutes: raw.codex.primary.window_minutes ?? null,
+                resetsAt: raw.codex.primary.resets_at ?? null,
+              }
+            : null,
+          secondary: raw.codex.secondary
+            ? {
+                usedPercent: raw.codex.secondary.used_percent ?? null,
+                windowMinutes: raw.codex.secondary.window_minutes ?? null,
+                resetsAt: raw.codex.secondary.resets_at ?? null,
+              }
+            : null,
+        }
+      : null,
+    gemini: raw.gemini
+      ? {
+          authType: raw.gemini.auth_type ?? null,
+          remaining: raw.gemini.remaining ?? null,
+          limit: raw.gemini.limit ?? null,
+          resetTime: raw.gemini.reset_time ?? null,
+          buckets: (raw.gemini.buckets ?? []).map((bucket) => ({
+            modelId: bucket.model_id ?? null,
+            tokenType: bucket.token_type ?? null,
+            remainingAmount: bucket.remaining_amount ?? null,
+            remainingFraction: bucket.remaining_fraction ?? null,
+            resetTime: bucket.reset_time ?? null,
+          })),
+        }
+      : null,
+  }
 }

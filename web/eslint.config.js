@@ -5,8 +5,22 @@ import sonarjs from 'eslint-plugin-sonarjs'
 import svelte from 'eslint-plugin-svelte'
 import globals from 'globals'
 import ts from 'typescript-eslint'
-import { fileBudgetLimits } from './file-budgets.config.mjs'
+import { eslintFileBudgetOverrides } from './file-budgets.config.mjs'
 import svelteConfig from './svelte.config.js'
+
+function maxLinesRule(max) {
+  return ['error', { max, skipBlankLines: true, skipComments: true }]
+}
+
+function budgetOverrideToFlatConfig({ files, ignores, hardLimit }) {
+  return {
+    files,
+    ...(ignores.length > 0 ? { ignores } : {}),
+    rules: {
+      'max-lines': maxLinesRule(hardLimit),
+    },
+  }
+}
 
 export default defineConfig(
   {
@@ -71,79 +85,7 @@ export default defineConfig(
       'svelte/require-each-key': 'off',
     },
   },
-  {
-    files: ['src/routes/**/+page.svelte'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.routePage.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: ['src/routes/**/+layout.svelte'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.routeLayout.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: ['src/lib/features/**/*.svelte'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureComponent.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureTest.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: ['src/lib/features/**/*.svelte.{ts,js}'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureStateModule.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: ['src/lib/features/**/*.{js,ts,mjs,cjs}'],
-    ignores: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}', 'src/lib/features/**/*.svelte.{ts,js}'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.featureModule.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: ['src/lib/components/layout/**/*.svelte'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.layoutComponent.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
-  {
-    files: ['src/lib/components/ui/**/*.svelte'],
-    rules: {
-      'max-lines': [
-        'error',
-        { max: fileBudgetLimits.uiPrimitive.hard, skipBlankLines: true, skipComments: true },
-      ],
-    },
-  },
+  ...eslintFileBudgetOverrides.map(budgetOverrideToFlatConfig),
   {
     files: ['**/*.{js,cjs,mjs,ts}'],
     rules: {

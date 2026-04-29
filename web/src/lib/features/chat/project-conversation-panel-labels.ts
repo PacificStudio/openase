@@ -4,6 +4,7 @@ import type {
   ProjectConversationTextEntry,
   ProjectConversationTranscriptEntry,
 } from './project-conversation-transcript-types'
+import { chatT } from './i18n'
 
 export type ProjectConversationTabView = {
   id: string
@@ -63,7 +64,7 @@ function findTranscriptFallbackTitle(entries: ProjectConversationTranscriptEntry
 function conversationTimestampLabel(conversation?: ProjectConversation) {
   const timestamp = new Date(conversation?.lastActivityAt ?? '')
   if (Number.isNaN(timestamp.getTime())) {
-    return 'Conversation'
+    return chatT('chat.conversationTabLabel')
   }
 
   return `Conversation · ${timestamp.toLocaleString([], {
@@ -95,7 +96,7 @@ export function formatProjectConversationLabel(
   }
 
   if (!tab.conversationId) {
-    return 'New tab'
+    return chatT('chat.newTab')
   }
 
   return conversationTimestampLabel(conversation)
@@ -105,13 +106,13 @@ export function formatProjectConversationTabStatus(
   tab: Pick<ProjectConversationTabView, 'pending' | 'hasPendingInterrupt' | 'restored'>,
 ) {
   if (tab.hasPendingInterrupt) {
-    return 'Input required'
+    return chatT('chat.tabStatusInputRequired')
   }
   if (tab.pending) {
-    return 'Running'
+    return chatT('chat.tabStatusRunning')
   }
   if (tab.restored) {
-    return 'Restored'
+    return chatT('chat.tabStatusRestored')
   }
   return ''
 }
@@ -121,24 +122,24 @@ export function getProjectConversationStatusMessage(
   hasPendingInterrupt: boolean,
 ): string | null {
   if (hasPendingInterrupt) {
-    return 'Additional input is required before the conversation can continue.'
+    return chatT('chat.statusMessageInputRequired')
   }
 
   switch (currentPhase) {
     case 'restoring':
-      return 'Restoring this project conversation…'
+      return chatT('chat.statusMessageRestoring')
     case 'creating_conversation':
-      return 'Creating a fresh project conversation…'
+      return chatT('chat.statusMessageCreatingConversation')
     case 'connecting_stream':
-      return 'Connecting the live conversation stream…'
+      return chatT('chat.statusMessageConnectingStream')
     case 'submitting_turn':
-      return 'Sending your message…'
+      return chatT('chat.statusMessageSubmittingTurn')
     case 'awaiting_reply':
-      return 'Waiting for the assistant reply…'
+      return chatT('chat.statusMessageWaitingReply')
     case 'stopping_turn':
-      return 'Stopping the current reply…'
+      return chatT('chat.statusMessageStoppingTurn')
     case 'resetting':
-      return 'Resetting the current conversation…'
+      return chatT('chat.statusMessageResetting')
     default:
       return null
   }

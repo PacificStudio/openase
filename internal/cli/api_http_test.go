@@ -9,6 +9,11 @@ import (
 )
 
 func TestAPICommandContextUsesStoredHumanSessionForMutations(t *testing.T) {
+	t.Setenv("OPENASE_AGENT_TOKEN", "")
+	t.Setenv("OPENASE_API_URL", "")
+	t.Setenv(envHumanSessionToken, "")
+	t.Setenv(envHumanCSRFToken, "")
+
 	sessionPath := filepath.Join(t.TempDir(), "human-session.json")
 	if err := saveHumanSessionState(sessionPath, humanSessionState{
 		APIURL:       "http://127.0.0.1:19836/api/v1",
@@ -54,6 +59,11 @@ func TestAPICommandContextUsesStoredHumanSessionForMutations(t *testing.T) {
 }
 
 func TestAPICommandContextUsesStoredHumanSessionForReadsWithoutCSRF(t *testing.T) {
+	t.Setenv("OPENASE_AGENT_TOKEN", "")
+	t.Setenv("OPENASE_API_URL", "")
+	t.Setenv(envHumanSessionToken, "")
+	t.Setenv(envHumanCSRFToken, "")
+
 	sessionPath := filepath.Join(t.TempDir(), "human-session.json")
 	if err := saveHumanSessionState(sessionPath, humanSessionState{
 		SessionToken: "session-token",
@@ -94,6 +104,9 @@ func TestAPICommandContextUsesStoredHumanSessionForReadsWithoutCSRF(t *testing.T
 }
 
 func TestAPICommandContextPrefersBearerTokenOverStoredHumanSession(t *testing.T) {
+	t.Setenv(envHumanSessionToken, "")
+	t.Setenv(envHumanCSRFToken, "")
+
 	sessionPath := filepath.Join(t.TempDir(), "human-session.json")
 	if err := saveHumanSessionState(sessionPath, humanSessionState{
 		SessionToken: "session-token",
@@ -128,5 +141,51 @@ func TestAPICommandContextPrefersBearerTokenOverStoredHumanSession(t *testing.T)
 		Path:   "auth/session",
 	}); err != nil {
 		t.Fatalf("do() error = %v", err)
+	}
+}
+
+func TestResolveForOperationPreservesPlatformBaseForAgentCapableOperation(t *testing.T) {
+	ctx, err := (apiCommandOptions{
+		apiURL: "http://127.0.0.1:19836/api/v1/platform",
+		token:  "agent-token",
+	}).resolveForOperation(http.MethodPost, "/api/v1/projects/{projectId}/skills/refresh")
+	if err != nil {
+		t.Fatalf("resolveForOperation() error = %v", err)
+	}
+	if ctx.apiURL != "http://127.0.0.1:19836/api/v1/platform" {
+		t.Fatalf("apiURL = %q, want platform base", ctx.apiURL)
+	}
+}
+
+func TestResolveForOperationNormalizesHumanOnlyOperationBackToHumanBase(t *testing.T) {
+	ctx, err := (apiCommandOptions{
+		apiURL: "http://127.0.0.1:19836/api/v1/platform",
+		token:  "agent-token",
+	}).resolveForOperation(http.MethodGet, "/api/v1/orgs/{orgId}/machines")
+	if err != nil {
+		t.Fatalf("resolveForOperation() error = %v", err)
+	}
+	if ctx.apiURL != "http://127.0.0.1:19836/api/v1" {
+		t.Fatalf("apiURL = %q, want human base", ctx.apiURL)
+	}
+}
+
+func TestBuildRequestURLPreservesPlatformPrefixForRelativePaths(t *testing.T) {
+	requestURL, err := buildRequestURL("http://127.0.0.1:19836/api/v1/platform", "projects/project-123/skills")
+	if err != nil {
+		t.Fatalf("buildRequestURL() error = %v", err)
+	}
+	if requestURL != "http://127.0.0.1:19836/api/v1/platform/projects/project-123/skills" {
+		t.Fatalf("requestURL = %q", requestURL)
+	}
+}
+
+func TestBuildRequestURLPreservesPlatformPrefixForAbsolutePaths(t *testing.T) {
+	requestURL, err := buildRequestURL("http://127.0.0.1:19836/api/v1/platform", "/api/v1/platform/projects/project-123/skills")
+	if err != nil {
+		t.Fatalf("buildRequestURL() error = %v", err)
+	}
+	if requestURL != "http://127.0.0.1:19836/api/v1/platform/projects/project-123/skills" {
+		t.Fatalf("requestURL = %q", requestURL)
 	}
 }

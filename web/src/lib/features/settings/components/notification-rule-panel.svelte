@@ -21,6 +21,7 @@
   import NotificationRuleDialog from './notification-rule-dialog.svelte'
   import NotificationEventGroup from './notification-event-group.svelte'
   import NotificationRuleList from './notification-rule-list.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     channels,
@@ -95,17 +96,19 @@
         return
       }
       if (!parsed.value.changed) {
-        toastStore.info('No rule changes to save.')
+        toastStore.info(i18nStore.t('settings.notificationRule.messages.noChanges'))
         return
       }
       saving = true
       try {
         await onUpdate(editingRule.id, parsed.value.value)
-        toastStore.success('Rule updated.')
+        toastStore.success(i18nStore.t('settings.notificationRule.messages.updated'))
         dialogOpen = false
         editingRule = null
       } catch (caughtError) {
-        toastStore.error(actionErrorMessage(caughtError, 'Failed to update rule.'))
+        toastStore.error(
+          actionErrorMessage(caughtError, i18nStore.t('settings.notificationRule.errors.update')),
+        )
       } finally {
         saving = false
       }
@@ -120,10 +123,12 @@
     saving = true
     try {
       await onCreate(parsed.value)
-      toastStore.success('Rule created.')
+      toastStore.success(i18nStore.t('settings.notificationRule.messages.created'))
       dialogOpen = false
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to create rule.'))
+      toastStore.error(
+        actionErrorMessage(caughtError, i18nStore.t('settings.notificationRule.errors.create')),
+      )
     } finally {
       saving = false
     }
@@ -134,12 +139,14 @@
     deleting = true
     try {
       await onDelete(editingRule.id)
-      toastStore.success('Rule deleted.')
+      toastStore.success(i18nStore.t('settings.notificationRule.messages.deleted'))
       dialogOpen = false
       confirmDeleteOpen = false
       editingRule = null
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to delete rule.'))
+      toastStore.error(
+        actionErrorMessage(caughtError, i18nStore.t('settings.notificationRule.errors.delete')),
+      )
     } finally {
       deleting = false
     }
@@ -150,13 +157,15 @@
     try {
       if (rule.is_enabled) {
         await onDelete(rule.id)
-        toastStore.success('Rule disabled.')
+        toastStore.success(i18nStore.t('settings.notificationRule.messages.disabled'))
       } else {
         await onUpdate(rule.id, { is_enabled: true })
-        toastStore.success('Rule enabled.')
+        toastStore.success(i18nStore.t('settings.notificationRule.messages.enabled'))
       }
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to update rule state.'))
+      toastStore.error(
+        actionErrorMessage(caughtError, i18nStore.t('settings.notificationRule.errors.state')),
+      )
     } finally {
       togglingId = null
     }
@@ -171,9 +180,9 @@
 
   function severityLabel(eventType: string): string {
     const s = getSeverity(eventType, eventTypes)
-    if (s === 'critical') return 'Critical'
-    if (s === 'warning') return 'Warning'
-    return 'Info'
+    if (s === 'critical') return i18nStore.t('settings.notificationRule.severity.critical')
+    if (s === 'warning') return i18nStore.t('settings.notificationRule.severity.warning')
+    return i18nStore.t('settings.notificationRule.severity.info')
   }
 </script>
 
@@ -181,13 +190,17 @@
   <!-- Rules list header -->
   <div class="flex items-center justify-between gap-4">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Notification Rules</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.notificationRule.heading')}
+      </h3>
       <p class="text-muted-foreground mt-0.5 text-xs">
-        Subscribe to project events and route them to channels.
+        {i18nStore.t('settings.notificationRule.description')}
       </p>
     </div>
     {#if canCreateRule}
-      <Button variant="outline" size="sm" onclick={() => openNewRule()}>Add rule</Button>
+      <Button variant="outline" size="sm" onclick={() => openNewRule()}>
+        {i18nStore.t('settings.notificationRule.buttons.addRule')}
+      </Button>
     {/if}
   </div>
 
@@ -207,23 +220,33 @@
     <div class="space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h4 class="text-foreground text-xs font-semibold">Available events</h4>
+          <h4 class="text-foreground text-xs font-semibold">
+            {i18nStore.t('settings.notificationRule.catalog.heading')}
+          </h4>
           <p class="text-muted-foreground mt-0.5 text-xs">
-            Browse events and click "+ Add rule" to subscribe.
+            {i18nStore.t('settings.notificationRule.catalog.description', {
+              action: `+ ${i18nStore.t('settings.notificationRule.buttons.addRule')}`,
+            })}
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-3 text-xs">
           <span class="flex items-center gap-1">
             <span class="size-2 rounded-full bg-blue-500"></span>
-            <span class="text-muted-foreground">Info</span>
+            <span class="text-muted-foreground">
+              {i18nStore.t('settings.notificationRule.severity.info')}
+            </span>
           </span>
           <span class="flex items-center gap-1">
             <span class="size-2 rounded-full bg-amber-500"></span>
-            <span class="text-muted-foreground">Warning</span>
+            <span class="text-muted-foreground">
+              {i18nStore.t('settings.notificationRule.severity.warning')}
+            </span>
           </span>
           <span class="flex items-center gap-1">
             <span class="size-2 rounded-full bg-red-500"></span>
-            <span class="text-muted-foreground">Critical</span>
+            <span class="text-muted-foreground">
+              {i18nStore.t('settings.notificationRule.severity.critical')}
+            </span>
           </span>
         </div>
       </div>

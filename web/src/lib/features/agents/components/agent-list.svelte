@@ -3,7 +3,9 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Hand, Terminal, Pause, Play } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { AgentInstance } from '../types'
+  import type { TranslationKey } from '$lib/i18n'
 
   let {
     agents,
@@ -33,22 +35,68 @@
     terminated: 'bg-slate-500',
   }
 
-  const statusLabels: Record<AgentInstance['status'], string> = {
-    idle: 'Idle',
-    claimed: 'Claimed',
-    running: 'Running',
-    paused: 'Paused',
-    failed: 'Failed',
-    interrupted: 'Interrupted',
-    terminated: 'Terminated',
+  const columnLabelKeys: Record<
+    'status' | 'agent' | 'runtimeSummary' | 'lastHeartbeat' | 'completed' | 'cost' | 'actions',
+    TranslationKey
+  > = {
+    status: 'agents.agentList.column.status',
+    agent: 'agents.agentList.column.agent',
+    runtimeSummary: 'agents.agentList.column.runtimeSummary',
+    lastHeartbeat: 'agents.agentList.column.lastHeartbeat',
+    completed: 'agents.agentList.column.completed',
+    cost: 'agents.agentList.column.cost',
+    actions: 'agents.agentList.column.actions',
+  } as const
+
+  const runtimeControlLabelKeys: Record<AgentInstance['runtimeControlState'], TranslationKey> = {
+    active: 'agents.agentList.runtimeControl.active',
+    interrupt_requested: 'agents.agentList.runtimeControl.interruptRequestedStatus',
+    pause_requested: 'agents.agentList.runtimeControl.pauseRequestedStatus',
+    paused: 'agents.agentList.runtimeControl.pausedStatus',
+    retired: 'agents.agentList.runtimeControl.retiredStatus',
   }
 
-  const runtimeControlLabels: Record<AgentInstance['runtimeControlState'], string> = {
-    active: 'Active',
-    interrupt_requested: 'Interrupt Requested',
-    pause_requested: 'Pause Requested',
-    paused: 'Paused',
-    retired: 'Retired',
+  const runtimeControlMessageKeys = {
+    updating: 'agents.agentList.runtimeControl.updating',
+    interruptRequested: 'agents.agentList.runtimeControl.interruptRequestedMessage',
+    pauseRequested: 'agents.agentList.runtimeControl.pauseRequestedMessage',
+    pausedInterrupt: 'agents.agentList.runtimeControl.pausedInterrupt',
+    noActiveRunsInterrupt: 'agents.agentList.runtimeControl.noActiveRunsToInterrupt',
+    noActiveRunsPause: 'agents.agentList.runtimeControl.noActiveRunsToPause',
+    onlyClaimedRunningInterrupt: 'agents.agentList.runtimeControl.onlyClaimedOrRunningCanInterrupt',
+    onlyClaimedRunningPause: 'agents.agentList.runtimeControl.onlyClaimedOrRunningCanPause',
+    interruptAction: 'agents.agentList.runtimeControl.interruptThisAgent',
+    pauseAction: 'agents.agentList.runtimeControl.pauseThisAgent',
+    alreadyPaused: 'agents.agentList.runtimeControl.alreadyPaused',
+    waitForPauseBeforeResume: 'agents.agentList.runtimeControl.waitForPauseBeforeResume',
+    pauseBeforeResuming: 'agents.agentList.runtimeControl.pauseBeforeResuming',
+    resumeAction: 'agents.agentList.runtimeControl.resumeThisAgent',
+  } as const satisfies Record<
+    | 'updating'
+    | 'interruptRequested'
+    | 'pauseRequested'
+    | 'pausedInterrupt'
+    | 'noActiveRunsInterrupt'
+    | 'noActiveRunsPause'
+    | 'onlyClaimedRunningInterrupt'
+    | 'onlyClaimedRunningPause'
+    | 'interruptAction'
+    | 'pauseAction'
+    | 'alreadyPaused'
+    | 'waitForPauseBeforeResume'
+    | 'pauseBeforeResuming'
+    | 'resumeAction',
+    TranslationKey
+  >
+
+  const statusLabelKeys: Record<AgentInstance['status'], TranslationKey> = {
+    idle: 'agents.status.idle',
+    claimed: 'agents.status.claimed',
+    running: 'agents.status.running',
+    paused: 'agents.status.paused',
+    failed: 'agents.status.failed',
+    interrupted: 'agents.status.interrupted',
+    terminated: 'agents.status.terminated',
   }
 
   const runtimeControlClasses: Record<AgentInstance['runtimeControlState'], string> = {
@@ -80,44 +128,57 @@
   }
 
   function interruptTitle(agent: AgentInstance) {
-    if (runtimeActionAgentId === agent.id) return 'Updating runtime control...'
+    if (runtimeActionAgentId === agent.id) {
+      return i18nStore.t(runtimeControlMessageKeys.updating)
+    }
     if (agent.runtimeControlState === 'interrupt_requested') {
-      return 'Interrupt requested. Waiting for the runtime to stop.'
+      return i18nStore.t(runtimeControlMessageKeys.interruptRequested)
     }
     if (agent.runtimeControlState === 'pause_requested') {
-      return 'Wait for the pause request to settle before interrupting this agent.'
+      return i18nStore.t(runtimeControlMessageKeys.pauseRequested)
     }
     if (agent.runtimeControlState === 'paused') {
-      return 'Paused agents no longer have a running session to interrupt.'
+      return i18nStore.t(runtimeControlMessageKeys.pausedInterrupt)
     }
-    if (agent.activeRunCount === 0)
-      return 'This agent definition has no active AgentRuns to interrupt.'
+    if (agent.activeRunCount === 0) {
+      return i18nStore.t(runtimeControlMessageKeys.noActiveRunsInterrupt)
+    }
     if (agent.status !== 'claimed' && agent.status !== 'running') {
-      return 'Only claimed or running agents can be interrupted.'
+      return i18nStore.t(runtimeControlMessageKeys.onlyClaimedRunningInterrupt)
     }
-    return 'Interrupt this agent run'
+    return i18nStore.t(runtimeControlMessageKeys.interruptAction)
   }
 
   function pauseTitle(agent: AgentInstance) {
-    if (runtimeActionAgentId === agent.id) return 'Updating runtime control...'
+    if (runtimeActionAgentId === agent.id) {
+      return i18nStore.t(runtimeControlMessageKeys.updating)
+    }
     if (agent.runtimeControlState === 'pause_requested') {
-      return 'Pause requested. Waiting for the runtime to stop.'
+      return i18nStore.t(runtimeControlMessageKeys.pauseRequested)
     }
-    if (agent.runtimeControlState === 'paused') return 'Agent runtime is already paused.'
-    if (agent.activeRunCount === 0) return 'This agent definition has no active AgentRuns to pause.'
+    if (agent.runtimeControlState === 'paused') {
+      return i18nStore.t(runtimeControlMessageKeys.alreadyPaused)
+    }
+    if (agent.activeRunCount === 0) {
+      return i18nStore.t(runtimeControlMessageKeys.noActiveRunsPause)
+    }
     if (agent.status !== 'claimed' && agent.status !== 'running') {
-      return 'Only claimed or running agents can be paused.'
+      return i18nStore.t(runtimeControlMessageKeys.onlyClaimedRunningPause)
     }
-    return 'Pause this agent'
+    return i18nStore.t(runtimeControlMessageKeys.pauseAction)
   }
 
   function resumeTitle(agent: AgentInstance) {
-    if (runtimeActionAgentId === agent.id) return 'Updating runtime control...'
-    if (agent.runtimeControlState === 'pause_requested') {
-      return 'Wait for the runtime to finish pausing before resuming.'
+    if (runtimeActionAgentId === agent.id) {
+      return i18nStore.t(runtimeControlMessageKeys.updating)
     }
-    if (agent.runtimeControlState !== 'paused') return 'Pause this agent before resuming it.'
-    return 'Resume this agent'
+    if (agent.runtimeControlState === 'pause_requested') {
+      return i18nStore.t(runtimeControlMessageKeys.waitForPauseBeforeResume)
+    }
+    if (agent.runtimeControlState !== 'paused') {
+      return i18nStore.t(runtimeControlMessageKeys.pauseBeforeResuming)
+    }
+    return i18nStore.t(runtimeControlMessageKeys.resumeAction)
   }
 </script>
 
@@ -125,13 +186,14 @@
   <table class="w-full text-sm">
     <thead>
       <tr class="border-border text-muted-foreground border-b text-left text-xs">
-        <th class="pr-2 pb-2 pl-3 font-medium">Status</th>
-        <th class="px-2 pb-2 font-medium">Agent</th>
-        <th class="px-2 pb-2 font-medium">Runtime Summary</th>
-        <th class="px-2 pb-2 font-medium">Last Heartbeat</th>
-        <th class="px-2 pb-2 text-right font-medium">Completed</th>
-        <th class="px-2 pb-2 text-right font-medium">Cost</th>
-        <th class="pr-3 pb-2 pl-2 text-right font-medium">Actions</th>
+        <th class="pr-2 pb-2 pl-3 font-medium">{i18nStore.t(columnLabelKeys.status)}</th>
+        <th class="px-2 pb-2 font-medium">{i18nStore.t(columnLabelKeys.agent)}</th>
+        <th class="px-2 pb-2 font-medium">{i18nStore.t(columnLabelKeys.runtimeSummary)}</th>
+        <th class="px-2 pb-2 font-medium">{i18nStore.t(columnLabelKeys.lastHeartbeat)}</th>
+        <th class="px-2 pb-2 text-right font-medium">{i18nStore.t(columnLabelKeys.completed)}</th>
+        <th class="px-2 pb-2 text-right font-medium">{i18nStore.t(columnLabelKeys.cost)}</th>
+        <th class="pr-3 pb-2 pl-2 text-right font-medium">{i18nStore.t(columnLabelKeys.actions)}</th
+        >
       </tr>
     </thead>
     <tbody>
@@ -140,12 +202,14 @@
           <td class="py-2.5 pr-2 pl-3">
             <div class="flex items-center gap-2">
               <span class={cn('size-2 rounded-full', statusColors[agent.status])}></span>
-              <span class="text-muted-foreground text-xs">{statusLabels[agent.status]}</span>
+              <span class="text-muted-foreground text-xs">
+                {i18nStore.t(statusLabelKeys[agent.status])}
+              </span>
               {#if agent.runtimeControlState !== 'active'}
                 <span
                   class={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${runtimeControlClasses[agent.runtimeControlState]}`}
                 >
-                  {runtimeControlLabels[agent.runtimeControlState]}
+                  {i18nStore.t(runtimeControlLabelKeys[agent.runtimeControlState])}
                 </span>
               {/if}
             </div>
@@ -159,7 +223,7 @@
           </td>
           <td class="px-2 py-2.5">
             <div class="text-foreground text-xs tabular-nums">
-              {agent.activeRunCount} active run(s)
+              {i18nStore.t('agents.agentList.activeRuns', { count: agent.activeRunCount })}
             </div>
             {#if agent.currentTicket}
               <button
@@ -173,7 +237,9 @@
                 {agent.currentTicket.title}
               </div>
             {:else if agent.activeRunCount > 1}
-              <div class="text-muted-foreground text-xs">See Runtime tab for concurrent runs.</div>
+              <div class="text-muted-foreground text-xs">
+                {i18nStore.t('agents.agentList.concurrentRunsHint')}
+              </div>
             {:else}
               <span class="text-muted-foreground/50 text-xs">&mdash;</span>
             {/if}
@@ -202,8 +268,8 @@
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label="View output"
-                title="View agent output"
+                aria-label={i18nStore.t('agents.agentList.action.viewOutput')}
+                title={i18nStore.t('agents.agentList.action.viewAgentOutput')}
                 onclick={() => onViewOutput?.(agent.id)}
               >
                 <Terminal class="size-3.5" />
@@ -211,7 +277,7 @@
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Interrupt agent"
+                aria-label={i18nStore.t('agents.agentList.action.interruptAgent')}
                 disabled={!canInterrupt(agent) || runtimeActionAgentId === agent.id}
                 title={interruptTitle(agent)}
                 onclick={() => onInterruptAgent?.(agent.id)}
@@ -222,7 +288,7 @@
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Resume agent"
+                  aria-label={i18nStore.t('agents.agentList.action.resumeAgent')}
                   disabled={!canResume(agent) || runtimeActionAgentId === agent.id}
                   title={resumeTitle(agent)}
                   onclick={() => onResumeAgent?.(agent.id)}
@@ -233,7 +299,7 @@
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Pause agent"
+                  aria-label={i18nStore.t('agents.agentList.action.pauseAgent')}
                   disabled={!canPause(agent) || runtimeActionAgentId === agent.id}
                   title={pauseTitle(agent)}
                   onclick={() => onPauseAgent?.(agent.id)}

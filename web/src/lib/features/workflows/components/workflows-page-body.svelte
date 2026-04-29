@@ -18,6 +18,7 @@
   import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
   import WorkflowList from './workflow-list.svelte'
   import WorkflowsPageState from './workflows-page-state.svelte'
+  import { t } from './i18n'
 
   let {
     loading = false,
@@ -91,7 +92,7 @@
   {#if settingsHref}
     <div class="px-4 pb-4">
       <a class="text-muted-foreground text-xs underline" href={settingsHref}>
-        Open workflow settings details
+        {t('workflows.page.body.link.settingsDetails')}
       </a>
     </div>
   {/if}
@@ -102,47 +103,50 @@
     <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
       <GitBranch class="text-muted-foreground size-5" />
     </div>
-    <p class="text-foreground text-sm font-medium">No workflows yet</p>
+    <p class="text-foreground text-sm font-medium">
+      {t('workflows.page.body.empty.title')}
+    </p>
     <p class="text-muted-foreground mt-1 max-w-sm text-sm">
-      Workflows define how agents process tickets — sequencing steps, branching on conditions, and
-      calling skills. Create one to automate a repeatable process.
+      {t('workflows.page.body.empty.description')}
     </p>
     <Button variant="outline" size="sm" class="mt-4" onclick={() => (showCreateDialog = true)}>
-      Create workflow
+      {t('workflows.page.body.empty.action')}
     </Button>
   </div>
 {:else}
   <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">
     {#if showList}
-      <div class="w-52 shrink-0">
+      <div class="w-52 shrink-0" data-tour="workflows-list-panel">
         <WorkflowList {workflows} {selectedId} onselect={(id) => onSelectedIdChange?.(id)} />
       </div>
     {/if}
-    <WorkflowEditorPanel
-      selectedWorkflow={selectedWorkflow ?? undefined}
-      harness={harness ? toHarnessContent(draftHarness) : null}
-      {variableGroups}
-      {skillStates}
-      {validationIssues}
-      {saving}
-      {validating}
-      {isDirty}
-      {loadingHarness}
-      {showList}
-      onDraftChange={(raw) => onDraftChange?.(raw)}
-      {onSave}
-      {onValidate}
-      onToggleSkill={(skill) => onToggleSkill?.(skill)}
-      onToggleList={() => (showList = !showList)}
-      onToggleDetail={() => (showDetail = !showDetail)}
-    />
+    <div class="flex min-h-0 flex-1" data-tour="workflow-detail-panel">
+      <WorkflowEditorPanel
+        selectedWorkflow={selectedWorkflow ?? undefined}
+        harness={harness ? toHarnessContent(draftHarness) : null}
+        {variableGroups}
+        {skillStates}
+        {validationIssues}
+        {saving}
+        {validating}
+        {isDirty}
+        {loadingHarness}
+        {showList}
+        onDraftChange={(raw) => onDraftChange?.(raw)}
+        {onSave}
+        {onValidate}
+        onToggleSkill={(skill) => onToggleSkill?.(skill)}
+        onToggleList={() => (showList = !showList)}
+        onToggleDetail={() => (showDetail = !showDetail)}
+      />
+    </div>
   </div>
 
   <Sheet.Root bind:open={showDetail}>
     <Sheet.Content side="right" class="w-[60%] overflow-y-auto p-0 sm:max-w-[60%]">
       <Sheet.Header class="sr-only">
-        <Sheet.Title>Workflow Settings</Sheet.Title>
-        <Sheet.Description>Configure workflow lifecycle settings.</Sheet.Description>
+        <Sheet.Title>{t('workflows.page.body.srHeader.title')}</Sheet.Title>
+        <Sheet.Description>{t('workflows.page.body.srHeader.description')}</Sheet.Description>
       </Sheet.Header>
       {#if selectedWorkflow}
         <WorkflowLifecycleSidebar

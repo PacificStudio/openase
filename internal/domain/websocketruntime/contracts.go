@@ -43,10 +43,12 @@ const (
 	OperationArtifactSync     Operation = "artifact_sync"
 	OperationCommandOpen      Operation = "command_open"
 	OperationSessionInput     Operation = "session_input"
+	OperationSessionResize    Operation = "session_resize"
 	OperationSessionSignal    Operation = "session_signal"
 	OperationSessionClose     Operation = "session_close"
 	OperationProcessStart     Operation = "process_start"
 	OperationProcessStatus    Operation = "process_status"
+	OperationAPIRelay         Operation = "api_relay"
 	OperationSessionOutput    Operation = "session_output"
 	OperationSessionExit      Operation = "session_exit"
 )
@@ -60,10 +62,12 @@ func (o Operation) IsValid() bool {
 		OperationArtifactSync,
 		OperationCommandOpen,
 		OperationSessionInput,
+		OperationSessionResize,
 		OperationSessionSignal,
 		OperationSessionClose,
 		OperationProcessStart,
 		OperationProcessStatus,
+		OperationAPIRelay,
 		OperationSessionOutput,
 		OperationSessionExit:
 		return true
@@ -258,6 +262,9 @@ type ArtifactSyncRequest struct {
 
 type CommandOpenRequest struct {
 	Command string `json:"command"`
+	PTY     bool   `json:"pty,omitempty"`
+	Cols    int    `json:"cols,omitempty"`
+	Rows    int    `json:"rows,omitempty"`
 }
 
 type ProcessStartRequest struct {
@@ -282,6 +289,12 @@ type SessionSignalRequest struct {
 	Signal    string `json:"signal,omitempty"`
 }
 
+type SessionResizeRequest struct {
+	SessionID string `json:"session_id"`
+	Cols      int    `json:"cols"`
+	Rows      int    `json:"rows"`
+}
+
 type SessionCloseRequest struct {
 	SessionID string `json:"session_id"`
 }
@@ -294,6 +307,21 @@ type ProcessStatusResponse struct {
 	SessionID string `json:"session_id"`
 	Running   bool   `json:"running"`
 	ExitCode  *int   `json:"exit_code,omitempty"`
+}
+
+// APIRelayRequest forwards JSON-oriented OpenASE CLI requests over the websocket runtime channel.
+type APIRelayRequest struct {
+	Method  string              `json:"method"`
+	URL     string              `json:"url"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    []byte              `json:"body,omitempty"`
+}
+
+type APIRelayResponse struct {
+	StatusCode int                 `json:"status_code"`
+	Status     string              `json:"status"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       []byte              `json:"body,omitempty"`
 }
 
 type SessionOutputEvent struct {

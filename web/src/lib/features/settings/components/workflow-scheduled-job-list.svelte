@@ -4,6 +4,8 @@
   import { Button } from '$ui/button'
   import { Switch } from '$ui/switch'
   import { Pencil, Play, Trash2, Plus, CalendarClock } from '@lucide/svelte'
+  import type { TranslationKey } from '$lib/i18n'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     jobs,
@@ -22,6 +24,14 @@
     onTriggerJob?: (job: ScheduledJob) => void
     onDeleteJob?: (job: ScheduledJob) => void
   } = $props()
+
+  const toggleActionKeys: Record<'enable' | 'disable', TranslationKey> = {
+    enable: 'settings.workflowScheduledJobList.actions.enable',
+    disable: 'settings.workflowScheduledJobList.actions.disable',
+  }
+
+  const toggleActionLabel = (enabled: boolean) =>
+    i18nStore.t(enabled ? toggleActionKeys.disable : toggleActionKeys.enable)
 </script>
 
 {#if jobs.length === 0}
@@ -31,18 +41,25 @@
     <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
       <CalendarClock class="text-muted-foreground size-5" />
     </div>
-    <p class="text-foreground text-sm font-medium">No scheduled jobs</p>
+    <p class="text-foreground text-sm font-medium">
+      {i18nStore.t('settings.workflowScheduledJobList.messages.emptyTitle')}
+    </p>
     <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-      Scheduled jobs create tickets automatically on a cron schedule — useful for recurring tasks
-      like daily reports or periodic syncs.
+      {i18nStore.t('settings.workflowScheduledJobList.messages.emptyDescription')}
     </p>
     <Button variant="outline" size="sm" class="mt-4" onclick={() => onNewJob?.()}>
       <Plus class="mr-1.5 size-3.5" />
-      Create job
+      {i18nStore.t('settings.workflowScheduledJobList.actions.newJob')}
     </Button>
   </div>
 {:else}
   <div class="space-y-2">
+    <div class="flex justify-end">
+      <Button variant="outline" size="sm" onclick={() => onNewJob?.()}>
+        <Plus class="mr-1.5 size-3.5" />
+        {i18nStore.t('settings.workflowScheduledJobList.actions.newJob')}
+      </Button>
+    </div>
     {#each jobs as job (job.id)}
       {@const busy = actionJobId === job.id}
       <div class="border-border/60 bg-card/60 flex items-center gap-3 rounded-xl border px-4 py-3">
@@ -51,7 +68,7 @@
           checked={job.is_enabled}
           disabled={busy}
           onCheckedChange={() => onToggleEnabled?.(job)}
-          aria-label="{job.is_enabled ? 'Disable' : 'Enable'} {job.name}"
+          aria-label={`${toggleActionLabel(job.is_enabled)} ${job.name}`}
           class="shrink-0"
         />
 
@@ -68,13 +85,20 @@
           <div
             class="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs"
           >
-            <span>Status {job.ticket_template.status || 'Unassigned'}</span>
             <span>
-              Next {job.next_run_at ? formatRelativeTime(job.next_run_at) : '—'}
+              {i18nStore.t('settings.workflowScheduledJobList.labels.status')}
+              {job.ticket_template.status
+                ? ` ${job.ticket_template.status}`
+                : ` ${i18nStore.t('settings.workflowScheduledJobList.status.unassigned')}`}
+            </span>
+            <span>
+              {i18nStore.t('settings.workflowScheduledJobList.labels.next')}{' '}
+              {job.next_run_at ? formatRelativeTime(job.next_run_at) : '—'}
             </span>
             {#if job.last_run_at}
               <span>
-                Last {formatRelativeTime(job.last_run_at)}
+                {i18nStore.t('settings.workflowScheduledJobList.labels.last')}{' '}
+                {formatRelativeTime(job.last_run_at)}
               </span>
             {/if}
           </div>
@@ -85,8 +109,8 @@
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="Edit job"
-            title="Edit job"
+            aria-label={i18nStore.t('settings.workflowScheduledJobList.actions.edit')}
+            title={i18nStore.t('settings.workflowScheduledJobList.actions.edit')}
             onclick={() => onEditJob?.(job)}
           >
             <Pencil class="size-3.5" />
@@ -94,8 +118,8 @@
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="Run once"
-            title="Run once"
+            aria-label={i18nStore.t('settings.workflowScheduledJobList.actions.runOnce')}
+            title={i18nStore.t('settings.workflowScheduledJobList.actions.runOnce')}
             disabled={busy}
             onclick={() => onTriggerJob?.(job)}
           >
@@ -104,8 +128,8 @@
           <Button
             variant="ghost"
             size="icon-xs"
-            aria-label="Delete job"
-            title="Delete job"
+            aria-label={i18nStore.t('settings.workflowScheduledJobList.actions.delete')}
+            title={i18nStore.t('settings.workflowScheduledJobList.actions.delete')}
             disabled={busy}
             class="text-muted-foreground hover:text-destructive"
             onclick={() => onDeleteJob?.(job)}

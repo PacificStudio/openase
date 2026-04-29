@@ -140,9 +140,6 @@ func providerAuthReady(status MachineAgentAuthStatus, mode MachineAgentAuthMode)
 
 func providerLaunchConfigComplete(item AgentProvider) bool {
 	command := strings.TrimSpace(item.CliCommand)
-	if item.MachineAgentCLIPath != nil && strings.TrimSpace(*item.MachineAgentCLIPath) != "" {
-		command = strings.TrimSpace(*item.MachineAgentCLIPath)
-	}
 	if command == "" {
 		return false
 	}

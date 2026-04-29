@@ -15,6 +15,7 @@
   import * as Card from '$ui/card'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let draft = $state<OrganizationCreationDraft>(createOrganizationDraft())
   let saving = $state(false)
@@ -52,7 +53,9 @@
       await goto(organizationPath(payload.organization.id))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create organization.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('catalog.workspace.errors.createOrganization'),
       )
     } finally {
       saving = false
@@ -62,7 +65,7 @@
   async function handleAcceptInvitation() {
     const token = inviteToken.trim()
     if (!token) {
-      toastStore.error('Invitation token is required.')
+      toastStore.error(i18nStore.t('catalog.workspace.errors.invitationTokenRequired'))
       return
     }
 
@@ -72,13 +75,17 @@
       const membership = await acceptOrganizationInvitation(token)
       inviteToken = ''
       await invalidateAll()
-      toastStore.success(`Invitation accepted as ${membership.role}.`)
+      toastStore.success(
+        i18nStore.t('catalog.workspace.success.invitationAccepted', {
+          role: membership.role,
+        }),
+      )
       await goto(organizationPath(membership.organizationID))
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError
           ? caughtError.detail
-          : 'Failed to accept organization invitation.',
+          : i18nStore.t('catalog.workspace.errors.acceptInvitation'),
       )
     } finally {
       acceptingInvite = false
@@ -92,16 +99,14 @@
       <section class="space-y-6">
         <div class="space-y-3">
           <p class="text-muted-foreground text-xs tracking-[0.28em] uppercase">
-            Workspace bootstrap
+            {i18nStore.t('catalog.workspace.hero.badge')}
           </p>
           <div class="space-y-2">
             <h1 class="text-foreground text-3xl font-semibold tracking-tight">
-              Create your first organization
+              {i18nStore.t('catalog.workspace.hero.heading')}
             </h1>
             <p class="text-muted-foreground max-w-2xl text-sm leading-6">
-              Start by defining a stable workspace slug. Once the organization exists, the dashboard
-              unlocks project creation, provider setup, and machine routing under the same URL
-              scope.
+              {i18nStore.t('catalog.workspace.hero.description')}
             </p>
           </div>
         </div>
@@ -109,27 +114,33 @@
         <div class="grid gap-4 md:grid-cols-3">
           <Card.Root class="rounded-2xl">
             <Card.Header class="pb-3">
-              <Card.Title class="text-sm">1. Create organization</Card.Title>
+              <Card.Title class="text-sm">
+                {i18nStore.t('catalog.workspace.steps.create.title')}
+              </Card.Title>
               <Card.Description>
-                Reserve the workspace slug that all org-scoped routes will use.
+                {i18nStore.t('catalog.workspace.steps.create.description')}
               </Card.Description>
             </Card.Header>
           </Card.Root>
 
           <Card.Root class="rounded-2xl">
             <Card.Header class="pb-3">
-              <Card.Title class="text-sm">2. Add providers</Card.Title>
+              <Card.Title class="text-sm">
+                {i18nStore.t('catalog.workspace.steps.providers.title')}
+              </Card.Title>
               <Card.Description>
-                Register LLM adapters, CLI launch commands, and auth config per organization.
+                {i18nStore.t('catalog.workspace.steps.providers.description')}
               </Card.Description>
             </Card.Header>
           </Card.Root>
 
           <Card.Root class="rounded-2xl">
             <Card.Header class="pb-3">
-              <Card.Title class="text-sm">3. Open projects</Card.Title>
+              <Card.Title class="text-sm">
+                {i18nStore.t('catalog.workspace.steps.projects.title')}
+              </Card.Title>
               <Card.Description>
-                Create a project, wire machines, and move into board, tickets, and agents.
+                {i18nStore.t('catalog.workspace.steps.projects.description')}
               </Card.Description>
             </Card.Header>
           </Card.Root>
@@ -139,9 +150,11 @@
       <div class="space-y-4">
         <Card.Root class="rounded-2xl">
           <Card.Header>
-            <Card.Title>Create organization</Card.Title>
+            <Card.Title>
+              {i18nStore.t('catalog.workspace.create.title')}
+            </Card.Title>
             <Card.Description>
-              This writes the initial workspace record through the live catalog API.
+              {i18nStore.t('catalog.workspace.create.description')}
             </Card.Description>
           </Card.Header>
 
@@ -154,31 +167,38 @@
               }}
             >
               <div class="space-y-2">
-                <Label for="organization-name">Organization name</Label>
+                <Label for="organization-name">
+                  {i18nStore.t('catalog.workspace.create.labels.organizationName')}
+                </Label>
                 <Input
                   id="organization-name"
                   value={draft.name}
-                  placeholder="Better & Better"
+                  placeholder={i18nStore.t(
+                    'catalog.workspace.create.placeholders.organizationName',
+                  )}
                   oninput={updateName}
                 />
               </div>
 
               <div class="space-y-2">
-                <Label for="organization-slug">Slug</Label>
+                <Label for="organization-slug">
+                  {i18nStore.t('catalog.workspace.create.labels.slug')}
+                </Label>
                 <Input
                   id="organization-slug"
                   value={draft.slug}
-                  placeholder="better-and-better"
+                  placeholder={i18nStore.t('catalog.workspace.create.placeholders.slug')}
                   oninput={updateSlug}
                 />
                 <p class="text-muted-foreground text-xs">
-                  Use lowercase letters, numbers, and hyphens. This becomes the stable org route
-                  handle.
+                  {i18nStore.t('catalog.workspace.create.slugHint')}
                 </p>
               </div>
 
               <Button type="submit" class="w-full" disabled={saving || acceptingInvite}>
-                {saving ? 'Creating…' : 'Create organization'}
+                {saving
+                  ? i18nStore.t('catalog.workspace.create.actions.creating')
+                  : i18nStore.t('catalog.workspace.create.actions.create')}
               </Button>
             </form>
           </Card.Content>
@@ -186,10 +206,11 @@
 
         <Card.Root class="rounded-2xl border-sky-200/80 bg-sky-50/40">
           <Card.Header>
-            <Card.Title>Accept invitation</Card.Title>
+            <Card.Title>
+              {i18nStore.t('catalog.workspace.invite.title')}
+            </Card.Title>
             <Card.Description>
-              Paste an invitation token to activate your membership and open the organization
-              dashboard.
+              {i18nStore.t('catalog.workspace.invite.description')}
             </Card.Description>
           </Card.Header>
 
@@ -202,17 +223,19 @@
               }}
             >
               <div class="space-y-2">
-                <Label for="organization-invite-token">Invitation token</Label>
+                <Label for="organization-invite-token">
+                  {i18nStore.t('catalog.workspace.invite.labels.token')}
+                </Label>
                 <Input
                   id="organization-invite-token"
                   value={inviteToken}
-                  placeholder="Paste the token shared by an owner or admin"
+                  placeholder={i18nStore.t('catalog.workspace.invite.placeholders.token')}
                   oninput={(event) => {
                     inviteToken = (event.currentTarget as HTMLInputElement).value
                   }}
                 />
                 <p class="text-muted-foreground text-xs">
-                  Tokens are rotated on resend and stop working once canceled, accepted, or expired.
+                  {i18nStore.t('catalog.workspace.invite.hint.tokens')}
                 </p>
               </div>
 
@@ -222,7 +245,9 @@
                 class="w-full"
                 disabled={saving || acceptingInvite}
               >
-                {acceptingInvite ? 'Joining…' : 'Join organization'}
+                {acceptingInvite
+                  ? i18nStore.t('catalog.workspace.invite.actions.joining')
+                  : i18nStore.t('catalog.workspace.invite.actions.join')}
               </Button>
             </form>
           </Card.Content>

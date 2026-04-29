@@ -2,6 +2,7 @@ import { updateSkill } from '$lib/api/openase'
 import type { Skill, SkillFile, Workflow } from '$lib/api/contracts'
 import { ApiError } from '$lib/api/client'
 import { toastStore } from '$lib/stores/toast.svelte'
+import { skillsT } from './i18n'
 import {
   addDraftTextFile,
   addEmptyDirectory,
@@ -199,7 +200,7 @@ export function handleRenameNode(
     state.setSelectedTreeKind(kind)
     if (kind === 'file') state.setSelectedFilePath(normalizedNextPath)
   } catch (err) {
-    toastStore.error(err instanceof Error ? err.message : 'Failed to rename.')
+    toastStore.error(err instanceof Error ? err.message : skillsT('skills.editor.errors.rename'))
   }
 }
 

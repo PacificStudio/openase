@@ -73,6 +73,72 @@ type AgentRunReference struct {
 	Status   string    `json:"status"`
 }
 
+type ProviderProjectReference struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type ProviderWorkflowReference struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type ProviderAgentReference struct {
+	ID          uuid.UUID                   `json:"id"`
+	ProjectID   uuid.UUID                   `json:"project_id"`
+	ProjectName string                      `json:"project_name"`
+	Name        string                      `json:"name"`
+	Workflows   []ProviderWorkflowReference `json:"workflows"`
+}
+
+type ProviderConversationReference struct {
+	ID          uuid.UUID `json:"id"`
+	ProjectID   uuid.UUID `json:"project_id"`
+	ProjectName string    `json:"project_name"`
+	Status      string    `json:"status"`
+}
+
+type ProviderConversationPrincipalReference struct {
+	ID           uuid.UUID `json:"id"`
+	ProjectID    uuid.UUID `json:"project_id"`
+	ProjectName  string    `json:"project_name"`
+	Name         string    `json:"name"`
+	Status       string    `json:"status"`
+	RuntimeState string    `json:"runtime_state"`
+}
+
+type ProviderConversationRunReference struct {
+	ID          uuid.UUID `json:"id"`
+	ProjectID   uuid.UUID `json:"project_id"`
+	ProjectName string    `json:"project_name"`
+	Status      string    `json:"status"`
+}
+
+type AgentProviderDeleteConflict struct {
+	ProviderID             uuid.UUID                                `json:"provider_id"`
+	OrganizationDefault    bool                                     `json:"organization_default"`
+	ProjectDefaults        []ProviderProjectReference               `json:"project_defaults"`
+	Agents                 []ProviderAgentReference                 `json:"agents"`
+	AgentRuns              []AgentRunReference                      `json:"agent_runs"`
+	ChatConversations      []ProviderConversationReference          `json:"chat_conversations"`
+	ConversationPrincipals []ProviderConversationPrincipalReference `json:"conversation_principals"`
+	ConversationRuns       []ProviderConversationRunReference       `json:"conversation_runs"`
+}
+
+func (e *AgentProviderDeleteConflict) Error() string {
+	if e == nil {
+		return ""
+	}
+	return ErrAgentProviderInUseConflict.Error()
+}
+
+func (e *AgentProviderDeleteConflict) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return ErrAgentProviderInUseConflict
+}
+
 type AgentDeleteConflict struct {
 	AgentID        uuid.UUID           `json:"agent_id"`
 	ActiveRuns     []AgentRunReference `json:"active_runs"`

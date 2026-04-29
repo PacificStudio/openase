@@ -47,10 +47,18 @@ func TestSummarizeConversationWorkspaceRepoHandlesUnbornHead(t *testing.T) {
 	for _, file := range summary.Files {
 		filesByPath[file.Path] = file
 	}
-	if filesByPath["tracked.txt"].Status != ProjectConversationWorkspaceFileStatusAdded || filesByPath["tracked.txt"].Added != 2 || filesByPath["tracked.txt"].Removed != 0 {
+	if filesByPath["tracked.txt"].Status != ProjectConversationWorkspaceFileStatusAdded ||
+		!filesByPath["tracked.txt"].Staged ||
+		filesByPath["tracked.txt"].Unstaged ||
+		filesByPath["tracked.txt"].Added != 2 ||
+		filesByPath["tracked.txt"].Removed != 0 {
 		t.Fatalf("unexpected tracked file diff: %+v", filesByPath["tracked.txt"])
 	}
-	if filesByPath["notes.txt"].Status != ProjectConversationWorkspaceFileStatusUntracked || filesByPath["notes.txt"].Added != 1 || filesByPath["notes.txt"].Removed != 0 {
+	if filesByPath["notes.txt"].Status != ProjectConversationWorkspaceFileStatusUntracked ||
+		filesByPath["notes.txt"].Staged ||
+		!filesByPath["notes.txt"].Unstaged ||
+		filesByPath["notes.txt"].Added != 1 ||
+		filesByPath["notes.txt"].Removed != 0 {
 		t.Fatalf("unexpected untracked file diff: %+v", filesByPath["notes.txt"])
 	}
 }

@@ -71,3 +71,19 @@ func parseAICookiePrincipal(raw string) (chatservice.UserID, error) {
 	}
 	return chatservice.ParseUserID(trimmed)
 }
+
+func projectConversationAccessHint(c echo.Context) chatservice.ProjectConversationAccessHint {
+	if c == nil {
+		return chatservice.ProjectConversationAccessHint{}
+	}
+
+	hint := chatservice.ProjectConversationAccessHint{
+		AllowInstanceAdminLegacyAdoption: strings.TrimSpace(actorFromHumanPrincipal(c)) != "",
+	}
+	if cookie, err := c.Cookie(aiPrincipalCookieName); err == nil {
+		if principal, parseErr := parseAICookiePrincipal(cookie.Value); parseErr == nil {
+			hint.LegacyBrowserOwner = principal
+		}
+	}
+	return hint
+}

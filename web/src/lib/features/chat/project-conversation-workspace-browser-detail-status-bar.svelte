@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ChevronLeft, ChevronRight, Timer, TimerOff, WrapText } from '@lucide/svelte'
   import type {
+    ProjectConversationWorkspaceDiffFile,
     ProjectConversationWorkspaceFilePatch,
     ProjectConversationWorkspaceFilePreview,
   } from '$lib/api/chat'
@@ -8,12 +9,14 @@
   import type { EditorWrapMode } from '$lib/components/code/wrap-mode'
   import * as Tooltip from '$ui/tooltip'
   import type { WorkspaceFileEditorState } from './project-conversation-workspace-browser-state.svelte'
+  import { chatT, chatWorkspaceStatusT } from './i18n'
 
   let {
     activeEditorState,
     activePatch,
     activeFileLoading,
     activePreview,
+    activeChangedFile,
     selectedChangedFilesCount,
     showWrapToggle,
     wrapMode,
@@ -27,6 +30,7 @@
     activePatch: ProjectConversationWorkspaceFilePatch | null
     activeFileLoading: boolean
     activePreview: ProjectConversationWorkspaceFilePreview | null
+    activeChangedFile: ProjectConversationWorkspaceDiffFile | null
     selectedChangedFilesCount: number
     showWrapToggle: boolean
     wrapMode: EditorWrapMode
@@ -36,6 +40,40 @@
     onSelectNextChangedFile: () => void
     onToggleAutosave: () => void
   } = $props()
+
+  const statusLabel = $derived(activeChangedFile?.status ?? activePatch?.status ?? '')
+  const statusBadge = $derived.by(() => {
+    switch (statusLabel) {
+      case 'added':
+        return 'A'
+      case 'deleted':
+        return 'D'
+      case 'renamed':
+        return 'R'
+      case 'untracked':
+        return 'U'
+      case 'modified':
+        return 'M'
+      default:
+        return ''
+    }
+  })
+  const statusTone = $derived.by(() => {
+    switch (statusLabel) {
+      case 'added':
+      case 'untracked':
+        return 'text-emerald-700 dark:text-emerald-300'
+      case 'deleted':
+        return 'text-rose-700 dark:text-rose-300'
+      case 'renamed':
+        return 'text-sky-700 dark:text-sky-300'
+      case 'modified':
+        return 'text-amber-700 dark:text-amber-300'
+      default:
+        return 'text-muted-foreground/60'
+    }
+  })
+  const localizedStatusLabel = $derived(chatWorkspaceStatusT(statusLabel))
 </script>
 
 <div
@@ -43,24 +81,14 @@
   data-testid="workspace-browser-status-bar"
 >
   {#if activeEditorState?.savePhase === 'saving'}
-    <span class="font-medium text-sky-700 dark:text-sky-300">Saving…</span>
+    <span class="font-medium text-sky-700 dark:text-sky-300">{chatT('chat.saving')}</span>
   {:else if activeEditorState?.savePhase === 'conflict'}
-    <span class="font-medium text-amber-700 dark:text-amber-300">Conflict</span>
+    <span class="font-medium text-amber-700 dark:text-amber-300">
+      {chatT('chat.workspaceConflict')}
+    </span>
   {:else if activeEditorState?.externalChange}
-    <span class="font-medium text-amber-700 dark:text-amber-300">Changed in workspace</span>
-  {/if}
-  {#if activePatch?.status && activePatch.status !== 'modified'}
-    <span
-      class={cn(
-        'rounded px-1 font-bold uppercase',
-        activePatch.status === 'added'
-          ? 'text-emerald-600'
-          : activePatch.status === 'deleted'
-            ? 'text-rose-600'
-            : 'text-sky-600',
-      )}
-    >
-      {activePatch.status}
+    <span class="font-medium text-amber-700 dark:text-amber-300">
+      {chatT('chat.workspaceChanged')}
     </span>
   {/if}
   {#if selectedChangedFilesCount > 1}
@@ -69,7 +97,7 @@
       type="button"
       class="text-muted-foreground hover:text-foreground"
       onclick={onSelectPreviousChangedFile}
-      title="Previous changed file"
+      title={chatT('chat.previousChangedFile')}
     >
       <ChevronLeft class="size-3" />
     </button>
@@ -77,16 +105,33 @@
       type="button"
       class="text-muted-foreground hover:text-foreground"
       onclick={onSelectNextChangedFile}
-      title="Next changed file"
+      title={chatT('chat.nextChangedFile')}
     >
       <ChevronRight class="size-3" />
     </button>
+  {/if}
+  {#if statusBadge}
+    <span class="bg-border h-3 w-px"></span>
+    <span
+      class={cn('font-mono font-semibold', statusTone)}
+      data-testid="workspace-browser-status-badge"
+    >
+      {statusBadge}
+    </span>
+    <span class={statusTone} data-testid="workspace-browser-status-label">
+      {localizedStatusLabel}
+    </span>
+    {#if activeChangedFile}
+      <span class="text-muted-foreground/60" data-testid="workspace-browser-status-totals">
+        +{activeChangedFile.added} -{activeChangedFile.removed}
+      </span>
+    {/if}
   {/if}
 
   <span class="flex-1"></span>
 
   {#if activeFileLoading}
-    <span class="text-muted-foreground/50">Loading…</span>
+    <span class="text-muted-foreground/50">{chatT('chat.loadingEllipsis')}</span>
   {/if}
   {#if activePreview}
     <span class="text-muted-foreground/60">{activePreview.mediaType}</span>
@@ -106,7 +151,9 @@
                 ? 'text-foreground'
                 : 'text-muted-foreground/60 hover:text-foreground',
             )}
-            aria-label={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
+            aria-label={wrapMode === 'wrap'
+              ? chatT('chat.disableLineWrap')
+              : chatT('chat.enableLineWrap')}
             aria-pressed={wrapMode === 'wrap'}
             data-testid="workspace-browser-wrap-toggle"
             onclick={onToggleWrapMode}
@@ -116,9 +163,7 @@
         {/snippet}
       </Tooltip.Trigger>
       <Tooltip.Content side="top" class="text-xs">
-        {wrapMode === 'wrap'
-          ? 'Word Wrap: On — click to disable'
-          : 'Word Wrap: Off — click to enable'}
+        {wrapMode === 'wrap' ? chatT('chat.wordWrapOnHint') : chatT('chat.wordWrapOffHint')}
       </Tooltip.Content>
     </Tooltip.Root>
   {/if}
@@ -145,7 +190,7 @@
       {/snippet}
     </Tooltip.Trigger>
     <Tooltip.Content side="top" class="text-xs">
-      {autosaveEnabled ? 'Autosave: On — click to disable' : 'Autosave: Off — click to enable'}
+      {autosaveEnabled ? chatT('chat.autosaveOnHint') : chatT('chat.autosaveOffHint')}
     </Tooltip.Content>
   </Tooltip.Root>
 </div>

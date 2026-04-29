@@ -1,4 +1,5 @@
 import { ApiError } from '$lib/api/client'
+import { chatT } from './i18n'
 
 type DeleteConversationFlowInput = {
   conversationId: string
@@ -17,9 +18,7 @@ export async function runProjectConversationDeleteFlow(
   }
 
   if (!force) {
-    const confirmed = window.confirm(
-      'Delete this Project AI conversation and its workspace? Dirty workspaces may require one more confirmation.',
-    )
+    const confirmed = window.confirm(chatT('chat.confirmDeleteConversation'))
     if (!confirmed) {
       return
     }
@@ -37,7 +36,7 @@ export async function runProjectConversationDeleteFlow(
       error.detail.toLowerCase().includes('workspace has uncommitted changes')
     ) {
       const confirmed = window.confirm(
-        `${error.detail}\n\nDelete it anyway and discard those workspace changes?`,
+        chatT('chat.confirmDeleteWorkspaceChanges', { errorDetail: error.detail }),
       )
       if (confirmed) {
         await runProjectConversationDeleteFlow({ ...input, force: true })
@@ -45,8 +44,6 @@ export async function runProjectConversationDeleteFlow(
       return
     }
 
-    input.onError(
-      error instanceof ApiError ? error.detail : 'Failed to delete the Project AI conversation.',
-    )
+    input.onError(error instanceof ApiError ? error.detail : chatT('chat.deleteConversationFailed'))
   }
 }

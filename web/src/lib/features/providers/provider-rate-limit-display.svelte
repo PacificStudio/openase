@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ProviderRateLimitSummary } from './rate-limit'
+  import { providersT } from './i18n'
 
   let { rateLimit }: { rateLimit: ProviderRateLimitSummary } = $props()
 
@@ -25,7 +26,7 @@
             <span class="text-muted-foreground">{window.label}</span>
             <div class="flex items-center gap-2">
               <span class="text-foreground font-medium tabular-nums">
-                {window.usedPercent.toFixed(1)}% used
+                {window.usedPercent.toFixed(1)}% {providersT('providers.rateLimit.used')}
               </span>
               {#if window.windowMinutes != null}
                 <span class="text-muted-foreground">· {window.windowMinutes}m</span>
@@ -47,7 +48,9 @@
           </div>
           {#if window.resetsAt}
             <div class="text-muted-foreground mt-1">
-              Resets {new Date(window.resetsAt).toLocaleString()}
+              {providersT('providers.rateLimit.resetsAt', {
+                time: new Date(window.resetsAt).toLocaleString(),
+              })}
             </div>
           {/if}
         </div>
@@ -55,7 +58,7 @@
     </div>
   {:else}
     <div class="flex items-center justify-between gap-3">
-      <span class="text-muted-foreground">Rate limit</span>
+      <span class="text-muted-foreground">{providersT('providers.rateLimit.label')}</span>
       <span class="text-foreground font-medium">{rateLimit.headline}</span>
     </div>
     <div class="text-muted-foreground mt-1">{rateLimit.detail}</div>

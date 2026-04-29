@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -45,6 +46,37 @@ func TestProtectedRoutesRequireDefinedAuthorizationRules(t *testing.T) {
 	slices.Sort(missing)
 	if len(missing) > 0 {
 		t.Fatalf("protected routes missing authorization rules:\n%s", strings.Join(missing, "\n"))
+	}
+}
+
+func TestConversationWorkspaceGitRoutesRequireConversationUpdatePermission(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		method     string
+		path       string
+		permission humanauthdomain.PermissionKey
+	}{
+		{method: http.MethodGet, path: "/api/v1/chat/conversations/:conversationId/workspace/git-graph", permission: humanauthdomain.PermissionConversationRead},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/checkout", permission: humanauthdomain.PermissionConversationUpdate},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/git-remote-op", permission: humanauthdomain.PermissionConversationUpdate},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/git-stage", permission: humanauthdomain.PermissionConversationUpdate},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/git-stage-all", permission: humanauthdomain.PermissionConversationUpdate},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/git-unstage", permission: humanauthdomain.PermissionConversationUpdate},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/git-commit", permission: humanauthdomain.PermissionConversationUpdate},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/git-discard", permission: humanauthdomain.PermissionConversationUpdate},
+		{method: http.MethodPost, path: "/api/v1/chat/conversations/:conversationId/workspace/create-branch", permission: humanauthdomain.PermissionConversationUpdate},
+	} {
+		rule, ok := humanRouteAuthorizationRuleFor(tc.path, tc.method)
+		if !ok {
+			t.Fatalf("%s %s missing authorization rule", tc.method, tc.path)
+		}
+		if rule.permission != tc.permission {
+			t.Fatalf("%s %s permission = %q, want %q", tc.method, tc.path, rule.permission, tc.permission)
+		}
+		if !rule.checkRequired {
+			t.Fatalf("%s %s should require authorization", tc.method, tc.path)
+		}
 	}
 }
 

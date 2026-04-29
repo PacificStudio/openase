@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
 	"github.com/google/uuid"
 )
@@ -37,6 +38,8 @@ type MachineRecord struct {
 	OrganizationID        uuid.UUID
 	Name                  string
 	ConnectionMode        string
+	ReachabilityMode      string
+	ExecutionMode         string
 	Status                string
 	ChannelCredentialKind string
 	ChannelTokenID        *string
@@ -64,6 +67,7 @@ type ConnectedSessionRecord struct {
 	SystemInfo       domain.SystemInfo
 	ToolInventory    []domain.ToolInfo
 	ResourceSnapshot *domain.ResourceSnapshot
+	WebsocketHealth  *domain.WebsocketHealth
 }
 
 type HeartbeatRecord struct {
@@ -73,6 +77,7 @@ type HeartbeatRecord struct {
 	SystemInfo       *domain.SystemInfo
 	ToolInventory    []domain.ToolInfo
 	ResourceSnapshot *domain.ResourceSnapshot
+	WebsocketHealth  *domain.WebsocketHealth
 }
 
 type DisconnectedSessionRecord struct {
@@ -208,9 +213,17 @@ func resolveTTL(raw time.Duration) time.Duration {
 }
 
 func validateMachineForChannel(machine MachineRecord) error {
-	switch strings.TrimSpace(machine.ConnectionMode) {
-	case "ws_reverse":
-	default:
+	_, topologyErr := catalogdomain.ResolveMachineWebsocketTopology(
+		catalogdomain.MachineReachabilityMode(strings.TrimSpace(machine.ReachabilityMode)),
+		catalogdomain.MachineExecutionMode(strings.TrimSpace(machine.ExecutionMode)),
+	)
+	if topologyErr != nil {
+		mode := catalogdomain.MachineConnectionMode(strings.TrimSpace(machine.ConnectionMode))
+		if mode != catalogdomain.MachineConnectionModeWSReverse {
+			return domain.ErrConnectionMode
+		}
+	} else if strings.TrimSpace(machine.ReachabilityMode) != catalogdomain.MachineReachabilityModeReverseConnect.String() ||
+		strings.TrimSpace(machine.ExecutionMode) != catalogdomain.MachineExecutionModeWebsocket.String() {
 		return domain.ErrConnectionMode
 	}
 	if strings.EqualFold(strings.TrimSpace(machine.Status), "maintenance") {

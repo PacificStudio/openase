@@ -14,6 +14,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import OrganizationScopedSecretsInventoryCard from './organization-scoped-secrets-inventory-card.svelte'
 
   let { organizationId }: { organizationId: string } = $props()
@@ -42,7 +43,9 @@
       const payload = await listOrganizationScopedSecrets(organizationId)
       secrets = payload.secrets ?? []
     } catch (caughtError) {
-      toastStore.error(formatError(caughtError, 'Failed to load organization secrets.'))
+      toastStore.error(
+        formatError(caughtError, i18nStore.t('settings.organizationSecrets.panel.errors.load')),
+      )
       secrets = []
     } finally {
       loading = false
@@ -53,11 +56,11 @@
     const name = createDraft.name.trim()
     const value = createDraft.value.trim()
     if (!name) {
-      toastStore.error('Secret name is required.')
+      toastStore.error(i18nStore.t('settings.organizationSecrets.panel.errors.secretNameRequired'))
       return
     }
     if (!value) {
-      toastStore.error('Secret value is required.')
+      toastStore.error(i18nStore.t('settings.organizationSecrets.panel.errors.secretValueRequired'))
       return
     }
 
@@ -70,10 +73,12 @@
       })
       createDraft = { name: '', description: '', value: '' }
       createDialogOpen = false
-      toastStore.success('Created organization secret.')
+      toastStore.success(i18nStore.t('settings.organizationSecrets.panel.messages.created'))
       await loadSecrets()
     } catch (caughtError) {
-      toastStore.error(formatError(caughtError, 'Failed to create organization secret.'))
+      toastStore.error(
+        formatError(caughtError, i18nStore.t('settings.organizationSecrets.panel.errors.create')),
+      )
     } finally {
       creating = false
     }
@@ -82,10 +87,16 @@
   async function handleRotate(secret: ScopedSecretRecord, value: string) {
     try {
       await rotateOrganizationScopedSecret(organizationId, secret.id, { value })
-      toastStore.success(`Rotated ${secret.name}.`)
+      toastStore.success(
+        i18nStore.t('settings.organizationSecrets.panel.messages.rotated', {
+          secret: secret.name,
+        }),
+      )
       await loadSecrets()
     } catch (caughtError) {
-      toastStore.error(formatError(caughtError, 'Failed to rotate organization secret.'))
+      toastStore.error(
+        formatError(caughtError, i18nStore.t('settings.organizationSecrets.panel.errors.rotate')),
+      )
       throw caughtError
     }
   }
@@ -93,10 +104,16 @@
   async function handleDisable(secret: ScopedSecretRecord) {
     try {
       await disableOrganizationScopedSecret(organizationId, secret.id)
-      toastStore.success(`Disabled ${secret.name}.`)
+      toastStore.success(
+        i18nStore.t('settings.organizationSecrets.panel.messages.disabled', {
+          secret: secret.name,
+        }),
+      )
       await loadSecrets()
     } catch (caughtError) {
-      toastStore.error(formatError(caughtError, 'Failed to disable organization secret.'))
+      toastStore.error(
+        formatError(caughtError, i18nStore.t('settings.organizationSecrets.panel.errors.disable')),
+      )
       throw caughtError
     }
   }
@@ -104,10 +121,16 @@
   async function handleDelete(secret: ScopedSecretRecord) {
     try {
       await deleteOrganizationScopedSecret(organizationId, secret.id)
-      toastStore.success(`Deleted ${secret.name}.`)
+      toastStore.success(
+        i18nStore.t('settings.organizationSecrets.panel.messages.deleted', {
+          secret: secret.name,
+        }),
+      )
       await loadSecrets()
     } catch (caughtError) {
-      toastStore.error(formatError(caughtError, 'Failed to delete organization secret.'))
+      toastStore.error(
+        formatError(caughtError, i18nStore.t('settings.organizationSecrets.panel.errors.delete')),
+      )
       throw caughtError
     }
   }
@@ -116,13 +139,15 @@
 <div class="space-y-3">
   <div class="flex items-center justify-between gap-4">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Organization secrets</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.organizationSecrets.panel.heading')}
+      </h3>
       <p class="text-muted-foreground mt-0.5 text-xs">
-        Central secrets inherit into every project until a project overrides the same key locally.
+        {i18nStore.t('settings.organizationSecrets.panel.description')}
       </p>
     </div>
     <Button variant="outline" size="sm" onclick={() => (createDialogOpen = true)}>
-      Add secret
+      {i18nStore.t('settings.organizationSecrets.panel.buttons.addSecret')}
     </Button>
   </div>
 
@@ -139,36 +164,48 @@
 <Dialog.Root bind:open={createDialogOpen}>
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Add organization secret</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t('settings.organizationSecrets.panel.dialogs.title')}
+      </Dialog.Title>
       <Dialog.Description>
-        New values become the default binding for every project in this org. Values are masked after
-        write and never shown again.
+        {i18nStore.t('settings.organizationSecrets.panel.dialogs.description')}
       </Dialog.Description>
     </Dialog.Header>
 
     <div class="space-y-4">
       <div class="space-y-1.5">
-        <Label for="org-secret-name">Secret name</Label>
-        <Input id="org-secret-name" bind:value={createDraft.name} placeholder="GH_TOKEN" />
+        <Label for="org-secret-name">
+          {i18nStore.t('settings.organizationSecrets.panel.labels.secretName')}
+        </Label>
+        <Input
+          id="org-secret-name"
+          bind:value={createDraft.name}
+          placeholder={i18nStore.t('settings.organizationSecrets.panel.placeholders.secretName')}
+        />
       </div>
       <div class="space-y-1.5">
-        <Label for="org-secret-value">Secret value</Label>
+        <Label for="org-secret-value">
+          {i18nStore.t('settings.organizationSecrets.panel.labels.secretValue')}
+        </Label>
         <Input
           id="org-secret-value"
           type="password"
           bind:value={createDraft.value}
-          placeholder="Paste the secret value"
+          placeholder={i18nStore.t('settings.organizationSecrets.panel.placeholders.secretValue')}
         />
       </div>
       <div class="space-y-1.5">
-        <Label for="org-secret-description"
-          >Description <span class="text-muted-foreground font-normal">(optional)</span></Label
-        >
+        <Label for="org-secret-description">
+          {i18nStore.t('settings.organizationSecrets.panel.labels.description')}
+          <span class="text-muted-foreground font-normal">
+            {i18nStore.t('settings.organizationSecrets.panel.labels.optional')}
+          </span>
+        </Label>
         <Textarea
           id="org-secret-description"
           bind:value={createDraft.description}
           rows={3}
-          placeholder="What this secret powers, who owns it, and when to rotate it."
+          placeholder={i18nStore.t('settings.organizationSecrets.panel.placeholders.description')}
         />
       </div>
     </div>
@@ -176,11 +213,15 @@
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={creating}>Cancel</Button>
+          <Button variant="outline" {...props} disabled={creating}>
+            {i18nStore.t('settings.organizationSecrets.panel.buttons.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button onclick={handleCreate} disabled={creating}>
-        {creating ? 'Creating…' : 'Create secret'}
+        {creating
+          ? i18nStore.t('settings.organizationSecrets.panel.buttons.creating')
+          : i18nStore.t('settings.organizationSecrets.panel.buttons.createSecret')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

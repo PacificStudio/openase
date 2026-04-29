@@ -1,5 +1,6 @@
 import { connectEventStream } from '$lib/api/sse'
 import {
+  createProjectReconnectRecoveryTask,
   isProjectDashboardRefreshEvent,
   readProjectDashboardRefreshSections,
   subscribeProjectEvents,
@@ -11,21 +12,30 @@ export function connectAgentsPageStreams(
   orgId: string,
   onEvent: () => void,
 ): () => void {
-  const disconnectAgents = subscribeProjectEvents(projectId, (event) => {
-    if (isImmediateRuntimeRefreshEvent(event)) {
-      onEvent()
-      return
-    }
-
-    if (!isProjectDashboardRefreshEvent(event)) {
-      return
-    }
-
-    const sections = readProjectDashboardRefreshSections(event)
-    if (sections.includes('agents') || sections.includes('tickets')) {
-      onEvent()
-    }
+  const recoverAfterReconnect = createProjectReconnectRecoveryTask(() => {
+    onEvent()
   })
+  const disconnectAgents = subscribeProjectEvents(
+    projectId,
+    (event) => {
+      if (isImmediateRuntimeRefreshEvent(event)) {
+        onEvent()
+        return
+      }
+
+      if (!isProjectDashboardRefreshEvent(event)) {
+        return
+      }
+
+      const sections = readProjectDashboardRefreshSections(event)
+      if (sections.includes('agents') || sections.includes('tickets')) {
+        onEvent()
+      }
+    },
+    {
+      onReconnectRecovery: recoverAfterReconnect,
+    },
+  )
   const disconnectProviders = connectEventStream(`/api/v1/orgs/${orgId}/providers/stream`, {
     onEvent,
     onError: (streamError) => {

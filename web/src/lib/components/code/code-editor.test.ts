@@ -25,6 +25,40 @@ async function pressEditorShortcut(editorView: EditorView, init: KeyboardEventIn
 }
 
 describe('CodeEditor', () => {
+  it('renders visible diff gutter indicators next to line numbers', async () => {
+    const view = render(CodeEditor, {
+      props: {
+        value: 'alpha\nbeta\ngamma\n',
+        filePath: 'src/example.ts',
+        diffMarkers: {
+          added: [1],
+          modified: [2],
+          deletionAbove: [3],
+          deletionAtEnd: true,
+        },
+      },
+    })
+
+    await waitFor(() => expect(view.container.querySelector('.cm-editor')).not.toBeNull())
+
+    expect(view.container.querySelector(".cm-diff-marker[data-kind='added']")).not.toBeNull()
+    expect(
+      view.container.querySelector(".cm-diff-marker[data-kind='added'] .cm-diff-marker-indicator"),
+    ).not.toBeNull()
+    expect(view.container.querySelector(".cm-diff-marker[data-kind='modified']")).not.toBeNull()
+    expect(
+      view.container.querySelector(
+        ".cm-diff-marker[data-kind='modified'] .cm-diff-marker-indicator",
+      ),
+    ).not.toBeNull()
+    expect(
+      view.container.querySelector(".cm-diff-marker[data-deletion-above='true']"),
+    ).not.toBeNull()
+    expect(
+      view.container.querySelector(".cm-diff-marker[data-deletion-below='true']"),
+    ).not.toBeNull()
+  })
+
   it('switches wrap mode without recreating the editor DOM or losing content', async () => {
     const value = Array.from({ length: 40 }, (_, index) => `line ${index} ${'x'.repeat(120)}`).join(
       '\n',

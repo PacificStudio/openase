@@ -15,6 +15,7 @@ func (s *Server) registerMachineRoutes(api *echo.Group) {
 	api.DELETE("/machines/:machineId", s.deleteMachine)
 	api.POST("/machines/:machineId/test", s.testMachine)
 	api.POST("/machines/:machineId/refresh-health", s.refreshMachineHealth)
+	api.POST("/machines/:machineId/ssh-bootstrap", s.sshBootstrapMachine)
 	api.GET("/machines/:machineId/resources", s.getMachineResources)
 }
 

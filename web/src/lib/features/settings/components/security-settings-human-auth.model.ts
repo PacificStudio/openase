@@ -1,12 +1,14 @@
 import { ApiError } from '$lib/api/client'
+import type { TranslationKey } from '$lib/i18n'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
 export type ScopeKind = 'instance' | 'organization' | 'project'
 export type SubjectKind = 'user' | 'group'
 
 export type RoleOption = {
   key: string
-  label: string
-  summary: string
+  labelKey: TranslationKey
+  summaryKey: TranslationKey
 }
 
 export type BindingDraft = {
@@ -19,48 +21,48 @@ export type BindingDraft = {
 export const roleOptions: RoleOption[] = [
   {
     key: 'instance_admin',
-    label: 'Instance Admin',
-    summary: 'Full control across orgs, projects, security, jobs, and RBAC.',
+    labelKey: 'settings.security.humanAuth.roles.instanceAdmin.label',
+    summaryKey: 'settings.security.humanAuth.roles.instanceAdmin.summary',
   },
   {
     key: 'org_owner',
-    label: 'Org Owner',
-    summary: 'Full organization and project control, including RBAC.',
+    labelKey: 'settings.security.humanAuth.roles.orgOwner.label',
+    summaryKey: 'settings.security.humanAuth.roles.orgOwner.summary',
   },
   {
     key: 'org_admin',
-    label: 'Org Admin',
-    summary: 'Manage organization settings and descendant project operations.',
+    labelKey: 'settings.security.humanAuth.roles.orgAdmin.label',
+    summaryKey: 'settings.security.humanAuth.roles.orgAdmin.summary',
   },
   {
     key: 'org_member',
-    label: 'Org Member',
-    summary: 'Read organization resources and perform standard project work.',
+    labelKey: 'settings.security.humanAuth.roles.orgMember.label',
+    summaryKey: 'settings.security.humanAuth.roles.orgMember.summary',
   },
   {
     key: 'project_admin',
-    label: 'Project Admin',
-    summary: 'Manage project settings, repos, workflows, jobs, security, and bindings.',
+    labelKey: 'settings.security.humanAuth.roles.projectAdmin.label',
+    summaryKey: 'settings.security.humanAuth.roles.projectAdmin.summary',
   },
   {
     key: 'project_operator',
-    label: 'Project Operator',
-    summary: 'Operate project runtime surfaces without full security or RBAC control.',
+    labelKey: 'settings.security.humanAuth.roles.projectOperator.label',
+    summaryKey: 'settings.security.humanAuth.roles.projectOperator.summary',
   },
   {
     key: 'project_reviewer',
-    label: 'Project Reviewer',
-    summary: 'Review conversations, tickets, and proposals with approval capability.',
+    labelKey: 'settings.security.humanAuth.roles.projectReviewer.label',
+    summaryKey: 'settings.security.humanAuth.roles.projectReviewer.summary',
   },
   {
     key: 'project_member',
-    label: 'Project Member',
-    summary: 'Standard contributor access for tickets, comments, and conversations.',
+    labelKey: 'settings.security.humanAuth.roles.projectMember.label',
+    summaryKey: 'settings.security.humanAuth.roles.projectMember.summary',
   },
   {
     key: 'project_viewer',
-    label: 'Project Viewer',
-    summary: 'Read-only access to project state and diagnostics.',
+    labelKey: 'settings.security.humanAuth.roles.projectViewer.label',
+    summaryKey: 'settings.security.humanAuth.roles.projectViewer.summary',
   },
 ]
 
@@ -103,7 +105,7 @@ export function resolveRoleOption(roleKey: string) {
 
 export function formatTimestamp(value: string | undefined) {
   if (!value) {
-    return 'Never'
+    return i18nStore.t('settings.security.humanAuth.fallbacks.never')
   }
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
@@ -112,19 +114,20 @@ export function formatTimestamp(value: string | undefined) {
   return parsed.toLocaleString()
 }
 
-const authAuditEventLabels: Record<string, string> = {
-  'login.success': 'Login succeeded',
-  'login.failed': 'Login failed',
-  logout: 'Logged out',
-  'session.revoked': 'Session revoked',
-  'session.expired': 'Session expired',
-  'user.enabled': 'User enabled',
-  'user.disabled': 'User disabled',
-  'user.disabled_after_login': 'User disabled after login',
+const authAuditEventLabelKeys: Record<string, TranslationKey> = {
+  'login.success': 'settings.security.humanAuth.auditEvents.loginSucceeded',
+  'login.failed': 'settings.security.humanAuth.auditEvents.loginFailed',
+  logout: 'settings.security.humanAuth.auditEvents.logout',
+  'session.revoked': 'settings.security.humanAuth.auditEvents.sessionRevoked',
+  'session.expired': 'settings.security.humanAuth.auditEvents.sessionExpired',
+  'user.enabled': 'settings.security.humanAuth.auditEvents.userEnabled',
+  'user.disabled': 'settings.security.humanAuth.auditEvents.userDisabled',
+  'user.disabled_after_login': 'settings.security.humanAuth.auditEvents.userDisabledAfterLogin',
 }
 
 export function formatAuthAuditEventLabel(eventType: string) {
-  return authAuditEventLabels[eventType] ?? eventType
+  const key = authAuditEventLabelKeys[eventType]
+  return key ? i18nStore.t(key) : eventType
 }
 
 export type AuthAuditEventSeverity = 'success' | 'warning' | 'danger' | 'neutral'
@@ -155,11 +158,13 @@ export function bindingPlaceholder(subjectKind: SubjectKind) {
   return subjectKind === 'group' ? 'oidc:platform-admins' : 'user@example.com'
 }
 
-export function scopeTitle(scope: ScopeKind) {
+export function scopeTitle(scope: ScopeKind): TranslationKey {
   if (scope === 'instance') {
-    return 'Instance RBAC'
+    return 'settings.security.humanAuth.scopeTitles.instance'
   }
-  return scope === 'organization' ? 'Organization RBAC' : 'Project RBAC'
+  return scope === 'organization'
+    ? 'settings.security.humanAuth.scopeTitles.organization'
+    : 'settings.security.humanAuth.scopeTitles.project'
 }
 
 export function createBindingPayload(scope: ScopeKind, draft: BindingDraft) {

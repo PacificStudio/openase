@@ -1588,6 +1588,60 @@ func TestRuntimeLauncherHandleExecutionFailureIgnoresTerminalRun(t *testing.T) {
 	}
 }
 
+func TestRuntimeLauncherHandleExecutionFailurePersistsAfterContextCancellation(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 22, 10, 35, 0, 0, time.UTC)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	agentItem := fixture.createAgent(ctx, t, "coding-cancelled-01", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-91C").
+		SetTitle("Persist failure after cancellation").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, nil)
+	launcher.now = func() time.Time { return now }
+
+	failureCtx, cancel := context.WithCancel(ctx)
+	cancel()
+	launcher.handleExecutionFailure(failureCtx, runItem.ID, agentItem.ID, ticketItem.ID, fmt.Errorf("context-canceled failure"))
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run after canceled context, got %+v", runAfter)
+	}
+	if strings.TrimSpace(runAfter.LastError) != "context-canceled failure" {
+		t.Fatalf("expected persisted last_error, got %q", runAfter.LastError)
+	}
+	if runAfter.TerminalAt == nil || !runAfter.TerminalAt.Equal(now) {
+		t.Fatalf("expected persisted terminal_at %v, got %+v", now, runAfter.TerminalAt)
+	}
+}
+
 func TestRuntimeLauncherFinishResolvedExecutionRequiresExplicitFinishChoiceWhenMultipleAllowed(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -3371,8 +3425,8 @@ func TestRuntimeLauncherRunTickRejectsLegacyDirectConnectRecordWithoutListenerEn
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "listener websocket endpoint is not configured") {
-		t.Fatalf("expected listener endpoint guidance in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
+		t.Fatalf("expected legacy ssh runtime rejection in last error, got %q", runAfter.LastError)
 	}
 	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
@@ -3380,8 +3434,8 @@ func TestRuntimeLauncherRunTickRejectsLegacyDirectConnectRecordWithoutListenerEn
 	if err != nil {
 		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspaceCount != 1 {
-		t.Fatalf("expected repo workspace preparation to continue before listener failure, got %d", repoWorkspaceCount)
+	if repoWorkspaceCount != 0 {
+		t.Fatalf("expected no repo workspace preparation before legacy ssh runtime rejection, got %d", repoWorkspaceCount)
 	}
 }
 
@@ -3604,7 +3658,9 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 		SetName("listener-02").
 		SetHost("listener.example.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsListener).
 		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
 		SetStatus(entmachine.StatusOnline).
@@ -3626,6 +3682,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(remoteMachine.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf direct-repo-workspace"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
@@ -3765,7 +3822,9 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync
 		SetName("listener-01").
 		SetHost("listener.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsListener).
 		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
 		SetStatus(entmachine.StatusOnline).
@@ -3787,6 +3846,7 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync
 	}
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(remoteMachine.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf websocket-runtime"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind listener provider: %v", err)
@@ -3959,7 +4019,9 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithMultiRepoInstruction
 		SetName("listener-multi-01").
 		SetHost("listener.multi.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsListener).
 		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
 		SetStatus(entmachine.StatusOnline).
@@ -3981,6 +4043,7 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithMultiRepoInstruction
 	}
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(remoteMachine.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf websocket-multi"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind listener provider: %v", err)
@@ -4139,7 +4202,9 @@ func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(
 		SetName("reverse-01").
 		SetHost("reverse.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath("/bin/sh").
+		SetAgentCliPaths(map[string]string{
+			catalogdomain.AgentProviderAdapterTypeCodexAppServer.String(): "/usr/bin/env",
+		}).
 		SetConnectionMode(entmachine.ConnectionModeWsReverse).
 		SetStatus(entmachine.StatusOffline).
 		SetEnvVars([]string{
@@ -4164,6 +4229,7 @@ func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(
 		25*time.Millisecond,
 		filepath.Join(fakeOpenASEBinDir, "openase"),
 		"/bin/sh",
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("parse daemon config: %v", err)
@@ -4179,6 +4245,7 @@ func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(
 
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(machineItem.ID).
+		SetCliCommand("/bin/sh").
 		SetCliArgs([]string{"-lc", "printf reverse-runtime"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind reverse provider: %v", err)
@@ -4577,8 +4644,8 @@ func TestRuntimeLauncherRunTickRejectsLegacyDirectConnectRecordBeforeCodexPrefli
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "codex environment not ready") {
-		t.Fatalf("expected codex preflight rejection in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
+		t.Fatalf("expected legacy ssh runtime rejection before codex preflight, got %q", runAfter.LastError)
 	}
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
@@ -4690,8 +4757,8 @@ func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForLegacyDirectConnect
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
 
-	if !strings.Contains(runAfter.LastError, "listener websocket endpoint is not configured") {
-		t.Fatalf("expected listener endpoint rejection in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
+		t.Fatalf("expected legacy ssh runtime rejection in last error, got %q", runAfter.LastError)
 	}
 
 	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
@@ -4700,8 +4767,8 @@ func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForLegacyDirectConnect
 	if err != nil {
 		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspaceCount != 1 {
-		t.Fatalf("expected repo workspace preparation to continue before listener failure, got %d", repoWorkspaceCount)
+	if repoWorkspaceCount != 0 {
+		t.Fatalf("expected no repo workspace preparation before legacy ssh runtime rejection, got %d", repoWorkspaceCount)
 	}
 }
 
@@ -6405,6 +6472,12 @@ func (s *runtimeSSHPrepareSession) StderrPipe() (io.Reader, error) { return stri
 
 func (s *runtimeSSHPrepareSession) Start(string) error { return fmt.Errorf("not supported") }
 
+func (s *runtimeSSHPrepareSession) StartPTY(string, int, int) error {
+	return fmt.Errorf("not supported")
+}
+
+func (s *runtimeSSHPrepareSession) Resize(int, int) error { return nil }
+
 func (s *runtimeSSHPrepareSession) Signal(string) error { return nil }
 
 func (s *runtimeSSHPrepareSession) Wait() error { return nil }
@@ -6493,6 +6566,12 @@ func (s *runtimeSSHProcessSession) Start(cmd string) error {
 	}()
 	return nil
 }
+
+func (s *runtimeSSHProcessSession) StartPTY(cmd string, _ int, _ int) error {
+	return s.Start(cmd)
+}
+
+func (s *runtimeSSHProcessSession) Resize(int, int) error { return nil }
 
 func (s *runtimeSSHProcessSession) Signal(string) error {
 	return s.Close()

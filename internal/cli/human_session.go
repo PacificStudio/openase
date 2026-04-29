@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
 )
 
 const (
@@ -118,25 +120,7 @@ func removeHumanSessionState(path string) error {
 }
 
 func apiBaseURLFromControlPlaneURL(base string) (string, error) {
-	parsed, err := url.Parse(strings.TrimSpace(base))
-	if err != nil {
-		return "", fmt.Errorf("parse control-plane url: %w", err)
-	}
-	path := strings.TrimRight(parsed.Path, "/")
-	switch {
-	case path == "":
-		parsed.Path = "/api/v1"
-	case strings.HasSuffix(path, "/api/v1/platform"):
-		parsed.Path = strings.TrimSuffix(path, "/platform")
-	case strings.HasSuffix(path, "/api/v1"):
-		parsed.Path = path
-	default:
-		parsed.Path = path + "/api/v1"
-	}
-	parsed.RawPath = ""
-	parsed.RawQuery = ""
-	parsed.Fragment = ""
-	return strings.TrimRight(parsed.String(), "/"), nil
+	return controlplaneurl.APIBaseURLFromControlPlaneURL(base, false)
 }
 
 func originFromAPIURL(apiURL string) (string, error) {

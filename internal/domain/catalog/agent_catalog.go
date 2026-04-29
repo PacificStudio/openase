@@ -19,6 +19,7 @@ type AgentProvider struct {
 	MachineSSHUser        *string
 	MachineWorkspaceRoot  *string
 	MachineAgentCLIPath   *string
+	MachineAgentCLIPaths  MachineAgentCLIPaths
 	MachineResources      map[string]any
 	Name                  string
 	AdapterType           AgentProviderAdapterType

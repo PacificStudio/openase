@@ -6,6 +6,8 @@
   import { Textarea } from '$ui/textarea'
   import { Check, Pencil, X } from '@lucide/svelte'
   import type { ProjectStatus } from '../types'
+  import type { TranslationKey } from '$lib/i18n'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const projectStatusOptions: ProjectStatus[] = [
     'Backlog',
@@ -29,6 +31,15 @@
       'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200',
     Archived:
       'border-border bg-background text-muted-foreground hover:bg-muted dark:hover:bg-muted/60',
+  }
+
+  const statusLabelKeys: Record<ProjectStatus, TranslationKey> = {
+    Backlog: 'dashboard.orgDashboardHeader.statuses.Backlog',
+    Planned: 'dashboard.orgDashboardHeader.statuses.Planned',
+    'In Progress': 'dashboard.orgDashboardHeader.statuses.In Progress',
+    Completed: 'dashboard.orgDashboardHeader.statuses.Completed',
+    Canceled: 'dashboard.orgDashboardHeader.statuses.Canceled',
+    Archived: 'dashboard.orgDashboardHeader.statuses.Archived',
   }
 
   let {
@@ -70,13 +81,13 @@
       <div class="min-w-0 flex-1 space-y-2">
         <Input
           value={editName}
-          placeholder="Project name"
+          placeholder={i18nStore.t('dashboard.orgDashboardHeader.placeholders.projectName')}
           class="text-lg font-semibold"
           oninput={(event) => onEditNameChange?.((event.currentTarget as HTMLInputElement).value)}
         />
         <Textarea
           value={editDescription}
-          placeholder="Project description (optional)"
+          placeholder={i18nStore.t('dashboard.orgDashboardHeader.placeholders.projectDescription')}
           rows={2}
           class="text-sm"
           oninput={(event) =>
@@ -85,11 +96,13 @@
         <div class="flex items-center gap-2">
           <Button size="sm" disabled={savingInfo} onclick={() => onSaveInfo?.()}>
             <Check class="mr-1.5 size-3.5" />
-            {savingInfo ? 'Saving\u2026' : 'Save'}
+            {savingInfo
+              ? i18nStore.t('dashboard.orgDashboardHeader.actions.saving')
+              : i18nStore.t('dashboard.orgDashboardHeader.actions.save')}
           </Button>
           <Button variant="ghost" size="sm" disabled={savingInfo} onclick={onCancelEditInfo}>
             <X class="mr-1.5 size-3.5" />
-            Cancel
+            {i18nStore.t('dashboard.orgDashboardHeader.actions.cancel')}
           </Button>
         </div>
       </div>
@@ -100,7 +113,7 @@
           <button
             type="button"
             class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
-            title="Edit project info"
+            title={i18nStore.t('dashboard.orgDashboardHeader.actions.editInfo')}
             onclick={onStartEditInfo}
           >
             <Pencil class="size-3.5" />
@@ -109,7 +122,9 @@
         {#if projectDescription}
           <p class="text-muted-foreground mt-0.5 text-sm">{projectDescription}</p>
         {:else}
-          <p class="text-muted-foreground/50 mt-0.5 text-sm">No description</p>
+          <p class="text-muted-foreground/50 mt-0.5 text-sm">
+            {i18nStore.t('dashboard.orgDashboardHeader.messages.noDescription')}
+          </p>
         {/if}
       </div>
     {/if}
@@ -129,11 +144,13 @@
           )}
           disabled={savingStatus}
         >
-          {currentStatus}
+          {i18nStore.t(statusLabelKeys[currentStatus])}
         </Select.Trigger>
         <Select.Content>
           {#each projectStatusOptions as status (status)}
-            <Select.Item value={status}>{status}</Select.Item>
+            <Select.Item value={status}>
+              {i18nStore.t(statusLabelKeys[status])}
+            </Select.Item>
           {/each}
         </Select.Content>
       </Select.Root>

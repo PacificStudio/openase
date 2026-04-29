@@ -141,7 +141,7 @@ func TestSystemResourceScriptIncludesDarwinCollector(t *testing.T) {
 
 func TestBuildAgentEnvironmentScriptUsesRelaxedCodexLoginMatch(t *testing.T) {
 	script := buildAgentEnvironmentScript(domain.Machine{})
-	if !strings.Contains(script, `claude auth status --json`) {
+	if !strings.Contains(script, `auth status --json`) {
 		t.Fatalf("expected claude auth probe to prefer json status, got %q", script)
 	}
 	if !strings.Contains(script, `"loggedIn"[[:space:]]*:[[:space:]]*true`) {

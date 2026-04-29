@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,36 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
+
+func TestMachineMonitorRunTickProjectsMachineEnvVarsIntoAgentEnvironmentChecks(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	if _, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName(domain.LocalMachineName).
+		SetHost(domain.LocalMachineHost).
+		SetPort(22).
+		SetEnvVars([]string{"PATH=/opt/codex/bin:/usr/bin", "OPENAI_API_KEY=sk-test"}).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{}).
+		Save(ctx); err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 14, 5, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{now: func() time.Time { return now }}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	if _, err := monitor.RunTick(ctx); err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if got := collector.lastAgentEnvMachine.EnvVars; len(got) != 2 || got[0] != "PATH=/opt/codex/bin:/usr/bin" || got[1] != "OPENAI_API_KEY=sk-test" {
+		t.Fatalf("expected agent environment collector to receive machine env vars, got %+v", got)
+	}
+}
 
 func TestMachineMonitorRunTickCollectsSingleLocalMachine(t *testing.T) {
 	ctx := context.Background()
@@ -48,6 +79,99 @@ func TestMachineMonitorRunTickCollectsSingleLocalMachine(t *testing.T) {
 	}
 	if collector.reachabilityCalls != 1 || collector.systemCalls != 1 || collector.gpuCalls != 1 || collector.agentEnvCalls != 1 || collector.fullAuditCalls != 1 {
 		t.Fatalf("expected collector to run for local machine, got %+v", collector)
+	}
+}
+
+func TestMachineMonitorRunTickFansOutLocalL2AndL3AcrossDuplicateRows(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgOneID := createMachineMonitorOrg(ctx, t, client)
+	orgTwoID := createMachineMonitorOrg(ctx, t, client)
+
+	if _, err := client.Machine.Create().
+		SetOrganizationID(orgOneID).
+		SetName(domain.LocalMachineName).
+		SetHost(domain.LocalMachineHost).
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{}).
+		Save(ctx); err != nil {
+		t.Fatalf("create first local machine: %v", err)
+	}
+
+	secondItem, err := client.Machine.Create().
+		SetOrganizationID(orgTwoID).
+		SetName(domain.LocalMachineName).
+		SetHost(domain.LocalMachineHost).
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{
+			"cpu_cores": 1,
+			"gpu":       []map[string]any{{"index": 0, "name": "old"}},
+			"monitor": map[string]any{
+				"l2": map[string]any{"checked_at": time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC).Format(time.RFC3339)},
+				"l3": map[string]any{"checked_at": time.Date(2026, 3, 20, 14, 0, 0, 0, time.UTC).Format(time.RFC3339)},
+			},
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create second local machine: %v", err)
+	}
+
+	now := time.Date(2026, 3, 20, 14, 0, 30, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{
+		now: func() time.Time { return now },
+		systemResources: domain.MachineSystemResources{
+			CollectedAt:            now,
+			CPUCores:               16,
+			CPUUsagePercent:        12.5,
+			MemoryTotalGB:          64,
+			MemoryUsedGB:           20,
+			MemoryAvailableGB:      44,
+			MemoryAvailablePercent: 68.75,
+			DiskTotalGB:            500,
+			DiskAvailableGB:        320,
+			DiskAvailablePercent:   64,
+		},
+		gpuResources: domain.MachineGPUResources{
+			CollectedAt: now,
+			Available:   true,
+			GPUs: []domain.MachineGPU{
+				{Index: 0, Name: "RTX 4090", MemoryTotalGB: 24, MemoryUsedGB: 4, UtilizationPercent: 22},
+			},
+		},
+	}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	report, err := monitor.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("run tick: %v", err)
+	}
+	if report.MachinesScanned != 2 || report.L2Checks != 1 || report.L3Checks != 1 {
+		t.Fatalf("expected shared local L2/L3 probes, got %+v", report)
+	}
+	if collector.systemCalls != 1 || collector.gpuCalls != 1 {
+		t.Fatalf("expected one shared L2/L3 probe, got %+v", collector)
+	}
+
+	secondAfter, err := client.Machine.Get(ctx, secondItem.ID)
+	if err != nil {
+		t.Fatalf("reload second local machine: %v", err)
+	}
+	if secondAfter.Resources["cpu_cores"] != float64(16) {
+		t.Fatalf("expected fanout system resources, got %+v", secondAfter.Resources)
+	}
+	if secondAfter.Resources["collected_at"] != now.Format(time.RFC3339) {
+		t.Fatalf("expected shared collected_at on duplicate local machine, got %+v", secondAfter.Resources["collected_at"])
+	}
+	gpuItems, ok := secondAfter.Resources["gpu"].([]interface{})
+	if !ok || len(gpuItems) != 1 {
+		t.Fatalf("expected shared gpu resources on duplicate local machine, got %+v", secondAfter.Resources["gpu"])
+	}
+	firstGPU := gpuItems[0].(map[string]any)
+	if firstGPU["name"] != "RTX 4090" {
+		t.Fatalf("expected shared gpu snapshot, got %+v", gpuItems)
 	}
 }
 
@@ -547,9 +671,10 @@ func TestMachineMonitorRunTickPublishesMachineAndProviderRuntimeEvents(t *testin
 
 func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Client) uuid.UUID {
 	t.Helper()
+	suffix := strings.ToLower(strings.ReplaceAll(uuid.NewString(), "-", ""))
 	org, err := client.Organization.Create().
 		SetName("Better And Better").
-		SetSlug("better-and-better-machine-monitor").
+		SetSlug("better-and-better-machine-monitor-" + suffix).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
@@ -558,22 +683,26 @@ func createMachineMonitorOrg(ctx context.Context, t *testing.T, client *ent.Clie
 }
 
 type fakeMachineMonitorCollector struct {
-	now               func() time.Time
-	reachabilityError error
-	systemError       error
-	gpuError          error
-	agentEnvError     error
-	fullAuditError    error
-	systemResources   domain.MachineSystemResources
-	gpuResources      domain.MachineGPUResources
-	agentEnvironment  domain.MachineAgentEnvironment
-	fullAudit         domain.MachineFullAudit
-	reachabilityCalls int
-	systemCalls       int
-	gpuCalls          int
-	agentEnvCalls     int
-	fullAuditCalls    int
-	lastMachine       domain.Machine
+	now                 func() time.Time
+	reachabilityError   error
+	systemError         error
+	gpuError            error
+	agentEnvError       error
+	fullAuditError      error
+	websocketHealth     domain.WebsocketMachineHealth
+	websocketHealthErr  error
+	systemResources     domain.MachineSystemResources
+	gpuResources        domain.MachineGPUResources
+	agentEnvironment    domain.MachineAgentEnvironment
+	fullAudit           domain.MachineFullAudit
+	reachabilityCalls   int
+	systemCalls         int
+	gpuCalls            int
+	agentEnvCalls       int
+	fullAuditCalls      int
+	websocketCalls      int
+	lastMachine         domain.Machine
+	lastAgentEnvMachine domain.Machine
 }
 
 func (f *fakeMachineMonitorCollector) CollectReachability(_ context.Context, machine domain.Machine) (domain.MachineReachability, error) {
@@ -623,11 +752,11 @@ func TestMachineMonitorRunTickKeepsReverseWebsocketMachineOnlineWithoutSSHCollec
 	if err != nil {
 		t.Fatalf("RunTick returned error: %v", err)
 	}
-	if report.L1Checks != 1 || report.L2Checks != 0 || report.L3Checks != 0 || report.L4Checks != 0 || report.L5Checks != 0 {
-		t.Fatalf("expected only L1 check for reverse websocket machine, got %+v", report)
+	if report.L1Checks != 1 || report.L2Checks != 0 || report.L3Checks != 1 || report.L4Checks != 1 || report.L5Checks != 1 {
+		t.Fatalf("expected layered websocket checks for reverse websocket machine, got %+v", report)
 	}
-	if collector.systemCalls != 0 || collector.gpuCalls != 0 || collector.agentEnvCalls != 0 || collector.fullAuditCalls != 0 {
-		t.Fatalf("expected websocket machine to skip SSH-only collectors, got %+v", collector)
+	if collector.systemCalls != 0 || collector.gpuCalls != 0 || collector.agentEnvCalls != 0 || collector.fullAuditCalls != 0 || collector.websocketCalls != 1 {
+		t.Fatalf("expected websocket machine to use websocket collector only, got %+v", collector)
 	}
 	if collector.lastMachine.ConnectionMode != domain.MachineConnectionModeWSReverse || !collector.lastMachine.DaemonStatus.Registered {
 		t.Fatalf("expected collector to receive websocket connection metadata, got %+v", collector.lastMachine)
@@ -650,6 +779,28 @@ func (f *fakeMachineMonitorCollector) CollectSystemResources(context.Context, do
 	return f.systemResources, nil
 }
 
+func (f *fakeMachineMonitorCollector) CollectWebsocketHealth(context.Context, domain.Machine) (domain.WebsocketMachineHealth, error) {
+	f.websocketCalls++
+	if f.websocketHealthErr != nil {
+		return f.websocketHealth, f.websocketHealthErr
+	}
+	if f.websocketHealth.TransportMode == "" {
+		now := time.Now().UTC()
+		if f.now != nil {
+			now = f.now().UTC()
+		}
+		return domain.WebsocketMachineHealth{
+			TransportMode: domain.MachineConnectionModeWSReverse,
+			CheckedAt:     now,
+			L2:            domain.WebsocketHealthUnknownLayer(now, "test link telemetry unavailable", map[string]any{}),
+			L3:            domain.WebsocketHealthUnknownLayer(now, "test network telemetry unavailable", map[string]any{}),
+			L4:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: now},
+			L5:            domain.WebsocketHealthLayer{State: domain.WebsocketHealthStateHealthy, ObservedAt: now},
+		}, nil
+	}
+	return f.websocketHealth, nil
+}
+
 func (f *fakeMachineMonitorCollector) CollectGPUResources(context.Context, domain.Machine) (domain.MachineGPUResources, error) {
 	f.gpuCalls++
 	if f.gpuError != nil {
@@ -658,7 +809,8 @@ func (f *fakeMachineMonitorCollector) CollectGPUResources(context.Context, domai
 	return f.gpuResources, nil
 }
 
-func (f *fakeMachineMonitorCollector) CollectAgentEnvironment(context.Context, domain.Machine) (domain.MachineAgentEnvironment, error) {
+func (f *fakeMachineMonitorCollector) CollectAgentEnvironment(_ context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error) {
+	f.lastAgentEnvMachine = machine
 	f.agentEnvCalls++
 	if f.agentEnvError != nil {
 		return domain.MachineAgentEnvironment{}, f.agentEnvError

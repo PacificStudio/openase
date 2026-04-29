@@ -1,8 +1,106 @@
 import { cleanup, render, waitFor } from '@testing-library/svelte'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { ProjectUpdateMarkdownContent } from '$lib/features/project-updates'
 import { TicketMarkdownContent } from '$lib/features/ticket-detail'
+import { Streamdown } from 'streamdown-svelte'
+import type { DiagramPlugin, MermaidInstance } from 'streamdown-svelte'
 import MarkdownContent from './markdown-content.svelte'
+
+class MockIntersectionObserver implements IntersectionObserver {
+  readonly root = null
+  readonly rootMargin = '0px'
+  readonly thresholds = [0]
+
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+
+  disconnect(): void {}
+
+  observe(target: Element): void {
+    this.callback(
+      [
+        {
+          boundingClientRect: target.getBoundingClientRect(),
+          intersectionRatio: 1,
+          intersectionRect: target.getBoundingClientRect(),
+          isIntersecting: true,
+          rootBounds: null,
+          target,
+          time: 0,
+        },
+      ],
+      this,
+    )
+  }
+
+  takeRecords(): IntersectionObserverEntry[] {
+    return []
+  }
+
+  unobserve(): void {}
+}
+
+function createAdvisoryMermaidPlugin(): DiagramPlugin {
+  return {
+    language: 'mermaid',
+    name: 'mermaid',
+    type: 'diagram',
+    getMermaid() {
+      const mermaid: MermaidInstance = {
+        initialize() {},
+        async render(_id: string, _source: string) {
+          const { default: createDOMPurify } =
+            await import('../../../../node_modules/.pnpm/dompurify@3.4.0/node_modules/dompurify/dist/purify.es.mjs')
+          const domPurify = createDOMPurify(window)
+          const svg = domPurify.sanitize(
+            [
+              '<svg xmlns="http://www.w3.org/2000/svg">',
+              '  <foreignObject>',
+              '    <div xmlns="http://www.w3.org/1999/xhtml">',
+              '      <style>body{background:red}</style>',
+              '      <span>safe label</span>',
+              '    </div>',
+              '  </foreignObject>',
+              '</svg>',
+            ].join('\n'),
+            {
+              ADD_TAGS: (tagName: string) => tagName === 'foreignobject',
+              FORBID_TAGS: ['style'],
+              HTML_INTEGRATION_POINTS: { foreignobject: true },
+            },
+          )
+
+          return { svg }
+        },
+      }
+
+      return mermaid
+    },
+  }
+}
+
+const originalIntersectionObserver = globalThis.IntersectionObserver
+type SVGElementWithBBox = SVGElement & { getBBox: () => DOMRect }
+
+const svgElementPrototype = globalThis.SVGElement?.prototype as SVGElementWithBBox | undefined
+const originalGetBBox = svgElementPrototype?.getBBox
+
+globalThis.IntersectionObserver = MockIntersectionObserver
+
+if (svgElementPrototype && typeof svgElementPrototype.getBBox !== 'function') {
+  svgElementPrototype.getBBox = () => DOMRect.fromRect({ x: 0, y: 0, width: 120, height: 24 })
+}
+
+afterAll(() => {
+  globalThis.IntersectionObserver = originalIntersectionObserver
+
+  if (svgElementPrototype) {
+    if (originalGetBBox) {
+      svgElementPrototype.getBBox = originalGetBBox
+    } else {
+      delete (svgElementPrototype as Partial<SVGElementWithBBox>).getBBox
+    }
+  }
+})
 
 describe('MarkdownContent policy', () => {
   afterEach(() => {
@@ -51,6 +149,52 @@ describe('MarkdownContent policy', () => {
     expect(getByText('Safe paragraph.')).toBeTruthy()
     expect(queryByText('unsafe html')).toBeNull()
     expect(container.querySelector('script')).toBeNull()
+  })
+
+  it('keeps mermaid fences on the non-rendering fallback path', async () => {
+    const { container } = render(MarkdownContent, {
+      props: {
+        source: ['```mermaid', 'graph TD', '  A --> B', '```'].join('\n'),
+      },
+    })
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-streamdown-mermaid]')).toBeTruthy()
+    })
+
+    const fallbackMermaid = container.querySelector('[data-streamdown-mermaid]')
+
+    expect(fallbackMermaid?.textContent).toContain('graph TD')
+    expect(fallbackMermaid?.querySelector('pre code')).toBeTruthy()
+    expect(container.querySelector('[data-mermaid-svg]')).toBeNull()
+  })
+})
+
+describe('Streamdown mermaid security', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('preserves FORBID_TAGS when mermaid-style sanitization adds foreignObject tags', async () => {
+    const { container } = render(Streamdown, {
+      props: {
+        content: ['```mermaid', 'graph TD', '  A --> B', '```'].join('\n'),
+        mode: 'static',
+        plugins: {
+          mermaid: createAdvisoryMermaidPlugin(),
+        },
+      },
+    })
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-mermaid-svg]')).toBeTruthy()
+    })
+
+    const renderedMermaid = container.querySelector('[data-mermaid-svg]')
+
+    expect(renderedMermaid?.querySelector('style')).toBeNull()
+    expect(renderedMermaid?.querySelector('foreignObject')).toBeTruthy()
+    expect(renderedMermaid?.textContent).toContain('safe label')
   })
 })
 

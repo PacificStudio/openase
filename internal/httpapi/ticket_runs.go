@@ -639,22 +639,16 @@ func (s *Server) ensureTicketBelongsToProject(ctx context.Context, projectID uui
 }
 
 func (s *Server) loadTicketRunCatalog(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) (ticketRunCatalog, error) {
-	runs, err := s.catalog.ListAgentRuns(ctx, projectID)
+	runs, err := s.catalog.ListTicketRuns(ctx, projectID, ticketID)
 	if err != nil {
 		return ticketRunCatalog{}, err
 	}
 
-	filteredRuns := make([]domain.AgentRun, 0)
-	for _, item := range runs {
-		if item.TicketID == ticketID {
-			filteredRuns = append(filteredRuns, item)
+	sort.Slice(runs, func(i, j int) bool {
+		if runs[i].CreatedAt.Equal(runs[j].CreatedAt) {
+			return runs[i].ID.String() < runs[j].ID.String()
 		}
-	}
-	sort.Slice(filteredRuns, func(i, j int) bool {
-		if filteredRuns[i].CreatedAt.Equal(filteredRuns[j].CreatedAt) {
-			return filteredRuns[i].ID.String() < filteredRuns[j].ID.String()
-		}
-		return filteredRuns[i].CreatedAt.Before(filteredRuns[j].CreatedAt)
+		return runs[i].CreatedAt.Before(runs[j].CreatedAt)
 	})
 
 	agents, err := s.catalog.ListAgents(ctx, projectID)
@@ -667,7 +661,7 @@ func (s *Server) loadTicketRunCatalog(ctx context.Context, projectID uuid.UUID, 
 	}
 
 	providerIndex := map[uuid.UUID]domain.AgentProvider{}
-	for _, item := range filteredRuns {
+	for _, item := range runs {
 		if _, ok := providerIndex[item.ProviderID]; ok {
 			continue
 		}
@@ -678,13 +672,13 @@ func (s *Server) loadTicketRunCatalog(ctx context.Context, projectID uuid.UUID, 
 		providerIndex[item.ProviderID] = providerItem
 	}
 
-	attempts := make(map[uuid.UUID]int, len(filteredRuns))
-	for idx, item := range filteredRuns {
+	attempts := make(map[uuid.UUID]int, len(runs))
+	for idx, item := range runs {
 		attempts[item.ID] = idx + 1
 	}
 
 	return ticketRunCatalog{
-		runs:      filteredRuns,
+		runs:      runs,
 		attempts:  attempts,
 		agents:    agentIndex,
 		providers: providerIndex,

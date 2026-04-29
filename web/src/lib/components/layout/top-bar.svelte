@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { preloadCode, preloadData } from '$app/navigation'
   import type { Organization, Project } from '$lib/api/contracts'
   import type { ProjectSection } from '$lib/stores/app-context'
@@ -28,6 +29,7 @@
     newTicketTitle,
     settingsEnabled = false,
     settingsHref = '',
+    restartTourEnabled = false,
     userDisplayName = '',
     userPrimaryEmail = '',
     userAvatarURL = '',
@@ -38,6 +40,7 @@
     onCreateOrg,
     onCreateProject,
     onOpenSettings,
+    onRestartTour,
     onLogout,
     onOpenMobileNav,
     onOpenProjectAssistant,
@@ -58,6 +61,7 @@
     newTicketTitle?: string
     settingsEnabled?: boolean
     settingsHref?: string
+    restartTourEnabled?: boolean
     userDisplayName?: string
     userPrimaryEmail?: string
     userAvatarURL?: string
@@ -68,6 +72,7 @@
     onCreateOrg?: () => void
     onCreateProject?: () => void
     onOpenSettings?: () => void
+    onRestartTour?: () => void
     onLogout?: () => void
     onOpenMobileNav?: () => void
     onOpenProjectAssistant?: (initialPrompt?: string) => void
@@ -111,7 +116,7 @@
       size="icon-sm"
       class="shrink-0"
       onclick={onOpenMobileNav}
-      aria-label="Open navigation"
+      aria-label={i18nStore.t('layout.openNavigation')}
     >
       <Menu class="size-4" />
     </Button>
@@ -166,9 +171,11 @@
     {logoutPending}
     {settingsEnabled}
     {settingsHref}
+    {restartTourEnabled}
     {onToggleTheme}
     {onOpenSettings}
     onWarmSettings={warmRoute}
+    {onRestartTour}
     {onLogout}
   />
 </header>

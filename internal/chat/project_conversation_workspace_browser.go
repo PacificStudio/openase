@@ -16,7 +16,6 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
-	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/google/uuid"
 )
@@ -30,6 +29,7 @@ type ProjectConversationWorkspaceMetadata struct {
 	ConversationID uuid.UUID
 	Available      bool
 	WorkspacePath  string
+	Preparing      bool
 	Repos          []ProjectConversationWorkspaceRepoMetadata
 	SyncPrompt     *ProjectConversationWorkspaceSyncPrompt
 }
@@ -38,6 +38,7 @@ type ProjectConversationWorkspaceRepoMetadata struct {
 	Name         string
 	Path         string
 	Branch       string
+	CurrentRef   ProjectConversationWorkspaceCurrentRef
 	HeadCommit   string
 	HeadSummary  string
 	Dirty        bool
@@ -160,11 +161,15 @@ func (s *ProjectConversationService) GetWorkspaceMetadata(
 
 	metadata := ProjectConversationWorkspaceMetadata{
 		ConversationID: conversationID,
-		Available:      true,
 		WorkspacePath:  location.workspacePath,
+		Preparing:      location.preparing,
 		Repos:          make([]ProjectConversationWorkspaceRepoMetadata, 0, len(location.repos)),
 		SyncPrompt:     location.syncPrompt,
 	}
+	if location.preparing {
+		return metadata, nil
+	}
+	metadata.Available = true
 	for _, repo := range location.repos {
 		item, err := s.readConversationWorkspaceRepoMetadata(ctx, location.machine, repo)
 		if err != nil {
@@ -300,11 +305,11 @@ func (s *ProjectConversationService) resolveConversationWorkspace(
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, err
 	}
-	project, err := s.catalog.GetProject(ctx, conversation.ProjectID)
+	project, err := s.core.catalog.GetProject(ctx, conversation.ProjectID)
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, fmt.Errorf("get project for workspace browser: %w", err)
 	}
-	providerItem, err := s.catalog.GetAgentProvider(ctx, conversation.ProviderID)
+	providerItem, err := s.core.catalog.GetAgentProvider(ctx, conversation.ProviderID)
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, fmt.Errorf("get provider for workspace browser: %w", err)
 	}
@@ -364,30 +369,9 @@ func (s *ProjectConversationService) readConversationWorkspaceRepoMetadata(
 	machine catalogdomain.Machine,
 	repo projectConversationWorkspaceRepoLocation,
 ) (ProjectConversationWorkspaceRepoMetadata, error) {
-	branch, err := workspaceinfra.ReadWorkspaceGitBranch(ctx, repo.repoPath, func(
-		ctx context.Context,
-		args []string,
-		allowExitCodeOne bool,
-	) ([]byte, error) {
-		return s.runProjectConversationGitCommand(ctx, machine, args, allowExitCodeOne)
-	})
+	currentRef, err := s.readConversationWorkspaceCurrentRef(ctx, machine, repo.repoPath)
 	if err != nil {
 		return ProjectConversationWorkspaceRepoMetadata{}, fmt.Errorf("read workspace branch for %s: %w", repo.name, err)
-	}
-	commitOutput, err := s.runProjectConversationGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repo.repoPath, "log", "-1", "--format=%H%x00%s"},
-		false,
-	)
-	if err != nil {
-		return ProjectConversationWorkspaceRepoMetadata{}, fmt.Errorf("read workspace head for %s: %w", repo.name, err)
-	}
-	commitParts := bytes.SplitN(commitOutput, []byte{0}, 2)
-	headCommit := strings.TrimSpace(string(commitParts[0]))
-	headSummary := ""
-	if len(commitParts) == 2 {
-		headSummary = strings.TrimSpace(string(commitParts[1]))
 	}
 
 	summary, err := s.summarizeConversationWorkspaceRepo(ctx, machine, repo)
@@ -397,9 +381,10 @@ func (s *ProjectConversationService) readConversationWorkspaceRepoMetadata(
 	return ProjectConversationWorkspaceRepoMetadata{
 		Name:         repo.name,
 		Path:         repo.relativePath,
-		Branch:       branch,
-		HeadCommit:   shortenProjectConversationGitCommit(headCommit),
-		HeadSummary:  headSummary,
+		Branch:       projectConversationWorkspaceBranchDisplayName(currentRef),
+		CurrentRef:   currentRef,
+		HeadCommit:   currentRef.ShortCommitID,
+		HeadSummary:  currentRef.Subject,
 		Dirty:        summary.Dirty,
 		FilesChanged: summary.FilesChanged,
 		Added:        summary.Added,
@@ -753,24 +738,13 @@ func (s *ProjectConversationService) runProjectConversationShellCommand(
 		}
 		return output, nil
 	}
-	if s == nil || s.sshPool == nil {
-		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
-	}
-	client, err := s.sshPool.Get(ctx, machine)
-	if err != nil {
-		return nil, err
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return nil, fmt.Errorf("open ssh session for workspace browser: %w", err)
-	}
-	defer func() { _ = session.Close() }()
-
-	output, err := session.CombinedOutput("sh -lc " + sshinfra.ShellQuote(script))
-	if err != nil && (!allowExitCodeOne || !strings.Contains(err.Error(), "exit status 1")) {
-		return output, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
-	}
-	return output, nil
+	return s.runProjectConversationRemoteCommand(
+		ctx,
+		machine,
+		"sh -lc "+projectConversationShellQuote(script),
+		allowExitCodeOne,
+		"workspace browser",
+	)
 }
 
 func (s *ProjectConversationService) readConversationWorkspaceFilePreview(
@@ -1075,26 +1049,54 @@ func (s *ProjectConversationService) readConversationWorkspaceFileStatus(
 	repoRoot string,
 	relativePath string,
 ) (ProjectConversationWorkspaceFileStatus, bool, error) {
-	output, err := s.runProjectConversationGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repoRoot, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", relativePath},
-		false,
-	)
+	entry, ok, err := s.readConversationWorkspaceGitStatusEntry(ctx, machine, repoRoot, relativePath)
 	if err != nil {
-		return "", false, fmt.Errorf("read workspace status for %s: %w", relativePath, err)
+		return "", false, err
 	}
-	entries, err := parseProjectConversationGitStatusEntries(output)
+	if !ok {
+		return "", false, nil
+	}
+	return mapProjectConversationWorkspaceFileStatus(entry.code), true, nil
+}
+
+func (s *ProjectConversationService) readConversationWorkspaceGitStatusEntry(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+	relativePath string,
+) (projectConversationGitStatusEntry, bool, error) {
+	entries, err := s.readConversationWorkspaceGitStatusEntries(ctx, machine, repoRoot)
 	if err != nil {
-		return "", false, fmt.Errorf("parse workspace status for %s: %w", relativePath, err)
+		return projectConversationGitStatusEntry{}, false, err
 	}
 	if len(entries) == 0 {
-		return "", false, nil
+		return projectConversationGitStatusEntry{}, false, nil
 	}
 	for _, entry := range entries {
 		if entry.path == relativePath || entry.oldPath == relativePath {
-			return mapProjectConversationWorkspaceFileStatus(entry.code), true, nil
+			return entry, true, nil
 		}
 	}
-	return mapProjectConversationWorkspaceFileStatus(entries[0].code), true, nil
+	return projectConversationGitStatusEntry{}, false, nil
+}
+
+func (s *ProjectConversationService) readConversationWorkspaceGitStatusEntries(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoRoot string,
+) ([]projectConversationGitStatusEntry, error) {
+	output, err := s.runProjectConversationGitCommand(
+		ctx,
+		machine,
+		[]string{"git", "-C", repoRoot, "status", "--porcelain=v1", "-z", "--untracked-files=all"},
+		false,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("read workspace status: %w", err)
+	}
+	entries, err := parseProjectConversationGitStatusEntries(output)
+	if err != nil {
+		return nil, fmt.Errorf("parse workspace status: %w", err)
+	}
+	return entries, nil
 }

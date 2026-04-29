@@ -196,6 +196,9 @@ def fake_command_script() -> str:
             exit 0
             ;;
           apt-get|dnf|yum|systemctl|service|pg_ctlcluster)
+            if [ "$cmd_name" = "apt-get" ] && [ "${1:-}" = "install" ] && [ "${FAKE_APT_INSTALL_FAIL:-0}" = "1" ]; then
+              exit 99
+            fi
             exit 0
             ;;
           pg_lsclusters)
@@ -258,12 +261,14 @@ def run_installer(
     stdin: str = "",
     args: list[str] | None = None,
     extra_env: dict[str, str] | None = None,
+    home_dir: pathlib.Path | None = None,
 ) -> RunResult:
     args = args or []
     extra_env = extra_env or {}
 
     root = pathlib.Path(tempfile.mkdtemp(prefix="openase-installer-test-"))
-    home_dir = root / "home"
+    if home_dir is None:
+        home_dir = root / "home"
     home_dir.mkdir(parents=True, exist_ok=True)
     fake_log = root / "fake.log"
     fake_log.write_text("")
@@ -372,6 +377,77 @@ def test_pinned_version_system_package_linux(release_base_url: str, fake_bin: pa
     if not installed_bin.exists():
         fail(f"pinned linux install did not place binary at {installed_bin}")
 
+    combined = result.process.stdout + result.process.stderr
+    if "auth bootstrap create-link --return-to / --format text" not in combined:
+        fail(f"system-package linux install did not print the bootstrap login command:\n{combined}")
+    if 'export PATH="' not in combined:
+        fail(f"system-package linux install did not print PATH guidance:\n{combined}")
+
+
+def test_rerun_with_existing_matching_binary_keeps_current_binary(
+    release_base_url: str, fake_bin: pathlib.Path, brew_prefix: pathlib.Path
+) -> None:
+    shared_home = pathlib.Path(tempfile.mkdtemp(prefix="openase-installer-home-"))
+    install_dir = shared_home / ".local" / "bin"
+
+    first = run_installer(
+        release_base_url=release_base_url,
+        fake_bin=fake_bin,
+        brew_prefix=brew_prefix,
+        args=["--version", "v1.2.3", "--pg-mode", "skip", "--install-dir", str(install_dir), "--yes"],
+        extra_env={
+            "OPENASE_INSTALL_UNAME_S": "Linux",
+            "OPENASE_INSTALL_UNAME_M": "x86_64",
+        },
+        home_dir=shared_home,
+    )
+    assert_success(first, "initial install for rerun test")
+
+    second = run_installer(
+        release_base_url=release_base_url,
+        fake_bin=fake_bin,
+        brew_prefix=brew_prefix,
+        args=["--version", "v1.2.3", "--pg-mode", "system", "--install-dir", str(install_dir), "--yes"],
+        extra_env={
+            "OPENASE_INSTALL_UNAME_S": "Linux",
+            "OPENASE_INSTALL_UNAME_M": "x86_64",
+        },
+        home_dir=shared_home,
+    )
+    assert_success(second, "rerun with matching binary")
+
+    combined = second.process.stdout + second.process.stderr
+    if "Keeping the existing openase binary" not in combined:
+        fail(f"rerun did not explain that the existing binary was kept:\n{combined}")
+
+    config_path = shared_home / ".openase" / "config.yaml"
+    if "database_source: manual" not in config_path.read_text():
+        fail(f"rerun with matching binary did not continue setup:\n{config_path.read_text()}")
+
+
+def test_system_package_failure_reports_exact_command_and_recovery_hint(
+    release_base_url: str, fake_bin: pathlib.Path, brew_prefix: pathlib.Path
+) -> None:
+    result = run_installer(
+        release_base_url=release_base_url,
+        fake_bin=fake_bin,
+        brew_prefix=brew_prefix,
+        args=["--version", "v1.2.3", "--pg-mode", "system", "--yes"],
+        extra_env={
+            "OPENASE_INSTALL_UNAME_S": "Linux",
+            "OPENASE_INSTALL_UNAME_M": "x86_64",
+            "FAKE_APT_INSTALL_FAIL": "1",
+        },
+    )
+    combined = result.process.stdout + result.process.stderr
+    assert_failure(
+        result,
+        "Command failed: sudo apt-get install -y postgresql postgresql-client",
+        "apt install failure guidance",
+    )
+    if "sudo dpkg --configure -a" not in combined:
+        fail(f"apt install failure did not include dpkg recovery guidance:\n{combined}")
+
 
 def test_macos_brew_path(release_base_url: str, fake_bin: pathlib.Path, brew_prefix: pathlib.Path) -> None:
     result = run_installer(
@@ -465,6 +541,8 @@ def run_suite() -> None:
         with release_server(fixtures_root, latest_tag="v9.9.9") as base_url:
             test_latest_default_linux_docker(base_url, fake_bin, brew_prefix)
             test_pinned_version_system_package_linux(base_url, fake_bin, brew_prefix)
+            test_rerun_with_existing_matching_binary_keeps_current_binary(base_url, fake_bin, brew_prefix)
+            test_system_package_failure_reports_exact_command_and_recovery_hint(base_url, fake_bin, brew_prefix)
             test_macos_brew_path(base_url, fake_bin, brew_prefix)
             test_checksum_failure(base_url, fake_bin, brew_prefix, fixtures_root)
             test_docker_unavailable_failure(base_url, fake_bin, brew_prefix)

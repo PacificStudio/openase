@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
@@ -12,16 +13,17 @@ import (
 )
 
 type rawAgentCreateTicketRequest struct {
-	Title          string   `json:"title"`
-	Description    string   `json:"description"`
-	StatusID       *string  `json:"status_id"`
-	Archived       *bool    `json:"archived"`
-	Priority       *string  `json:"priority"`
-	Type           *string  `json:"type"`
-	WorkflowID     *string  `json:"workflow_id"`
-	ParentTicketID *string  `json:"parent_ticket_id"`
-	ExternalRef    *string  `json:"external_ref"`
-	BudgetUSD      *float64 `json:"budget_usd"`
+	Title          string                            `json:"title"`
+	Description    string                            `json:"description"`
+	StatusID       *string                           `json:"status_id"`
+	Archived       *bool                             `json:"archived"`
+	Priority       *string                           `json:"priority"`
+	Type           *string                           `json:"type"`
+	WorkflowID     *string                           `json:"workflow_id"`
+	RepoScopes     []rawCreateTicketRepoScopeRequest `json:"repo_scopes"`
+	ParentTicketID *string                           `json:"parent_ticket_id"`
+	ExternalRef    *string                           `json:"external_ref"`
+	BudgetUSD      *float64                          `json:"budget_usd"`
 }
 
 type rawAgentUpdateTicketRequest struct {
@@ -100,6 +102,7 @@ func parseAgentCreateTicketRequest(projectID uuid.UUID, raw rawAgentCreateTicket
 		Priority:       raw.Priority,
 		Type:           raw.Type,
 		WorkflowID:     raw.WorkflowID,
+		RepoScopes:     raw.RepoScopes,
 		ParentTicketID: raw.ParentTicketID,
 		ExternalRef:    raw.ExternalRef,
 		BudgetUSD:      raw.BudgetUSD,
@@ -225,16 +228,19 @@ func parseAgentProjectPatchRequest(
 	}
 
 	request := domain.ProjectInput{
-		Name:                           current.Name,
-		Slug:                           current.Slug,
-		Description:                    current.Description,
-		Status:                         current.Status.String(),
-		DefaultAgentProviderID:         uuidToStringPointer(current.DefaultAgentProviderID),
-		ProjectAIPlatformAccessAllowed: cloneStringSlice(current.ProjectAIPlatformAccessAllowed),
-		AccessibleMachineIDs:           uuidSliceToStrings(current.AccessibleMachineIDs),
-		MaxConcurrentAgents:            intPointer(current.MaxConcurrentAgents),
-		AgentRunSummaryPrompt:          stringPointerOrNil(current.AgentRunSummaryPrompt),
-		ProjectAIRetention:             mergeProjectAIRetentionPatch(current.ProjectAIRetention, raw.ProjectAIRetention),
+		Name:                   current.Name,
+		Slug:                   current.Slug,
+		Description:            current.Description,
+		Status:                 current.Status.String(),
+		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
+		ProjectAIPlatformAccessAllowed: agentplatformdomain.NormalizeSupportedScopesForPrincipalKind(
+			agentplatformdomain.PrincipalKindProjectConversation,
+			current.ProjectAIPlatformAccessAllowed,
+		),
+		AccessibleMachineIDs:  uuidSliceToStrings(current.AccessibleMachineIDs),
+		MaxConcurrentAgents:   intPointer(current.MaxConcurrentAgents),
+		AgentRunSummaryPrompt: stringPointerOrNil(current.AgentRunSummaryPrompt),
+		ProjectAIRetention:    mergeProjectAIRetentionPatch(current.ProjectAIRetention, raw.ProjectAIRetention),
 	}
 	if raw.Name != nil {
 		request.Name = strings.TrimSpace(*raw.Name)

@@ -4,6 +4,7 @@
   import { Bot, GitPullRequest, CheckCircle, Play, MessageSquare, Circle } from '@lucide/svelte'
   import { activityEventTone } from '$lib/features/activity'
   import type { Component } from 'svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     activities,
@@ -47,8 +48,12 @@
 
 <div class={cn('border-border bg-card rounded-md border', className)}>
   <div class="border-border flex items-center justify-between border-b px-4 py-3">
-    <h3 class="text-foreground text-sm font-medium">Activity</h3>
-    <span class="text-muted-foreground text-xs">Recent</span>
+    <h3 class="text-foreground text-sm font-medium">
+      {i18nStore.t('dashboard.activityFeed.labels.heading')}
+    </h3>
+    <span class="text-muted-foreground text-xs">
+      {i18nStore.t('dashboard.activityFeed.labels.recent')}
+    </span>
   </div>
 
   <div class="divide-border divide-y">
@@ -73,7 +78,7 @@
       </div>
     {:else}
       <div class="px-4 py-8 text-center text-xs text-muted-foreground">
-        No runtime activity events yet.
+        {i18nStore.t('dashboard.activityFeed.messages.empty')}
       </div>
     {/each}
   </div>

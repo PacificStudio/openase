@@ -9,6 +9,7 @@ describe('buildProjectNav', () => {
       currentOrgId: 'org-1',
       currentProjectId: 'project-1',
       agentCount: 2,
+      locale: 'en',
     })
 
     expect(items.find((item) => item.label === 'Tickets')?.href).toBe(
@@ -25,10 +26,24 @@ describe('buildProjectNav', () => {
       currentOrgId: 'org-1',
       currentProjectId: null,
       agentCount: 0,
+      locale: 'en',
     })
 
     expect(items.every((item) => !item.href.startsWith('/tickets'))).toBe(true)
     expect(items.every((item) => !item.href.startsWith('/agents'))).toBe(true)
     expect(items.every((item) => item.href === '/orgs/org-1')).toBe(true)
+  })
+
+  it('localizes section labels', () => {
+    const items = buildProjectNav({
+      currentPath: '/orgs/org-1/projects/project-1/tickets',
+      currentOrgId: 'org-1',
+      currentProjectId: 'project-1',
+      agentCount: 2,
+      locale: 'zh',
+    })
+
+    expect(items.find((item) => item.href.endsWith('/tickets'))?.label).toBe('工单')
+    expect(items.find((item) => item.href.endsWith('/settings'))?.label).toBe('设置')
   })
 })

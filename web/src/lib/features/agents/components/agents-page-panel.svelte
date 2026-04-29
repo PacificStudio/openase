@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { AgentInstance, AgentRunInstance } from '../types'
   import AgentCardList from './agent-card-list.svelte'
 
@@ -43,7 +44,7 @@
   )
 </script>
 
-<div class="space-y-4">
+<div class="space-y-4" data-tour="agents-list-panel">
   {#if loading}
     <!-- Skeleton: summary line -->
     <div class="px-1">
@@ -80,7 +81,7 @@
   {:else}
     {#if agents.length > 0}
       <div class="text-muted-foreground px-1 text-sm">
-        <span class="text-foreground font-medium">{totalRunning}/{agents.length}</span> agents running
+        {i18nStore.t('agents.runningSummary', { running: totalRunning, total: agents.length })}
       </div>
     {/if}
 

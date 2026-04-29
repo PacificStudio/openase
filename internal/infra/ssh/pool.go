@@ -29,6 +29,8 @@ type Session interface {
 	StdoutPipe() (io.Reader, error)
 	StderrPipe() (io.Reader, error)
 	Start(cmd string) error
+	StartPTY(cmd string, cols int, rows int) error
+	Resize(cols int, rows int) error
 	Signal(signal string) error
 	Wait() error
 	Close() error
@@ -181,10 +183,23 @@ func (p *Pool) Close() error {
 }
 
 func (p *Pool) resolveKeyPath(raw string) string {
-	if filepath.IsAbs(raw) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
 		return filepath.Clean(raw)
 	}
-	return filepath.Join(p.openASEHomeDir, raw)
+	if filepath.IsAbs(trimmed) {
+		return filepath.Clean(trimmed)
+	}
+	if strings.HasPrefix(trimmed, "~/") || trimmed == "~" {
+		homeDir, err := os.UserHomeDir()
+		if err == nil && strings.TrimSpace(homeDir) != "" {
+			if trimmed == "~" {
+				return filepath.Clean(homeDir)
+			}
+			return filepath.Join(homeDir, strings.TrimPrefix(trimmed, "~/"))
+		}
+	}
+	return filepath.Join(p.openASEHomeDir, trimmed)
 }
 
 type Tester struct {
@@ -370,6 +385,23 @@ func (s *realSession) StderrPipe() (io.Reader, error) {
 
 func (s *realSession) Start(cmd string) error {
 	return s.session.Start(cmd)
+}
+
+func (s *realSession) StartPTY(cmd string, cols int, rows int) error {
+	if cols <= 0 || rows <= 0 {
+		return fmt.Errorf("pty size must use positive cols and rows")
+	}
+	if err := s.session.RequestPty("xterm-256color", rows, cols, gossh.TerminalModes{}); err != nil {
+		return err
+	}
+	return s.session.Start(cmd)
+}
+
+func (s *realSession) Resize(cols int, rows int) error {
+	if cols <= 0 || rows <= 0 {
+		return fmt.Errorf("pty size must use positive cols and rows")
+	}
+	return s.session.WindowChange(rows, cols)
 }
 
 func (s *realSession) Signal(signal string) error {

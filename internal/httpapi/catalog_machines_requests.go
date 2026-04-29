@@ -24,6 +24,7 @@ type machinePatchRequest struct {
 	Status             *string                               `json:"status"`
 	WorkspaceRoot      *string                               `json:"workspace_root"`
 	AgentCLIPath       *string                               `json:"agent_cli_path"`
+	AgentCLIPaths      *map[string]string                    `json:"agent_cli_paths"`
 	EnvVars            *[]string                             `json:"env_vars"`
 }
 
@@ -60,6 +61,7 @@ func parseMachinePatchRequest(
 		Status:        current.Status.String(),
 		WorkspaceRoot: current.WorkspaceRoot,
 		AgentCLIPath:  current.AgentCLIPath,
+		AgentCLIPaths: current.AgentCLIPaths.ToRawMap(),
 		EnvVars:       cloneStringSlice(current.EnvVars),
 	}
 	if patch.Name != nil {
@@ -115,6 +117,9 @@ func parseMachinePatchRequest(
 	}
 	if patch.AgentCLIPath != nil {
 		request.AgentCLIPath = patch.AgentCLIPath
+	}
+	if patch.AgentCLIPaths != nil {
+		request.AgentCLIPaths = *patch.AgentCLIPaths
 	}
 	if patch.EnvVars != nil {
 		request.EnvVars = domain.MergeMaskedMachineEnvVars(current.EnvVars, *patch.EnvVars)

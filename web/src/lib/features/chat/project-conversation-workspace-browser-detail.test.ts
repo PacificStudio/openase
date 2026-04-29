@@ -114,6 +114,16 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
           name: 'openase',
           path: 'services/openase',
           branch: 'feat/ase-168-wrap-toggle',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'feat/ase-168-wrap-toggle',
+            cacheKey: 'branch:feat/ase-168-wrap-toggle',
+            branchName: 'feat/ase-168-wrap-toggle',
+            branchFullName: 'refs/heads/feat/ase-168-wrap-toggle',
+            commitId: '123456789abc',
+            shortCommitId: '1234567',
+            subject: 'Support editor wrap toggle',
+          },
           headCommit: '123456789abc',
           headSummary: 'Support editor wrap toggle',
           dirty: true,
@@ -128,7 +138,7 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
 
     const wrapToggle = firstView.getByTestId('workspace-browser-wrap-toggle')
     expect(wrapToggle.getAttribute('aria-pressed')).toBe('true')
-    expect(wrapToggle.getAttribute('aria-label')).toBe('Disable line wrap')
+    expect(wrapToggle.getAttribute('aria-label')).toBe('Chat Disable Line Wrap')
     expect(firstView.container.querySelector('.cm-lineWrapping')).not.toBeNull()
 
     await fireEvent.click(wrapToggle)
@@ -136,7 +146,7 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     await waitFor(() => expect(firstView.container.querySelector('.cm-lineWrapping')).toBeNull())
     expect(window.localStorage.getItem(EDITOR_WRAP_MODE_STORAGE_KEY)).toBe('nowrap')
     expect(wrapToggle.getAttribute('aria-pressed')).toBe('false')
-    expect(wrapToggle.getAttribute('aria-label')).toBe('Enable line wrap')
+    expect(wrapToggle.getAttribute('aria-label')).toBe('Enable Line Wrap')
 
     firstView.unmount()
 
@@ -147,6 +157,16 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
           name: 'openase',
           path: 'services/openase',
           branch: 'feat/ase-168-wrap-toggle',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'feat/ase-168-wrap-toggle',
+            cacheKey: 'branch:feat/ase-168-wrap-toggle',
+            branchName: 'feat/ase-168-wrap-toggle',
+            branchFullName: 'refs/heads/feat/ase-168-wrap-toggle',
+            commitId: '123456789abc',
+            shortCommitId: '1234567',
+            subject: 'Support editor wrap toggle',
+          },
           headCommit: '123456789abc',
           headSummary: 'Support editor wrap toggle',
           dirty: true,
@@ -160,7 +180,7 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     await waitFor(() => expect(secondView.container.querySelector('.cm-editor')).not.toBeNull())
     const persistedToggle = secondView.getByTestId('workspace-browser-wrap-toggle')
     expect(persistedToggle.getAttribute('aria-pressed')).toBe('false')
-    expect(persistedToggle.getAttribute('aria-label')).toBe('Enable line wrap')
+    expect(persistedToggle.getAttribute('aria-label')).toBe('Enable Line Wrap')
     expect(secondView.container.querySelector('.cm-lineWrapping')).toBeNull()
   })
 
@@ -191,6 +211,16 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
           name: 'openase',
           path: 'services/openase',
           branch: 'feat/ase-168-wrap-toggle',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'feat/ase-168-wrap-toggle',
+            cacheKey: 'branch:feat/ase-168-wrap-toggle',
+            branchName: 'feat/ase-168-wrap-toggle',
+            branchFullName: 'refs/heads/feat/ase-168-wrap-toggle',
+            commitId: '123456789abc',
+            shortCommitId: '1234567',
+            subject: 'Support editor wrap toggle',
+          },
           headCommit: '123456789abc',
           headSummary: 'Support editor wrap toggle',
           dirty: true,
@@ -227,24 +257,167 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
 
     const menu = await view.findByTestId('code-editor-context-menu')
     expect(within(menu).queryByRole('menuitem', { name: 'Format Document' })).toBeNull()
-    expect(within(menu).getByRole('menuitem', { name: /^Format Selection/ })).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: 'Revert File' })).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: 'Explain Selection' })).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: 'Rewrite Selection' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: /^Format selection/ })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Revert file' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Explain selection' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Rewrite selection' })).toBeTruthy()
 
-    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Explain Selection' }))
+    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'Explain selection' }))
     expect(requestProjectAssistant).toHaveBeenCalledWith('Explain the selected code.')
 
     editorView.dispatch({ selection: { anchor: 0, head: 5 } })
     await fireEvent.contextMenu(editorShell, { clientX: 80, clientY: 96 })
     const rewriteMenu = await view.findByTestId('code-editor-context-menu')
-    await fireEvent.click(within(rewriteMenu).getByRole('menuitem', { name: 'Rewrite Selection' }))
+    await fireEvent.click(within(rewriteMenu).getByRole('menuitem', { name: 'Rewrite selection' }))
     expect(requestProjectAssistant).toHaveBeenCalledWith('Rewrite the selected code.')
 
     editorView.dispatch({ selection: { anchor: 0, head: 0 } })
     await fireEvent.contextMenu(editorShell, { clientX: 88, clientY: 104 })
     const revertMenu = await view.findByTestId('code-editor-context-menu')
-    await fireEvent.click(within(revertMenu).getByRole('menuitem', { name: 'Revert File' }))
+    await fireEvent.click(within(revertMenu).getByRole('menuitem', { name: 'Revert file' }))
     expect(revertSelectedDraft).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows diff status markers and totals in the detail status bar for the selected changed file', async () => {
+    const view = render(ProjectConversationWorkspaceBrowserDetail, {
+      props: {
+        browser: buildBrowserStub({
+          selectedEditorState: {
+            baseSavedContent: 'line one\nline two changed\nline three\n',
+            baseSavedRevision: 'rev-2',
+            latestSavedContent: 'line one\nline two changed\nline three\n',
+            latestSavedRevision: 'rev-2',
+            draftContent: 'line one\nline two changed\nline three\n',
+            dirty: false,
+            savePhase: 'idle',
+            externalChange: false,
+            errorMessage: '',
+            encoding: 'utf-8',
+            lineEnding: 'lf',
+            lastSavedAt: '',
+            selection: null,
+            pendingPatch: null,
+          },
+          patch: {
+            conversationId: 'conversation-1',
+            repoPath: 'services/openase',
+            path: 'README.md',
+            status: 'renamed',
+            diffKind: 'text',
+            truncated: false,
+            diff: '@@ -1 +1 @@\n-alpha\n+beta\n',
+          },
+          selectedChangedFiles: [
+            {
+              path: 'README.md',
+              status: 'renamed',
+              added: 3,
+              removed: 1,
+            },
+          ],
+        }),
+        selectedRepo: {
+          name: 'openase',
+          path: 'services/openase',
+          branch: 'feat/ase-168-wrap-toggle',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'feat/ase-168-wrap-toggle',
+            cacheKey: 'branch:feat/ase-168-wrap-toggle',
+            branchName: 'feat/ase-168-wrap-toggle',
+            branchFullName: 'refs/heads/feat/ase-168-wrap-toggle',
+            commitId: '123456789abc',
+            shortCommitId: '1234567',
+            subject: 'Support editor wrap toggle',
+          },
+          headCommit: '123456789abc',
+          headSummary: 'Support editor wrap toggle',
+          dirty: true,
+          filesChanged: 1,
+          added: 1,
+          removed: 0,
+        },
+      },
+    })
+
+    expect(view.getByTestId('workspace-browser-status-badge').textContent).toBe('R')
+    expect(view.getByTestId('workspace-browser-status-label').textContent).toBe('renamed')
+    expect(view.getByTestId('workspace-browser-status-totals').textContent).toContain('+3 -1')
+  })
+
+  it('renders gutter diff markers from the saved workspace patch when the editor draft is clean', async () => {
+    const savedContent = 'line one\nline two changed\nline three\n'
+
+    const view = render(ProjectConversationWorkspaceBrowserDetail, {
+      props: {
+        browser: buildBrowserStub({
+          selectedEditorState: {
+            baseSavedContent: savedContent,
+            baseSavedRevision: 'rev-2',
+            latestSavedContent: savedContent,
+            latestSavedRevision: 'rev-2',
+            draftContent: savedContent,
+            dirty: false,
+            savePhase: 'idle',
+            externalChange: false,
+            errorMessage: '',
+            encoding: 'utf-8',
+            lineEnding: 'lf',
+            lastSavedAt: '',
+            selection: null,
+            pendingPatch: null,
+          },
+          patch: {
+            conversationId: 'conversation-1',
+            repoPath: 'services/openase',
+            path: 'README.md',
+            status: 'modified',
+            diffKind: 'text',
+            truncated: false,
+            diff: '@@ -1,3 +1,3 @@\n line one\n-line two\n+line two changed\n line three\n',
+          },
+          preview: {
+            conversationId: 'conversation-1',
+            repoPath: 'services/openase',
+            path: 'README.md',
+            sizeBytes: 32,
+            mediaType: 'text/plain',
+            previewKind: 'text',
+            truncated: false,
+            content: savedContent,
+            revision: 'rev-2',
+            writable: true,
+            readOnlyReason: '',
+            encoding: 'utf-8',
+            lineEnding: 'lf',
+          },
+        }),
+        selectedRepo: {
+          name: 'openase',
+          path: 'services/openase',
+          branch: 'main',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'main',
+            cacheKey: 'branch:main',
+            branchName: 'main',
+            branchFullName: 'refs/heads/main',
+            commitId: '123456789abc',
+            shortCommitId: '1234567',
+            subject: 'Main branch',
+          },
+          headCommit: '123456789abc',
+          headSummary: 'Main branch',
+          dirty: true,
+          filesChanged: 1,
+          added: 1,
+          removed: 0,
+        },
+      },
+    })
+
+    await waitFor(() =>
+      expect(view.container.querySelector(".cm-diff-marker[data-kind='modified']")).not.toBeNull(),
+    )
   })
 })

@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { ChevronDown, ChevronUp } from '@lucide/svelte'
   import ProjectUpdateMarkdownContent from './project-update-markdown-content.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     bodyMarkdown,
@@ -41,8 +42,13 @@
       class="text-muted-foreground hover:text-foreground mt-0.5 flex items-center gap-0.5 text-xs transition-colors"
       onclick={() => (expanded = !expanded)}
     >
-      {#if expanded}<ChevronUp class="size-3" />Show less{:else}<ChevronDown class="size-3" />Show
-        more{/if}
+      {#if expanded}
+        <ChevronUp class="size-3" />
+        {i18nStore.t('projectUpdates.thread.toggle.showLess')}
+      {:else}
+        <ChevronDown class="size-3" />
+        {i18nStore.t('projectUpdates.thread.toggle.showMore')}
+      {/if}
     </button>
   {/if}
 {:else if title}

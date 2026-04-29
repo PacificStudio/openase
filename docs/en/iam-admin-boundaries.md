@@ -12,7 +12,6 @@ Use it together with:
 
 - [`iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)
 - [`human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)
-- [`iam-admin-console-rollout.md`](./iam-admin-console-rollout.md)
 
 ## Goals
 

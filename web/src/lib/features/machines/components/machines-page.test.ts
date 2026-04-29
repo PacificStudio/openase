@@ -15,6 +15,7 @@ const {
   runMachineConnectionTest,
   runMachineHealthRefresh,
   saveMachine,
+  updateMachineStatus,
   subscribeOrganizationMachineEvents,
 } = vi.hoisted(() => ({
   loadMachines: vi.fn(),
@@ -24,6 +25,7 @@ const {
   runMachineConnectionTest: vi.fn(),
   runMachineHealthRefresh: vi.fn(),
   saveMachine: vi.fn(),
+  updateMachineStatus: vi.fn(),
   subscribeOrganizationMachineEvents: vi.fn(),
 }))
 
@@ -35,6 +37,7 @@ vi.mock('./machines-page-api', () => ({
   runMachineConnectionTest,
   runMachineHealthRefresh,
   saveMachine,
+  updateMachineStatus,
 }))
 
 vi.mock('$lib/features/org-events', async () => {
@@ -94,6 +97,7 @@ const machineFixture = {
   status: 'online',
   workspace_root: '/workspace',
   agent_cli_path: '/usr/local/bin/openase-agent',
+  agent_cli_paths: {},
   env_vars: [],
   resources: {
     checked_at: '2026-04-02T10:00:00Z',
@@ -147,6 +151,16 @@ describe('MachinesPage cache behavior', () => {
     }
     loadMachines.mockResolvedValue([machineFixture])
     loadMachineSnapshot.mockResolvedValue(snapshotFixture)
+    runMachineHealthRefresh.mockResolvedValue({
+      machine: machineFixture,
+      snapshot: snapshotFixture,
+    })
+    updateMachineStatus.mockImplementation(
+      async (_machineId: string, status: MachineItem['status']) => ({
+        ...machineFixture,
+        status,
+      }),
+    )
     subscribeOrganizationMachineEvents.mockReturnValue(() => {})
   })
 
@@ -159,7 +173,7 @@ describe('MachinesPage cache behavior', () => {
     vi.clearAllMocks()
   })
 
-  it('reuses the cached machine list and selected resource snapshot when remounting in the same org', async () => {
+  it('reuses the cached machine list without auto-opening machine details when remounting in the same org', async () => {
     const firstRender = render(MachinesPage)
     expect(await firstRender.findByTestId('machine-card-machine-1')).toBeTruthy()
 
@@ -173,13 +187,19 @@ describe('MachinesPage cache behavior', () => {
 
     const secondRender = render(MachinesPage)
     expect(await secondRender.findByTestId('machine-card-machine-1')).toBeTruthy()
-    expect(await secondRender.findByTestId('machine-editor-sheet')).toBeTruthy()
+    await waitFor(() => {
+      expect(secondRender.queryByTestId('machine-editor-sheet')).toBeNull()
+    })
 
     expect(loadMachines).toHaveBeenCalledTimes(1)
     expect(loadMachineSnapshot).toHaveBeenCalledTimes(1)
+
+    await openMachineDetails('machine-1')
+    expect(await secondRender.findByTestId('machine-editor-sheet')).toBeTruthy()
+    expect(loadMachineSnapshot).toHaveBeenCalledTimes(1)
   })
 
-  it('shows cached machines and resources immediately and refreshes the list in the background when the cache is dirty', async () => {
+  it('shows cached machines immediately and refreshes the list in the background without reopening details', async () => {
     const firstRender = render(MachinesPage)
     expect(await firstRender.findByTestId('machine-card-machine-1')).toBeTruthy()
 
@@ -190,19 +210,18 @@ describe('MachinesPage cache behavior', () => {
     markMachinesPageCacheDirty('org-1')
 
     const deferredMachines = createDeferred<MachineItem[]>()
-    const deferredSnapshot = createDeferred<MachineSnapshot | null>()
     loadMachines.mockImplementationOnce(() => deferredMachines.promise)
-    loadMachineSnapshot.mockImplementationOnce(() => deferredSnapshot.promise)
 
     const secondRender = render(MachinesPage)
     expect(await secondRender.findByTestId('machine-card-machine-1')).toBeTruthy()
-    expect(await secondRender.findByTestId('machine-editor-sheet')).toBeTruthy()
+    await waitFor(() => {
+      expect(secondRender.queryByTestId('machine-editor-sheet')).toBeNull()
+    })
 
     expect(loadMachines).toHaveBeenCalledTimes(2)
     expect(loadMachineSnapshot).toHaveBeenCalledTimes(1)
 
     deferredMachines.resolve([machineFixture])
-    deferredSnapshot.resolve(snapshotFixture)
 
     await waitFor(() => {
       expect(loadMachines).toHaveBeenCalledTimes(2)
@@ -218,6 +237,12 @@ describe('MachinesPage cache behavior', () => {
     expect(view.getByText('Detected')).toBeTruthy()
 
     await openMachineDetails('machine-1')
+
+    await fireEvent.click(view.getByText('Configuration'))
+
+    // Edit mode collapses the full topology wizard by default; expand it so
+    // we can continue asserting against the guidance content.
+    await fireEvent.click(view.getByTestId('machine-editor-guidance-toggle'))
 
     expect(await view.findByText('Connection topology')).toBeTruthy()
     expect(view.getByText('Next step guidance')).toBeTruthy()
@@ -240,12 +265,38 @@ describe('MachinesPage cache behavior', () => {
     expect(await view.findByText('Configuration')).toBeTruthy()
     expect(view.getByText('Health, Setup & Status')).toBeTruthy()
 
-    expect(view.getByText('Connection topology')).toBeTruthy()
+    await fireEvent.click(view.getByText('Configuration'))
+    await fireEvent.click(view.getByTestId('machine-editor-guidance-toggle'))
+    expect(await view.findByText('Connection topology')).toBeTruthy()
 
     await fireEvent.click(view.getByText('Health, Setup & Status'))
 
     expect(await view.findByText('Health snapshot')).toBeTruthy()
     expect(view.getByText('Setup guidance')).toBeTruthy()
+    await fireEvent.click(view.getByTestId('machine-health-setup-toggle'))
+  })
+
+  it('lets operators enter and exit maintenance from the machine detail sheet', async () => {
+    const view = render(MachinesPage)
+    expect(await view.findByTestId('machine-card-machine-1')).toBeTruthy()
+
+    await openMachineDetails('machine-1')
+
+    const toggle = await view.findByTestId('machine-maintenance-toggle')
+    expect(toggle.textContent).toContain('Enter maintenance')
+
+    await fireEvent.click(toggle)
+
+    await waitFor(() => {
+      expect(updateMachineStatus).toHaveBeenCalledWith('machine-1', 'maintenance')
+    })
+    expect(await view.findByText(/Manual maintenance is enabled\./)).toBeTruthy()
+
+    await fireEvent.click(await view.findByTestId('machine-maintenance-toggle'))
+
+    await waitFor(() => {
+      expect(updateMachineStatus).toHaveBeenCalledWith('machine-1', 'offline')
+    })
   })
 })
 

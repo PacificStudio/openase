@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
@@ -25,11 +26,18 @@
   } = $props()
 
   const isMobile = $derived(viewport.isMobile)
+  const searchShortcutLabel =
+    typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘K' : 'Ctrl+K'
 </script>
 
 {#if searchEnabled}
   {#if isMobile}
-    <Button variant="ghost" size="icon-sm" onclick={onOpenSearch} aria-label="Search">
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onclick={onOpenSearch}
+      aria-label={i18nStore.t('layout.searchAriaLabel')}
+    >
       <Search class="size-4" />
     </Button>
   {:else}
@@ -37,11 +45,14 @@
       variant="outline"
       size="sm"
       class="text-muted-foreground w-[200px] justify-start gap-2"
+      data-tour="topbar-search"
       onclick={onOpenSearch}
     >
       <Search class="size-3.5" />
-      <span class="text-xs">Search...</span>
-      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+      <span class="text-xs">{i18nStore.t('layout.search')}</span>
+      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">
+        {searchShortcutLabel}
+      </kbd>
     </Button>
     <Separator orientation="vertical" class="mx-1 h-5" />
   {/if}
@@ -52,7 +63,7 @@
     variant="ghost"
     size="icon-sm"
     onclick={() => onOpenProjectAssistant?.()}
-    aria-label="Project AI"
+    aria-label={i18nStore.t('layout.projectAI')}
   >
     <Bot class="size-4" />
   </Button>
@@ -63,17 +74,24 @@
   class="gap-1.5"
   disabled={!newTicketEnabled}
   data-testid="topbar-new-ticket-button"
-  aria-label={newTicketEnabled ? 'New ticket' : (newTicketTitle ?? 'New ticket')}
+  data-tour="topbar-new-ticket"
+  aria-label={newTicketEnabled
+    ? i18nStore.t('layout.newTicketAriaLabel')
+    : (newTicketTitle ?? i18nStore.t('layout.newTicketAriaLabel'))}
   title={newTicketEnabled
-    ? 'Create ticket'
-    : (newTicketTitle ?? 'Ticket creation is not available.')}
+    ? i18nStore.t('layout.createTicket')
+    : (newTicketTitle ?? i18nStore.t('layout.ticketCreationUnavailable'))}
   onclick={onNewTicket}
 >
   <Plus class="size-3.5" />
-  <span class="hidden text-xs sm:inline">New Ticket</span>
+  <span class="hidden text-xs sm:inline">{i18nStore.t('layout.newTicket')}</span>
 </Button>
 
-<div class="text-muted-foreground flex items-center gap-1.5 text-xs" title="SSE: {sseStatus}">
+<div
+  class="text-muted-foreground flex items-center gap-1.5 text-xs"
+  data-tour="topbar-sse-status"
+  title={i18nStore.t('layout.sseStatus', { status: sseStatus })}
+>
   {#if sseStatus === 'live'}
     <span class="bg-success size-1.5 rounded-full"></span>
   {:else if sseStatus === 'connecting' || sseStatus === 'retrying'}

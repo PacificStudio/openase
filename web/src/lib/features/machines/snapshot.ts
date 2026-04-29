@@ -7,6 +7,8 @@ import type {
   MachineMonitorLevel,
   MachineNetworkAuditView,
   MachineSnapshot,
+  MachineWebsocketHealth,
+  MachineWebsocketHealthLayer,
   ResourceMap,
 } from './types'
 
@@ -43,6 +45,7 @@ export function parseMachineSnapshot(raw: ResourceMap | null | undefined): Machi
     agentEnvironment: parseAgentEnvironment(raw.agent_environment),
     monitor: { l1, l2, l3, l4, l5 },
     fullAudit: parseFullAudit(raw.full_audit),
+    websocketHealth: parseWebsocketHealth(raw.websocket_health),
     monitorErrors,
   }
 }
@@ -195,6 +198,36 @@ function parseFullAudit(value: unknown):
   }
 }
 
+function parseWebsocketHealth(value: unknown): MachineWebsocketHealth | undefined {
+  const raw = asObject(value)
+  if (!raw) {
+    return undefined
+  }
+
+  return {
+    transportMode: asMachineConnectionMode(raw.transport_mode),
+    checkedAt: asString(raw.checked_at),
+    l2: parseWebsocketHealthLayer(raw.l2),
+    l3: parseWebsocketHealthLayer(raw.l3),
+    l4: parseWebsocketHealthLayer(raw.l4),
+    l5: parseWebsocketHealthLayer(raw.l5),
+  }
+}
+
+function parseWebsocketHealthLayer(value: unknown): MachineWebsocketHealthLayer | undefined {
+  const raw = asObject(value)
+  if (!raw) {
+    return undefined
+  }
+
+  return {
+    state: asWebsocketHealthState(raw.state),
+    reason: asString(raw.reason),
+    observedAt: asString(raw.observed_at),
+    details: asObject(raw.details) ?? undefined,
+  }
+}
+
 function asObject(value: unknown): ResourceMap | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as ResourceMap) : null
 }
@@ -217,4 +250,29 @@ function asStringArray(value: unknown): string[] {
   }
 
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+function asMachineConnectionMode(value: unknown) {
+  const raw = asString(value)
+  switch (raw) {
+    case 'local':
+    case 'ws_reverse':
+    case 'ws_listener':
+      return raw
+    default:
+      return undefined
+  }
+}
+
+function asWebsocketHealthState(value: unknown) {
+  const raw = asString(value)
+  switch (raw) {
+    case 'healthy':
+    case 'degraded':
+    case 'failed':
+    case 'unknown':
+      return raw
+    default:
+      return undefined
+  }
 }

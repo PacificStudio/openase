@@ -20,3 +20,4 @@ internal/webui/static/*
 
 references/**
 node_modules/**
+.omx/

@@ -125,7 +125,7 @@ func (l *RuntimeLauncher) appendAgentRawEvent(
 	if raw == nil {
 		return nil
 	}
-	dedupKey := strings.TrimSpace(raw.DedupKey)
+	dedupKey := sanitizeRuntimeDBToken(raw.DedupKey)
 	if dedupKey == "" {
 		return nil
 	}
@@ -148,28 +148,61 @@ func (l *RuntimeLauncher) appendAgentRawEvent(
 		SetAgentID(input.AgentID).
 		SetAgentRunID(input.RunID).
 		SetDedupKey(dedupKey).
-		SetProvider(strings.TrimSpace(input.Provider)).
-		SetProviderEventKind(strings.TrimSpace(raw.ProviderEventKind)).
-		SetProviderEventSubtype(strings.TrimSpace(raw.ProviderEventSubtype)).
+		SetProvider(sanitizeRuntimeDBToken(input.Provider)).
+		SetProviderEventKind(sanitizeRuntimeDBToken(raw.ProviderEventKind)).
+		SetProviderEventSubtype(sanitizeRuntimeDBToken(raw.ProviderEventSubtype)).
 		SetOccurredAt(input.ObservedAt.UTC()).
 		SetPayload(cloneProjectionMap(raw.Payload)).
-		SetTextExcerpt(strings.TrimSpace(raw.TextExcerpt))
-	if trimmed := strings.TrimSpace(raw.ProviderEventID); trimmed != "" {
+		SetTextExcerpt(sanitizeRuntimeDBToken(raw.TextExcerpt))
+	if trimmed := sanitizeRuntimeDBToken(raw.ProviderEventID); trimmed != "" {
 		create.SetProviderEventID(trimmed)
 	}
-	if trimmed := strings.TrimSpace(raw.ThreadID); trimmed != "" {
+	if trimmed := sanitizeRuntimeDBToken(raw.ThreadID); trimmed != "" {
 		create.SetThreadID(trimmed)
 	}
-	if trimmed := strings.TrimSpace(raw.TurnID); trimmed != "" {
+	if trimmed := sanitizeRuntimeDBToken(raw.TurnID); trimmed != "" {
 		create.SetTurnID(trimmed)
 	}
-	if trimmed := strings.TrimSpace(raw.ActivityHintID); trimmed != "" {
+	if trimmed := sanitizeRuntimeDBToken(raw.ActivityHintID); trimmed != "" {
 		create.SetActivityHintID(trimmed)
 	}
 	if _, err := create.Save(ctx); err != nil {
 		return fmt.Errorf("append raw event for run %s: %w", input.RunID, err)
 	}
 	return nil
+}
+
+func sanitizeRuntimeDBText(raw string) string {
+	return strings.ReplaceAll(strings.ToValidUTF8(raw, ""), "\x00", "")
+}
+
+func sanitizeRuntimeDBToken(raw string) string {
+	return strings.TrimSpace(sanitizeRuntimeDBText(raw))
+}
+
+func sanitizeRuntimeOptionalDBToken(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	sanitized := sanitizeRuntimeDBToken(*value)
+	if sanitized == "" {
+		return nil
+	}
+	return &sanitized
+}
+
+func sanitizeActivityIdentityForDB(identity activityIdentity) activityIdentity {
+	identity.Kind = sanitizeRuntimeDBToken(identity.Kind)
+	identity.ActivityID = sanitizeRuntimeDBToken(identity.ActivityID)
+	identity.IDSource = sanitizeRuntimeDBToken(identity.IDSource)
+	identity.IdentityConfidence = sanitizeRuntimeDBToken(identity.IdentityConfidence)
+	identity.ParentActivityID = sanitizeRuntimeOptionalDBToken(identity.ParentActivityID)
+	identity.ThreadID = sanitizeRuntimeOptionalDBToken(identity.ThreadID)
+	identity.TurnID = sanitizeRuntimeOptionalDBToken(identity.TurnID)
+	identity.Command = sanitizeRuntimeOptionalDBToken(identity.Command)
+	identity.ToolName = sanitizeRuntimeOptionalDBToken(identity.ToolName)
+	identity.Title = sanitizeRuntimeOptionalDBToken(identity.Title)
+	return identity
 }
 
 func (l *RuntimeLauncher) projectItemStartedEvent(ctx context.Context, input runtimeEventProjectionInput) error {
@@ -594,7 +627,8 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 	input runtimeEventProjectionInput,
 	update activityUpsertInput,
 ) error {
-	identity := update.Identity
+	identity := sanitizeActivityIdentityForDB(update.Identity)
+	status := sanitizeRuntimeDBToken(update.Status)
 	if strings.TrimSpace(identity.Kind) == "" || strings.TrimSpace(identity.ActivityID) == "" {
 		return nil
 	}
@@ -616,12 +650,12 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 			SetTicketID(input.TicketID).
 			SetAgentID(input.AgentID).
 			SetAgentRunID(input.RunID).
-			SetProvider(strings.TrimSpace(input.Provider)).
+			SetProvider(sanitizeRuntimeDBToken(input.Provider)).
 			SetActivityKind(identity.Kind).
 			SetActivityID(identity.ActivityID).
 			SetIDSource(identity.IDSource).
 			SetIdentityConfidence(identity.IdentityConfidence).
-			SetStatus(defaultIfEmpty(update.Status, "in_progress")).
+			SetStatus(defaultIfEmpty(status, "in_progress")).
 			SetMetadata(cloneProjectionMap(identity.Metadata)).
 			SetUpdatedAt(input.ObservedAt.UTC())
 		if identity.ParentActivityID != nil {
@@ -643,7 +677,7 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 			create.SetTitle(*identity.Title)
 		}
 		if update.LiveText != nil {
-			liveText := truncateTranscriptBody(update.LiveText.Text)
+			liveText := truncateLiveText(update.LiveText.Text)
 			if liveText != "" {
 				create.SetLiveText(liveText)
 				create.SetLiveTextBytes(len([]byte(liveText)))
@@ -670,7 +704,7 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 
 	builder := existing.Update().
 		SetUpdatedAt(input.ObservedAt.UTC()).
-		SetStatus(defaultIfEmpty(update.Status, existing.Status)).
+		SetStatus(defaultIfEmpty(status, existing.Status)).
 		SetMetadata(mergeProjectionMaps(existing.Metadata, identity.Metadata))
 	if identity.ParentActivityID != nil && strings.TrimSpace(stringOrEmpty(existing.ParentActivityID)) == "" {
 		builder.SetParentActivityID(*identity.ParentActivityID)
@@ -722,8 +756,8 @@ func (l *RuntimeLauncher) appendAgentTranscriptEntry(
 	input runtimeEventProjectionInput,
 	entry transcriptAppendInput,
 ) error {
-	entryKey := strings.TrimSpace(entry.EntryKey)
-	entryKind := strings.TrimSpace(entry.EntryKind)
+	entryKey := sanitizeRuntimeDBToken(entry.EntryKey)
+	entryKind := sanitizeRuntimeDBToken(entry.EntryKind)
 	if entryKey == "" || entryKind == "" {
 		return nil
 	}
@@ -745,31 +779,35 @@ func (l *RuntimeLauncher) appendAgentTranscriptEntry(
 		SetTicketID(input.TicketID).
 		SetAgentID(input.AgentID).
 		SetAgentRunID(input.RunID).
-		SetProvider(strings.TrimSpace(input.Provider)).
+		SetProvider(sanitizeRuntimeDBToken(input.Provider)).
 		SetEntryKey(entryKey).
 		SetEntryKind(entryKind).
 		SetMetadata(cloneProjectionMap(entry.Metadata)).
 		SetCreatedAt(entry.CreatedAt.UTC())
-	if entry.ActivityKind != nil {
-		create.SetActivityKind(*entry.ActivityKind)
+	if sanitized := sanitizeRuntimeOptionalDBToken(entry.ActivityKind); sanitized != nil {
+		create.SetActivityKind(*sanitized)
 	}
-	if entry.ActivityID != nil {
-		create.SetActivityID(*entry.ActivityID)
+	if sanitized := sanitizeRuntimeOptionalDBToken(entry.ActivityID); sanitized != nil {
+		create.SetActivityID(*sanitized)
 	}
-	if entry.Title != nil {
-		create.SetTitle(*entry.Title)
+	if sanitized := sanitizeRuntimeOptionalDBToken(entry.Title); sanitized != nil {
+		create.SetTitle(*sanitized)
 	}
 	if entry.Summary != nil {
-		create.SetSummary(truncateTranscriptSummary(*entry.Summary))
+		if summary := truncateTranscriptSummary(*entry.Summary); summary != "" {
+			create.SetSummary(summary)
+		}
 	}
 	if entry.BodyText != nil {
-		create.SetBodyText(truncateTranscriptBody(*entry.BodyText))
+		if bodyText := truncateTranscriptBody(*entry.BodyText); bodyText != "" {
+			create.SetBodyText(bodyText)
+		}
 	}
-	if entry.Command != nil {
-		create.SetCommand(*entry.Command)
+	if sanitized := sanitizeRuntimeOptionalDBToken(entry.Command); sanitized != nil {
+		create.SetCommand(*sanitized)
 	}
-	if entry.ToolName != nil {
-		create.SetToolName(*entry.ToolName)
+	if sanitized := sanitizeRuntimeOptionalDBToken(entry.ToolName); sanitized != nil {
+		create.SetToolName(*sanitized)
 	}
 	if _, err := create.Save(ctx); err != nil {
 		return fmt.Errorf("append transcript entry %s for run %s: %w", entryKey, input.RunID, err)
@@ -1197,7 +1235,7 @@ func truncateFinalText(text string) string {
 }
 
 func truncateTranscriptSummary(text string) string {
-	trimmed := strings.TrimSpace(text)
+	trimmed := strings.TrimSpace(sanitizeRuntimeDBText(text))
 	if trimmed == "" {
 		return ""
 	}
@@ -1212,7 +1250,7 @@ func truncateTranscriptBody(text string) string {
 }
 
 func truncateTailUTF8(text string, maxBytes int) string {
-	text = strings.TrimSpace(text)
+	text = strings.TrimSpace(sanitizeRuntimeDBText(text))
 	if text == "" || maxBytes <= 0 || len([]byte(text)) <= maxBytes {
 		return text
 	}

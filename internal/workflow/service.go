@@ -937,7 +937,11 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		return WorkflowDetail{}, ErrAgentNotFound
 	}
 	if err := s.ensureAgentBelongsToProject(ctx, projectID, *nextAgentID); err != nil {
-		return WorkflowDetail{}, err
+		// Allow retiring an active workflow even if its bound agent has already been
+		// retired, so lifecycle cleanup is not blocked by stale workflow bindings.
+		if !(errors.Is(err, ErrAgentNotFound) && current.IsActive && input.IsActive.Set && !input.IsActive.Value && !input.AgentID.Set) {
+			return WorkflowDetail{}, err
+		}
 	}
 	nextName := current.Name
 	if input.Name.Set {

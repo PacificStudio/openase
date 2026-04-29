@@ -10,7 +10,7 @@ permissions:
 jobs:
   changes:
     name: Detect Changes
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     outputs:
       go_changed: ${{ steps.detect.outputs.go_changed }}
       web_changed: ${{ steps.detect.outputs.web_changed }}
@@ -79,7 +79,7 @@ jobs:
                 installer_changed=true
                 openapi_check_changed=true
                 ;;
-              scripts/install.sh|scripts/ci/test_installer.py|scripts/ci/installer_smoke.sh|internal/cli/setup.go|internal/cli/setup_test.go|internal/setup/*)
+              scripts/install.sh|scripts/ci/test_installer.py|scripts/ci/installer_smoke.sh|scripts/ci/install_matrix_smoke.sh|internal/cli/setup.go|internal/cli/setup_test.go|internal/setup/*)
                 installer_changed=true
                 ;;
               scripts/ci/*)
@@ -112,7 +112,7 @@ jobs:
 
   openapi-check:
     name: OpenAPI Check
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.openapi_check_changed == 'true'
 
@@ -146,25 +146,18 @@ jobs:
         run: |
           mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
 
-      - name: Configure Go Toolchain
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cached_go_bin="/home/docker/actions-runner/_work/_tool/go/1.26.1/x64/bin"
-          if [[ -d "${cached_go_bin}" ]]; then
-            echo "${cached_go_bin}" >> "${GITHUB_PATH}"
-          fi
-
-          command -v go
-          go version
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
 
       - name: Verify Generated OpenAPI Artifacts
         run: make openapi-check-ci
 
   frontend-api-audit-check:
     name: Frontend API Audit Check
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.frontend_api_audit_changed == 'true'
 
@@ -188,7 +181,7 @@ jobs:
         run: make frontend-api-audit-check
   frontend:
     name: Frontend Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.web_changed == 'true'
     defaults:
@@ -328,9 +321,58 @@ jobs:
         shell: bash
         run: ./scripts/ci/installer_smoke.sh
 
+  install-matrix:
+    name: Install Matrix (${{ matrix.install_path }} / ${{ matrix.pg_mode }})
+    needs: changes
+    if: needs.changes.outputs.installer_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        install_path:
+          - installer_script
+          - source_build
+          - release_binary
+        pg_mode:
+          - docker
+          - system
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Run Install Matrix Smoke
+        shell: bash
+        run: |
+          ./scripts/ci/install_matrix_smoke.sh \
+            --install-path "${{ matrix.install_path }}" \
+            --pg-mode "${{ matrix.pg_mode }}"
+
   desktop:
     name: Desktop Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: changes
     if: needs.changes.outputs.desktop_changed == 'true'
@@ -384,7 +426,7 @@ jobs:
 
   backend:
     name: Backend Checks
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     needs:
       - changes
@@ -449,8 +491,8 @@ jobs:
               now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
               printf '%s\n' "${now}" > "${heartbeat_file}"
               printf '[backend-heartbeat] %s make check still running\n' "${now}"
-              # Keep a low-frequency heartbeat so quiet success-path test runs do
-              # not look stalled to the self-hosted runner watchdog.
+              # Keep a low-frequency heartbeat so quiet success-path test runs
+              # still show progress in CI logs.
             done
           }
 
@@ -548,7 +590,7 @@ jobs:
 
   go-lint:
     name: Go Lint
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.go_changed == 'true'
 

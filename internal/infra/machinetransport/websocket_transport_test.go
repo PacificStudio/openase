@@ -54,6 +54,18 @@ func TestWebsocketListenerTransportProbeAndReachability(t *testing.T) {
 	if got := probe.Resources["detected_arch"]; got != expectedArch.String() {
 		t.Fatalf("Probe().Resources[detected_arch] = %v", got)
 	}
+	if got := probe.Resources["cpu_cores"]; got == nil {
+		t.Fatalf("Probe().Resources[cpu_cores] = nil, want system snapshot")
+	}
+	if got := probe.Resources["disk_available_gb"]; got == nil {
+		t.Fatalf("Probe().Resources[disk_available_gb] = nil, want system snapshot")
+	}
+	if got := probe.Resources["agent_environment"]; got == nil {
+		t.Fatalf("Probe().Resources[agent_environment] = nil, want runtime environment snapshot")
+	}
+	if got := probe.Resources["full_audit"]; got == nil {
+		t.Fatalf("Probe().Resources[full_audit] = nil, want audit snapshot")
+	}
 
 	collector := NewMonitorCollector(NewResolver(nil, nil), nil)
 	reachability, err := collector.CollectReachability(context.Background(), machine)
@@ -260,6 +272,81 @@ func TestWebsocketListenerTransportStartProcess(t *testing.T) {
 		if !strings.Contains(string(stdout), "listener-process") {
 			t.Fatalf("attempt %d process stdout = %q", attempt+1, string(stdout))
 		}
+	}
+}
+
+func TestWebsocketListenerTransportCommandSessionPTYResize(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(NewWebsocketListenerHandler(ListenerHandlerOptions{}))
+	defer server.Close()
+
+	machine := testListenerMachine(websocketURL(server.URL), "")
+	transport := websocketTransport{mode: domain.MachineConnectionModeWSListener}
+
+	session, err := transport.OpenCommandSession(context.Background(), machine)
+	if err != nil {
+		t.Fatalf("OpenCommandSession() error = %v", err)
+	}
+	defer func() { _ = session.Close() }()
+
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		t.Fatalf("StdoutPipe() error = %v", err)
+	}
+	if _, err := session.StderrPipe(); err != nil {
+		t.Fatalf("StderrPipe() error = %v", err)
+	}
+	if _, err := session.StdinPipe(); err != nil {
+		t.Fatalf("StdinPipe() error = %v", err)
+	}
+	if err := session.StartPTY("stty size", 120, 32); err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("pty unsupported in this test environment: %v", err)
+		}
+		t.Fatalf("StartPTY() error = %v", err)
+	}
+	output, err := io.ReadAll(stdout)
+	if err != nil {
+		t.Fatalf("ReadAll(stdout) error = %v", err)
+	}
+	if err := session.Wait(); err != nil {
+		t.Fatalf("session.Wait() error = %v", err)
+	}
+	if got := strings.TrimSpace(string(output)); got != "32 120" {
+		t.Fatalf("initial PTY size output = %q, want %q", got, "32 120")
+	}
+
+	session, err = transport.OpenCommandSession(context.Background(), machine)
+	if err != nil {
+		t.Fatalf("OpenCommandSession(second) error = %v", err)
+	}
+	defer func() { _ = session.Close() }()
+	stdout, err = session.StdoutPipe()
+	if err != nil {
+		t.Fatalf("StdoutPipe(second) error = %v", err)
+	}
+	if _, err := session.StdinPipe(); err != nil {
+		t.Fatalf("StdinPipe(second) error = %v", err)
+	}
+	if err := session.StartPTY("sleep 0.05; stty size", 80, 24); err != nil {
+		if strings.Contains(err.Error(), "operation not permitted") {
+			t.Skipf("pty unsupported in this test environment: %v", err)
+		}
+		t.Fatalf("StartPTY(second) error = %v", err)
+	}
+	if err := session.Resize(100, 40); err != nil {
+		t.Fatalf("Resize() error = %v", err)
+	}
+	output, err = io.ReadAll(stdout)
+	if err != nil {
+		t.Fatalf("ReadAll(stdout second) error = %v", err)
+	}
+	if err := session.Wait(); err != nil {
+		t.Fatalf("session.Wait(second) error = %v", err)
+	}
+	if got := strings.TrimSpace(string(output)); got != "40 100" {
+		t.Fatalf("resized PTY output = %q, want %q", got, "40 100")
 	}
 }
 

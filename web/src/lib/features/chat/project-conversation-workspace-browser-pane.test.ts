@@ -9,6 +9,16 @@ function buildPaneBrowserStub(): ProjectConversationWorkspaceBrowserState {
     name: 'openase',
     path: 'services/openase',
     branch: 'agent/conv-123',
+    currentRef: {
+      kind: 'branch',
+      displayName: 'agent/conv-123',
+      cacheKey: 'branch:refs/heads/agent/conv-123',
+      branchName: 'agent/conv-123',
+      branchFullName: 'refs/heads/agent/conv-123',
+      commitId: '123456789abc',
+      shortCommitId: '123456789abc',
+      subject: 'Add workspace browser scaffolding',
+    },
     headCommit: '123456789abc',
     headSummary: 'Add workspace browser scaffolding',
     dirty: true,
@@ -135,10 +145,10 @@ describe('ProjectConversationWorkspaceBrowserPane', () => {
     })
 
     const menu = await view.findByTestId('workspace-browser-tree-menu')
-    expect(within(menu).getByRole('menuitem', { name: 'New File' })).toBeTruthy()
-    expect(within(menu).getByRole('menuitem', { name: 'New Folder' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'New file' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'New folder' })).toBeTruthy()
 
-    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'New File' }))
+    await fireEvent.click(within(menu).getByRole('menuitem', { name: 'New file' }))
 
     const input = await view.findByTestId('workspace-browser-inline-input')
     expect(document.activeElement).toBe(input)
@@ -168,10 +178,10 @@ describe('ProjectConversationWorkspaceBrowserPane', () => {
     await fireEvent.contextMenu(mainFileButton, { clientX: 40, clientY: 56 })
 
     const copyPathMenu = await view.findByTestId('workspace-browser-tree-menu')
-    expect(within(copyPathMenu).queryByRole('menuitem', { name: 'New File' })).toBeNull()
-    expect(within(copyPathMenu).queryByRole('menuitem', { name: 'New Folder' })).toBeNull()
+    expect(within(copyPathMenu).queryByRole('menuitem', { name: 'New file' })).toBeNull()
+    expect(within(copyPathMenu).queryByRole('menuitem', { name: 'New folder' })).toBeNull()
 
-    await fireEvent.click(within(copyPathMenu).getByRole('menuitem', { name: 'Copy Path' }))
+    await fireEvent.click(within(copyPathMenu).getByRole('menuitem', { name: 'Copy path' }))
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith('/tmp/conversation-1/services/openase/src/main.ts'),
     )
@@ -179,7 +189,7 @@ describe('ProjectConversationWorkspaceBrowserPane', () => {
     await fireEvent.contextMenu(mainFileButton, { clientX: 48, clientY: 64 })
     const relativeMenu = await view.findByTestId('workspace-browser-tree-menu')
     await fireEvent.click(
-      within(relativeMenu).getByRole('menuitem', { name: 'Copy Relative Path' }),
+      within(relativeMenu).getByRole('menuitem', { name: 'Copy relative path' }),
     )
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('services/openase/src/main.ts'))
   })
@@ -203,7 +213,7 @@ describe('ProjectConversationWorkspaceBrowserPane', () => {
 
     await fireEvent.contextMenu(mainFileButton, { clientX: 56, clientY: 72 })
     const renameMenu = await view.findByTestId('workspace-browser-tree-menu')
-    await fireEvent.click(within(renameMenu).getByRole('menuitem', { name: 'Rename…' }))
+    await fireEvent.click(within(renameMenu).getByRole('menuitem', { name: 'Rename' }))
 
     const input = await view.findByTestId('workspace-browser-inline-input')
     ;(input as HTMLInputElement).value = 'app.ts'

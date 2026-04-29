@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { cn } from '$lib/utils'
   import { Input } from '$ui/input'
   import { Button } from '$ui/button'
@@ -8,6 +9,7 @@
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
   import PriorityIcon from './priority-icon.svelte'
   import type { BoardFilter } from '../types'
+  import { formatBoardPriorityLabel } from '../priority'
 
   let {
     filter = { search: '' },
@@ -34,12 +36,12 @@
   const parsePriorityFilter = parseBoardFilterPriority
 </script>
 
-<div class={cn('flex flex-wrap items-center gap-2', className)}>
+<div class={cn('flex flex-wrap items-center gap-2', className)} data-tour="board-toolbar">
   <div class="relative min-w-0 flex-1 basis-full sm:flex-none sm:basis-52">
     <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
     <Input
       type="text"
-      placeholder="Search tickets..."
+      placeholder={i18nStore.t('board.searchTicketsPlaceholder')}
       class="h-8 pl-8 text-sm"
       value={filter.search ?? ''}
       oninput={(event) =>
@@ -54,10 +56,10 @@
     }}
   >
     <Select.Trigger size="sm" class="h-8 min-w-[7rem] text-xs">
-      {filter.workflow ?? 'Workflow'}
+      {filter.workflow ?? i18nStore.t('common.workflow')}
     </Select.Trigger>
     <Select.Content>
-      <Select.Item value="">All</Select.Item>
+      <Select.Item value="">{i18nStore.t('common.all')}</Select.Item>
       {#each workflows as wf}
         <Select.Item value={wf}>{wf}</Select.Item>
       {/each}
@@ -72,10 +74,10 @@
       }}
     >
       <Select.Trigger size="sm" class="h-8 min-w-[7rem] text-xs">
-        {filter.agent ?? 'Agent'}
+        {filter.agent ?? i18nStore.t('common.agent')}
       </Select.Trigger>
       <Select.Content>
-        <Select.Item value="">All</Select.Item>
+        <Select.Item value="">{i18nStore.t('common.all')}</Select.Item>
         {#each agents as a}
           <Select.Item value={a}>{a}</Select.Item>
         {/each}
@@ -93,32 +95,40 @@
       {#if filter.priority}
         <span class="flex items-center gap-1.5">
           <PriorityIcon priority={filter.priority} />
-          <span class="capitalize">{filter.priority}</span>
+          <span>{formatBoardPriorityLabel(filter.priority, i18nStore.locale)}</span>
         </span>
       {:else}
-        Priority
+        {i18nStore.t('common.priority')}
       {/if}
     </Select.Trigger>
     <Select.Content>
-      <Select.Item value="">All</Select.Item>
+      <Select.Item value="">{i18nStore.t('common.all')}</Select.Item>
       <Select.Item value="urgent"
         ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="urgent" /><span>Urgent</span></span
+          ><PriorityIcon priority="urgent" /><span
+            >{formatBoardPriorityLabel('urgent', i18nStore.locale)}</span
+          ></span
         ></Select.Item
       >
       <Select.Item value="high"
         ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="high" /><span>High</span></span
+          ><PriorityIcon priority="high" /><span
+            >{formatBoardPriorityLabel('high', i18nStore.locale)}</span
+          ></span
         ></Select.Item
       >
       <Select.Item value="medium"
         ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="medium" /><span>Medium</span></span
+          ><PriorityIcon priority="medium" /><span
+            >{formatBoardPriorityLabel('medium', i18nStore.locale)}</span
+          ></span
         ></Select.Item
       >
       <Select.Item value="low"
         ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="low" /><span>Low</span></span
+          ><PriorityIcon priority="low" /><span
+            >{formatBoardPriorityLabel('low', i18nStore.locale)}</span
+          ></span
         ></Select.Item
       >
     </Select.Content>
@@ -133,7 +143,7 @@
     }}
   >
     <AlertTriangle class="size-3" />
-    Anomalies
+    {i18nStore.t('board.anomalies')}
   </Button>
 
   {#if ticketViewStore.mode === 'board'}
@@ -146,16 +156,19 @@
       }}
     >
       <EyeOff class="size-3" />
-      Hide empty
+      {i18nStore.t('board.hideEmpty')}
     </Button>
   {/if}
 
-  <div class="border-border ml-auto flex shrink-0 items-center rounded-md border">
+  <div
+    class="border-border ml-auto flex shrink-0 items-center rounded-md border"
+    data-tour="board-view-toggle"
+  >
     <Button
       variant={ticketViewStore.mode === 'board' ? 'secondary' : 'ghost'}
       size="sm"
       class="h-7 rounded-r-none px-2"
-      aria-label="Board view"
+      aria-label={i18nStore.t('board.boardView')}
       onclick={() => ticketViewStore.setMode('board')}
     >
       <Columns3 class="size-3.5" />
@@ -164,7 +177,7 @@
       variant={ticketViewStore.mode === 'list' ? 'secondary' : 'ghost'}
       size="sm"
       class="h-7 rounded-l-none px-2"
-      aria-label="List view"
+      aria-label={i18nStore.t('board.listView')}
       onclick={() => ticketViewStore.setMode('list')}
     >
       <List class="size-3.5" />

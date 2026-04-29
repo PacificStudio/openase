@@ -76,6 +76,29 @@ func (m MachineExecutionMode) IsValid() bool {
 	}
 }
 
+type MachineWebsocketTopology string
+
+const (
+	MachineWebsocketTopologyLocalProcess   MachineWebsocketTopology = "local_process"
+	MachineWebsocketTopologyRemoteListener MachineWebsocketTopology = "remote_listener"
+	MachineWebsocketTopologyReverseConnect MachineWebsocketTopology = "reverse_connect"
+)
+
+func (t MachineWebsocketTopology) String() string {
+	return string(t)
+}
+
+func (t MachineWebsocketTopology) IsValid() bool {
+	switch t {
+	case MachineWebsocketTopologyLocalProcess,
+		MachineWebsocketTopologyRemoteListener,
+		MachineWebsocketTopologyReverseConnect:
+		return true
+	default:
+		return false
+	}
+}
+
 func (m MachineConnectionMode) ReachabilityMode() MachineReachabilityMode {
 	switch m {
 	case MachineConnectionModeLocal:
@@ -102,6 +125,48 @@ func (m MachineConnectionMode) ExecutionMode() MachineExecutionMode {
 
 func (m MachineConnectionMode) RequiresSSHHelper() bool {
 	return m == MachineConnectionModeSSH
+}
+
+func (m Machine) WebsocketTopology() (MachineWebsocketTopology, error) {
+	return ResolveMachineWebsocketTopology(m.ReachabilityMode, m.ExecutionMode)
+}
+
+func ResolveMachineWebsocketTopology(
+	reachabilityMode MachineReachabilityMode,
+	executionMode MachineExecutionMode,
+) (MachineWebsocketTopology, error) {
+	switch reachabilityMode {
+	case MachineReachabilityModeLocal:
+		if executionMode != MachineExecutionModeLocalProcess {
+			return "", fmt.Errorf("execution_mode %q requires reachability_mode direct_connect or reverse_connect", executionMode)
+		}
+		return MachineWebsocketTopologyLocalProcess, nil
+	case MachineReachabilityModeDirectConnect:
+		if executionMode != MachineExecutionModeWebsocket {
+			return "", fmt.Errorf("execution_mode %q is not valid for reachability_mode direct_connect", executionMode)
+		}
+		return MachineWebsocketTopologyRemoteListener, nil
+	case MachineReachabilityModeReverseConnect:
+		if executionMode != MachineExecutionModeWebsocket {
+			return "", fmt.Errorf("execution_mode %q is not valid for reachability_mode reverse_connect", executionMode)
+		}
+		return MachineWebsocketTopologyReverseConnect, nil
+	default:
+		return "", fmt.Errorf("reachability_mode must be one of local, direct_connect, reverse_connect")
+	}
+}
+
+func (t MachineWebsocketTopology) ConnectionMode() MachineConnectionMode {
+	switch t {
+	case MachineWebsocketTopologyLocalProcess:
+		return MachineConnectionModeLocal
+	case MachineWebsocketTopologyReverseConnect:
+		return MachineConnectionModeWSReverse
+	case MachineWebsocketTopologyRemoteListener:
+		return MachineConnectionModeWSListener
+	default:
+		return MachineConnectionModeWSListener
+	}
 }
 
 type MachineTransportCapability string
@@ -301,6 +366,9 @@ func parseMachineConnectionMode(raw string, host string) (MachineConnectionMode,
 	}
 
 	if strings.EqualFold(trimmed, MachineConnectionModeSSH.String()) {
+		if host == LocalMachineHost {
+			return MachineConnectionModeLocal, nil
+		}
 		return MachineConnectionModeWSListener, nil
 	}
 
@@ -406,29 +474,38 @@ func ResolveMachineConnectionMode(
 	return connectionMode, reachabilityMode, executionMode, nil
 }
 
+func ResolveStoredMachineTransport(
+	connectionModeRaw string,
+	reachabilityModeRaw string,
+	executionModeRaw string,
+	host string,
+) (MachineConnectionMode, MachineReachabilityMode, MachineExecutionMode, error) {
+	hasReachability := strings.TrimSpace(reachabilityModeRaw) != ""
+	hasExecution := strings.TrimSpace(executionModeRaw) != ""
+	if !hasReachability && !hasExecution {
+		trimmedConnectionMode := strings.ToLower(strings.TrimSpace(connectionModeRaw))
+		if trimmedConnectionMode != "" {
+			mode := MachineConnectionMode(trimmedConnectionMode)
+			if mode.IsValid() {
+				if host == LocalMachineHost {
+					return MachineConnectionModeLocal, MachineReachabilityModeLocal, MachineExecutionModeLocalProcess, nil
+				}
+				return mode, mode.ReachabilityMode(), mode.ExecutionMode(), nil
+			}
+		}
+	}
+	return ResolveMachineConnectionMode(connectionModeRaw, reachabilityModeRaw, executionModeRaw, host)
+}
+
 func machineConnectionModeFromSemantics(
 	reachabilityMode MachineReachabilityMode,
 	executionMode MachineExecutionMode,
 ) (MachineConnectionMode, error) {
-	switch reachabilityMode {
-	case MachineReachabilityModeLocal:
-		if executionMode != MachineExecutionModeLocalProcess {
-			return "", fmt.Errorf("execution_mode %q requires reachability_mode direct_connect or reverse_connect", executionMode)
-		}
-		return MachineConnectionModeLocal, nil
-	case MachineReachabilityModeDirectConnect:
-		if executionMode != MachineExecutionModeWebsocket {
-			return "", fmt.Errorf("execution_mode %q is not valid for reachability_mode direct_connect", executionMode)
-		}
-		return MachineConnectionModeWSListener, nil
-	case MachineReachabilityModeReverseConnect:
-		if executionMode != MachineExecutionModeWebsocket {
-			return "", fmt.Errorf("execution_mode %q is not valid for reachability_mode reverse_connect", executionMode)
-		}
-		return MachineConnectionModeWSReverse, nil
-	default:
-		return "", fmt.Errorf("reachability_mode must be one of local, direct_connect, reverse_connect")
+	topology, err := ResolveMachineWebsocketTopology(reachabilityMode, executionMode)
+	if err != nil {
+		return "", err
 	}
+	return topology.ConnectionMode(), nil
 }
 
 func parseMachineTransportCapabilities(

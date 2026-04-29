@@ -109,6 +109,9 @@ func (m *workspaceInitLeaseManager) Acquire(
 			HeartbeatAt:    attemptedAt,
 		}, attemptedAt)
 		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, ctxErr
+			}
 			return nil, fmt.Errorf("acquire workspace init lease for machine %s: %w", machineID, err)
 		}
 		if acquired {

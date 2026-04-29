@@ -9,7 +9,7 @@ export function scopedSecrets() {
       scope: 'project',
       name: 'OPENAI_API_KEY',
       kind: 'opaque',
-      description: 'Primary runtime key',
+      description: 'Primary runtime key', // i18n-exempt fixture description
       disabled: false,
       disabled_at: null,
       created_at: '2026-04-08T12:00:00Z',
@@ -29,7 +29,7 @@ export function scopedSecrets() {
       scope: 'organization',
       name: 'GH_TOKEN',
       kind: 'opaque',
-      description: 'Org-wide GitHub token',
+      description: 'Org-wide GitHub token', // i18n-exempt fixture description
       disabled: false,
       disabled_at: null,
       created_at: '2026-04-08T11:00:00Z',
@@ -80,7 +80,7 @@ export function ticketCatalog() {
       id: 'ticket-ase-115',
       project_id: currentProject().id,
       identifier: 'ASE-115',
-      title: '[Secrets] Add workflow and ticket secret bindings',
+      title: '[Secrets] Add workflow and ticket secret bindings', // i18n-exempt fixture title
       description: '',
       status_id: 'status-in-progress',
       status_name: 'In Progress',
@@ -125,7 +125,7 @@ export function scopedSecretBindings() {
         name: 'OPENAI_API_KEY',
         scope: 'project',
         kind: 'opaque',
-        description: 'Primary runtime key',
+        description: 'Primary runtime key', // i18n-exempt fixture description
         project_id: currentProject().id,
         disabled: false,
       },

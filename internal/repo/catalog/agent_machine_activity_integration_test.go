@@ -8,6 +8,8 @@ import (
 
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entagenttraceevent "github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
+	entprojectconversationrun "github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/google/uuid"
@@ -267,6 +269,9 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if _, err := repo.ListAgentRuns(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ListAgentRuns(missing project) error = %v, want %v", err, ErrNotFound)
 	}
+	if _, err := repo.ListTicketRuns(ctx, uuid.New(), uuid.New()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ListTicketRuns(missing ticket) error = %v, want %v", err, ErrNotFound)
+	}
 
 	orgB, err := repo.CreateOrganization(ctx, domain.CreateOrganization{
 		Name: "GrandCX",
@@ -397,6 +402,20 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agent run: %v", err)
 	}
+	otherRunCreatedAt := runCreatedAt.Add(10 * time.Minute)
+	otherAgentRun, err := client.AgentRun.Create().
+		SetAgentID(createdAgent.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(otherTicketItem.ID).
+		SetProviderID(agentProvider.ID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetSessionID("session-279").
+		SetTerminalAt(otherRunCreatedAt.Add(2 * time.Minute)).
+		SetCreatedAt(otherRunCreatedAt).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create secondary agent run: %v", err)
+	}
 	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).SetCurrentRunID(agentRun.ID).Save(ctx); err != nil {
 		t.Fatalf("bind current run: %v", err)
 	}
@@ -441,8 +460,15 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAgentRuns() error = %v", err)
 	}
-	if len(agentRuns) != 1 || agentRuns[0].ID != agentRun.ID {
+	if len(agentRuns) != 2 || agentRuns[0].ID != otherAgentRun.ID || agentRuns[1].ID != agentRun.ID {
 		t.Fatalf("ListAgentRuns() = %+v", agentRuns)
+	}
+	ticketRuns, err := repo.ListTicketRuns(ctx, project.ID, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("ListTicketRuns() error = %v", err)
+	}
+	if len(ticketRuns) != 1 || ticketRuns[0].ID != agentRun.ID {
+		t.Fatalf("ListTicketRuns() = %+v", ticketRuns)
 	}
 
 	gotRun, err := repo.GetAgentRun(ctx, agentRun.ID)
@@ -638,6 +664,9 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err := client.AgentRun.DeleteOneID(agentRun.ID).Exec(ctx); err != nil {
 		t.Fatalf("delete agent run: %v", err)
 	}
+	if err := client.AgentRun.DeleteOneID(otherAgentRun.ID).Exec(ctx); err != nil {
+		t.Fatalf("delete secondary agent run: %v", err)
+	}
 
 	deletedAgent, err := repo.DeleteAgent(ctx, createdAgent.ID)
 	if err != nil {
@@ -648,6 +677,165 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	}
 	if _, err := repo.DeleteAgent(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("DeleteAgent(missing) error = %v, want %v", err, ErrNotFound)
+	}
+}
+
+func TestEntRepositoryDeleteAgentProviderHonorsReferenceChecks(t *testing.T) {
+	client := openRepoCatalogTestEntClient(t)
+	ctx := context.Background()
+	repo := NewEntRepository(client)
+
+	org, err := repo.CreateOrganization(ctx, domain.CreateOrganization{
+		Name: "Provider Delete Org",
+		Slug: "provider-delete-org",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrganization() error = %v", err)
+	}
+	machines, err := repo.ListMachines(ctx, org.ID)
+	if err != nil {
+		t.Fatalf("ListMachines() error = %v", err)
+	}
+	localMachine := machines[0]
+	providerItem, err := repo.CreateAgentProvider(ctx, domain.CreateAgentProvider{
+		OrganizationID:     org.ID,
+		MachineID:          localMachine.ID,
+		Name:               "Delete Me",
+		AdapterType:        domain.AgentProviderAdapterTypeCodexAppServer,
+		CliCommand:         "codex",
+		CliArgs:            []string{"app-server", "--listen", "stdio://"},
+		AuthConfig:         map[string]any{"token_env": openAIAPIKeyEnv},
+		ModelName:          "gpt-5.4",
+		CostPerInputToken:  0.01,
+		CostPerOutputToken: 0.02,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentProvider() error = %v", err)
+	}
+
+	project, err := repo.CreateProject(ctx, domain.CreateProject{
+		OrganizationID:         org.ID,
+		Name:                   "Delete Project",
+		Slug:                   "delete-project",
+		Status:                 domain.ProjectStatusInProgress,
+		DefaultAgentProviderID: &providerItem.ID,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject() error = %v", err)
+	}
+	if _, err := repo.UpdateOrganization(ctx, domain.UpdateOrganization{
+		ID:                     org.ID,
+		Name:                   org.Name,
+		Slug:                   org.Slug,
+		DefaultAgentProviderID: &providerItem.ID,
+	}); err != nil {
+		t.Fatalf("UpdateOrganization() error = %v", err)
+	}
+	agentItem, err := repo.CreateAgent(ctx, domain.CreateAgent{
+		ProjectID:           project.ID,
+		ProviderID:          providerItem.ID,
+		Name:                "delete-agent",
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgent() error = %v", err)
+	}
+	if _, err := client.ChatConversation.Create().
+		SetProjectID(project.ID).
+		SetUserID("user-1").
+		SetSource("project").
+		SetProviderID(providerItem.ID).
+		SetStatus("active").
+		Save(ctx); err != nil {
+		t.Fatalf("create chat conversation: %v", err)
+	}
+	if _, err := client.ProjectConversationPrincipal.Create().
+		SetConversationID(uuid.New()).
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName("project-ai").
+		SetStatus(entprojectconversationprincipal.StatusActive).
+		SetRuntimeState(entprojectconversationprincipal.RuntimeStateReady).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation principal: %v", err)
+	}
+	if _, err := client.ProjectConversationRun.Create().
+		SetPrincipalID(uuid.New()).
+		SetConversationID(uuid.New()).
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetStatus(entprojectconversationrun.StatusExecuting).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation run: %v", err)
+	}
+
+	_, err = repo.DeleteAgentProvider(ctx, providerItem.ID)
+	var conflict *domain.AgentProviderDeleteConflict
+	if !errors.As(err, &conflict) {
+		t.Fatalf("DeleteAgentProvider() error = %v, want AgentProviderDeleteConflict", err)
+	}
+	if !conflict.OrganizationDefault {
+		t.Fatal("DeleteAgentProvider() expected organization default reference")
+	}
+	if len(conflict.ProjectDefaults) != 1 || conflict.ProjectDefaults[0].ID != project.ID {
+		t.Fatalf("DeleteAgentProvider() project defaults = %+v", conflict.ProjectDefaults)
+	}
+	if len(conflict.Agents) != 1 || conflict.Agents[0].ID != agentItem.ID {
+		t.Fatalf("DeleteAgentProvider() agents = %+v", conflict.Agents)
+	}
+	if len(conflict.ChatConversations) != 1 {
+		t.Fatalf("DeleteAgentProvider() chat conversations = %+v", conflict.ChatConversations)
+	}
+	if len(conflict.ConversationPrincipals) != 1 {
+		t.Fatalf("DeleteAgentProvider() conversation principals = %+v", conflict.ConversationPrincipals)
+	}
+	if len(conflict.ConversationRuns) != 1 {
+		t.Fatalf("DeleteAgentProvider() conversation runs = %+v", conflict.ConversationRuns)
+	}
+
+	if _, err := repo.UpdateOrganization(ctx, domain.UpdateOrganization{
+		ID:                     org.ID,
+		Name:                   org.Name,
+		Slug:                   org.Slug,
+		DefaultAgentProviderID: nil,
+	}); err != nil {
+		t.Fatalf("clear organization default provider: %v", err)
+	}
+	if _, err := repo.UpdateProject(ctx, domain.UpdateProject{
+		ID:                     project.ID,
+		OrganizationID:         org.ID,
+		Name:                   project.Name,
+		Slug:                   project.Slug,
+		Description:            project.Description,
+		Status:                 project.Status,
+		DefaultAgentProviderID: nil,
+		AccessibleMachineIDs:   project.AccessibleMachineIDs,
+		MaxConcurrentAgents:    project.MaxConcurrentAgents,
+	}); err != nil {
+		t.Fatalf("clear project default provider: %v", err)
+	}
+	if _, err := client.ChatConversation.Delete().Exec(ctx); err != nil {
+		t.Fatalf("delete chat conversations: %v", err)
+	}
+	if _, err := client.ProjectConversationPrincipal.Delete().Exec(ctx); err != nil {
+		t.Fatalf("delete conversation principals: %v", err)
+	}
+	if _, err := client.ProjectConversationRun.Delete().Exec(ctx); err != nil {
+		t.Fatalf("delete conversation runs: %v", err)
+	}
+	if _, err := repo.DeleteAgent(ctx, agentItem.ID); err != nil {
+		t.Fatalf("DeleteAgent() error = %v", err)
+	}
+
+	deletedProvider, err := repo.DeleteAgentProvider(ctx, providerItem.ID)
+	if err != nil {
+		t.Fatalf("DeleteAgentProvider() success error = %v", err)
+	}
+	if deletedProvider.ID != providerItem.ID {
+		t.Fatalf("DeleteAgentProvider() = %+v", deletedProvider)
+	}
+	if _, err := repo.DeleteAgentProvider(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("DeleteAgentProvider(missing) error = %v, want %v", err, ErrNotFound)
 	}
 }
 

@@ -180,6 +180,8 @@ type fakeSession struct {
 	waitCh   chan error
 
 	startedCommand string
+	startedPTY     [2]int
+	resized        [2]int
 	signal         string
 }
 
@@ -213,6 +215,17 @@ func (s *fakeSession) StderrPipe() (io.Reader, error) {
 
 func (s *fakeSession) Start(cmd string) error {
 	s.startedCommand = cmd
+	return nil
+}
+
+func (s *fakeSession) StartPTY(cmd string, cols int, rows int) error {
+	s.startedCommand = cmd
+	s.startedPTY = [2]int{cols, rows}
+	return nil
+}
+
+func (s *fakeSession) Resize(cols int, rows int) error {
+	s.resized = [2]int{cols, rows}
 	return nil
 }
 

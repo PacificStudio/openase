@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { ScopedSecretRecord } from '$lib/api/contracts'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
@@ -87,6 +88,7 @@ describe('Security settings', () => {
     cleanup()
     appStore.currentOrg = null
     appStore.currentProject = null
+    i18nStore.setLocale('en')
     vi.clearAllMocks()
   })
 
@@ -133,11 +135,11 @@ describe('Security settings', () => {
 
     const { findByText } = render(SecuritySettings)
 
-    expect(await findByText('Scoped secrets')).toBeTruthy()
+    expect(await findByText('Overview')).toBeTruthy()
     expect(await findByText('Inherited organization defaults')).toBeTruthy()
-    expect(await findByText('GitHub outbound credentials')).toBeTruthy()
-    expect(await findByText('Runtime secret bindings')).toBeTruthy()
-    expect(await findByText('Project AI platform access')).toBeTruthy()
+    expect(await findByText('GitHub outbound access')).toBeTruthy()
+    expect(await findByText('Secret Bindings')).toBeTruthy()
+    expect(await findByText('Project AI Platform')).toBeTruthy()
     expect(await findByText('Fullstack Developer Workflow')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
   })
@@ -152,7 +154,7 @@ describe('Security settings', () => {
 
     const { findByPlaceholderText, findAllByRole } = render(SecuritySettings)
 
-    const input = await findByPlaceholderText('ghu_xxx or github_pat_xxx')
+    const input = await findByPlaceholderText('Token')
     await fireEvent.input(input, { target: { value: 'ghu_project_override' } })
 
     const saveButtons = await findAllByRole('button', { name: 'Save' })
@@ -178,18 +180,66 @@ describe('Security settings', () => {
       },
     })
 
-    const { findByRole, findByText } = render(SecuritySettings)
+    const { findAllByRole, findByText } = render(SecuritySettings)
 
     await fireEvent.click(await findByText('projects'))
     await fireEvent.click(await findByText('add_repo'))
-    await fireEvent.click(await findByRole('button', { name: 'Save Project AI access' }))
+    const saveButtons = await findAllByRole('button', { name: 'Save' })
+    await fireEvent.click(saveButtons[saveButtons.length - 1]!)
 
     await waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
-        project_ai_platform_access_allowed: ['projects.update'],
+        project_ai_platform_access_allowed: [
+          'project_updates.read',
+          'project_updates.write',
+          'projects.update',
+        ],
       })
     })
     expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual(['projects.update'])
+  })
+
+  it('keeps project ai access explicitly empty after clearing all scopes', async () => {
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+    updateProject.mockResolvedValue({
+      project: {
+        ...currentProject(),
+        project_ai_platform_access_allowed: [],
+      },
+    })
+
+    const { findAllByRole, findByText } = render(SecuritySettings)
+
+    await fireEvent.click(await findByText('projects'))
+    await fireEvent.click(await findByText('update'))
+    await fireEvent.click(await findByText('add_repo'))
+    const saveButtons = await findAllByRole('button', { name: 'Save' })
+    await fireEvent.click(saveButtons[saveButtons.length - 1]!)
+
+    await waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
+        project_ai_platform_access_allowed: ['project_updates.read', 'project_updates.write'],
+      })
+    })
+    expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual([])
+  })
+
+  it('renders only backend-provided project ai scope groups', async () => {
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+
+    const { findByText, queryByText } = render(SecuritySettings)
+
+    expect(await findByText('projects')).toBeTruthy()
+    expect(queryByText('tickets')).toBeNull()
+    expect(queryByText('update.self')).toBeNull()
   })
 
   it('imports, retests, and deletes credentials through scoped actions', async () => {
@@ -237,9 +287,28 @@ describe('Security settings', () => {
 
     const { findByText, queryByText } = render(SecuritySettings)
 
-    expect(await findByText('GitHub outbound credentials')).toBeTruthy()
+    expect(await findByText('GitHub outbound access')).toBeTruthy()
     expect(await findByText('ghu_test...1234')).toBeTruthy()
     expect(queryByText('No scopes reported')).toBeNull()
+  })
+
+  it('renders natural Chinese security copy without exposing raw expressions', async () => {
+    i18nStore.setLocale('zh')
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+
+    const { container, findByText } = render(SecuritySettings)
+
+    expect(await findByText('GitHub 出站访问')).toBeTruthy()
+    expect(container.textContent).toContain(
+      '待 OAuth 应用接线完成后，可通过 GitHub 设备验证码流程授权 CLI。',
+    )
+    expect(container.textContent).not.toContain('()=>')
+    expect(container.textContent).not.toContain('m.t(')
+    expect(container.textContent).not.toContain('github-device-flow')
   })
 
   it('creates a workflow secret binding from the security surface', async () => {
@@ -259,14 +328,14 @@ describe('Security settings', () => {
     const bindButtons = await findAllByRole('button', { name: 'Bind secret' })
     await fireEvent.click(bindButtons[bindButtons.length - 1])
 
-    await fireEvent.input(await findByLabelText('Binding key'), {
+    await fireEvent.input(await findByLabelText('Binding Key'), {
       target: { value: 'openai_api_key' },
     })
-    const workflowTrigger = await findByText('Select workflow...')
+    const workflowTrigger = await findByText('Enter select workflow target...')
     workflowTrigger.focus()
     await fireEvent.keyDown(workflowTrigger, { key: 'ArrowDown' })
     await fireEvent.keyDown(workflowTrigger, { key: 'Enter' })
-    const secretTrigger = await findByText('Select secret...')
+    const secretTrigger = await findByText('Enter select secret...')
     secretTrigger.focus()
     await fireEvent.keyDown(secretTrigger, { key: 'ArrowDown' })
     await fireEvent.keyDown(secretTrigger, { key: 'Enter' })

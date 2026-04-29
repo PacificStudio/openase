@@ -102,10 +102,40 @@ Current product behavior:
 
 1. `Save draft` persists the OIDC draft to the config file and keeps the active runtime mode unchanged.
 2. `Test configuration` performs provider discovery and returns actionable endpoint diagnostics and warnings.
-3. `Enable OIDC` validates discovery again, writes `auth.mode=oidc`, and returns next steps.
-4. The current release still requires a service restart before the new configured mode becomes active.
+3. `Enable OIDC` validates discovery again, writes `auth.mode=oidc`, and returns activation status plus next steps.
+4. Restart only when the activation response explicitly says your deployment still needs one.
 
 Project Settings -> Security still exists during the compatibility window, but only as a project-security surface plus migration guidance. It must not continue acting as the instance auth control plane.
+
+## Operator Checklist
+
+### Before switching modes
+
+- Confirm the public base URL, TLS plan, and OIDC redirect registration.
+- Decide the initial `bootstrap_admin_emails` list and the steady-state instance / org / project bindings you expect after the first login.
+- Confirm your recovery path before rollout. If login breaks, use `openase auth break-glass disable-oidc`, then re-enter through a local bootstrap link.
+
+### Enablement flow
+
+1. Open `/admin/auth` while the instance still runs in `auth.mode=disabled`.
+2. Save the OIDC draft and confirm the active mode remains `disabled`.
+3. Run `Test configuration` and review discovery diagnostics and warnings.
+4. Run `Enable OIDC` and follow the returned activation status / next steps.
+5. Complete the first browser login with a bootstrap admin account and verify that it receives `instance_admin`.
+
+### Post-enable verification
+
+- `/admin/auth` shows the expected issuer, auth-mode summary, and bootstrap guidance.
+- `/admin` shows the expected session inventory, recovery guidance, and user-directory visibility.
+- `/orgs/:orgId/admin/*` exposes organization members, invitations, and org-scoped bindings.
+- Project Settings -> `#access` shows project-scoped bindings and effective project access.
+- Project Settings -> `#security` stays limited to project-owned credentials and runtime hardening.
+
+### Rollback
+
+- If OIDC login or authorization fails, switch `auth.mode` back to `disabled` or use the break-glass CLI path above.
+- Keep the saved OIDC draft so you can retry after fixing provider or RBAC issues.
+- Rollback must never depend on fabricating a fake local OIDC user.
 
 ## Browser Flow
 
@@ -284,8 +314,9 @@ AI session ownership is always derived from a server-defined principal:
 
 Browser-local random ids and `X-OpenASE-Chat-User` request headers are no longer authoritative owner inputs.
 
-When `auth.mode=disabled`, persistent project conversations switch to a server-defined local principal: `local-user:default`.
+When `auth.mode=disabled`, persistent project conversations currently use the legacy-compatible local owner `local-user:default`.
 
+- this value is treated as a compatibility alias for the disabled-mode canonical subject `local_instance_admin:default`
 - this keeps conversation ownership stable across frontend dev-server ports and browser-local storage resets
 - `localStorage` remains UI-only for tab layout and drafts; it is no longer the source of truth for persistent conversation ownership
 - this mode is intentionally a local single-user / shared-instance fallback, not a multi-user isolation model
@@ -310,7 +341,7 @@ The control plane Settings view exposes the human auth state, including:
 - current authenticated user
 - session inventory with current-device detection and revoke actions
 - auth audit timeline for browser access events
-- stable project-conversation owner semantics (`user:<user-id>` under OIDC, `local-user:default` when auth is disabled)
+- stable project-conversation owner semantics (`user:<user-id>` under OIDC, `local-user:default` as the current compatibility alias for the disabled-mode local subject)
 - effective roles and permissions
 - the distinction between human permissions and mintable agent scopes
 - instance / org / project role binding management

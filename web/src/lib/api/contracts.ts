@@ -177,6 +177,18 @@ export type MachineTestResponse = DeepRequired<
 export type MachineHealthRefreshResponse = {
   machine: Machine
 }
+export type MachineSSHBootstrapResponse = DeepRequired<
+  ResponseFor<'/api/v1/machines/{machineId}/ssh-bootstrap', 'post'>
+>
+export type MachineSSHBootstrapResult = MachineSSHBootstrapResponse['result']
+export type MachineSSHBootstrapRequest = {
+  topology?: string
+  listener_address?: string
+  listener_path?: string
+  listener_bearer_token?: string
+  control_plane_url?: string
+  token_ttl_seconds?: number
+}
 export type MachineProbe = MachineTestResponse['probe']
 export type MachineResourcesResponse = DeepRequired<
   ResponseFor<'/api/v1/machines/{machineId}/resources', 'get'>

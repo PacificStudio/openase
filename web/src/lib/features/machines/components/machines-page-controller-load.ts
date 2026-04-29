@@ -40,7 +40,7 @@ export async function loadMachineList(
       orgId,
       nextMachines,
       nextListError: null,
-      selectedId: state.selectedId,
+      selectedId: state.editorOpen ? state.selectedId : '',
       searchQuery: state.searchQuery,
     })
     state.editorOpen = nextState.selectedMachineId !== null

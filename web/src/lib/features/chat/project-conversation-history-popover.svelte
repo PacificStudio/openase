@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { chatT } from './i18n'
   import { formatRelativeTime } from '$lib/utils'
   import { MessageSquare, Trash2 } from '@lucide/svelte'
   import type { ProjectConversation } from '$lib/api/chat'
@@ -26,7 +27,7 @@
     if (title) {
       return title
     }
-    return 'New conversation'
+    return chatT('chat.newConversation')
   }
 
   function secondarySummaryText(conversation: ProjectConversation) {
@@ -55,7 +56,7 @@
 {#if conversations.length === 0}
   <div class="text-muted-foreground flex flex-col items-center gap-2 py-6 text-xs">
     <MessageSquare class="size-5 opacity-40" />
-    <span>No conversations yet</span>
+    <span>{chatT('chat.noConversationsYet')}</span>
   </div>
 {:else}
   <div
@@ -69,7 +70,7 @@
           <button
             type="button"
             class="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 text-left"
-            aria-label={`Open conversation ${titleText(conversation)}`}
+            aria-label={chatT('chat.openConversationLabel', { title: titleText(conversation) })}
             onclick={() => onSelect?.(conversation.id)}
           >
             <span class={`size-1.5 shrink-0 rounded-full ${statusDot(conversation)}`}></span>
@@ -87,7 +88,7 @@
               <span
                 class="bg-muted text-muted-foreground shrink-0 rounded px-1 py-0.5 text-[9px] leading-none"
               >
-                open
+                {chatT('chat.statusOpen')}
               </span>
             {/if}
             <span class="text-muted-foreground shrink-0 text-[10px]">
@@ -97,8 +98,8 @@
           <button
             type="button"
             class="text-muted-foreground hover:text-destructive inline-flex size-6 shrink-0 items-center justify-center rounded transition-colors"
-            aria-label={`Delete ${titleText(conversation)}`}
-            title="Delete conversation"
+            aria-label={chatT('chat.deleteConversationLabel', { title: titleText(conversation) })}
+            title={chatT('chat.deleteConversationTitle')}
             onclick={(event) => {
               event.stopPropagation()
               onDelete?.(conversation.id)

@@ -71,6 +71,7 @@ type machineResponse struct {
 	Status                string                           `json:"status"`
 	WorkspaceRoot         *string                          `json:"workspace_root,omitempty"`
 	AgentCLIPath          *string                          `json:"agent_cli_path,omitempty"`
+	AgentCLIPaths         map[string]string                `json:"agent_cli_paths,omitempty"`
 	EnvVars               []string                         `json:"env_vars"`
 	LastHeartbeatAt       *string                          `json:"last_heartbeat_at,omitempty"`
 	Resources             map[string]any                   `json:"resources"`
@@ -165,10 +166,19 @@ func parseUUIDPathParamValue(c echo.Context, name string) (uuid.UUID, error) {
 }
 
 func writeCatalogError(c echo.Context, err error) error {
+	var providerDeleteConflict *domain.AgentProviderDeleteConflict
 	var projectRepoConflict *domain.ProjectRepoDeleteConflict
 	var ticketRepoScopeConflict *domain.TicketRepoScopeDeleteConflict
 	var agentDeleteConflict *domain.AgentDeleteConflict
 	switch {
+	case errors.As(err, &providerDeleteConflict):
+		return writeAPIErrorWithDetails(
+			c,
+			http.StatusConflict,
+			"PROVIDER_IN_USE",
+			providerDeleteConflictMessage(providerDeleteConflict),
+			providerDeleteConflict,
+		)
 	case errors.As(err, &projectRepoConflict):
 		return writeAPIErrorWithDetails(
 			c,
@@ -242,6 +252,8 @@ func catalogErrorResponse(err error) (statusCode int, code string, message strin
 		return http.StatusConflict, "MACHINE_IN_USE", "Machine cannot be deleted because agent providers still reference it."
 	case errors.Is(err, domain.ErrAgentProviderNameConflict):
 		return http.StatusConflict, "AGENT_PROVIDER_NAME_CONFLICT", "Agent provider name already exists in this organization."
+	case errors.Is(err, domain.ErrAgentProviderInUseConflict):
+		return http.StatusConflict, "PROVIDER_IN_USE", "Provider cannot be deleted because it is still referenced by other resources."
 	case errors.Is(err, domain.ErrProjectRepoNameConflict):
 		return http.StatusConflict, "REPOSITORY_NAME_CONFLICT", "Repository name already exists in this project."
 	case errors.Is(err, domain.ErrProjectRepoInUseConflict):
@@ -274,6 +286,46 @@ func normalizeCatalogConflictMessage(err error) string {
 	}
 
 	return message
+}
+
+func providerDeleteConflictMessage(conflict *domain.AgentProviderDeleteConflict) string {
+	if conflict == nil {
+		return "Provider cannot be deleted because it is still referenced by other resources."
+	}
+
+	parts := make([]string, 0, 7)
+	if conflict.OrganizationDefault {
+		parts = append(parts, "organization default")
+	}
+	if count := len(conflict.ProjectDefaults); count > 0 {
+		parts = append(parts, pluralizedReference(count, "project default", "project defaults"))
+	}
+	if count := len(conflict.Agents); count > 0 {
+		parts = append(parts, pluralizedReference(count, "agent", "agents"))
+	}
+	if count := len(conflict.AgentRuns); count > 0 {
+		parts = append(parts, pluralizedReference(count, "agent run", "agent runs"))
+	}
+	if count := len(conflict.ChatConversations); count > 0 {
+		parts = append(parts, pluralizedReference(count, "chat conversation", "chat conversations"))
+	}
+	if count := len(conflict.ConversationPrincipals); count > 0 {
+		parts = append(parts, pluralizedReference(count, "project conversation principal", "project conversation principals"))
+	}
+	if count := len(conflict.ConversationRuns); count > 0 {
+		parts = append(parts, pluralizedReference(count, "project conversation run", "project conversation runs"))
+	}
+	if len(parts) == 0 {
+		return "Provider cannot be deleted because it is still referenced by other resources."
+	}
+	return "Provider cannot be deleted because it is still referenced by " + strings.Join(parts, ", ") + "."
+}
+
+func pluralizedReference(count int, singular string, plural string) string {
+	if count == 1 {
+		return "1 " + singular
+	}
+	return fmt.Sprintf("%d %s", count, plural)
 }
 
 func mapOrganizationResponses(items []domain.Organization) []organizationResponse {
@@ -364,6 +416,7 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 		Status:                item.Status.String(),
 		WorkspaceRoot:         item.WorkspaceRoot,
 		AgentCLIPath:          item.AgentCLIPath,
+		AgentCLIPaths:         item.AgentCLIPaths.ToRawMap(),
 		EnvVars:               domain.MaskMachineEnvVars(item.EnvVars),
 		LastHeartbeatAt:       timeToStringPointer(item.LastHeartbeatAt),
 		Resources:             cloneMap(item.Resources),

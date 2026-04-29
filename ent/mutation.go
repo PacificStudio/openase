@@ -25274,6 +25274,8 @@ type MachineMutation struct {
 	port                      *int
 	addport                   *int
 	connection_mode           *machine.ConnectionMode
+	reachability_mode         *machine.ReachabilityMode
+	execution_mode            *machine.ExecutionMode
 	transport_capabilities    *pgarray.StringArray
 	ssh_user                  *string
 	ssh_key_path              *string
@@ -25293,6 +25295,7 @@ type MachineMutation struct {
 	status                    *machine.Status
 	workspace_root            *string
 	agent_cli_path            *string
+	agent_cli_paths           *map[string]string
 	env_vars                  *pgarray.StringArray
 	last_heartbeat_at         *time.Time
 	resources                 *map[string]interface{}
@@ -25615,6 +25618,104 @@ func (m *MachineMutation) OldConnectionMode(ctx context.Context) (v machine.Conn
 // ResetConnectionMode resets all changes to the "connection_mode" field.
 func (m *MachineMutation) ResetConnectionMode() {
 	m.connection_mode = nil
+}
+
+// SetReachabilityMode sets the "reachability_mode" field.
+func (m *MachineMutation) SetReachabilityMode(mm machine.ReachabilityMode) {
+	m.reachability_mode = &mm
+}
+
+// ReachabilityMode returns the value of the "reachability_mode" field in the mutation.
+func (m *MachineMutation) ReachabilityMode() (r machine.ReachabilityMode, exists bool) {
+	v := m.reachability_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReachabilityMode returns the old "reachability_mode" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldReachabilityMode(ctx context.Context) (v machine.ReachabilityMode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReachabilityMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReachabilityMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReachabilityMode: %w", err)
+	}
+	return oldValue.ReachabilityMode, nil
+}
+
+// ClearReachabilityMode clears the value of the "reachability_mode" field.
+func (m *MachineMutation) ClearReachabilityMode() {
+	m.reachability_mode = nil
+	m.clearedFields[machine.FieldReachabilityMode] = struct{}{}
+}
+
+// ReachabilityModeCleared returns if the "reachability_mode" field was cleared in this mutation.
+func (m *MachineMutation) ReachabilityModeCleared() bool {
+	_, ok := m.clearedFields[machine.FieldReachabilityMode]
+	return ok
+}
+
+// ResetReachabilityMode resets all changes to the "reachability_mode" field.
+func (m *MachineMutation) ResetReachabilityMode() {
+	m.reachability_mode = nil
+	delete(m.clearedFields, machine.FieldReachabilityMode)
+}
+
+// SetExecutionMode sets the "execution_mode" field.
+func (m *MachineMutation) SetExecutionMode(mm machine.ExecutionMode) {
+	m.execution_mode = &mm
+}
+
+// ExecutionMode returns the value of the "execution_mode" field in the mutation.
+func (m *MachineMutation) ExecutionMode() (r machine.ExecutionMode, exists bool) {
+	v := m.execution_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExecutionMode returns the old "execution_mode" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldExecutionMode(ctx context.Context) (v machine.ExecutionMode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExecutionMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExecutionMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExecutionMode: %w", err)
+	}
+	return oldValue.ExecutionMode, nil
+}
+
+// ClearExecutionMode clears the value of the "execution_mode" field.
+func (m *MachineMutation) ClearExecutionMode() {
+	m.execution_mode = nil
+	m.clearedFields[machine.FieldExecutionMode] = struct{}{}
+}
+
+// ExecutionModeCleared returns if the "execution_mode" field was cleared in this mutation.
+func (m *MachineMutation) ExecutionModeCleared() bool {
+	_, ok := m.clearedFields[machine.FieldExecutionMode]
+	return ok
+}
+
+// ResetExecutionMode resets all changes to the "execution_mode" field.
+func (m *MachineMutation) ResetExecutionMode() {
+	m.execution_mode = nil
+	delete(m.clearedFields, machine.FieldExecutionMode)
 }
 
 // SetTransportCapabilities sets the "transport_capabilities" field.
@@ -26457,6 +26558,55 @@ func (m *MachineMutation) ResetAgentCliPath() {
 	delete(m.clearedFields, machine.FieldAgentCliPath)
 }
 
+// SetAgentCliPaths sets the "agent_cli_paths" field.
+func (m *MachineMutation) SetAgentCliPaths(value map[string]string) {
+	m.agent_cli_paths = &value
+}
+
+// AgentCliPaths returns the value of the "agent_cli_paths" field in the mutation.
+func (m *MachineMutation) AgentCliPaths() (r map[string]string, exists bool) {
+	v := m.agent_cli_paths
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentCliPaths returns the old "agent_cli_paths" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldAgentCliPaths(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentCliPaths is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentCliPaths requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentCliPaths: %w", err)
+	}
+	return oldValue.AgentCliPaths, nil
+}
+
+// ClearAgentCliPaths clears the value of the "agent_cli_paths" field.
+func (m *MachineMutation) ClearAgentCliPaths() {
+	m.agent_cli_paths = nil
+	m.clearedFields[machine.FieldAgentCliPaths] = struct{}{}
+}
+
+// AgentCliPathsCleared returns if the "agent_cli_paths" field was cleared in this mutation.
+func (m *MachineMutation) AgentCliPathsCleared() bool {
+	_, ok := m.clearedFields[machine.FieldAgentCliPaths]
+	return ok
+}
+
+// ResetAgentCliPaths resets all changes to the "agent_cli_paths" field.
+func (m *MachineMutation) ResetAgentCliPaths() {
+	m.agent_cli_paths = nil
+	delete(m.clearedFields, machine.FieldAgentCliPaths)
+}
+
 // SetEnvVars sets the "env_vars" field.
 func (m *MachineMutation) SetEnvVars(pa pgarray.StringArray) {
 	m.env_vars = &pa
@@ -26814,7 +26964,7 @@ func (m *MachineMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MachineMutation) Fields() []string {
-	fields := make([]string, 0, 27)
+	fields := make([]string, 0, 30)
 	if m.organization != nil {
 		fields = append(fields, machine.FieldOrganizationID)
 	}
@@ -26829,6 +26979,12 @@ func (m *MachineMutation) Fields() []string {
 	}
 	if m.connection_mode != nil {
 		fields = append(fields, machine.FieldConnectionMode)
+	}
+	if m.reachability_mode != nil {
+		fields = append(fields, machine.FieldReachabilityMode)
+	}
+	if m.execution_mode != nil {
+		fields = append(fields, machine.FieldExecutionMode)
 	}
 	if m.transport_capabilities != nil {
 		fields = append(fields, machine.FieldTransportCapabilities)
@@ -26887,6 +27043,9 @@ func (m *MachineMutation) Fields() []string {
 	if m.agent_cli_path != nil {
 		fields = append(fields, machine.FieldAgentCliPath)
 	}
+	if m.agent_cli_paths != nil {
+		fields = append(fields, machine.FieldAgentCliPaths)
+	}
 	if m.env_vars != nil {
 		fields = append(fields, machine.FieldEnvVars)
 	}
@@ -26914,6 +27073,10 @@ func (m *MachineMutation) Field(name string) (ent.Value, bool) {
 		return m.Port()
 	case machine.FieldConnectionMode:
 		return m.ConnectionMode()
+	case machine.FieldReachabilityMode:
+		return m.ReachabilityMode()
+	case machine.FieldExecutionMode:
+		return m.ExecutionMode()
 	case machine.FieldTransportCapabilities:
 		return m.TransportCapabilities()
 	case machine.FieldSSHUser:
@@ -26952,6 +27115,8 @@ func (m *MachineMutation) Field(name string) (ent.Value, bool) {
 		return m.WorkspaceRoot()
 	case machine.FieldAgentCliPath:
 		return m.AgentCliPath()
+	case machine.FieldAgentCliPaths:
+		return m.AgentCliPaths()
 	case machine.FieldEnvVars:
 		return m.EnvVars()
 	case machine.FieldLastHeartbeatAt:
@@ -26977,6 +27142,10 @@ func (m *MachineMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldPort(ctx)
 	case machine.FieldConnectionMode:
 		return m.OldConnectionMode(ctx)
+	case machine.FieldReachabilityMode:
+		return m.OldReachabilityMode(ctx)
+	case machine.FieldExecutionMode:
+		return m.OldExecutionMode(ctx)
 	case machine.FieldTransportCapabilities:
 		return m.OldTransportCapabilities(ctx)
 	case machine.FieldSSHUser:
@@ -27015,6 +27184,8 @@ func (m *MachineMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldWorkspaceRoot(ctx)
 	case machine.FieldAgentCliPath:
 		return m.OldAgentCliPath(ctx)
+	case machine.FieldAgentCliPaths:
+		return m.OldAgentCliPaths(ctx)
 	case machine.FieldEnvVars:
 		return m.OldEnvVars(ctx)
 	case machine.FieldLastHeartbeatAt:
@@ -27064,6 +27235,20 @@ func (m *MachineMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetConnectionMode(v)
+		return nil
+	case machine.FieldReachabilityMode:
+		v, ok := value.(machine.ReachabilityMode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReachabilityMode(v)
+		return nil
+	case machine.FieldExecutionMode:
+		v, ok := value.(machine.ExecutionMode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExecutionMode(v)
 		return nil
 	case machine.FieldTransportCapabilities:
 		v, ok := value.(pgarray.StringArray)
@@ -27198,6 +27383,13 @@ func (m *MachineMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAgentCliPath(v)
 		return nil
+	case machine.FieldAgentCliPaths:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentCliPaths(v)
+		return nil
 	case machine.FieldEnvVars:
 		v, ok := value.(pgarray.StringArray)
 		if !ok {
@@ -27264,6 +27456,12 @@ func (m *MachineMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *MachineMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(machine.FieldReachabilityMode) {
+		fields = append(fields, machine.FieldReachabilityMode)
+	}
+	if m.FieldCleared(machine.FieldExecutionMode) {
+		fields = append(fields, machine.FieldExecutionMode)
+	}
 	if m.FieldCleared(machine.FieldTransportCapabilities) {
 		fields = append(fields, machine.FieldTransportCapabilities)
 	}
@@ -27300,6 +27498,9 @@ func (m *MachineMutation) ClearedFields() []string {
 	if m.FieldCleared(machine.FieldAgentCliPath) {
 		fields = append(fields, machine.FieldAgentCliPath)
 	}
+	if m.FieldCleared(machine.FieldAgentCliPaths) {
+		fields = append(fields, machine.FieldAgentCliPaths)
+	}
 	if m.FieldCleared(machine.FieldEnvVars) {
 		fields = append(fields, machine.FieldEnvVars)
 	}
@@ -27320,6 +27521,12 @@ func (m *MachineMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *MachineMutation) ClearField(name string) error {
 	switch name {
+	case machine.FieldReachabilityMode:
+		m.ClearReachabilityMode()
+		return nil
+	case machine.FieldExecutionMode:
+		m.ClearExecutionMode()
+		return nil
 	case machine.FieldTransportCapabilities:
 		m.ClearTransportCapabilities()
 		return nil
@@ -27356,6 +27563,9 @@ func (m *MachineMutation) ClearField(name string) error {
 	case machine.FieldAgentCliPath:
 		m.ClearAgentCliPath()
 		return nil
+	case machine.FieldAgentCliPaths:
+		m.ClearAgentCliPaths()
+		return nil
 	case machine.FieldEnvVars:
 		m.ClearEnvVars()
 		return nil
@@ -27384,6 +27594,12 @@ func (m *MachineMutation) ResetField(name string) error {
 		return nil
 	case machine.FieldConnectionMode:
 		m.ResetConnectionMode()
+		return nil
+	case machine.FieldReachabilityMode:
+		m.ResetReachabilityMode()
+		return nil
+	case machine.FieldExecutionMode:
+		m.ResetExecutionMode()
 		return nil
 	case machine.FieldTransportCapabilities:
 		m.ResetTransportCapabilities()
@@ -27441,6 +27657,9 @@ func (m *MachineMutation) ResetField(name string) error {
 		return nil
 	case machine.FieldAgentCliPath:
 		m.ResetAgentCliPath()
+		return nil
+	case machine.FieldAgentCliPaths:
+		m.ResetAgentCliPaths()
 		return nil
 	case machine.FieldEnvVars:
 		m.ResetEnvVars()

@@ -586,6 +586,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/workspace/checkout': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Switch one project conversation workspace repo to another branch */
+    post: operations['checkoutProjectConversationWorkspaceBranch']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/conversations/{conversationId}/workspace/file': {
     parameters: {
       query?: never
@@ -616,6 +633,40 @@ export interface paths {
     }
     /** Read one project conversation workspace file diff */
     get: operations['getProjectConversationWorkspaceFilePatch']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/git-graph': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get project conversation workspace git graph */
+    get: operations['getProjectConversationWorkspaceGitGraph']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/repo-refs': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get project conversation workspace git refs and branch metadata */
+    get: operations['getProjectConversationWorkspaceRepoRefs']
     put?: never
     post?: never
     delete?: never
@@ -910,6 +961,23 @@ export interface paths {
     get: operations['getMachineResources']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/machines/{machineId}/ssh-bootstrap': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Run the SSH bootstrap helper in-process on the server */
+    post: operations['sshBootstrapMachine']
     delete?: never
     options?: never
     head?: never
@@ -2184,6 +2252,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/workspace/reset': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Reset a preserved ticket workspace within a project */
+    post: operations['resetProjectTicketWorkspace']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/token-usage': {
     parameters: {
       query?: never
@@ -2352,7 +2437,8 @@ export interface paths {
     get: operations['getAgentProvider']
     put?: never
     post?: never
-    delete?: never
+    /** Delete an agent provider */
+    delete: operations['deleteAgentProvider']
     options?: never
     head?: never
     /** Update an agent provider */
@@ -6267,9 +6353,20 @@ export interface operations {
             workspace?: {
               available?: boolean
               conversation_id?: string
+              preparing?: boolean
               repos?: {
                 added?: number
                 branch?: string
+                current_ref?: {
+                  branch_full_name?: string
+                  branch_name?: string
+                  cache_key?: string
+                  commit_id?: string
+                  display_name?: string
+                  kind?: string
+                  short_commit_id?: string
+                  subject?: string
+                }
                 dirty?: boolean
                 files_changed?: number
                 head_commit?: string
@@ -6376,6 +6473,7 @@ export interface operations {
               conversation_id?: string
               dirty?: boolean
               files_changed?: number
+              preparing?: boolean
               removed?: number
               repos?: {
                 added?: number
@@ -6383,9 +6481,12 @@ export interface operations {
                 dirty?: boolean
                 files?: {
                   added?: number
+                  old_path?: string
                   path?: string
                   removed?: number
+                  staged?: boolean
                   status?: string
+                  unstaged?: boolean
                 }[]
                 files_changed?: number
                 name?: string
@@ -6419,6 +6520,123 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  checkoutProjectConversationWorkspaceBranch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Switch one project conversation workspace repo to another branch request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Whether the checkout should create a new local tracking branch. This must be true for remote-tracking targets. */
+          create_tracking_branch?: boolean
+          /** @description When true, the server rejects checkout if the repo has uncommitted workspace changes. */
+          expected_clean_workspace?: boolean
+          /** @description Optional explicit local branch name to create when switching from a remote-tracking branch. */
+          local_branch_name?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+          /** @description Checkout target kind. Supported values are local_branch and remote_tracking_branch. */
+          target_kind?: string
+          /** @description Branch name chosen from the refs listing response. Remote-tracking branches use the short remote form such as origin/main. */
+          target_name?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Switch one project conversation workspace repo to another branch response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            checkout?: {
+              conversation_id?: string
+              created_local_branch?: string
+              current_ref?: {
+                branch_full_name?: string
+                branch_name?: string
+                cache_key?: string
+                commit_id?: string
+                display_name?: string
+                kind?: string
+                short_commit_id?: string
+                subject?: string
+              }
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -7075,6 +7293,242 @@ export interface operations {
       }
     }
   }
+  getProjectConversationWorkspaceGitGraph: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Optional git graph window size. Defaults to 40 commits and is capped at 120. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get project conversation workspace git graph response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            git_graph?: {
+              commits?: {
+                author_name?: string
+                authored_at?: string
+                commit_id?: string
+                head?: boolean
+                labels?: {
+                  current?: boolean
+                  full_name?: string
+                  name?: string
+                  scope?: string
+                }[]
+                parent_ids?: string[]
+                short_commit_id?: string
+                subject?: string
+              }[]
+              conversation_id?: string
+              limit?: number
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getProjectConversationWorkspaceRepoRefs: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get project conversation workspace git refs and branch metadata response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            repo_refs?: {
+              conversation_id?: string
+              current_ref?: {
+                branch_full_name?: string
+                branch_name?: string
+                cache_key?: string
+                commit_id?: string
+                display_name?: string
+                kind?: string
+                short_commit_id?: string
+                subject?: string
+              }
+              local_branches?: {
+                ahead?: number
+                behind?: number
+                commit_id?: string
+                current?: boolean
+                full_name?: string
+                name?: string
+                scope?: string
+                short_commit_id?: string
+                subject?: string
+                suggested_local_branch_name?: string
+                upstream_name?: string
+              }[]
+              remote_branches?: {
+                ahead?: number
+                behind?: number
+                commit_id?: string
+                current?: boolean
+                full_name?: string
+                name?: string
+                scope?: string
+                short_commit_id?: string
+                subject?: string
+                suggested_local_branch_name?: string
+                upstream_name?: string
+              }[]
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   searchProjectConversationWorkspacePaths: {
     parameters: {
       query?: {
@@ -7198,9 +7652,20 @@ export interface operations {
             workspace?: {
               available?: boolean
               conversation_id?: string
+              preparing?: boolean
               repos?: {
                 added?: number
                 branch?: string
+                current_ref?: {
+                  branch_full_name?: string
+                  branch_name?: string
+                  cache_key?: string
+                  commit_id?: string
+                  display_name?: string
+                  kind?: string
+                  short_commit_id?: string
+                  subject?: string
+                }
                 dirty?: boolean
                 files_changed?: number
                 head_commit?: string
@@ -8336,6 +8801,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -8435,6 +8903,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -8542,6 +9013,10 @@ export interface operations {
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks. */
+          agent_cli_paths?: {
+            [key: string]: string
+          } | null
           /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
           channel_credential?: {
             /** @description Opaque certificate identifier reserved for machine channel registration. */
@@ -8606,6 +9081,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -8717,6 +9195,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -8891,6 +9372,126 @@ export interface operations {
       }
     }
   }
+  sshBootstrapMachine: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Machine ID. */
+        machineId: string
+      }
+      cookie?: never
+    }
+    /** @description Run the SSH bootstrap helper in-process on the server request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional control-plane base URL override written into the remote environment file. Defaults to the incoming request URL. */
+          control_plane_url?: string
+          /** @description Remote websocket listener bind address when installing the remote-listener topology. Defaults to 127.0.0.1:19837. */
+          listener_address?: string
+          /** @description Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present. */
+          listener_bearer_token?: string
+          /** @description Remote websocket listener HTTP path when installing the remote-listener topology. Defaults to /openase/runtime. */
+          listener_path?: string
+          /** @description Optional TTL in seconds for the freshly issued machine channel token. Defaults to 24 hours. */
+          token_ttl_seconds?: number
+          /** @description Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology. */
+          topology?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Run the SSH bootstrap helper in-process on the server response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            result?: {
+              commands?: string[]
+              connection_target?: string
+              environment_file?: string
+              machine_id?: string
+              machine_name?: string
+              remote_binary_path?: string
+              remote_home?: string
+              retry_advice?: string[]
+              rollback_advice?: string[]
+              service_file?: string
+              service_manager?: string
+              service_name?: string
+              service_status?: string
+              summary?: string
+              token_id?: string
+              topology?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   testMachineConnection: {
     parameters: {
       query?: never
@@ -8913,6 +9514,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -10467,6 +11071,9 @@ export interface operations {
             machines?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -10562,6 +11169,10 @@ export interface operations {
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Adaptor-scoped absolute agent CLI paths keyed by adapter type for remote probing and bootstrap checks. */
+          agent_cli_paths?: {
+            [key: string]: string
+          }
           /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
           channel_credential?: {
             /** @description Opaque certificate identifier reserved for machine channel registration. */
@@ -10626,6 +11237,9 @@ export interface operations {
             machine?: {
               advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              agent_cli_paths?: {
+                [key: string]: string
+              }
               channel_credential?: {
                 certificate_id?: string | null
                 kind?: string
@@ -14934,6 +15548,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -15002,7 +15620,30 @@ export interface operations {
           name?: string
           /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
-            [key: string]: unknown
+            /**
+             * Format: double
+             * @description Optional budget cap in USD applied to tickets created by this scheduled job.
+             */
+            budget_usd?: number | null
+            /** @description Optional audit actor recorded on tickets created by this scheduled job. */
+            created_by?: string
+            /** @description Optional rendered ticket description template for each scheduled run. */
+            description?: string
+            /** @description Ticket priority applied to tickets created by this scheduled job. */
+            priority?: string
+            /** @description Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope. */
+            repo_scopes?: {
+              /** @description Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation. */
+              branch_name?: string | null
+              /** @description Repository ID attached to tickets created by this scheduled job. */
+              repo_id?: string
+            }[]
+            /** @description Ticket status name applied to tickets created by this scheduled job. */
+            status?: string
+            /** @description Rendered ticket title template for each scheduled run. */
+            title?: string
+            /** @description Ticket type applied to tickets created by this scheduled job. */
+            type?: string
           }
         }
       }
@@ -15029,6 +15670,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -20027,6 +20672,81 @@ export interface operations {
       }
     }
   }
+  resetProjectTicketWorkspace: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Reset a preserved ticket workspace within a project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            reset?: boolean
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getProjectTokenUsage: {
     parameters: {
       query?: {
@@ -21518,6 +22238,229 @@ export interface operations {
       }
     }
   }
+  deleteAgentProvider: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent provider ID. */
+        providerId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Delete an agent provider response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            provider?: {
+              adapter_type?: string
+              auth_config?: {
+                [key: string]: unknown
+              }
+              availability_checked_at?: string | null
+              availability_reason?: string | null
+              availability_state?: string
+              available?: boolean
+              capabilities?: {
+                ephemeral_chat?: {
+                  reason?: string | null
+                  state?: string
+                }
+                reasoning?: {
+                  default_effort?: string | null
+                  effective_effort?: string | null
+                  reason?: string | null
+                  selected_effort?: string | null
+                  state?: string
+                  supported_efforts?: string[]
+                  supports_model_override?: boolean
+                  supports_provider_preset?: boolean
+                }
+              }
+              cli_args?: string[]
+              cli_command?: string
+              cli_rate_limit?: {
+                claude_code?: {
+                  is_using_overage?: boolean | null
+                  overage_disabled_reason?: string
+                  overage_status?: string
+                  rate_limit_type?: string
+                  resets_at?: string | null
+                  status?: string
+                  /** Format: double */
+                  surpassed_threshold?: number | null
+                  /** Format: double */
+                  utilization?: number | null
+                } | null
+                codex?: {
+                  limit_id?: string
+                  limit_name?: string
+                  plan_type?: string
+                  primary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                  secondary?: {
+                    resets_at?: string | null
+                    /** Format: double */
+                    used_percent?: number | null
+                    /** Format: int64 */
+                    window_minutes?: number
+                  } | null
+                } | null
+                gemini?: {
+                  auth_type?: string
+                  buckets?: {
+                    model_id?: string
+                    remaining_amount?: string
+                    /** Format: double */
+                    remaining_fraction?: number | null
+                    reset_time?: string | null
+                    token_type?: string
+                  }[]
+                  /** Format: int64 */
+                  limit?: number | null
+                  /** Format: int64 */
+                  remaining?: number | null
+                  reset_time?: string | null
+                } | null
+                provider?: string
+                raw?: {
+                  [key: string]: unknown
+                }
+              } | null
+              cli_rate_limit_updated_at?: string | null
+              /** Format: double */
+              cost_per_input_token?: number
+              /** Format: double */
+              cost_per_output_token?: number
+              id?: string
+              machine_host?: string
+              machine_id?: string
+              machine_name?: string
+              machine_ssh_user?: string | null
+              machine_status?: string
+              machine_workspace_root?: string | null
+              max_parallel_runs?: number
+              model_max_tokens?: number
+              model_name?: string
+              /** Format: double */
+              model_temperature?: number
+              name?: string
+              organization_id?: string
+              permission_profile?: string
+              pricing_config?: {
+                default_cache_write_window?: string
+                model_id?: string
+                notes?: string[]
+                pricing_mode?: string
+                provider?: string
+                rates?: {
+                  /** Format: double */
+                  cache_storage_per_token_hour?: number
+                  /** Format: double */
+                  cache_write_1h_per_token?: number
+                  /** Format: double */
+                  cache_write_5m_per_token?: number
+                  /** Format: double */
+                  cached_input_read_per_token?: number
+                  /** Format: double */
+                  input_per_token?: number
+                  /** Format: double */
+                  output_per_token?: number
+                }
+                source_kind?: string
+                source_url?: string
+                source_verified_at?: string
+                tiers?: {
+                  label?: string
+                  /** Format: int64 */
+                  max_prompt_tokens?: number
+                  rates?: {
+                    /** Format: double */
+                    cache_storage_per_token_hour?: number
+                    /** Format: double */
+                    cache_write_1h_per_token?: number
+                    /** Format: double */
+                    cache_write_5m_per_token?: number
+                    /** Format: double */
+                    cached_input_read_per_token?: number
+                    /** Format: double */
+                    input_per_token?: number
+                    /** Format: double */
+                    output_per_token?: number
+                  }
+                }[]
+                version?: string
+              }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   updateAgentProvider: {
     parameters: {
       query?: never
@@ -21995,7 +22938,30 @@ export interface operations {
           name?: string | null
           /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
-            [key: string]: unknown
+            /**
+             * Format: double
+             * @description Optional budget cap in USD applied to tickets created by this scheduled job.
+             */
+            budget_usd?: number | null
+            /** @description Optional audit actor recorded on tickets created by this scheduled job. */
+            created_by?: string
+            /** @description Optional rendered ticket description template for each scheduled run. */
+            description?: string
+            /** @description Ticket priority applied to tickets created by this scheduled job. */
+            priority?: string
+            /** @description Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope. */
+            repo_scopes?: {
+              /** @description Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation. */
+              branch_name?: string | null
+              /** @description Repository ID attached to tickets created by this scheduled job. */
+              repo_id?: string
+            }[]
+            /** @description Ticket status name applied to tickets created by this scheduled job. */
+            status?: string
+            /** @description Rendered ticket title template for each scheduled run. */
+            title?: string
+            /** @description Ticket type applied to tickets created by this scheduled job. */
+            type?: string
           } | null
         }
       }
@@ -22022,6 +22988,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -22113,6 +23083,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string

@@ -26,6 +26,7 @@
   } from '@lucide/svelte'
   import type { AgentWorkflowState, BootstrapPresetKey, ProjectBootstrapPreset } from '../types'
   import { bootstrapPresets, isTerminalProjectStatus } from '../model'
+  import { onboardingT } from '../i18n'
 
   let {
     projectId,
@@ -75,7 +76,7 @@
   async function handleBootstrap() {
     if (!selectedPreset) return
     if (!providerId) {
-      toastStore.error('Select a provider first.')
+      toastStore.error(onboardingT('onboarding.agentWorkflow.errors.selectProvider'))
       return
     }
     bootstrapping = true
@@ -89,7 +90,10 @@
 
       if (!pickupStatus || !finishStatus) {
         toastStore.error(
-          `Could not find the statuses "${preset.pickupStatusName}" or "${preset.finishStatusName}". Configure statuses in settings first.`,
+          onboardingT('onboarding.agentWorkflow.errors.statusesMissing', {
+            pickupStatusName: preset.pickupStatusName,
+            finishStatusName: preset.finishStatusName,
+          }),
         )
         return
       }
@@ -143,13 +147,17 @@
       agents = refreshedAgents.agents
       workflows = refreshedWorkflows.workflows
 
-      toastStore.success(`Created agent "${preset.agentNameSuggestion}" and workflow.`)
+      toastStore.success(
+        onboardingT('onboarding.agentWorkflow.toasts.created', {
+          agentName: preset.agentNameSuggestion,
+        }),
+      )
       onComplete(refreshedAgents.agents, refreshedWorkflows.workflows, preset.key)
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError
           ? caughtError.detail
-          : 'Failed to create the agent and workflow.',
+          : onboardingT('onboarding.agentWorkflow.toasts.creationFailed'),
       )
     } finally {
       bootstrapping = false
@@ -163,11 +171,10 @@
       <AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-500" />
       <div>
         <p class="text-foreground text-sm font-medium">
-          The current project status is "{projectStatus}"
+          {onboardingT('onboarding.agentWorkflow.status.currentStatus', { projectStatus })}
         </p>
         <p class="text-muted-foreground mt-1 text-xs">
-          Projects in Completed / Canceled / Archived do not automatically create execution roles.
-          Change the project status first.
+          {onboardingT('onboarding.agentWorkflow.status.terminalNotice')}
         </p>
       </div>
     </div>
@@ -181,7 +188,9 @@
           <Bot class="text-muted-foreground size-4 shrink-0" />
           <div class="min-w-0 flex-1">
             <p class="text-foreground text-sm font-medium">{agent.name}</p>
-            <p class="text-muted-foreground text-xs">Agent</p>
+            <p class="text-muted-foreground text-xs">
+              {onboardingT('onboarding.agentWorkflow.labels.agent')}
+            </p>
           </div>
         </div>
       {/each}
@@ -193,7 +202,11 @@
           <WorkflowIcon class="text-muted-foreground size-4 shrink-0" />
           <div class="min-w-0 flex-1">
             <p class="text-foreground text-sm font-medium">{workflow.name}</p>
-            <p class="text-muted-foreground text-xs">Workflow · {workflow.type}</p>
+            <p class="text-muted-foreground text-xs">
+              {onboardingT('onboarding.agentWorkflow.labels.workflowWithType', {
+                workflowType: workflow.type,
+              })}
+            </p>
           </div>
         </div>
       {/each}
@@ -202,36 +215,57 @@
     <!-- Preview + create -->
     <div class="border-border rounded-lg border p-4">
       <div class="mb-3 flex items-center justify-between">
-        <p class="text-foreground text-sm font-medium">The following setup will be created:</p>
+        <p class="text-foreground text-sm font-medium">
+          {onboardingT('onboarding.agentWorkflow.preview.heading')}
+        </p>
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
           onclick={() => (selectedPreset = null)}
         >
-          Change
+          {onboardingT('onboarding.agentWorkflow.preview.change')}
         </button>
       </div>
       <div class="space-y-2">
         <div class="bg-muted/50 flex items-center gap-3 rounded-md px-3 py-2">
           <Bot class="text-primary size-4 shrink-0" />
           <div>
-            <p class="text-foreground text-sm">Agent: {selectedPreset.agentNameSuggestion}</p>
-            <p class="text-muted-foreground text-xs">Bound to the selected default provider</p>
+            <p class="text-foreground text-sm">
+              {onboardingT('onboarding.agentWorkflow.preview.agentLabel', {
+                agentName: selectedPreset.agentNameSuggestion,
+              })}
+            </p>
+            <p class="text-muted-foreground text-xs">
+              {onboardingT('onboarding.agentWorkflow.preview.boundToProvider')}
+            </p>
           </div>
         </div>
         <div class="bg-muted/50 flex items-center gap-3 rounded-md px-3 py-2">
           <WorkflowIcon class="text-primary size-4 shrink-0" />
           <div>
-            <p class="text-foreground text-sm">Workflow: {selectedPreset.roleName} Workflow</p>
-            <p class="text-muted-foreground text-xs">Role: {selectedPreset.roleName}</p>
+            <p class="text-foreground text-sm">
+              {onboardingT('onboarding.agentWorkflow.preview.workflowLabel', {
+                roleName: selectedPreset.roleName,
+              })}
+            </p>
+            <p class="text-muted-foreground text-xs">
+              {onboardingT('onboarding.agentWorkflow.preview.roleLabel', {
+                roleName: selectedPreset.roleName,
+              })}
+            </p>
           </div>
         </div>
         <div class="bg-muted/50 flex items-center gap-3 rounded-md px-3 py-2">
           <GitBranch class="text-primary size-4 shrink-0" />
           <div>
-            <p class="text-foreground text-sm">Status flow</p>
+            <p class="text-foreground text-sm">
+              {onboardingT('onboarding.agentWorkflow.preview.statusFlow')}
+            </p>
             <p class="text-muted-foreground text-xs">
-              Pickup: {selectedPreset.pickupStatusName} → Finish: {selectedPreset.finishStatusName}
+              {onboardingT('onboarding.agentWorkflow.preview.pickupFinish', {
+                pickupStatusName: selectedPreset.pickupStatusName,
+                finishStatusName: selectedPreset.finishStatusName,
+              })}
             </p>
           </div>
         </div>
@@ -240,9 +274,9 @@
       <Button class="mt-4 w-full" onclick={handleBootstrap} disabled={bootstrapping || !providerId}>
         {#if bootstrapping}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Creating...
+          {onboardingT('onboarding.agentWorkflow.actions.creating')}
         {:else}
-          Create agent and workflow
+          {onboardingT('onboarding.agentWorkflow.actions.create')}
         {/if}
       </Button>
     </div>
@@ -264,7 +298,9 @@
           <p class="text-foreground text-sm font-semibold">{preset.title}</p>
           <p class="text-muted-foreground mt-1 text-xs leading-5">{preset.subtitle}</p>
           <p class="text-muted-foreground mt-3 text-xs">
-            Role: {preset.roleName}
+            {onboardingT('onboarding.agentWorkflow.presets.roleLabel', {
+              roleName: preset.roleName,
+            })}
           </p>
         </button>
       {/each}

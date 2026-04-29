@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +16,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	controlplaneurl "github.com/BetterAndBetterII/openase/internal/controlplaneurl"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
 	codex "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
@@ -26,6 +26,7 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
+	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
@@ -68,6 +69,42 @@ var (
 
 type chatRuntimeEnvironmentResolver struct {
 	resolver runtimesecretenv.Resolver
+}
+
+type runtimeChatCatalog struct {
+	catalogservice.ProjectService
+	catalogservice.ProjectRepoService
+	catalogservice.ActivityQueryService
+	catalogservice.AgentProviderService
+}
+
+func selectRuntimeChatCatalog(services catalogservice.Services) runtimeChatCatalog {
+	return runtimeChatCatalog{
+		ProjectService:       services.ProjectService,
+		ProjectRepoService:   services.ProjectRepoService,
+		ActivityQueryService: services.ActivityQueryService,
+		AgentProviderService: services.AgentProviderService,
+	}
+}
+
+type runtimeProjectConversationCatalog struct {
+	catalogservice.OrganizationService
+	catalogservice.ProjectService
+	catalogservice.MachineService
+	catalogservice.ProjectRepoService
+	catalogservice.AgentProviderService
+	catalogservice.ActivityQueryService
+}
+
+func selectRuntimeProjectConversationCatalog(services catalogservice.Services) runtimeProjectConversationCatalog {
+	return runtimeProjectConversationCatalog{
+		OrganizationService:  services.OrganizationService,
+		ProjectService:       services.ProjectService,
+		MachineService:       services.MachineService,
+		ProjectRepoService:   services.ProjectRepoService,
+		AgentProviderService: services.AgentProviderService,
+		ActivityQueryService: services.ActivityQueryService,
+	}
 }
 
 func (r chatRuntimeEnvironmentResolver) ResolveProviderEnvironment(
@@ -171,14 +208,22 @@ func (a *App) RunServe(ctx context.Context) error {
 		return err
 	}
 	githubRepoSvc := githubreposervice.NewService(githubAuthSvc, http.DefaultClient)
-	ticketSvc := ticketservice.NewService(ticketrepo.NewEntRepository(client))
+	ticketSvc := ticketservice.NewService(ticketservice.Dependencies{
+		Activity: ticketrepo.NewActivityRepository(client),
+		Query:    ticketrepo.NewQueryRepository(client),
+		Command:  ticketrepo.NewCommandRepository(client),
+		Link:     ticketrepo.NewLinkRepository(client),
+		Comment:  ticketrepo.NewCommentRepository(client),
+		Usage:    ticketrepo.NewUsageRepository(client),
+		Runtime:  ticketrepo.NewRuntimeRepository(client),
+	})
 	ticketSvc.ConfigureSSHPool(sshPool)
 	ticketSvc.ConfigureTransportResolver(transportResolver)
 	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	ticketSvc.ConfigureActivityEmitter(activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events))
 	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	ticketStatusSvc := ticketstatus.NewService(ticketStatusRepo)
-	catalogSvc := catalogservice.New(
+	catalogPorts := catalogservice.SplitServices(catalogservice.New(
 		catalogRepo,
 		executable.NewPathResolver(),
 		machinetransport.NewTester(transportResolver),
@@ -188,7 +233,7 @@ func (a *App) RunServe(ctx context.Context) error {
 			_, err := ticketStatusSvc.ResetToDefaultTemplate(ctx, projectID)
 			return err
 		})),
-	)
+	))
 	notificationSvc := notificationservice.NewService(notificationrepo.NewEntRepository(client), a.logger, http.DefaultClient)
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
 		return err
@@ -222,7 +267,7 @@ func (a *App) RunServe(ctx context.Context) error {
 			codexRuntime,
 			geminiRuntime,
 		),
-		catalogSvc,
+		selectRuntimeChatCatalog(catalogPorts),
 		ticketSvc,
 		workflowSvc,
 		ticketStatusSvc,
@@ -232,7 +277,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	projectConversationSvc := chatservice.NewProjectConversationService(
 		a.logger,
 		chatconversationrepo.NewEntRepository(client),
-		catalogSvc,
+		selectRuntimeProjectConversationCatalog(catalogPorts),
 		ticketSvc,
 		workflowSvc,
 		chatProcessManager,
@@ -290,12 +335,13 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithConversationTerminalService(conversationTerminalSvc),
 		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
 		httpapi.WithReverseRuntimeRelay(a.reverseRuntimeRelay),
+		httpapi.WithSSHBootstrapper(machinesetup.NewBootstrapper(sshPool, machineChannelSvc)),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	}
 	if humanAuthSvc != nil && humanAuthorizer != nil {
 		serverOpts = append(serverOpts, httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer))
 	}
-	server := httpapi.NewServer(
+	server := httpapi.NewServerWithServices(
 		a.config.Server,
 		a.config.GitHub,
 		a.logger,
@@ -303,7 +349,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		ticketSvc,
 		ticketStatusSvc,
 		agentplatform.NewService(agentplatformrepo.NewEntRepository(client)),
-		catalogSvc,
+		catalogPorts,
 		workflowSvc,
 		serverOpts...,
 	)
@@ -363,16 +409,16 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	catalogSvc := catalogservice.New(
+	catalogPorts := catalogservice.SplitServices(catalogservice.New(
 		catalogrepo.NewEntRepository(client),
 		executable.NewPathResolver(),
 		machinetransport.NewTester(transportResolver),
 		catalogservice.WithMachineHealthCollector(machinetransport.NewMonitorCollector(transportResolver, sshPool)),
-	)
+	))
 	projectConversationSvc := chatservice.NewProjectConversationService(
 		a.logger,
 		chatconversationrepo.NewEntRepository(client),
-		catalogSvc,
+		selectRuntimeProjectConversationCatalog(catalogPorts),
 		nil,
 		nil,
 		agentcli.NewManager(agentcli.ManagerOptions{}),
@@ -551,13 +597,26 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 }
 
 func (a *App) agentPlatformAPIURL() string {
-	host := strings.TrimSpace(a.config.Server.Host)
-	switch host {
-	case "", "0.0.0.0", "::":
-		host = "127.0.0.1"
+	controlPlaneURL, err := controlplaneurl.ResolveControlPlaneURL("", a.config.Server.Host, a.config.Server.Port)
+	if err != nil {
+		host := strings.TrimSpace(a.config.Server.Host)
+		switch host {
+		case "", "0.0.0.0", "::":
+			host = "127.0.0.1"
+		}
+		return "http://" + host + ":" + strconv.Itoa(a.config.Server.Port) + "/api/v1/platform"
 	}
 
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(a.config.Server.Port)) + "/api/v1/platform"
+	apiURL, err := controlplaneurl.APIBaseURLFromControlPlaneURL(controlPlaneURL, true)
+	if err != nil {
+		host := strings.TrimSpace(a.config.Server.Host)
+		switch host {
+		case "", "0.0.0.0", "::":
+			host = "127.0.0.1"
+		}
+		return "http://" + host + ":" + strconv.Itoa(a.config.Server.Port) + "/api/v1/platform"
+	}
+	return apiURL
 }
 
 func sumSkipCounts(values map[string]int) int {

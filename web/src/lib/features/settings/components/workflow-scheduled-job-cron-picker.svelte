@@ -3,10 +3,10 @@
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { Clock, Calendar, Code } from '@lucide/svelte'
+  import type { TranslationKey } from '$lib/i18n'
   import {
     type ScheduleConfig,
     type ScheduleMode,
-    scheduleModeOptions,
     defaultScheduleConfig,
     buildCronExpression,
     clampScheduleNumber,
@@ -15,6 +15,7 @@
     getScheduleIntervalMax,
     formatTriggerTime,
   } from './cron-utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     value = '',
@@ -60,9 +61,15 @@
     return getNextTriggerTimes(config, 5)
   })
 
-  const modeLabel = $derived(
-    scheduleModeOptions.find((o) => o.value === config.mode)?.label ?? 'day(s)',
-  )
+  const SCHEDULE_MODE_SEQUENCE: ScheduleMode[] = ['seconds', 'minutes', 'hours', 'daily', 'monthly']
+  const SCHEDULE_MODE_LABEL_KEYS: Record<ScheduleMode, TranslationKey> = {
+    seconds: 'settings.workflowScheduledJobCronPicker.scheduleUnits.seconds',
+    minutes: 'settings.workflowScheduledJobCronPicker.scheduleUnits.minutes',
+    hours: 'settings.workflowScheduledJobCronPicker.scheduleUnits.hours',
+    daily: 'settings.workflowScheduledJobCronPicker.scheduleUnits.daily',
+    monthly: 'settings.workflowScheduledJobCronPicker.scheduleUnits.monthly',
+  }
+  const modeLabel = $derived(i18nStore.t(SCHEDULE_MODE_LABEL_KEYS[config.mode]))
 
   function emitChange() {
     const cron = manualMode ? manualValue : buildCronExpression(config)
@@ -101,19 +108,21 @@
     <!-- Manual cron input -->
     <div class="space-y-1.5">
       <div class="flex items-center justify-between">
-        <Label class="text-xs">Cron expression</Label>
+        <Label class="text-xs"
+          >{i18nStore.t('settings.workflowScheduledJobCronPicker.labels.cronExpression')}</Label
+        >
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] transition-colors"
           onclick={switchToPicker}
         >
           <Calendar class="size-3" />
-          Visual picker
+          {i18nStore.t('settings.workflowScheduledJobCronPicker.actions.visualPicker')}
         </button>
       </div>
       <Input
         value={manualValue}
-        placeholder="0 2 * * *"
+        placeholder={i18nStore.t('settings.workflowScheduledJobCronPicker.placeholders.example')}
         class="font-mono"
         oninput={handleManualInput}
       />
@@ -122,20 +131,24 @@
     <!-- Visual picker -->
     <div class="space-y-1.5">
       <div class="flex items-center justify-between">
-        <Label class="text-xs">Schedule</Label>
+        <Label class="text-xs"
+          >{i18nStore.t('settings.workflowScheduledJobCronPicker.labels.schedule')}</Label
+        >
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] transition-colors"
           onclick={switchToManual}
         >
           <Code class="size-3" />
-          Manual input
+          {i18nStore.t('settings.workflowScheduledJobCronPicker.actions.manualInput')}
         </button>
       </div>
 
       <!-- Every N [unit] -->
       <div class="flex items-center gap-2">
-        <span class="text-muted-foreground shrink-0 text-xs">Every</span>
+        <span class="text-muted-foreground shrink-0 text-xs">
+          {i18nStore.t('settings.workflowScheduledJobCronPicker.labels.every')}
+        </span>
         <Input
           type="number"
           min="1"
@@ -163,8 +176,8 @@
         >
           <Select.Trigger class="h-8 w-[7.5rem] text-sm">{modeLabel}</Select.Trigger>
           <Select.Content>
-            {#each scheduleModeOptions as option (option.value)}
-              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {#each SCHEDULE_MODE_SEQUENCE as mode}
+              <Select.Item value={mode}>{i18nStore.t(SCHEDULE_MODE_LABEL_KEYS[mode])}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>
@@ -174,7 +187,9 @@
     <!-- Conditional time fields -->
     {#if config.mode === 'hours'}
       <div class="flex items-center gap-2">
-        <span class="text-muted-foreground shrink-0 text-xs">at minute</span>
+        <span class="text-muted-foreground shrink-0 text-xs">
+          {i18nStore.t('settings.workflowScheduledJobCronPicker.labels.atMinute')}
+        </span>
         <Input
           type="number"
           min="0"
@@ -192,7 +207,9 @@
 
     {#if config.mode === 'daily'}
       <div class="flex items-center gap-2">
-        <span class="text-muted-foreground shrink-0 text-xs">at</span>
+        <span class="text-muted-foreground shrink-0 text-xs">
+          {i18nStore.t('settings.workflowScheduledJobCronPicker.labels.at')}
+        </span>
         <Input
           type="number"
           min="0"
@@ -223,7 +240,9 @@
 
     {#if config.mode === 'monthly'}
       <div class="flex items-center gap-2">
-        <span class="text-muted-foreground shrink-0 text-xs">on day</span>
+        <span class="text-muted-foreground shrink-0 text-xs">
+          {i18nStore.t('settings.workflowScheduledJobCronPicker.labels.onDay')}
+        </span>
         <Input
           type="number"
           min="1"
@@ -236,7 +255,9 @@
               clampScheduleNumber((e.currentTarget as HTMLInputElement).value, 1, 31, 1),
             )}
         />
-        <span class="text-muted-foreground shrink-0 text-xs">at</span>
+        <span class="text-muted-foreground shrink-0 text-xs">
+          {i18nStore.t('settings.workflowScheduledJobCronPicker.labels.at')}
+        </span>
         <Input
           type="number"
           min="0"
@@ -268,7 +289,9 @@
 
   <!-- Generated cron expression -->
   <div class="bg-muted/50 border-border flex items-center gap-2 rounded-md border px-3 py-2">
-    <span class="text-muted-foreground shrink-0 text-[11px]">Cron</span>
+    <span class="text-muted-foreground shrink-0 text-[11px]">
+      {i18nStore.t('settings.workflowScheduledJobCronPicker.labels.cron')}
+    </span>
     <code class="text-foreground font-mono text-xs">{cronExpression}</code>
   </div>
 
@@ -276,7 +299,7 @@
   <div class="space-y-1.5">
     <div class="text-muted-foreground flex items-center gap-1.5 text-[11px] font-medium">
       <Clock class="size-3" />
-      Next 5 triggers
+      {i18nStore.t('settings.workflowScheduledJobCronPicker.labels.nextTriggers')}
     </div>
     {#if nextTriggers.length > 0}
       <ul class="space-y-0.5">
@@ -288,9 +311,13 @@
         {/each}
       </ul>
     {:else if manualMode && manualValue.trim()}
-      <p class="text-muted-foreground/60 text-xs">Cannot preview — unrecognized cron pattern</p>
+      <p class="text-muted-foreground/60 text-xs">
+        {i18nStore.t('settings.workflowScheduledJobCronPicker.messages.cannotPreview')}
+      </p>
     {:else}
-      <p class="text-muted-foreground/60 text-xs">Enter a cron expression to see trigger times</p>
+      <p class="text-muted-foreground/60 text-xs">
+        {i18nStore.t('settings.workflowScheduledJobCronPicker.messages.enterCronHint')}
+      </p>
     {/if}
   </div>
 </div>

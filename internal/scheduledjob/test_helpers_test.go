@@ -13,5 +13,13 @@ func newTicketStatusService(client *ent.Client) *ticketstatus.Service {
 }
 
 func newTicketService(client *ent.Client) *ticketservice.Service {
-	return ticketservice.NewService(ticketrepo.NewEntRepository(client))
+	return ticketservice.NewService(ticketservice.Dependencies{
+		Activity: ticketrepo.NewActivityRepository(client),
+		Query:    ticketrepo.NewQueryRepository(client),
+		Command:  ticketrepo.NewCommandRepository(client),
+		Link:     ticketrepo.NewLinkRepository(client),
+		Comment:  ticketrepo.NewCommentRepository(client),
+		Usage:    ticketrepo.NewUsageRepository(client),
+		Runtime:  ticketrepo.NewRuntimeRepository(client),
+	})
 }

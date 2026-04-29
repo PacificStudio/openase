@@ -3,12 +3,17 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,12 +26,14 @@ import (
 	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 )
 
 const (
-	machineAgentServiceName = "openase-machine-agent"
-	defaultRemoteOpenASEBin = ".openase/bin/openase"
+	machineAgentServiceName    = "openase-machine-agent"
+	machineListenerServiceName = "openase-machine-listener"
+	defaultRemoteOpenASEBin    = ".openase/bin/openase"
 )
 
 type cliMachineEnvelope struct {
@@ -34,54 +41,73 @@ type cliMachineEnvelope struct {
 }
 
 type cliMachineRecord struct {
-	ID               string               `json:"id"`
-	Name             string               `json:"name"`
-	Host             string               `json:"host"`
-	Port             int                  `json:"port"`
-	ReachabilityMode string               `json:"reachability_mode"`
-	ExecutionMode    string               `json:"execution_mode"`
-	SSHUser          *string              `json:"ssh_user"`
-	SSHKeyPath       *string              `json:"ssh_key_path"`
-	WorkspaceRoot    *string              `json:"workspace_root"`
-	AgentCLIPath     *string              `json:"agent_cli_path"`
-	DaemonStatus     cliMachineDaemonInfo `json:"daemon_status"`
+	ID                 string                      `json:"id"`
+	Name               string                      `json:"name"`
+	Host               string                      `json:"host"`
+	Port               int                         `json:"port"`
+	ReachabilityMode   string                      `json:"reachability_mode"`
+	ExecutionMode      string                      `json:"execution_mode"`
+	SSHUser            *string                     `json:"ssh_user"`
+	SSHKeyPath         *string                     `json:"ssh_key_path"`
+	AdvertisedEndpoint *string                     `json:"advertised_endpoint"`
+	WorkspaceRoot      *string                     `json:"workspace_root"`
+	AgentCLIPath       *string                     `json:"agent_cli_path"`
+	AgentCLIPaths      map[string]string           `json:"agent_cli_paths"`
+	DaemonStatus       cliMachineDaemonInfo        `json:"daemon_status"`
+	ChannelCredential  cliMachineChannelCredential `json:"channel_credential"`
 }
 
 type cliMachineDaemonInfo struct {
 	Registered bool `json:"registered"`
 }
 
+type cliMachineChannelCredential struct {
+	Kind    string  `json:"kind"`
+	TokenID *string `json:"token_id"`
+}
+
 type machineSSHBootstrapInput struct {
-	Machine           catalogdomain.Machine
-	Token             string
-	TokenTTL          time.Duration
-	ControlPlaneURL   string
-	OpenASEBinaryPath string
-	HeartbeatInterval time.Duration
+	Machine             catalogdomain.Machine
+	Topology            catalogdomain.MachineWebsocketTopology
+	Token               string
+	TokenTTL            time.Duration
+	ControlPlaneURL     string
+	OpenASEBinaryPath   string
+	HeartbeatInterval   time.Duration
+	ListenerAddress     string
+	ListenerPath        string
+	ListenerBearerToken string
 }
 
 type machineSSHBootstrapResult struct {
 	MachineID        string   `json:"machine_id"`
 	MachineName      string   `json:"machine_name"`
+	Topology         string   `json:"topology"`
 	ServiceManager   string   `json:"service_manager"`
 	ServiceName      string   `json:"service_name"`
+	ServiceStatus    string   `json:"service_status"`
+	ConnectionTarget string   `json:"connection_target"`
 	RemoteHome       string   `json:"remote_home"`
 	RemoteBinaryPath string   `json:"remote_binary_path"`
 	EnvironmentFile  string   `json:"environment_file"`
 	ServiceFile      string   `json:"service_file"`
 	TokenID          string   `json:"token_id,omitempty"`
 	Commands         []string `json:"commands"`
+	RetryAdvice      []string `json:"retry_advice,omitempty"`
+	RollbackAdvice   []string `json:"rollback_advice,omitempty"`
 	Summary          string   `json:"summary"`
 }
 
 type machineSSHDiagnosticResult struct {
-	MachineID      string                      `json:"machine_id"`
-	MachineName    string                      `json:"machine_name"`
-	ServiceManager string                      `json:"service_manager"`
-	RemoteHome     string                      `json:"remote_home"`
-	Checks         []machineSSHDiagnosticCheck `json:"checks"`
-	Issues         []machineSSHDiagnosticIssue `json:"issues"`
-	Summary        string                      `json:"summary"`
+	MachineID        string                      `json:"machine_id"`
+	MachineName      string                      `json:"machine_name"`
+	Topology         string                      `json:"topology"`
+	ConnectionTarget string                      `json:"connection_target"`
+	ServiceManager   string                      `json:"service_manager"`
+	RemoteHome       string                      `json:"remote_home"`
+	Checks           []machineSSHDiagnosticCheck `json:"checks"`
+	Issues           []machineSSHDiagnosticIssue `json:"issues"`
+	Summary          string                      `json:"summary"`
 }
 
 type machineSSHDiagnosticCheck struct {
@@ -112,31 +138,51 @@ type machineSSHBootstrapDeps struct {
 }
 
 type machineSSHDiagnosticDeps struct {
-	getClient func(context.Context, catalogdomain.Machine) (sshinfra.Client, error)
+	getClient     func(context.Context, catalogdomain.Machine) (sshinfra.Client, error)
+	probeListener func(context.Context, catalogdomain.Machine) error
+}
+
+type machineSSHBootstrapPlan struct {
+	Topology         catalogdomain.MachineWebsocketTopology
+	ServiceName      string
+	ServiceLabel     string
+	EnvironmentBody  string
+	CommandArgs      []string
+	ConnectionTarget string
+	TokenID          string
+	RetryAdvice      []string
+	RollbackAdvice   []string
+	Summary          string
 }
 
 func newMachineSSHBootstrapCommand(options *rootOptions) *cobra.Command {
 	var apiOptions apiCommandOptions
+	var topology string
 	var channelToken string
 	var ttl time.Duration
 	var controlPlaneURL string
 	var openaseBinaryPath string
 	var heartbeatInterval time.Duration
+	var listenerAddress string
+	var listenerPath string
+	var listenerBearerToken string
 
 	command := &cobra.Command{
 		Use:   "ssh-bootstrap [machineId]",
-		Short: "Use SSH helper access to install or refresh the reverse websocket machine-agent.",
+		Short: "Use SSH helper access to install or refresh a websocket topology service on the remote machine.",
 		Long: strings.TrimSpace(`
-Use SSH helper access to install or refresh the reverse websocket machine-agent.
+Use SSH helper access to install or refresh a websocket topology service on the remote machine.
 
 This command is the supported SSH bootstrap helper for websocket runtime rollout.
 The [machineId] argument must be a machine UUID.
-It fetches the machine record from the OpenASE API, optionally issues a fresh
-machine channel token, uploads the current OpenASE binary to the remote host,
-writes the daemon environment file, installs a user service, and starts it.
+It fetches the machine record from the OpenASE API, resolves the target topology
+from the stored reachability + execution semantics, uploads the current OpenASE
+binary to the remote host, writes the topology environment file, installs a user
+service, and starts it.
 
 Normal ticket execution no longer falls back to SSH. Use this helper to repair
-reverse websocket daemon registration when you can still reach the machine over SSH.
+reverse-connect daemon registration or to bootstrap a remote websocket listener
+when you can still reach the machine over SSH.
 `),
 		Example: strings.TrimSpace(`
   openase machine ssh-bootstrap $OPENASE_MACHINE_ID
@@ -150,6 +196,10 @@ reverse websocket daemon registration when you can still reach the machine over 
 				return err
 			}
 			machine, err := fetchCLIMachine(cmd.Context(), apiContext, strings.TrimSpace(args[0]))
+			if err != nil {
+				return err
+			}
+			resolvedTopology, err := resolveMachineSSHBootstrapTopology(machine, topology)
 			if err != nil {
 				return err
 			}
@@ -173,12 +223,16 @@ reverse websocket daemon registration when you can still reach the machine over 
 				readLocalFile:     os.ReadFile,
 				resolveExecutable: os.Executable,
 			}, machineSSHBootstrapInput{
-				Machine:           machine,
-				Token:             strings.TrimSpace(channelToken),
-				TokenTTL:          ttl,
-				ControlPlaneURL:   strings.TrimSpace(controlPlaneURL),
-				OpenASEBinaryPath: strings.TrimSpace(openaseBinaryPath),
-				HeartbeatInterval: heartbeatInterval,
+				Machine:             machine,
+				Topology:            resolvedTopology,
+				Token:               strings.TrimSpace(channelToken),
+				TokenTTL:            ttl,
+				ControlPlaneURL:     strings.TrimSpace(controlPlaneURL),
+				OpenASEBinaryPath:   strings.TrimSpace(openaseBinaryPath),
+				HeartbeatInterval:   heartbeatInterval,
+				ListenerAddress:     strings.TrimSpace(listenerAddress),
+				ListenerPath:        strings.TrimSpace(listenerPath),
+				ListenerBearerToken: strings.TrimSpace(listenerBearerToken),
 			})
 			if err != nil {
 				return err
@@ -192,14 +246,19 @@ reverse websocket daemon registration when you can still reach the machine over 
 		},
 	}
 
+	markCLICommandAPICoverage(command, "POST", "/api/v1/machines/{machineId}/ssh-bootstrap")
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
 	applyCLICommandFlagNormalization(command)
 	bindAPICommandFlags(command.Flags(), &apiOptions)
+	command.Flags().StringVar(&topology, "topology", "", "Optional topology override: reverse-connect or remote-listener. Defaults to the machine's stored reachability + execution topology.")
 	command.Flags().StringVar(&channelToken, "channel-token", "", "Existing machine channel token. When omitted, the helper issues a fresh token from the local control plane config.")
 	command.Flags().DurationVar(&ttl, "ttl", 24*time.Hour, "Fresh token lifetime when the helper issues a new token.")
 	command.Flags().StringVar(&controlPlaneURL, "control-plane-url", "", "Control-plane base URL override. Required when reusing --channel-token and defaults to the local server URL when issuing a fresh token.")
 	command.Flags().StringVar(&openaseBinaryPath, "openase-binary-path", "", "Local OpenASE binary to upload. Defaults to the current executable.")
 	command.Flags().DurationVar(&heartbeatInterval, "heartbeat-interval", machinechannelservice.DefaultHeartbeatInterval, "Daemon heartbeat interval written into the remote environment file.")
+	command.Flags().StringVar(&listenerAddress, "listener-address", "", "Remote websocket listener bind address when installing the remote-listener topology. Defaults to a bind inferred from advertised_endpoint, or "+defaultMachineListenerAddress+" when inference is unavailable.")
+	command.Flags().StringVar(&listenerPath, "listener-path", defaultMachineListenerPath, "Remote websocket listener HTTP path when installing the remote-listener topology.")
+	command.Flags().StringVar(&listenerBearerToken, "listener-bearer-token", "", "Optional bearer token override for the remote-listener topology. Defaults to the machine channel credential token when present.")
 	return command
 }
 
@@ -245,6 +304,7 @@ classes. The [machineId] argument must be a machine UUID.
 				getClient: func(ctx context.Context, item catalogdomain.Machine) (sshinfra.Client, error) {
 					return pool.Get(ctx, item)
 				},
+				probeListener: probeMachineSSHListenerEndpoint,
 			}, machine)
 			if err != nil {
 				return err
@@ -262,6 +322,154 @@ classes. The [machineId] argument must be a machine UUID.
 	applyCLICommandFlagNormalization(command)
 	bindAPICommandFlags(command.Flags(), &apiOptions)
 	return command
+}
+
+func resolveMachineSSHBootstrapTopology(
+	machine catalogdomain.Machine,
+	raw string,
+) (catalogdomain.MachineWebsocketTopology, error) {
+	storedTopology, err := machine.WebsocketTopology()
+	if err != nil {
+		return "", err
+	}
+	if storedTopology == catalogdomain.MachineWebsocketTopologyLocalProcess {
+		return "", fmt.Errorf("local machines do not use ssh bootstrap helper")
+	}
+
+	explicit := strings.ToLower(strings.TrimSpace(raw))
+	if explicit == "" {
+		return storedTopology, nil
+	}
+
+	var requested catalogdomain.MachineWebsocketTopology
+	switch explicit {
+	case "reverse-connect", "reverse_connect":
+		requested = catalogdomain.MachineWebsocketTopologyReverseConnect
+	case "remote-listener", "remote_listener":
+		requested = catalogdomain.MachineWebsocketTopologyRemoteListener
+	default:
+		return "", fmt.Errorf("topology must be one of reverse-connect or remote-listener")
+	}
+	if requested != storedTopology {
+		return "", fmt.Errorf(
+			"topology %q does not match machine %s reachability_mode %q and execution_mode %q",
+			requested,
+			machine.Name,
+			machine.ReachabilityMode,
+			machine.ExecutionMode,
+		)
+	}
+	return requested, nil
+}
+
+func buildMachineSSHBootstrapPlan(
+	ctx context.Context,
+	deps machineSSHBootstrapDeps,
+	input machineSSHBootstrapInput,
+) (machineSSHBootstrapPlan, error) {
+	switch input.Topology {
+	case catalogdomain.MachineWebsocketTopologyReverseConnect:
+		tokenResp, err := deps.issueToken(ctx, input.Machine.ID, input.TokenTTL, input.ControlPlaneURL, input.Token)
+		if err != nil {
+			return machineSSHBootstrapPlan{}, err
+		}
+		return machineSSHBootstrapPlan{
+			Topology:         input.Topology,
+			ServiceName:      machineAgentServiceName,
+			ServiceLabel:     "OpenASE reverse-connect machine-agent",
+			EnvironmentBody:  buildMachineSSHEnvironmentFile(tokenResp, input.HeartbeatInterval, input.Machine.AgentCLIPaths.ToRawMap()),
+			CommandArgs:      []string{"machine-agent", "run"},
+			ConnectionTarget: tokenResp.ControlPlaneURL,
+			TokenID:          tokenResp.TokenID,
+			RetryAdvice: []string{
+				"Run `openase machine ssh-diagnostics <machine-id>` to inspect service output, daemon registration, and authentication failures.",
+				"Confirm the control-plane URL and machine channel token are still valid before rerunning bootstrap.",
+			},
+			RollbackAdvice: []string{
+				"Disable the remote user service if you need to stop reverse-connect retries immediately.",
+				"Remove the remote environment and service files only after capturing diagnostics output for auditability.",
+			},
+			Summary: fmt.Sprintf(
+				"SSH bootstrap refreshed the reverse-connect service for machine %s.",
+				input.Machine.Name,
+			),
+		}, nil
+	case catalogdomain.MachineWebsocketTopologyRemoteListener:
+		listenerAddress := inferMachineListenerAddress(input.Machine, input.ListenerAddress)
+		listenerPath := normalizeMachineListenerPath(input.ListenerPath)
+		listenerToken := firstNonEmpty(input.ListenerBearerToken, strings.TrimSpace(pointerString(input.Machine.ChannelCredential.TokenID)))
+		values := map[string]string{
+			envMachineListenerAddress: listenerAddress,
+			envMachineListenerPath:    listenerPath,
+		}
+		if listenerToken != "" {
+			values[envMachineListenerBearerToken] = listenerToken
+		}
+		return machineSSHBootstrapPlan{
+			Topology:     input.Topology,
+			ServiceName:  machineListenerServiceName,
+			ServiceLabel: "OpenASE remote websocket listener",
+			EnvironmentBody: buildMachineSSHKeyValueEnvironmentFile(values, []string{
+				envMachineListenerAddress,
+				envMachineListenerPath,
+				envMachineListenerBearerToken,
+			}),
+			CommandArgs: []string{
+				"machine-agent",
+				"listen",
+				"--listen-address",
+				listenerAddress,
+				"--path",
+				listenerPath,
+			},
+			ConnectionTarget: firstNonEmpty(strings.TrimSpace(pointerString(input.Machine.AdvertisedEndpoint)), listenerAddress+listenerPath),
+			RetryAdvice: []string{
+				"Confirm the advertised websocket endpoint and any firewall or proxy rules before rerunning bootstrap.",
+				"Use `openase machine ssh-diagnostics <machine-id>` to distinguish service-start issues from control-plane reachability failures.",
+			},
+			RollbackAdvice: []string{
+				"Disable the remote websocket listener service if you need to stop inbound websocket traffic immediately.",
+				"Keep the uploaded binary and logs in place until the listener reachability issue is fully diagnosed.",
+			},
+			Summary: fmt.Sprintf(
+				"SSH bootstrap refreshed the remote-listener service for machine %s.",
+				input.Machine.Name,
+			),
+		}, nil
+	default:
+		return machineSSHBootstrapPlan{}, fmt.Errorf("unsupported ssh bootstrap topology %q", input.Topology)
+	}
+}
+
+func normalizeMachineListenerPath(raw string) string {
+	path := strings.TrimSpace(raw)
+	if path == "" {
+		path = defaultMachineListenerPath
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + strings.TrimPrefix(path, "/")
+	}
+	return path
+}
+
+func machineSSHServiceNameForTopology(topology catalogdomain.MachineWebsocketTopology) string {
+	switch topology {
+	case catalogdomain.MachineWebsocketTopologyRemoteListener:
+		return machineListenerServiceName
+	default:
+		return machineAgentServiceName
+	}
+}
+
+func machineSSHConnectionTarget(machine catalogdomain.Machine, topology catalogdomain.MachineWebsocketTopology) string {
+	switch topology {
+	case catalogdomain.MachineWebsocketTopologyReverseConnect:
+		return "reverse websocket control-plane session"
+	case catalogdomain.MachineWebsocketTopologyRemoteListener:
+		return strings.TrimSpace(pointerString(machine.AdvertisedEndpoint))
+	default:
+		return ""
+	}
 }
 
 func runMachineSSHBootstrap(
@@ -287,14 +495,6 @@ func runMachineSSHBootstrap(
 	}
 	if input.Machine.Host == catalogdomain.LocalMachineHost {
 		return machineSSHBootstrapResult{}, fmt.Errorf("local machines do not use ssh bootstrap helper")
-	}
-	if input.Machine.ConnectionMode != catalogdomain.MachineConnectionModeWSReverse {
-		return machineSSHBootstrapResult{}, fmt.Errorf("machine %s must use reverse websocket runtime before ssh bootstrap can install the machine-agent", input.Machine.Name)
-	}
-
-	tokenResp, err := deps.issueToken(ctx, input.Machine.ID, input.TokenTTL, input.ControlPlaneURL, input.Token)
-	if err != nil {
-		return machineSSHBootstrapResult{}, err
 	}
 
 	openaseBinaryPath := strings.TrimSpace(input.OpenASEBinaryPath)
@@ -327,8 +527,25 @@ func runMachineSSHBootstrap(
 		return machineSSHBootstrapResult{}, fmt.Errorf("remote host %s has no supported user service manager; expected systemd or launchd", input.Machine.Name)
 	}
 
-	layout := buildMachineSSHLayout(platform.RemoteHome)
+	plan, err := buildMachineSSHBootstrapPlan(ctx, deps, input)
+	if err != nil {
+		return machineSSHBootstrapResult{}, err
+	}
+
+	layout := buildMachineSSHLayout(platform.RemoteHome, plan.ServiceName)
+	commandArgs := append([]string(nil), plan.CommandArgs...)
+	if plan.Topology == catalogdomain.MachineWebsocketTopologyReverseConnect {
+		commandArgs = append(commandArgs, "--openase-binary-path", layout.RemoteBinaryPath)
+		if agentCLIPath := strings.TrimSpace(pointerString(input.Machine.AgentCLIPath)); agentCLIPath != "" && len(input.Machine.AgentCLIPaths) == 0 {
+			commandArgs = append(commandArgs, "--agent-cli-path", agentCLIPath)
+		}
+		if input.HeartbeatInterval > 0 {
+			commandArgs = append(commandArgs, "--heartbeat-interval", input.HeartbeatInterval.String())
+		}
+	}
 	serviceFilePath, serviceFile, restartCommand := buildMachineSSHServiceFile(platform, layout, machineSSHServiceInstallInput{
+		ServiceName:       plan.ServiceName,
+		ServiceLabel:      plan.ServiceLabel,
 		BinaryPath:        layout.RemoteBinaryPath,
 		EnvironmentFile:   layout.EnvironmentFile,
 		WorkingDirectory:  layout.WorkDir,
@@ -337,12 +554,12 @@ func runMachineSSHBootstrap(
 		AgentCLIPath:      strings.TrimSpace(pointerString(input.Machine.AgentCLIPath)),
 		HeartbeatInterval: input.HeartbeatInterval,
 		UID:               platform.UID,
-	})
+	}, commandArgs)
 
 	if err := uploadRemoteFile(client, layout.RemoteBinaryPath, binaryBytes, 0o755); err != nil {
 		return machineSSHBootstrapResult{}, err
 	}
-	if err := uploadRemoteFile(client, layout.EnvironmentFile, []byte(buildMachineSSHEnvironmentFile(tokenResp, input.HeartbeatInterval)), 0o600); err != nil {
+	if err := uploadRemoteFile(client, layout.EnvironmentFile, []byte(plan.EnvironmentBody), 0o600); err != nil {
 		return machineSSHBootstrapResult{}, err
 	}
 	if err := uploadRemoteFile(client, serviceFilePath, []byte(serviceFile), 0o644); err != nil {
@@ -357,15 +574,20 @@ func runMachineSSHBootstrap(
 	return machineSSHBootstrapResult{
 		MachineID:        input.Machine.ID.String(),
 		MachineName:      input.Machine.Name,
+		Topology:         plan.Topology.String(),
 		ServiceManager:   platform.ServiceManager,
-		ServiceName:      machineAgentServiceName,
+		ServiceName:      plan.ServiceName,
+		ServiceStatus:    firstNonEmpty(strings.TrimSpace(commandOutput), "active"),
+		ConnectionTarget: plan.ConnectionTarget,
 		RemoteHome:       platform.RemoteHome,
 		RemoteBinaryPath: layout.RemoteBinaryPath,
 		EnvironmentFile:  layout.EnvironmentFile,
 		ServiceFile:      serviceFilePath,
-		TokenID:          tokenResp.TokenID,
-		Commands:         []string{"upload openase binary", "write machine-agent environment", "install user service", strings.TrimSpace(restartCommand)},
-		Summary:          fmt.Sprintf("SSH bootstrap refreshed the %s service for machine %s.", machineAgentServiceName, input.Machine.Name),
+		TokenID:          plan.TokenID,
+		Commands:         append([]string{"upload openase binary", "write topology environment", "install user service"}, strings.TrimSpace(restartCommand)),
+		RetryAdvice:      append([]string(nil), plan.RetryAdvice...),
+		RollbackAdvice:   append([]string(nil), plan.RollbackAdvice...),
+		Summary:          plan.Summary,
 	}, nil
 }
 
@@ -383,6 +605,10 @@ func runMachineSSHDiagnostics(
 	if machine.Host == catalogdomain.LocalMachineHost {
 		return machineSSHDiagnosticResult{}, fmt.Errorf("local machines do not use ssh diagnostics")
 	}
+	topology, err := machine.WebsocketTopology()
+	if err != nil {
+		return machineSSHDiagnosticResult{}, err
+	}
 
 	client, err := deps.getClient(ctx, machine)
 	if err != nil {
@@ -396,7 +622,7 @@ func runMachineSSHDiagnostics(
 	if err != nil {
 		return machineSSHDiagnosticResult{}, err
 	}
-	layout := buildMachineSSHLayout(platform.RemoteHome)
+	layout := buildMachineSSHLayout(platform.RemoteHome, machineSSHServiceNameForTopology(topology))
 
 	checks := make([]machineSSHDiagnosticCheck, 0, 6)
 	issues := make([]machineSSHDiagnosticIssue, 0, 4)
@@ -434,57 +660,71 @@ func runMachineSSHDiagnostics(
 		checks = append(checks, machineSSHDiagnosticCheck{Name: "machine_agent_binary", Status: "pass", Detail: layout.RemoteBinaryPath + " is executable."})
 	}
 
-	agentCLIPath := strings.TrimSpace(pointerString(machine.AgentCLIPath))
-	if agentCLIPath != "" {
-		agentCLICmd := "sh -lc " + sshinfra.ShellQuote("test -x "+sshinfra.ShellQuote(agentCLIPath))
-		if _, checkErr := runRemoteSSHCommand(ctx, client, agentCLICmd); checkErr != nil {
-			checks = append(checks, machineSSHDiagnosticCheck{Name: "agent_cli_path", Status: "fail", Detail: checkErr.Error()})
-			issues = append(issues, machineSSHDiagnosticIssue{
-				Code:        "agent_cli_missing",
-				Title:       "Configured agent CLI is missing",
-				Detail:      fmt.Sprintf("The machine record points to %s, but SSH diagnostics could not execute it.", agentCLIPath),
-				Remediation: "Install the preferred agent CLI on the remote host or update the machine's agent CLI path.",
-			})
-		} else {
-			checks = append(checks, machineSSHDiagnosticCheck{Name: "agent_cli_path", Status: "pass", Detail: agentCLIPath + " is executable."})
-		}
-	}
+	addMachineSSHAgentCLIPathChecks(ctx, client, machine, &checks, &issues)
 
 	serviceOutput, serviceErr := runRemoteSSHCommand(ctx, client, buildMachineSSHDiagnosticCommand(platform, layout))
 	serviceDetail := strings.TrimSpace(serviceOutput)
 	if serviceErr != nil {
 		serviceDetail = strings.TrimSpace(serviceErr.Error() + ": " + serviceDetail)
-		checks = append(checks, machineSSHDiagnosticCheck{Name: "machine_agent_service", Status: "fail", Detail: serviceDetail})
+		checks = append(checks, machineSSHDiagnosticCheck{Name: "topology_service", Status: "fail", Detail: serviceDetail})
 		issues = append(issues, machineSSHDiagnosticIssue{
-			Code:        "machine_agent_service_unhealthy",
-			Title:       "Machine-agent service is not healthy",
+			Code:        "topology_service_unhealthy",
+			Title:       "Installed topology service is not healthy",
 			Detail:      serviceDetail,
-			Remediation: "Restart the machine-agent service after fixing the underlying configuration or connectivity problem.",
+			Remediation: "Restart the installed topology service after fixing the underlying configuration or connectivity problem.",
 		})
 	} else {
-		checks = append(checks, machineSSHDiagnosticCheck{Name: "machine_agent_service", Status: "pass", Detail: firstNonEmpty(serviceDetail, "service check succeeded")})
-	}
-
-	if !machine.DaemonStatus.Registered {
-		checks = append(checks, machineSSHDiagnosticCheck{Name: "daemon_registration", Status: "fail", Detail: "Control plane does not currently see an active machine-agent registration."})
-		issues = append(issues, machineSSHDiagnosticIssue{
-			Code:        "daemon_not_registered",
-			Title:       "Machine-agent is not registered",
-			Detail:      "The machine record still shows daemon_status.registered=false.",
-			Remediation: "Confirm the service started successfully, then inspect recent logs for authentication, URL, or network errors.",
-		})
-	} else {
-		checks = append(checks, machineSSHDiagnosticCheck{Name: "daemon_registration", Status: "pass", Detail: "Control plane reports an active machine-agent registration."})
+		checks = append(checks, machineSSHDiagnosticCheck{Name: "topology_service", Status: "pass", Detail: firstNonEmpty(serviceDetail, "service check succeeded")})
 	}
 
 	lowerServiceOutput := strings.ToLower(serviceOutput)
-	if strings.Contains(lowerServiceOutput, "auth_failed") || strings.Contains(lowerServiceOutput, "authentication failed") {
-		issues = append(issues, machineSSHDiagnosticIssue{
-			Code:        "machine_agent_auth_failed",
-			Title:       "Machine-agent authentication failed",
-			Detail:      "Recent service output includes machine channel authentication failures.",
-			Remediation: "Issue a fresh channel token, verify the machine is stored as reverse_connect + websocket, and rerun ssh bootstrap.",
-		})
+	switch topology {
+	case catalogdomain.MachineWebsocketTopologyReverseConnect:
+		if !machine.DaemonStatus.Registered {
+			checks = append(checks, machineSSHDiagnosticCheck{Name: "daemon_registration", Status: "fail", Detail: "Control plane does not currently see an active machine-agent registration."})
+			issues = append(issues, machineSSHDiagnosticIssue{
+				Code:        "daemon_not_registered",
+				Title:       "Machine-agent is not registered",
+				Detail:      "The machine record still shows daemon_status.registered=false.",
+				Remediation: "Confirm the service started successfully, then inspect recent logs for authentication, URL, or network errors.",
+			})
+		} else {
+			checks = append(checks, machineSSHDiagnosticCheck{Name: "daemon_registration", Status: "pass", Detail: "Control plane reports an active machine-agent registration."})
+		}
+		if strings.Contains(lowerServiceOutput, "auth_failed") || strings.Contains(lowerServiceOutput, "authentication failed") {
+			issues = append(issues, machineSSHDiagnosticIssue{
+				Code:        "machine_agent_auth_failed",
+				Title:       "Machine-agent authentication failed",
+				Detail:      "Recent service output includes machine channel authentication failures.",
+				Remediation: "Issue a fresh channel token, verify the machine is stored as reverse_connect + websocket, and rerun ssh bootstrap.",
+			})
+		}
+	case catalogdomain.MachineWebsocketTopologyRemoteListener:
+		if endpoint := strings.TrimSpace(pointerString(machine.AdvertisedEndpoint)); endpoint == "" {
+			checks = append(checks, machineSSHDiagnosticCheck{Name: "listener_endpoint", Status: "fail", Detail: "Machine record does not expose an advertised websocket listener endpoint."})
+			issues = append(issues, machineSSHDiagnosticIssue{
+				Code:        "listener_endpoint_missing",
+				Title:       "Listener endpoint is missing",
+				Detail:      "The machine record does not currently expose an advertised websocket endpoint for the remote listener topology.",
+				Remediation: "Save a valid advertised_endpoint and confirm the control plane can reach it before rerunning diagnostics.",
+			})
+		} else {
+			if deps.probeListener != nil {
+				if probeErr := deps.probeListener(ctx, machine); probeErr != nil {
+					checks = append(checks, machineSSHDiagnosticCheck{Name: "listener_endpoint", Status: "fail", Detail: probeErr.Error()})
+					issues = append(issues, machineSSHDiagnosticIssue{
+						Code:        "listener_endpoint_unreachable",
+						Title:       "Listener endpoint is not reachable",
+						Detail:      probeErr.Error(),
+						Remediation: "Fix advertised endpoint DNS/TLS/networking or the listener bearer token before retrying control-plane checks.",
+					})
+				} else {
+					checks = append(checks, machineSSHDiagnosticCheck{Name: "listener_endpoint", Status: "pass", Detail: endpoint})
+				}
+			} else {
+				checks = append(checks, machineSSHDiagnosticCheck{Name: "listener_endpoint", Status: "pass", Detail: endpoint})
+			}
+		}
 	}
 
 	summary := fmt.Sprintf("SSH diagnostics passed for machine %s.", machine.Name)
@@ -492,18 +732,84 @@ func runMachineSSHDiagnostics(
 		summary = fmt.Sprintf("SSH diagnostics found %d issue(s) for machine %s.", len(issues), machine.Name)
 	}
 	return machineSSHDiagnosticResult{
-		MachineID:      machine.ID.String(),
-		MachineName:    machine.Name,
-		ServiceManager: platform.ServiceManager,
-		RemoteHome:     platform.RemoteHome,
-		Checks:         checks,
-		Issues:         issues,
-		Summary:        summary,
+		MachineID:        machine.ID.String(),
+		MachineName:      machine.Name,
+		Topology:         topology.String(),
+		ConnectionTarget: machineSSHConnectionTarget(machine, topology),
+		ServiceManager:   platform.ServiceManager,
+		RemoteHome:       platform.RemoteHome,
+		Checks:           checks,
+		Issues:           issues,
+		Summary:          summary,
 	}, nil
 }
 
+func addMachineSSHAgentCLIPathChecks(
+	ctx context.Context,
+	client sshinfra.Client,
+	machine catalogdomain.Machine,
+	checks *[]machineSSHDiagnosticCheck,
+	issues *[]machineSSHDiagnosticIssue,
+) {
+	scopedPaths := machine.AgentCLIPaths.ToRawMap()
+	if len(scopedPaths) > 0 {
+		adapterKeys := make([]string, 0, len(scopedPaths))
+		for key := range scopedPaths {
+			adapterKeys = append(adapterKeys, key)
+		}
+		sort.Strings(adapterKeys)
+		for _, adapterKey := range adapterKeys {
+			checkMachineSSHAgentCLIPath(ctx, client, adapterKey, scopedPaths[adapterKey], checks, issues)
+		}
+		return
+	}
+
+	legacyPath := strings.TrimSpace(pointerString(machine.AgentCLIPath))
+	if legacyPath != "" {
+		checkMachineSSHAgentCLIPath(ctx, client, "legacy", legacyPath, checks, issues)
+	}
+}
+
+func checkMachineSSHAgentCLIPath(
+	ctx context.Context,
+	client sshinfra.Client,
+	label string,
+	agentCLIPath string,
+	checks *[]machineSSHDiagnosticCheck,
+	issues *[]machineSSHDiagnosticIssue,
+) {
+	checkName := "agent_cli_path"
+	title := "Configured agent CLI is missing"
+	remediation := "Install the preferred agent CLI on the remote host or update the machine's agent CLI path."
+	detail := fmt.Sprintf("The machine record points to %s, but SSH diagnostics could not execute it.", agentCLIPath)
+	if strings.TrimSpace(label) != "" && label != "legacy" {
+		checkName = "agent_cli_path_" + strings.ReplaceAll(label, "-", "_")
+		title = "Configured adaptor-scoped agent CLI is missing"
+		remediation = fmt.Sprintf("Install the preferred %s CLI on the remote host or update machine.agent_cli_paths[%q].", label, label)
+		detail = fmt.Sprintf("The machine record points %q to %s, but SSH diagnostics could not execute it.", label, agentCLIPath)
+	}
+
+	agentCLICmd := "sh -lc " + sshinfra.ShellQuote("test -x "+sshinfra.ShellQuote(agentCLIPath))
+	if _, checkErr := runRemoteSSHCommand(ctx, client, agentCLICmd); checkErr != nil {
+		*checks = append(*checks, machineSSHDiagnosticCheck{Name: checkName, Status: "fail", Detail: checkErr.Error()})
+		*issues = append(*issues, machineSSHDiagnosticIssue{
+			Code:        "agent_cli_missing",
+			Title:       title,
+			Detail:      detail,
+			Remediation: remediation,
+		})
+		return
+	}
+
+	successDetail := agentCLIPath + " is executable."
+	if strings.TrimSpace(label) != "" && label != "legacy" {
+		successDetail = fmt.Sprintf("%s is executable for %s.", agentCLIPath, label)
+	}
+	*checks = append(*checks, machineSSHDiagnosticCheck{Name: checkName, Status: "pass", Detail: successDetail})
+}
+
 func fetchCLIMachine(ctx context.Context, apiContext apiCommandContext, machineID string) (catalogdomain.Machine, error) {
-	response, err := apiContext.do(ctx, apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+	response, err := apiContext.do(ctx, apiCommandDeps{httpClient: defaultCLIHTTPDoer()}, apiRequest{
 		Method: http.MethodGet,
 		Path:   "machines/" + urlPathEscape(strings.TrimSpace(machineID)),
 	})
@@ -536,21 +842,31 @@ func fetchCLIMachine(ctx context.Context, apiContext apiCommandContext, machineI
 	if err != nil {
 		return catalogdomain.Machine{}, err
 	}
+	channelCredentialKind, err := catalogdomain.ParseStoredMachineChannelCredentialKind(payload.Machine.ChannelCredential.Kind)
+	if err != nil {
+		return catalogdomain.Machine{}, err
+	}
 
 	return catalogdomain.Machine{
-		ID:               parsedID,
-		Name:             strings.TrimSpace(payload.Machine.Name),
-		Host:             strings.TrimSpace(payload.Machine.Host),
-		Port:             payload.Machine.Port,
-		ReachabilityMode: reachabilityMode,
-		ExecutionMode:    executionMode,
-		ConnectionMode:   connectionMode,
-		SSHUser:          optionalTrimmedString(payload.Machine.SSHUser),
-		SSHKeyPath:       optionalTrimmedString(payload.Machine.SSHKeyPath),
-		WorkspaceRoot:    optionalTrimmedString(payload.Machine.WorkspaceRoot),
-		AgentCLIPath:     optionalTrimmedString(payload.Machine.AgentCLIPath),
+		ID:                 parsedID,
+		Name:               strings.TrimSpace(payload.Machine.Name),
+		Host:               strings.TrimSpace(payload.Machine.Host),
+		Port:               payload.Machine.Port,
+		ReachabilityMode:   reachabilityMode,
+		ExecutionMode:      executionMode,
+		ConnectionMode:     connectionMode,
+		SSHUser:            optionalTrimmedString(payload.Machine.SSHUser),
+		SSHKeyPath:         optionalTrimmedString(payload.Machine.SSHKeyPath),
+		AdvertisedEndpoint: optionalTrimmedString(payload.Machine.AdvertisedEndpoint),
+		WorkspaceRoot:      optionalTrimmedString(payload.Machine.WorkspaceRoot),
+		AgentCLIPath:       optionalTrimmedString(payload.Machine.AgentCLIPath),
+		AgentCLIPaths:      catalogdomain.MachineAgentCLIPathsFromRaw(payload.Machine.AgentCLIPaths),
 		DaemonStatus: catalogdomain.MachineDaemonStatus{
 			Registered: payload.Machine.DaemonStatus.Registered,
+		},
+		ChannelCredential: catalogdomain.MachineChannelCredential{
+			Kind:    channelCredentialKind,
+			TokenID: optionalTrimmedString(payload.Machine.ChannelCredential.TokenID),
 		},
 	}, nil
 }
@@ -638,6 +954,7 @@ func detectMachineSSHPlatform(ctx context.Context, client sshinfra.Client) (mach
 
 type machineSSHLayout struct {
 	BaseDir          string
+	ServiceName      string
 	RemoteBinaryPath string
 	EnvironmentFile  string
 	ServiceFile      string
@@ -646,20 +963,23 @@ type machineSSHLayout struct {
 	StderrPath       string
 }
 
-func buildMachineSSHLayout(remoteHome string) machineSSHLayout {
+func buildMachineSSHLayout(remoteHome string, serviceName string) machineSSHLayout {
 	baseDir := filepath.Join(remoteHome, ".openase")
 	return machineSSHLayout{
 		BaseDir:          baseDir,
+		ServiceName:      serviceName,
 		RemoteBinaryPath: filepath.Join(remoteHome, defaultRemoteOpenASEBin),
-		EnvironmentFile:  filepath.Join(baseDir, "machine-agent", machineAgentServiceName+".env"),
-		ServiceFile:      filepath.Join(remoteHome, ".config", "systemd", "user", machineAgentServiceName+".service"),
-		WorkDir:          filepath.Join(baseDir, "machine-agent"),
-		StdoutPath:       filepath.Join(baseDir, "logs", machineAgentServiceName+".stdout.log"),
-		StderrPath:       filepath.Join(baseDir, "logs", machineAgentServiceName+".stderr.log"),
+		EnvironmentFile:  filepath.Join(baseDir, serviceName, serviceName+".env"),
+		ServiceFile:      filepath.Join(remoteHome, ".config", "systemd", "user", serviceName+".service"),
+		WorkDir:          filepath.Join(baseDir, serviceName),
+		StdoutPath:       filepath.Join(baseDir, "logs", serviceName+".stdout.log"),
+		StderrPath:       filepath.Join(baseDir, "logs", serviceName+".stderr.log"),
 	}
 }
 
 type machineSSHServiceInstallInput struct {
+	ServiceName       string
+	ServiceLabel      string
 	BinaryPath        string
 	EnvironmentFile   string
 	WorkingDirectory  string
@@ -670,7 +990,57 @@ type machineSSHServiceInstallInput struct {
 	UID               string
 }
 
-func buildMachineSSHEnvironmentFile(response machineChannelTokenResponse, heartbeatInterval time.Duration) string {
+func inferMachineListenerAddress(machine catalogdomain.Machine, explicit string) string {
+	trimmedExplicit := strings.TrimSpace(explicit)
+	if trimmedExplicit != "" {
+		return trimmedExplicit
+	}
+	endpoint := strings.TrimSpace(pointerString(machine.AdvertisedEndpoint))
+	if endpoint == "" {
+		return defaultMachineListenerAddress
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil {
+		return defaultMachineListenerAddress
+	}
+	port := strings.TrimSpace(parsed.Port())
+	if port == "" {
+		switch strings.ToLower(strings.TrimSpace(parsed.Scheme)) {
+		case "wss", "https":
+			port = "443"
+		default:
+			port = "80"
+		}
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return net.JoinHostPort("0.0.0.0", port)
+	}
+	switch strings.ToLower(host) {
+	case "localhost":
+		return net.JoinHostPort("127.0.0.1", port)
+	case "127.0.0.1":
+		return net.JoinHostPort("127.0.0.1", port)
+	case "::1":
+		return net.JoinHostPort("::1", port)
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLoopback() {
+			return net.JoinHostPort(host, port)
+		}
+		if ip.To4() == nil {
+			return net.JoinHostPort("::", port)
+		}
+		return net.JoinHostPort("0.0.0.0", port)
+	}
+	return net.JoinHostPort("0.0.0.0", port)
+}
+
+func buildMachineSSHEnvironmentFile(
+	response machineChannelTokenResponse,
+	heartbeatInterval time.Duration,
+	agentCLIPaths map[string]string,
+) string {
 	values := map[string]string{
 		machinechanneldomain.EnvMachineID:              response.MachineID,
 		machinechanneldomain.EnvMachineChannelToken:    response.Token,
@@ -679,13 +1049,23 @@ func buildMachineSSHEnvironmentFile(response machineChannelTokenResponse, heartb
 	if heartbeatInterval > 0 {
 		values[machinechanneldomain.EnvMachineHeartbeatInterval] = heartbeatInterval.String()
 	}
+	if len(agentCLIPaths) > 0 {
+		if encoded, err := json.Marshal(agentCLIPaths); err == nil {
+			values[machinechanneldomain.EnvMachineAgentCLIPathsJSON] = string(encoded)
+		}
+	}
 
 	order := []string{
 		machinechanneldomain.EnvMachineID,
 		machinechanneldomain.EnvMachineChannelToken,
 		machinechanneldomain.EnvMachineControlPlaneURL,
 		machinechanneldomain.EnvMachineHeartbeatInterval,
+		machinechanneldomain.EnvMachineAgentCLIPathsJSON,
 	}
+	return buildMachineSSHKeyValueEnvironmentFile(values, order)
+}
+
+func buildMachineSSHKeyValueEnvironmentFile(values map[string]string, order []string) string {
 	var builder strings.Builder
 	for _, key := range order {
 		value, ok := values[key]
@@ -704,22 +1084,15 @@ func buildMachineSSHServiceFile(
 	platform machineSSHPlatformInfo,
 	layout machineSSHLayout,
 	input machineSSHServiceInstallInput,
+	args []string,
 ) (string, string, string) {
-	args := []string{"machine-agent", "run", "--openase-binary-path", input.BinaryPath}
-	if input.AgentCLIPath != "" {
-		args = append(args, "--agent-cli-path", input.AgentCLIPath)
-	}
-	if input.HeartbeatInterval > 0 {
-		args = append(args, "--heartbeat-interval", input.HeartbeatInterval.String())
-	}
-
 	switch platform.ServiceManager {
 	case "launchd":
-		servicePath := filepath.Join(platform.RemoteHome, "Library", "LaunchAgents", "com."+machineAgentServiceName+".plist")
+		servicePath := filepath.Join(platform.RemoteHome, "Library", "LaunchAgents", "com."+input.ServiceName+".plist")
 		target := buildLaunchdBootstrapTarget(platform.UID)
-		return servicePath, buildMachineAgentLaunchdPlist("com."+machineAgentServiceName, input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nlaunchctl bootout "+sshinfra.ShellQuote(target)+" >/dev/null 2>&1 || true\nlaunchctl bootstrap "+sshinfra.ShellQuote(target)+" "+sshinfra.ShellQuote(servicePath)+"\nlaunchctl enable "+sshinfra.ShellQuote(target+"/com."+machineAgentServiceName)+" >/dev/null 2>&1 || true\nlaunchctl kickstart -k "+sshinfra.ShellQuote(target+"/com."+machineAgentServiceName)+"\nlaunchctl print "+sshinfra.ShellQuote(target+"/com."+machineAgentServiceName))
+		return servicePath, buildMachineAgentLaunchdPlist("com."+input.ServiceName, input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nlaunchctl bootout "+sshinfra.ShellQuote(target)+" >/dev/null 2>&1 || true\nlaunchctl bootstrap "+sshinfra.ShellQuote(target)+" "+sshinfra.ShellQuote(servicePath)+"\nlaunchctl enable "+sshinfra.ShellQuote(target+"/com."+input.ServiceName)+" >/dev/null 2>&1 || true\nlaunchctl kickstart -k "+sshinfra.ShellQuote(target+"/com."+input.ServiceName)+"\nlaunchctl print "+sshinfra.ShellQuote(target+"/com."+input.ServiceName))
 	default:
-		return layout.ServiceFile, buildMachineAgentSystemdUnit(input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nsystemctl --user daemon-reload\nsystemctl --user enable "+sshinfra.ShellQuote(machineAgentServiceName+".service")+" >/dev/null\nsystemctl --user restart "+sshinfra.ShellQuote(machineAgentServiceName+".service")+"\nsystemctl --user is-active "+sshinfra.ShellQuote(machineAgentServiceName+".service"))
+		return layout.ServiceFile, buildMachineAgentSystemdUnit(input, args), "sh -lc " + sshinfra.ShellQuote("set -eu\nmkdir -p "+sshinfra.ShellQuote(filepath.Dir(input.StdoutPath))+" "+sshinfra.ShellQuote(filepath.Dir(input.StderrPath))+"\nsystemctl --user daemon-reload\nsystemctl --user enable "+sshinfra.ShellQuote(input.ServiceName+".service")+" >/dev/null\nsystemctl --user restart "+sshinfra.ShellQuote(input.ServiceName+".service")+"\nsystemctl --user is-active "+sshinfra.ShellQuote(input.ServiceName+".service"))
 	}
 }
 
@@ -727,16 +1100,16 @@ func buildMachineSSHDiagnosticCommand(platform machineSSHPlatformInfo, layout ma
 	switch platform.ServiceManager {
 	case "launchd":
 		target := buildLaunchdBootstrapTarget(platform.UID)
-		return "sh -lc " + sshinfra.ShellQuote("launchctl print "+sshinfra.ShellQuote(target+"/com."+machineAgentServiceName)+" 2>&1 || true\ntail -n 20 "+sshinfra.ShellQuote(layout.StdoutPath)+" "+sshinfra.ShellQuote(layout.StderrPath)+" 2>&1 || true")
+		return "sh -lc " + sshinfra.ShellQuote("launchctl print "+sshinfra.ShellQuote(target+"/com."+layout.ServiceName)+" 2>&1 || true\ntail -n 20 "+sshinfra.ShellQuote(layout.StdoutPath)+" "+sshinfra.ShellQuote(layout.StderrPath)+" 2>&1 || true")
 	default:
-		return "sh -lc " + sshinfra.ShellQuote("systemctl --user show -p ActiveState -p SubState "+sshinfra.ShellQuote(machineAgentServiceName+".service")+" 2>&1 || true\njournalctl --user -u "+sshinfra.ShellQuote(machineAgentServiceName+".service")+" -n 20 --no-pager 2>&1 || true")
+		return "sh -lc " + sshinfra.ShellQuote("systemctl --user show -p ActiveState -p SubState "+sshinfra.ShellQuote(layout.ServiceName+".service")+" 2>&1 || true\njournalctl --user -u "+sshinfra.ShellQuote(layout.ServiceName+".service")+" -n 20 --no-pager 2>&1 || true")
 	}
 }
 
 func buildMachineAgentSystemdUnit(input machineSSHServiceInstallInput, args []string) string {
 	var builder strings.Builder
 	builder.WriteString("[Unit]\n")
-	builder.WriteString("Description=OpenASE machine-agent\n")
+	builder.WriteString("Description=" + firstNonEmpty(input.ServiceLabel, "OpenASE machine service") + "\n")
 	builder.WriteString("After=network.target\n\n")
 	builder.WriteString("[Service]\n")
 	builder.WriteString("Type=simple\n")
@@ -855,6 +1228,76 @@ func runRemoteSSHCommand(ctx context.Context, client sshinfra.Client, command st
 
 	output, err := session.CombinedOutput(command)
 	return string(output), err
+}
+
+func probeMachineSSHListenerEndpoint(ctx context.Context, machine catalogdomain.Machine) error {
+	endpoint := strings.TrimSpace(pointerString(machine.AdvertisedEndpoint))
+	if endpoint == "" {
+		return fmt.Errorf("listener websocket endpoint is not configured for machine %s", machine.Name)
+	}
+
+	header := http.Header{}
+	switch machine.ChannelCredential.Kind {
+	case catalogdomain.MachineChannelCredentialKindNone, "":
+	case catalogdomain.MachineChannelCredentialKindToken:
+		token := strings.TrimSpace(pointerString(machine.ChannelCredential.TokenID))
+		if token == "" {
+			return fmt.Errorf("listener websocket token is not configured for machine %s", machine.Name)
+		}
+		header.Set("Authorization", "Bearer "+token)
+	default:
+		return fmt.Errorf("listener websocket credential kind %q is not supported", machine.ChannelCredential.Kind)
+	}
+
+	conn, response, err := (&websocket.Dialer{
+		HandshakeTimeout: 5 * time.Second,
+	}).DialContext(ctx, endpoint, header)
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
+	}
+	if err != nil {
+		return classifyMachineSSHListenerProbeError(machine, endpoint, response, err)
+	}
+	_ = conn.Close()
+	return nil
+}
+
+func classifyMachineSSHListenerProbeError(
+	machine catalogdomain.Machine,
+	endpoint string,
+	response *http.Response,
+	err error,
+) error {
+	if response != nil {
+		switch response.StatusCode {
+		case http.StatusUnauthorized, http.StatusForbidden:
+			return fmt.Errorf("listener websocket authentication failed for machine %s at %s", machine.Name, endpoint)
+		default:
+			return fmt.Errorf("listener websocket handshake failed for machine %s at %s: %s", machine.Name, endpoint, response.Status)
+		}
+	}
+
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return fmt.Errorf("listener websocket DNS resolution failed for machine %s at %s: %w", machine.Name, endpoint, err)
+	}
+
+	var hostnameErr x509.HostnameError
+	if errors.As(err, &hostnameErr) {
+		return fmt.Errorf("listener websocket host verification failed for machine %s at %s: %w", machine.Name, endpoint, err)
+	}
+
+	var authorityErr x509.UnknownAuthorityError
+	if errors.As(err, &authorityErr) {
+		return fmt.Errorf("listener websocket TLS verification failed for machine %s at %s: %w", machine.Name, endpoint, err)
+	}
+
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return fmt.Errorf("listener websocket endpoint unreachable for machine %s at %s: %w", machine.Name, endpoint, err)
+	}
+
+	return fmt.Errorf("listener websocket dial failed for machine %s at %s: %w", machine.Name, endpoint, err)
 }
 
 func optionalTrimmedString(raw *string) *string {

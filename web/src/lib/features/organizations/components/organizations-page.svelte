@@ -21,6 +21,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Bot, Coins, FolderOpen, Settings, Ticket } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const organizations = $derived(appStore.organizations)
   const providers = $derived(appStore.providers)
@@ -74,7 +75,7 @@
 </script>
 
 <svelte:head>
-  <title>Workspace - OpenASE</title>
+  <title>{i18nStore.t('organizations.page.title')}</title>
 </svelte:head>
 
 <div data-testid="route-scroll-container" class="min-h-0 flex-1 overflow-y-auto">
@@ -82,33 +83,48 @@
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <div class="flex items-center gap-1">
-          <h1 class="text-foreground text-2xl font-semibold">Workspace</h1>
+          <h1 class="text-foreground text-2xl font-semibold">
+            {i18nStore.t('organizations.heading')}
+          </h1>
           <Button variant="ghost" size="icon" href="/admin" class="text-muted-foreground size-7">
             <Settings class="size-4" />
-            <span class="sr-only">Instance settings</span>
+            <span class="sr-only">
+              {i18nStore.t('organizations.actions.instanceSettings')}
+            </span>
           </Button>
         </div>
         <p class="text-muted-foreground mt-1 text-sm">
-          {organizations.length}
-          {organizations.length === 1 ? 'organization' : 'organizations'} · {totalProjects}
-          {totalProjects === 1 ? 'project' : 'projects'} · {providers.length}
-          {providers.length === 1 ? 'provider' : 'providers'}
+          {i18nStore.t('organizations.summary', {
+            orgCount: organizations.length,
+            projectCount: totalProjects,
+            providerCount: providers.length,
+          })}
         </p>
       </div>
-      <Button onclick={() => (showCreateDialog = true)}>New organization</Button>
+      <Button onclick={() => (showCreateDialog = true)}>
+        {i18nStore.t('organizations.actions.newOrganization')}
+      </Button>
     </div>
 
     {#if organizations.length > 0}
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Running Agents" value={workspaceStats.runningAgents} icon={Bot} />
-        <StatCard label="Active Tickets" value={workspaceStats.activeTickets} icon={Ticket} />
         <StatCard
-          label="Today's Spend"
+          label={i18nStore.t('organizations.stats.runningAgents')}
+          value={workspaceStats.runningAgents}
+          icon={Bot}
+        />
+        <StatCard
+          label={i18nStore.t('organizations.stats.activeTickets')}
+          value={workspaceStats.activeTickets}
+          icon={Ticket}
+        />
+        <StatCard
+          label={i18nStore.t('organizations.stats.todaysSpend')}
           value={formatCurrency(workspaceStats.todayCost)}
           icon={Coins}
         />
         <StatCard
-          label="Total Tokens"
+          label={i18nStore.t('organizations.stats.totalTokens')}
           value={formatCount(workspaceStats.totalTokens)}
           icon={FolderOpen}
         />
@@ -116,7 +132,9 @@
     {/if}
 
     <section class="space-y-4">
-      <h2 class="text-foreground text-lg font-semibold">Organizations</h2>
+      <h2 class="text-foreground text-lg font-semibold">
+        {i18nStore.t('organizations.sections.organizations.title')}
+      </h2>
 
       {#if organizations.length > 0}
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -141,18 +159,24 @@
                     openDelete(org)
                   }}
                 >
-                  Archive
+                  {i18nStore.t('organizations.cards.archive')}
                 </Button>
               </div>
 
               {#if metrics}
+                {@const projectLabel =
+                  metrics.projectCount === 1
+                    ? 'organizations.cards.metrics.projectSingle'
+                    : 'organizations.cards.metrics.projectPlural'}
+                {@const providerLabel =
+                  metrics.providerCount === 1
+                    ? 'organizations.cards.metrics.providerSingle'
+                    : 'organizations.cards.metrics.providerPlural'}
                 <div
                   class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
                 >
-                  <span>{metrics.projectCount} project{metrics.projectCount !== 1 ? 's' : ''}</span>
-                  <span
-                    >{metrics.providerCount} provider{metrics.providerCount !== 1 ? 's' : ''}</span
-                  >
+                  <span>{metrics.projectCount} {i18nStore.t(projectLabel)}</span>
+                  <span>{metrics.providerCount} {i18nStore.t(providerLabel)}</span>
                   <span class="flex items-center gap-1">
                     <Bot class="size-3" />
                     {metrics.runningAgents}
@@ -167,22 +191,28 @@
                   </span>
                 </div>
               {:else if loading}
-                <div class="text-muted-foreground mt-3 text-xs">Loading metrics…</div>
+                <div class="text-muted-foreground mt-3 text-xs">
+                  {i18nStore.t('organizations.cards.loadingMetrics')}
+                </div>
               {/if}
             </a>
           {/each}
         </div>
       {:else if appStore.appContextLoading}
-        <div class="text-muted-foreground text-sm">Loading organizations…</div>
+        <div class="text-muted-foreground text-sm">
+          {i18nStore.t('organizations.loading')}
+        </div>
       {:else}
         <button
           type="button"
           class="border-border hover:border-foreground/20 hover:bg-card w-full rounded-lg border border-dashed px-4 py-12 text-center transition-colors"
           onclick={() => (showCreateDialog = true)}
         >
-          <p class="text-muted-foreground text-sm">No organizations yet.</p>
+          <p class="text-muted-foreground text-sm">
+            {i18nStore.t('organizations.emptyState.noOrganizations')}
+          </p>
           <p class="text-foreground mt-1 text-sm font-medium">
-            Create your first organization to get started
+            {i18nStore.t('organizations.emptyState.createFirst')}
           </p>
         </button>
       {/if}
@@ -190,7 +220,9 @@
 
     {#if providers.length > 0}
       <section class="space-y-4">
-        <h2 class="text-foreground text-lg font-semibold">Providers</h2>
+        <h2 class="text-foreground text-lg font-semibold">
+          {i18nStore.t('organizations.sections.providers.title')}
+        </h2>
         <div class="border-border divide-border divide-y rounded-lg border">
           {#each providers as provider (provider.id)}
             <div class="flex items-center justify-between gap-4 px-4 py-3">

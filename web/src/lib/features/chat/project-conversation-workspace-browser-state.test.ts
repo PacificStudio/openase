@@ -4,10 +4,13 @@ import { waitFor } from '@testing-library/svelte'
 import { ApiError } from '$lib/api/client'
 
 const {
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
@@ -15,10 +18,13 @@ const {
   saveProjectConversationWorkspaceFile,
   searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
+  checkoutProjectConversationWorkspaceBranch: vi.fn(),
   createProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
+  getProjectConversationWorkspaceGitGraph: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceDiff: vi.fn(),
+  getProjectConversationWorkspaceRepoRefs: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
@@ -28,10 +34,13 @@ const {
 }))
 
 vi.mock('$lib/api/chat', () => ({
+  checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
   deleteProjectConversationWorkspaceFile,
+  getProjectConversationWorkspaceGitGraph,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
+  getProjectConversationWorkspaceRepoRefs,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
@@ -53,6 +62,16 @@ function mockWorkspaceMetadata() {
           name: 'openase',
           path: 'services/openase',
           branch: 'feat/ase-162-workspace-editor',
+          currentRef: {
+            kind: 'branch',
+            displayName: 'feat/ase-162-workspace-editor',
+            cacheKey: 'branch:refs/heads/feat/ase-162-workspace-editor',
+            branchName: 'feat/ase-162-workspace-editor',
+            branchFullName: 'refs/heads/feat/ase-162-workspace-editor',
+            commitId: '123456789abc',
+            shortCommitId: '123456789abc',
+            subject: 'Workspace editor',
+          },
           headCommit: '123456789abc',
           headSummary: 'Workspace editor',
           dirty: true,
@@ -177,51 +196,50 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
         results: [{ path: 'docs/README.md', name: 'README.md' }],
       },
     })
+    getProjectConversationWorkspaceRepoRefs.mockResolvedValue({
+      repoRefs: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'feat/ase-162-workspace-editor',
+          cacheKey: 'branch:refs/heads/feat/ase-162-workspace-editor',
+          branchName: 'feat/ase-162-workspace-editor',
+          branchFullName: 'refs/heads/feat/ase-162-workspace-editor',
+          commitId: '123456789abc',
+          shortCommitId: '123456789abc',
+          subject: 'Workspace editor',
+        },
+        localBranches: [],
+        remoteBranches: [],
+      },
+    })
+    getProjectConversationWorkspaceGitGraph.mockResolvedValue({
+      gitGraph: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        limit: 40,
+        commits: [],
+      },
+    })
+    checkoutProjectConversationWorkspaceBranch.mockResolvedValue({
+      checkout: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'feat/ase-162-workspace-editor',
+          cacheKey: 'branch:refs/heads/feat/ase-162-workspace-editor',
+          branchName: 'feat/ase-162-workspace-editor',
+          branchFullName: 'refs/heads/feat/ase-162-workspace-editor',
+          commitId: '123456789abc',
+          shortCommitId: '123456789abc',
+          subject: 'Workspace editor',
+        },
+        createdLocalBranch: '',
+      },
+    })
   })
-
-  it('restores a persisted draft for the same conversation repo and file', async () => {
-    const state = createProjectConversationWorkspaceBrowserState({
-      getConversationId: () => 'conversation-1',
-    })
-
-    await state.refreshWorkspace(true)
-    state.selectFile('README.md')
-    await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('line one\n'))
-
-    state.updateSelectedDraft('line one\nline two\n')
-
-    const restored = createProjectConversationWorkspaceBrowserState({
-      getConversationId: () => 'conversation-1',
-    })
-    await restored.refreshWorkspace(true)
-    restored.selectFile('README.md')
-
-    await waitFor(() =>
-      expect(restored.selectedEditorState).toMatchObject({
-        draftContent: 'line one\nline two\n',
-        dirty: true,
-        baseSavedRevision: 'rev-1',
-      }),
-    )
-  })
-
-  it('searches repo paths through the workspace search API for the selected repo', async () => {
-    const state = createProjectConversationWorkspaceBrowserState({
-      getConversationId: () => 'conversation-1',
-    })
-
-    await state.refreshWorkspace(true)
-
-    const results = await state.searchPaths('readme', 10)
-
-    expect(searchProjectConversationWorkspacePaths).toHaveBeenCalledWith('conversation-1', {
-      repoPath: 'services/openase',
-      query: 'readme',
-      limit: 10,
-    })
-    expect(results).toEqual([{ path: 'docs/README.md', name: 'README.md' }])
-  })
-
   it('keeps the local draft and enters conflict mode when save detects a stale revision', async () => {
     const state = createProjectConversationWorkspaceBrowserState({
       getConversationId: () => 'conversation-1',

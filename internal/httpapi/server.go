@@ -22,6 +22,7 @@ import (
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
+	"github.com/BetterAndBetterII/openase/internal/machinesetup"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -77,6 +78,7 @@ type Server struct {
 	machineChannel              *machinechannelservice.Service
 	machineSessions             *machinechannelservice.SessionRegistry
 	reverseRuntimeRelay         *machinetransport.ReverseRuntimeRelayRegistry
+	sshBootstrapper             machinesetup.Bootstrapper
 	shutdownCtx                 context.Context
 	shutdownCancel              context.CancelFunc
 	shutdownOnce                sync.Once
@@ -218,6 +220,12 @@ func WithReverseRuntimeRelay(relay *machinetransport.ReverseRuntimeRelayRegistry
 	}
 }
 
+func WithSSHBootstrapper(bootstrapper machinesetup.Bootstrapper) ServerOption {
+	return func(server *Server) {
+		server.sshBootstrapper = bootstrapper
+	}
+}
+
 func NewServer(
 	cfg config.ServerConfig,
 	github config.GitHubConfig,
@@ -227,6 +235,33 @@ func NewServer(
 	ticketStatusService *ticketstatus.Service,
 	agentPlatform *agentplatform.Service,
 	catalog catalogservice.Service,
+	workflowService *workflowservice.Service,
+	opts ...ServerOption,
+) *Server {
+	return NewServerWithServices(
+		cfg,
+		github,
+		logger,
+		events,
+		ticketService,
+		ticketStatusService,
+		agentPlatform,
+		catalogservice.SplitServices(catalog),
+		workflowService,
+		opts...,
+	)
+}
+
+// NewServerWithServices keeps production wiring on the explicit narrow catalog ports.
+func NewServerWithServices(
+	cfg config.ServerConfig,
+	github config.GitHubConfig,
+	logger *slog.Logger,
+	events provider.EventProvider,
+	ticketService *ticketservice.Service,
+	ticketStatusService *ticketstatus.Service,
+	agentPlatform *agentplatform.Service,
+	catalog catalogservice.Services,
 	workflowService *workflowservice.Service,
 	opts ...ServerOption,
 ) *Server {
@@ -264,7 +299,7 @@ func NewServer(
 		ticketService:       ticketService,
 		ticketStatusService: ticketStatusService,
 		agentPlatform:       agentPlatform,
-		catalog:             catalogservice.SplitServices(catalog),
+		catalog:             catalog,
 		workflowService:     workflowService,
 		memoryCollector:     runtimeobservability.RuntimeProcessMemoryCollector{},
 		shutdownCtx:         shutdownCtx,

@@ -45,6 +45,7 @@ var (
 
 type MachineMonitorCollector interface {
 	CollectReachability(ctx context.Context, machine domain.Machine) (domain.MachineReachability, error)
+	CollectWebsocketHealth(ctx context.Context, machine domain.Machine) (domain.WebsocketMachineHealth, error)
 	CollectSystemResources(ctx context.Context, machine domain.Machine) (domain.MachineSystemResources, error)
 	CollectGPUResources(ctx context.Context, machine domain.Machine) (domain.MachineGPUResources, error)
 	CollectAgentEnvironment(ctx context.Context, machine domain.Machine) (domain.MachineAgentEnvironment, error)
@@ -69,6 +70,19 @@ type MachineMonitor struct {
 	collector MachineMonitorCollector
 	events    provider.EventProvider
 	now       func() time.Time
+}
+
+type localMachineProbeFanoutState struct {
+	level2Due bool
+	level3Due bool
+
+	systemLoaded bool
+	systemResult domain.MachineSystemResources
+	systemErr    error
+
+	gpuLoaded bool
+	gpuResult domain.MachineGPUResources
+	gpuErr    error
 }
 
 func NewMachineMonitor(client *ent.Client, logger *slog.Logger, collector MachineMonitorCollector) *MachineMonitor {
@@ -108,11 +122,14 @@ func (m *MachineMonitor) RunTick(ctx context.Context) (MachineMonitorReport, err
 	}
 
 	now := m.now().UTC()
+	machines := make([]monitoredMachine, 0, len(items))
 	for _, item := range items {
 		report.MachinesScanned++
-
-		current := mapMachineEntity(item)
-		updated, changed := m.runMachineTick(ctx, current, now, &report)
+		machines = append(machines, mapMachineEntity(item))
+	}
+	localFanout := planLocalMachineProbeFanout(machines, now)
+	for _, current := range machines {
+		updated, changed := m.runMachineTick(ctx, current, now, &report, localFanout[localMachineProbeFanoutKey(current)])
 		if !changed {
 			continue
 		}
@@ -151,11 +168,15 @@ type monitoredMachine struct {
 	Host               string
 	Port               int
 	ConnectionMode     entmachine.ConnectionMode
+	ReachabilityMode   entmachine.ReachabilityMode
+	ExecutionMode      entmachine.ExecutionMode
 	SSHUser            *string
 	SSHKeyPath         *string
 	AdvertisedEndpoint *string
 	WorkspaceRoot      *string
 	AgentCLIPath       *string
+	AgentCLIPaths      domain.MachineAgentCLIPaths
+	EnvVars            []string
 	DaemonStatus       domain.MachineDaemonStatus
 	Status             entmachine.Status
 	Labels             []string
@@ -164,29 +185,44 @@ type monitoredMachine struct {
 }
 
 func (m monitoredMachine) toDomain() domain.Machine {
+	connectionMode, reachabilityMode, executionMode := resolveMonitoredMachineTransport(m)
 	return domain.Machine{
 		ID:                 m.ID,
 		OrganizationID:     m.OrganizationID,
 		Name:               m.Name,
 		Host:               m.Host,
 		Port:               m.Port,
-		ConnectionMode:     domain.MachineConnectionMode(m.ConnectionMode),
+		ReachabilityMode:   reachabilityMode,
+		ExecutionMode:      executionMode,
+		ConnectionMode:     connectionMode,
 		SSHUser:            m.SSHUser,
 		SSHKeyPath:         m.SSHKeyPath,
 		AdvertisedEndpoint: m.AdvertisedEndpoint,
 		WorkspaceRoot:      m.WorkspaceRoot,
 		AgentCLIPath:       m.AgentCLIPath,
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(m.AgentCLIPaths),
+		EnvVars:            append([]string(nil), m.EnvVars...),
 		DaemonStatus:       m.DaemonStatus,
 		Labels:             append([]string(nil), m.Labels...),
 	}
 }
 
-func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMachine, now time.Time, report *MachineMonitorReport) (monitoredMachine, bool) {
+func (m *MachineMonitor) runMachineTick(
+	ctx context.Context,
+	machine monitoredMachine,
+	now time.Time,
+	report *MachineMonitorReport,
+	localFanout *localMachineProbeFanoutState,
+) (monitoredMachine, bool) {
 	level1Due := machineMonitorDue(machine.Resources, "l1", now, machineMonitorLevel1Interval)
 	level2Due := machineMonitorDue(machine.Resources, "l2", now, machineMonitorLevel2Interval)
 	level3Due := machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
 	level4Due := machineMonitorDue(machine.Resources, "l4", now, machineMonitorLevel4Interval)
 	level5Due := machineMonitorDue(machine.Resources, "l5", now, machineMonitorLevel5Interval)
+	if localFanout != nil {
+		level2Due = level2Due || localFanout.level2Due
+		level3Due = level3Due || localFanout.level3Due
+	}
 	logger := m.machineLogger(machine)
 	if !level1Due && !level2Due && !level3Due && !level4Due && !level5Due {
 		return machine, false
@@ -211,6 +247,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	systemProbeFailure := false
 	level4ProbeFailure := false
 	level5ProbeFailure := false
+	websocketLayerFailure := false
 	domainMachine := machine.toDomain()
 	isWebsocketMachine := domainMachine.ConnectionMode == domain.MachineConnectionModeWSReverse || domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener
 
@@ -252,8 +289,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	}
 
 	if level2Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
-		report.L2Checks++
-		systemResources, err := m.collector.CollectSystemResources(ctx, domainMachine)
+		systemResources, err := m.collectSystemResources(ctx, domainMachine, report, localFanout)
 		if err != nil {
 			systemProbeFailure = true
 			setMachineMonitorError(resources, "l2", err.Error())
@@ -274,8 +310,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	}
 
 	if level3Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
-		report.L3Checks++
-		gpuResources, err := m.collector.CollectGPUResources(ctx, domainMachine)
+		gpuResources, err := m.collectGPUResources(ctx, domainMachine, report, localFanout)
 		if err != nil {
 			setMachineMonitorError(resources, "l3", err.Error())
 			logger.Warn("machine monitor l3 gpu probe failed", "error", err)
@@ -288,6 +323,99 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 				"gpu_count", len(gpuResources.GPUs),
 			)
 		}
+	}
+
+	if (level2Due || level3Due || level4Due || level5Due) && !softReachabilityFailure && !hardReachabilityFailure && isWebsocketMachine {
+		if level2Due && domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener {
+			report.L2Checks++
+			systemResources, err := m.collector.CollectSystemResources(ctx, domainMachine)
+			if err != nil {
+				systemProbeFailure = true
+				setMachineMonitorError(resources, "l2", err.Error())
+				logger.Warn("machine monitor l2 system probe failed", "error", err)
+			} else {
+				updateL2Resources(resources, systemResources)
+				clearMachineMonitorError(resources, "l2")
+				logger.Info("machine monitor l2 system probe completed",
+					"collected_at", formatMachineMonitorTime(systemResources.CollectedAt),
+					"cpu_cores", systemResources.CPUCores,
+					"cpu_usage_percent", systemResources.CPUUsagePercent,
+					"memory_available_gb", systemResources.MemoryAvailableGB,
+					"memory_available_percent", systemResources.MemoryAvailablePercent,
+					"disk_available_gb", systemResources.DiskAvailableGB,
+					"disk_available_percent", systemResources.DiskAvailablePercent,
+				)
+			}
+		}
+		if level3Due {
+			report.L3Checks++
+		}
+		if level4Due {
+			report.L4Checks++
+			if domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener {
+				agentEnvironment, err := m.collector.CollectAgentEnvironment(ctx, domainMachine)
+				if err != nil {
+					level4ProbeFailure = true
+					setMachineMonitorError(resources, "l4", err.Error())
+					logger.Warn("machine monitor l4 agent environment probe failed", "error", err)
+				} else {
+					updateL4Resources(resources, agentEnvironment)
+					clearMachineMonitorError(resources, "l4")
+					logger.Info("machine monitor l4 agent environment probe completed",
+						"collected_at", formatMachineMonitorTime(agentEnvironment.CollectedAt),
+						"dispatchable", agentEnvironment.Dispatchable,
+						"cli_count", len(agentEnvironment.CLIs),
+					)
+				}
+			}
+		}
+		if level5Due {
+			report.L5Checks++
+			if domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener {
+				fullAudit, err := m.collector.CollectFullAudit(ctx, domainMachine)
+				if err != nil {
+					level5ProbeFailure = true
+					setMachineMonitorError(resources, "l5", err.Error())
+					logger.Warn("machine monitor l5 full audit failed", "error", err)
+				} else {
+					updateL5Resources(resources, fullAudit)
+					clearMachineMonitorError(resources, "l5")
+					logger.Info("machine monitor l5 full audit completed",
+						"collected_at", formatMachineMonitorTime(fullAudit.CollectedAt),
+						"git_installed", fullAudit.Git.Installed,
+						"github_cli_installed", fullAudit.GitHubCLI.Installed,
+						"github_cli_auth_status", string(fullAudit.GitHubCLI.AuthStatus),
+						"github_reachable", fullAudit.Network.GitHubReachable,
+						"pypi_reachable", fullAudit.Network.PyPIReachable,
+						"npm_reachable", fullAudit.Network.NPMReachable,
+					)
+				}
+			}
+		}
+		websocketHealth, err := m.collector.CollectWebsocketHealth(ctx, domainMachine)
+		if err != nil {
+			logger.Warn("machine monitor websocket layered probe failed", "error", err)
+		} else {
+			logger.Info("machine monitor websocket layered probe completed",
+				"checked_at", formatMachineMonitorTime(websocketHealth.CheckedAt),
+				"transport_mode", websocketHealth.TransportMode.String(),
+				"l2_state", websocketHealth.L2.State.String(),
+				"l3_state", websocketHealth.L3.State.String(),
+				"l4_state", websocketHealth.L4.State.String(),
+				"l5_state", websocketHealth.L5.State.String(),
+			)
+		}
+		resources["websocket_health"] = domain.StoreWebsocketMachineHealth(websocketHealth)
+		if detectedOS, ok := websocketHealth.L5.Details["detected_os"].(string); ok && strings.TrimSpace(detectedOS) != "" {
+			resources["detected_os"] = strings.TrimSpace(detectedOS)
+		}
+		if detectedArch, ok := websocketHealth.L5.Details["detected_arch"].(string); ok && strings.TrimSpace(detectedArch) != "" {
+			resources["detected_arch"] = strings.TrimSpace(detectedArch)
+		}
+		websocketLayerFailure = domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L2) ||
+			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L3) ||
+			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L4) ||
+			domain.WebsocketHealthLayerAffectsMachineStatus(websocketHealth.L5)
 	}
 
 	if level4Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
@@ -337,15 +465,13 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		)
 	}
 
-	if machine.Status != entmachine.StatusMaintenance {
-		switch {
-		case hardReachabilityFailure:
-			status = entmachine.StatusOffline
-		case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || machineHasLowDisk(resources):
-			status = entmachine.StatusDegraded
-		default:
-			status = entmachine.StatusOnline
-		}
+	switch {
+	case hardReachabilityFailure:
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusOffline))
+	case softReachabilityFailure || systemProbeFailure || level4ProbeFailure || level5ProbeFailure || websocketLayerFailure || machineHasLowDisk(resources):
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusDegraded))
+	default:
+		status = entmachine.Status(domain.InferMachineRefreshedHealthStatus(domain.MachineStatus(machine.Status), domain.MachineStatusOnline))
 	}
 	logger.Info("machine monitor tick completed",
 		"checked_at", formatMachineMonitorTime(lastHeartbeatAt),
@@ -356,6 +482,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		"system_probe_failure", systemProbeFailure,
 		"agent_environment_failure", level4ProbeFailure,
 		"full_audit_failure", level5ProbeFailure,
+		"websocket_layer_failure", websocketLayerFailure,
 		"low_disk", machineHasLowDisk(resources),
 	)
 
@@ -371,12 +498,75 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		AdvertisedEndpoint: cloneMachineString(machine.AdvertisedEndpoint),
 		WorkspaceRoot:      cloneMachineString(machine.WorkspaceRoot),
 		AgentCLIPath:       cloneMachineString(machine.AgentCLIPath),
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(machine.AgentCLIPaths),
 		DaemonStatus:       machine.DaemonStatus,
 		Status:             status,
 		Labels:             append([]string(nil), machine.Labels...),
 		LastHeartbeatAt:    lastHeartbeatAt,
 		Resources:          resources,
 	}, true
+}
+
+func (m *MachineMonitor) collectSystemResources(
+	ctx context.Context,
+	machine domain.Machine,
+	report *MachineMonitorReport,
+	localFanout *localMachineProbeFanoutState,
+) (domain.MachineSystemResources, error) {
+	if localFanout == nil {
+		report.L2Checks++
+		return m.collector.CollectSystemResources(ctx, machine)
+	}
+	if !localFanout.systemLoaded {
+		report.L2Checks++
+		localFanout.systemResult, localFanout.systemErr = m.collector.CollectSystemResources(ctx, machine)
+		localFanout.systemLoaded = true
+	}
+	return localFanout.systemResult, localFanout.systemErr
+}
+
+func (m *MachineMonitor) collectGPUResources(
+	ctx context.Context,
+	machine domain.Machine,
+	report *MachineMonitorReport,
+	localFanout *localMachineProbeFanoutState,
+) (domain.MachineGPUResources, error) {
+	if localFanout == nil {
+		report.L3Checks++
+		return m.collector.CollectGPUResources(ctx, machine)
+	}
+	if !localFanout.gpuLoaded {
+		report.L3Checks++
+		localFanout.gpuResult, localFanout.gpuErr = m.collector.CollectGPUResources(ctx, machine)
+		localFanout.gpuLoaded = true
+	}
+	return localFanout.gpuResult, localFanout.gpuErr
+}
+
+func planLocalMachineProbeFanout(machines []monitoredMachine, now time.Time) map[string]*localMachineProbeFanoutState {
+	states := map[string]*localMachineProbeFanoutState{}
+	for _, machine := range machines {
+		key := localMachineProbeFanoutKey(machine)
+		if key == "" {
+			continue
+		}
+		state := states[key]
+		if state == nil {
+			state = &localMachineProbeFanoutState{}
+			states[key] = state
+		}
+		state.level2Due = state.level2Due || machineMonitorDue(machine.Resources, "l2", now, machineMonitorLevel2Interval)
+		state.level3Due = state.level3Due || machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
+	}
+	return states
+}
+
+func localMachineProbeFanoutKey(machine monitoredMachine) string {
+	connectionMode, _, _ := resolveMonitoredMachineTransport(machine)
+	if !domain.IsLocalMachineIdentity(machine.Name, machine.Host, connectionMode) {
+		return ""
+	}
+	return string(connectionMode) + "|" + machine.Name + "|" + machine.Host
 }
 
 func (m *MachineMonitor) publishRuntimeEvents(
@@ -574,6 +764,7 @@ func mapMonitoredAgentProvider(item *ent.AgentProvider, machine monitoredMachine
 		MachineSSHUser:       cloneMachineString(machine.SSHUser),
 		MachineWorkspaceRoot: cloneMachineString(machine.WorkspaceRoot),
 		MachineAgentCLIPath:  cloneMachineString(machine.AgentCLIPath),
+		MachineAgentCLIPaths: domain.CloneMachineAgentCLIPaths(machine.AgentCLIPaths),
 		MachineResources:     cloneResourceMap(machine.Resources),
 		Name:                 item.Name,
 		AdapterType:          domain.AgentProviderAdapterType(item.AdapterType.String()),
@@ -617,11 +808,15 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		Host:               item.Host,
 		Port:               item.Port,
 		ConnectionMode:     item.ConnectionMode,
+		ReachabilityMode:   item.ReachabilityMode,
+		ExecutionMode:      item.ExecutionMode,
 		SSHUser:            optionalMachineString(item.SSHUser),
 		SSHKeyPath:         optionalMachineString(item.SSHKeyPath),
 		AdvertisedEndpoint: optionalMachineString(item.AdvertisedEndpoint),
 		WorkspaceRoot:      optionalMachineString(item.WorkspaceRoot),
 		AgentCLIPath:       optionalMachineString(item.AgentCliPath),
+		AgentCLIPaths:      domain.CloneMachineAgentCLIPaths(domain.MachineAgentCLIPathsFromRaw(item.AgentCliPaths)),
+		EnvVars:            append([]string(nil), item.EnvVars...),
 		DaemonStatus: domain.MachineDaemonStatus{
 			Registered:       item.DaemonRegistered,
 			LastRegisteredAt: cloneTimePointer(item.DaemonLastRegisteredAt),
@@ -633,6 +828,27 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 		LastHeartbeatAt: lastHeartbeatAt,
 		Resources:       cloneResourceMap(item.Resources),
 	}
+}
+
+func resolveMonitoredMachineTransport(item monitoredMachine) (domain.MachineConnectionMode, domain.MachineReachabilityMode, domain.MachineExecutionMode) {
+	mode, reachabilityMode, executionMode, err := domain.ResolveStoredMachineTransport(
+		string(item.ConnectionMode),
+		string(item.ReachabilityMode),
+		string(item.ExecutionMode),
+		item.Host,
+	)
+	if err == nil {
+		return mode, reachabilityMode, executionMode
+	}
+	mode = domain.MachineConnectionMode(item.ConnectionMode)
+	if !mode.IsValid() {
+		if item.Host == domain.LocalMachineHost || item.Name == domain.LocalMachineName {
+			mode = domain.MachineConnectionModeLocal
+		} else {
+			mode = domain.MachineConnectionModeWSListener
+		}
+	}
+	return mode, mode.ReachabilityMode(), mode.ExecutionMode()
 }
 
 func cloneTimePointer(value *time.Time) *time.Time {

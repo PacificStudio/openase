@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/BetterAndBetterII/openase/internal/builtin"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	hrdomain "github.com/BetterAndBetterII/openase/internal/domain/hradvisor"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -215,75 +214,13 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 		})
 	}
 
-	analysis := hrservice.Analyze(snapshot)
-	recommendations := make([]hrAdvisorRecommendationResponse, 0, len(analysis.Recommendations))
-	for _, recommendation := range analysis.Recommendations {
-		roleTemplate, ok := builtin.RoleBySlug(recommendation.RoleSlug)
-		roleName := recommendation.RoleSlug
-		workflowType := recommendation.SuggestedWorkflowTypeLabel
-		workflowFamily := recommendation.SuggestedWorkflowFamily
-		summary := ""
-		harnessPath := ""
-		if ok {
-			roleName = roleTemplate.Name
-			workflowType = roleTemplate.WorkflowType
-			summary = roleTemplate.Summary
-			harnessPath = roleTemplate.HarnessPath
-			workflowFamily = string(workflowservice.ClassifyWorkflow(workflowservice.WorkflowClassificationInput{
-				RoleSlug:       roleTemplate.Slug,
-				TypeLabel:      workflowservice.MustParseTypeLabel(roleTemplate.WorkflowType),
-				WorkflowName:   roleTemplate.Name,
-				HarnessPath:    roleTemplate.HarnessPath,
-				HarnessContent: roleTemplate.Content,
-			}).Family)
-		}
-
-		activeWorkflowName, isActive := activeRoleWorkflows[recommendation.RoleSlug]
-		var activeWorkflowNamePtr *string
-		if isActive {
-			activeWorkflowNamePtr = &activeWorkflowName
-		}
-
-		recommendations = append(recommendations, hrAdvisorRecommendationResponse{
-			RoleSlug:                recommendation.RoleSlug,
-			RoleName:                roleName,
-			WorkflowType:            workflowType,
-			WorkflowFamily:          workflowFamily,
-			Summary:                 summary,
-			HarnessPath:             harnessPath,
-			Priority:                recommendation.Priority,
-			Reason:                  recommendation.Reason,
-			Evidence:                cloneStringSlice(recommendation.Evidence),
-			SuggestedHeadcount:      recommendation.SuggestedHeadcount,
-			SuggestedWorkflowName:   recommendation.SuggestedWorkflowName,
-			SuggestedWorkflowType:   recommendation.SuggestedWorkflowTypeLabel,
-			SuggestedWorkflowFamily: recommendation.SuggestedWorkflowFamily,
-			ActivationReady:         !isActive,
-			ActiveWorkflowName:      activeWorkflowNamePtr,
-		})
-	}
+	summary := buildHRAdvisorSummary(snapshot)
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"project_id": projectID.String(),
-		"summary": hrAdvisorSummaryResponse{
-			OpenTickets:            analysis.Summary.OpenTickets,
-			CodingTickets:          analysis.Summary.CodingTickets,
-			FailingTickets:         analysis.Summary.FailingTickets,
-			BlockedTickets:         analysis.Summary.BlockedTickets,
-			ActiveAgents:           analysis.Summary.ActiveAgents,
-			WorkflowCount:          analysis.Summary.WorkflowCount,
-			RecentActivityCount:    analysis.Summary.RecentActivityCount,
-			ActiveWorkflowFamilies: cloneStringSlice(analysis.Summary.ActiveWorkflowFamilies),
-		},
-		"staffing": hrAdvisorStaffingResponse{
-			Developers: analysis.Staffing.Developers,
-			QA:         analysis.Staffing.QA,
-			Docs:       analysis.Staffing.Docs,
-			Security:   analysis.Staffing.Security,
-			Product:    analysis.Staffing.Product,
-			Research:   analysis.Staffing.Research,
-		},
-		"recommendations": recommendations,
+		"project_id":      projectID.String(),
+		"summary":         summary,
+		"staffing":        hrAdvisorStaffingResponse{},
+		"recommendations": []hrAdvisorRecommendationResponse{},
 	})
 }
 
@@ -647,4 +584,39 @@ func statusBindingsFromIDs(
 		})
 	}
 	return bindings
+}
+
+func buildHRAdvisorSummary(snapshot hrdomain.Snapshot) hrAdvisorSummaryResponse {
+	openTickets := 0
+	failingTickets := 0
+	blockedTickets := 0
+	activeAgents := 0
+	for _, ticketItem := range snapshot.Tickets {
+		stage := strings.ToLower(strings.TrimSpace(ticketItem.StatusStage))
+		if stage != "completed" && stage != "canceled" && stage != "archived" {
+			openTickets++
+		}
+		if ticketItem.ConsecutiveErrors > 0 || ticketItem.RetryPaused {
+			failingTickets++
+		}
+		if ticketItem.RetryPaused {
+			blockedTickets++
+		}
+	}
+	for _, agentItem := range snapshot.Agents {
+		switch strings.TrimSpace(agentItem.Status) {
+		case "idle", "claimed", "running":
+			activeAgents++
+		}
+	}
+	return hrAdvisorSummaryResponse{
+		OpenTickets:            openTickets,
+		CodingTickets:          0,
+		FailingTickets:         failingTickets,
+		BlockedTickets:         blockedTickets,
+		ActiveAgents:           activeAgents,
+		WorkflowCount:          len(snapshot.Workflows),
+		RecentActivityCount:    snapshot.RecentActivityCount,
+		ActiveWorkflowFamilies: []string{},
+	}
 }

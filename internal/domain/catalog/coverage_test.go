@@ -563,6 +563,119 @@ func TestCatalogProviderAvailabilityHelpers(t *testing.T) {
 	if providerLaunchConfigComplete(AgentProvider{MachineHost: "10.0.0.10", CliCommand: "codex"}) {
 		t.Fatal("providerLaunchConfigComplete(remote missing workspace) expected false")
 	}
+	legacyCLIPath := "/usr/local/bin/codex-legacy"
+	scopedMachinePath := "/opt/codex/bin/codex"
+	scopedProviderPath := "/opt/provider/bin/codex"
+	if got := CloneMachineAgentCLIPaths(nil); got != nil {
+		t.Fatalf("CloneMachineAgentCLIPaths(nil) = %+v, want nil", got)
+	}
+	rawCLIPaths := MachineAgentCLIPathsFromRaw(map[string]string{
+		AgentProviderAdapterTypeCodexAppServer.String(): " /opt/raw/codex ",
+	})
+	if got := rawCLIPaths[AgentProviderAdapterTypeCodexAppServer]; got != " /opt/raw/codex " {
+		t.Fatalf("MachineAgentCLIPathsFromRaw() = %+v", rawCLIPaths)
+	}
+	if MachineAgentCLIPathsFromRaw(nil) != nil {
+		t.Fatal("MachineAgentCLIPathsFromRaw(nil) expected nil")
+	}
+	if parsed, err := parseMachineAgentCLIPaths(nil); err != nil || parsed != nil {
+		t.Fatalf("parseMachineAgentCLIPaths(nil) = %+v, %v", parsed, err)
+	}
+	sourceCLIPaths := MachineAgentCLIPaths{
+		AgentProviderAdapterTypeCodexAppServer: scopedMachinePath,
+	}
+	clonedCLIPaths := CloneMachineAgentCLIPaths(sourceCLIPaths)
+	clonedCLIPaths[AgentProviderAdapterTypeCodexAppServer] = "/mutated"
+	if sourceCLIPaths[AgentProviderAdapterTypeCodexAppServer] != scopedMachinePath {
+		t.Fatal("CloneMachineAgentCLIPaths() mutated source map")
+	}
+	if got := ResolveMachineAgentCLIPath(
+		Machine{
+			AgentCLIPath: &legacyCLIPath,
+			AgentCLIPaths: MachineAgentCLIPaths{
+				AgentProviderAdapterTypeCodexAppServer: scopedMachinePath,
+			},
+		},
+		AgentProviderAdapterTypeCodexAppServer,
+	); got == nil || *got != scopedMachinePath {
+		t.Fatalf("ResolveMachineAgentCLIPath(scoped) = %v, want %q", got, scopedMachinePath)
+	}
+	if got := ResolveMachineAgentCLIPath(
+		Machine{AgentCLIPath: &legacyCLIPath},
+		AgentProviderAdapterTypeCodexAppServer,
+	); got == nil || *got != legacyCLIPath {
+		t.Fatalf("ResolveMachineAgentCLIPath(legacy) = %v, want %q", got, legacyCLIPath)
+	}
+	if got := ResolveMachineAgentCLIPath(
+		Machine{
+			AgentCLIPath: &legacyCLIPath,
+			AgentCLIPaths: MachineAgentCLIPaths{
+				AgentProviderAdapterTypeCodexAppServer: scopedMachinePath,
+			},
+		},
+		AgentProviderAdapterTypeGeminiCLI,
+	); got != nil {
+		t.Fatalf("ResolveMachineAgentCLIPath(missing scoped adapter) = %v, want nil", got)
+	}
+	if got := ResolveProviderMachineAgentCLIPath(AgentProvider{
+		AdapterType:         AgentProviderAdapterTypeCodexAppServer,
+		MachineAgentCLIPath: &legacyCLIPath,
+		MachineAgentCLIPaths: MachineAgentCLIPaths{
+			AgentProviderAdapterTypeCodexAppServer: scopedProviderPath,
+		},
+	}); got == nil || *got != scopedProviderPath {
+		t.Fatalf("ResolveProviderMachineAgentCLIPath(scoped) = %v, want %q", got, scopedProviderPath)
+	}
+	if got := ResolveProviderMachineAgentCLIPath(AgentProvider{
+		AdapterType:         AgentProviderAdapterTypeCodexAppServer,
+		MachineAgentCLIPath: &legacyCLIPath,
+	}); got == nil || *got != legacyCLIPath {
+		t.Fatalf("ResolveProviderMachineAgentCLIPath(legacy) = %v, want %q", got, legacyCLIPath)
+	}
+	if got := ResolveProviderMachineAgentCLIPath(AgentProvider{
+		AdapterType:         AgentProviderAdapterTypeGeminiCLI,
+		MachineAgentCLIPath: &legacyCLIPath,
+		MachineAgentCLIPaths: MachineAgentCLIPaths{
+			AgentProviderAdapterTypeCodexAppServer: scopedProviderPath,
+		},
+	}); got != nil {
+		t.Fatalf("ResolveProviderMachineAgentCLIPath(missing scoped adapter) = %v, want nil", got)
+	}
+	if got := (MachineAgentCLIPaths{
+		AgentProviderAdapterTypeCodexAppServer: " /opt/codex/bin/codex ",
+		AgentProviderAdapterTypeGeminiCLI:      "   ",
+	}).ToRawMap(); len(got) != 1 || got[AgentProviderAdapterTypeCodexAppServer.String()] != "/opt/codex/bin/codex" {
+		t.Fatalf("MachineAgentCLIPaths.ToRawMap() = %+v", got)
+	}
+	if got := (MachineAgentCLIPaths{
+		AgentProviderAdapterTypeCodexAppServer: "   ",
+	}).ToRawMap(); got != nil {
+		t.Fatalf("MachineAgentCLIPaths.ToRawMap(all blank) = %+v, want nil", got)
+	}
+	if got := (MachineAgentCLIPaths{}).ToRawMap(); got != nil {
+		t.Fatalf("MachineAgentCLIPaths{}.ToRawMap() = %+v, want nil", got)
+	}
+	if got := (MachineAgentCLIPaths{
+		AgentProviderAdapterTypeCodexAppServer: "   ",
+	}).Resolve(AgentProviderAdapterTypeCodexAppServer); got != nil {
+		t.Fatalf("MachineAgentCLIPaths.Resolve(blank) = %v, want nil", got)
+	}
+	if got := ResolveMachineAgentCLIPath(Machine{}, AgentProviderAdapterTypeCodexAppServer); got != nil {
+		t.Fatalf("ResolveMachineAgentCLIPath(empty) = %v, want nil", got)
+	}
+	blankLegacyPath := "   "
+	if got := ResolveMachineAgentCLIPath(Machine{AgentCLIPath: &blankLegacyPath}, AgentProviderAdapterTypeCodexAppServer); got != nil {
+		t.Fatalf("ResolveMachineAgentCLIPath(blank legacy) = %v, want nil", got)
+	}
+	if got := ResolveProviderMachineAgentCLIPath(AgentProvider{AdapterType: AgentProviderAdapterTypeCodexAppServer}); got != nil {
+		t.Fatalf("ResolveProviderMachineAgentCLIPath(empty) = %v, want nil", got)
+	}
+	if got := ResolveProviderMachineAgentCLIPath(AgentProvider{
+		AdapterType:         AgentProviderAdapterTypeCodexAppServer,
+		MachineAgentCLIPath: &blankLegacyPath,
+	}); got != nil {
+		t.Fatalf("ResolveProviderMachineAgentCLIPath(blank legacy) = %v, want nil", got)
+	}
 	if got := stringValue(" value "); got != " value " {
 		t.Fatalf("stringValue() = %q", got)
 	}
@@ -1030,6 +1143,10 @@ func TestCatalogMachineParsers(t *testing.T) {
 	sshKeyPath := " /home/codex/.ssh/id_ed25519 "
 	workspaceRoot := " /srv/openase "
 	agentCLIPath := " /usr/local/bin/codex "
+	agentCLIPaths := map[string]string{
+		AgentProviderAdapterTypeCodexAppServer.String(): " /opt/codex/bin/codex ",
+		AgentProviderAdapterTypeGeminiCLI.String():      " /opt/gemini/bin/gemini ",
+	}
 	endpoint := " wss://builder.example.com/openase "
 
 	createMachine, err := ParseCreateMachine(orgID, MachineInput{
@@ -1044,6 +1161,7 @@ func TestCatalogMachineParsers(t *testing.T) {
 		Status:             " online ",
 		WorkspaceRoot:      &workspaceRoot,
 		AgentCLIPath:       &agentCLIPath,
+		AgentCLIPaths:      agentCLIPaths,
 		EnvVars:            []string{"OPENASE_ENV=prod", " OPENASE_ENV=prod ", "LOG_LEVEL=debug"},
 	})
 	if err != nil {
@@ -1051,6 +1169,12 @@ func TestCatalogMachineParsers(t *testing.T) {
 	}
 	if createMachine.Port != 2222 || len(createMachine.Labels) != 2 || len(createMachine.EnvVars) != 2 {
 		t.Fatalf("ParseCreateMachine() = %+v", createMachine)
+	}
+	if got := createMachine.AgentCLIPaths[AgentProviderAdapterTypeCodexAppServer]; got != "/opt/codex/bin/codex" {
+		t.Fatalf("ParseCreateMachine() codex agent_cli_paths = %q", got)
+	}
+	if got := createMachine.AgentCLIPaths[AgentProviderAdapterTypeGeminiCLI]; got != "/opt/gemini/bin/gemini" {
+		t.Fatalf("ParseCreateMachine() gemini agent_cli_paths = %q", got)
 	}
 	if createMachine.ConnectionMode != MachineConnectionModeWSListener {
 		t.Fatalf("ParseCreateMachine() connection mode = %q, want ws_listener", createMachine.ConnectionMode)
@@ -1072,6 +1196,47 @@ func TestCatalogMachineParsers(t *testing.T) {
 	}
 	if updateMachine.ConnectionMode != MachineConnectionModeLocal {
 		t.Fatalf("ParseUpdateMachine() connection mode = %q, want local", updateMachine.ConnectionMode)
+	}
+	if _, err := parseMachineAgentCLIPaths(map[string]string{"bad-adapter": "/bin/sh"}); err == nil {
+		t.Fatal("parseMachineAgentCLIPaths() expected adapter validation error")
+	}
+	if _, err := parseMachineAgentCLIPaths(map[string]string{AgentProviderAdapterTypeCodexAppServer.String(): "   "}); err == nil {
+		t.Fatal("parseMachineAgentCLIPaths() expected empty path validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name:          "Builder 02",
+		Host:          "10.0.1.9",
+		AgentCLIPaths: map[string]string{"bad-adapter": "/bin/sh"},
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected agent_cli_paths validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name: "builder-local-mismatch",
+		Host: LocalMachineHost,
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected local host/name validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name: LocalMachineName,
+		Host: "10.0.1.8",
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected local name/host validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name:             "local-transport-mismatch",
+		Host:             "10.0.1.7",
+		ReachabilityMode: MachineReachabilityModeLocal.String(),
+		ExecutionMode:    MachineExecutionModeLocalProcess.String(),
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected local connection mode host validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name:             LocalMachineName,
+		Host:             LocalMachineHost,
+		ReachabilityMode: MachineReachabilityModeDirectConnect.String(),
+		ExecutionMode:    MachineExecutionModeWebsocket.String(),
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected local host transport validation error")
 	}
 
 	registered := true
@@ -1230,11 +1395,35 @@ func TestCatalogMachineParsers(t *testing.T) {
 	if _, err := parseMachinePort(intPtr(70000)); err == nil {
 		t.Fatal("parseMachinePort() expected range validation error")
 	}
-	if got, err := parseMachineStatus("", false); err != nil || got != MachineStatusMaintenance {
-		t.Fatalf("parseMachineStatus(remote default) = %q, %v; want maintenance, nil", got, err)
+	if got, err := parseMachineStatus("", false); err != nil || got != MachineStatusOffline {
+		t.Fatalf("parseMachineStatus(remote default) = %q, %v; want offline, nil", got, err)
 	}
 	if _, err := parseMachineStatus("bad", true); err == nil {
 		t.Fatal("parseMachineStatus() expected validation error")
+	}
+	if got := DefaultMachineStatus(true); got != MachineStatusOnline {
+		t.Fatalf("DefaultMachineStatus(local) = %q", got)
+	}
+	if got := DefaultMachineStatus(false); got != MachineStatusOffline {
+		t.Fatalf("DefaultMachineStatus(remote) = %q", got)
+	}
+	if got := ApplyMachineMaintenanceGate(MachineStatusMaintenance, MachineStatusOnline); got != MachineStatusMaintenance {
+		t.Fatalf("ApplyMachineMaintenanceGate(maintenance, online) = %q", got)
+	}
+	if got := InferMachineConnectionSuccessStatus(MachineStatusOffline); got != MachineStatusOnline {
+		t.Fatalf("InferMachineConnectionSuccessStatus(offline) = %q", got)
+	}
+	if got := InferMachineConnectionFailureStatus(Machine{Host: "builder", Status: MachineStatusMaintenance}); got != MachineStatusMaintenance {
+		t.Fatalf("InferMachineConnectionFailureStatus(manual maintenance) = %q", got)
+	}
+	if got := InferMachineConnectionFailureStatus(Machine{Host: LocalMachineHost, Status: MachineStatusOnline}); got != MachineStatusDegraded {
+		t.Fatalf("InferMachineConnectionFailureStatus(local) = %q", got)
+	}
+	if got := InferMachineRefreshedHealthStatus(MachineStatusOffline, MachineStatusOnline); got != MachineStatusOnline {
+		t.Fatalf("InferMachineRefreshedHealthStatus(offline, online) = %q", got)
+	}
+	if got := InferMachineRefreshedHealthStatus(MachineStatusMaintenance, MachineStatusOnline); got != MachineStatusMaintenance {
+		t.Fatalf("InferMachineRefreshedHealthStatus(maintenance, online) = %q", got)
 	}
 	if _, err := parseMachineEnvVars([]string{"", "KEY=VALUE"}); err == nil {
 		t.Fatal("parseMachineEnvVars() expected empty validation error")
@@ -1776,6 +1965,9 @@ func TestCatalogEnvironmentProvisioningHelpers(t *testing.T) {
 	templates := BuiltinAgentProviderTemplates()
 	if len(templates) != 3 || templates[1].AdapterType != AgentProviderAdapterTypeCodexAppServer || !reflect.DeepEqual(templates[1].CliArgs, []string{"app-server", "--listen", "stdio://"}) {
 		t.Fatalf("BuiltinAgentProviderTemplates() = %+v", templates)
+	}
+	if templates[1].ModelName != "gpt-5.5" {
+		t.Fatalf("BuiltinAgentProviderTemplates() codex model = %q, want gpt-5.5", templates[1].ModelName)
 	}
 
 	auditPlan := MachineEnvironmentProvisioningPlan{}

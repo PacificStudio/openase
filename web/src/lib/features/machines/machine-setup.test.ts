@@ -65,6 +65,14 @@ describe('machine setup guidance', () => {
           command: 'ssh -i /keys/id_ed25519 ubuntu@builder.internal',
         }),
         expect.objectContaining({
+          title: 'SSH bootstrap listener',
+          command: 'openase machine ssh-bootstrap machine-1',
+        }),
+        expect.objectContaining({
+          title: 'SSH diagnostics',
+          command: 'openase machine ssh-diagnostics machine-1',
+        }),
+        expect.objectContaining({
           title: 'Control-plane connection test',
           command: 'openase machine test machine-1',
         }),
@@ -115,5 +123,18 @@ describe('machine setup guidance', () => {
     expect(friendlyTransportLabel('ws_listener')).toBe('Direct-connect listener')
     expect(friendlyTransportLabel('ws_reverse')).toBe('Reverse-connect daemon')
     expect(friendlyTransportLabel('ssh')).toBe('SSH helper path')
+  })
+
+  it('overrides setup guidance when a machine is manually held in maintenance', () => {
+    const guide = buildMachineSetupGuide({
+      machine: machineFixture({
+        status: 'maintenance',
+        advertised_endpoint: 'wss://builder.internal/openase',
+      }),
+    })
+
+    expect(guide.stateLabel).toBe('Manual maintenance enabled')
+    expect(guide.stateSummary).toContain('held out of scheduling')
+    expect(guide.nextSteps[0]).toContain('Exit maintenance')
   })
 })

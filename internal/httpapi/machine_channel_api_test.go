@@ -22,9 +22,7 @@ import (
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
-	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -204,7 +202,7 @@ func TestMachineConnectWebsocketPublishesActivityAndMetrics(t *testing.T) {
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		newTicketService(client),
 		nil,
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
@@ -234,17 +232,12 @@ func TestMachineConnectWebsocketPublishesActivityAndMetrics(t *testing.T) {
 		t.Fatalf("expected registered envelope, got %+v", registeredEnvelope)
 	}
 
-	metricsBody := scrapeMetrics(t, server.Handler())
-	for _, expected := range []string{
+	waitForMetricsContains(t, server.Handler(),
 		`openase_machine_channel_active_sessions{transport_mode="ws_reverse"} 1`,
 		`openase_machine_channel_websocket_reconnect_total{transport_mode="ws_reverse"} 1`,
 		`openase_machine_channel_events_total{event="registered",transport_mode="ws_reverse"} 2`,
 		`openase_machine_channel_events_total{event="reconnected",transport_mode="ws_reverse"} 1`,
-	} {
-		if !strings.Contains(metricsBody, expected) {
-			t.Fatalf("expected metrics to contain %q, got %q", expected, metricsBody)
-		}
-	}
+	)
 
 	if err := writeMachineEnvelope(conn2, domain.MessageTypeGoodbye, "", domain.Goodbye{Reason: "test complete"}); err != nil {
 		t.Fatalf("write goodbye: %v", err)
@@ -291,7 +284,7 @@ func TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric(t *testing
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		eventinfra.NewChannelBus(),
-		ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		newTicketService(client),
 		nil,
 		nil,
 		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
@@ -323,10 +316,7 @@ func TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric(t *testing
 		t.Fatalf("expected token_invalid failure code, got %+v", activities[0].Metadata)
 	}
 
-	metricsBody := scrapeMetrics(t, server.Handler())
-	if !strings.Contains(metricsBody, `openase_machine_channel_events_total{event="auth_failed",transport_mode="ws_reverse"} 1`) {
-		t.Fatalf("expected auth_failed metric, got %q", metricsBody)
-	}
+	waitForMetricsContains(t, server.Handler(), `openase_machine_channel_events_total{event="auth_failed",transport_mode="ws_reverse"} 1`)
 }
 
 func createReverseWebsocketMachine(t *testing.T, client *ent.Client) uuid.UUID {
@@ -460,6 +450,30 @@ func scrapeMetrics(t *testing.T, handler http.Handler) string {
 	return rec.Body.String()
 }
 
+func waitForMetricsContains(t *testing.T, handler http.Handler, expected ...string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	var body string
+	for {
+		body = scrapeMetrics(t, handler)
+		missing := ""
+		for _, want := range expected {
+			if !strings.Contains(body, want) {
+				missing = want
+				break
+			}
+		}
+		if missing == "" {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("expected metrics to contain %q, got %q", missing, body)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+}
+
 func dialMachineWebsocket(t *testing.T, serverURL string) *websocket.Conn {
 	t.Helper()
 
@@ -474,4 +488,69 @@ func dialMachineWebsocket(t *testing.T, serverURL string) *websocket.Conn {
 		t.Fatalf("dial websocket %s: %v", wsURL, err)
 	}
 	return conn
+}
+
+func TestMachineConnectWebsocketRelaysAPIRequests(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	machineID := createReverseWebsocketMachine(t, client)
+	service := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
+	issued, err := service.IssueToken(ctx, domain.IssueInput{MachineID: machineID, TTL: time.Hour})
+	if err != nil {
+		t.Fatalf("IssueToken returned error: %v", err)
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithMachineChannel(service, machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)),
+	)
+	httpServer := httptest.NewServer(server.Handler())
+	defer httpServer.Close()
+
+	conn := dialMachineWebsocket(t, httpServer.URL)
+	defer func() { _ = conn.Close() }()
+	authenticateMachineWebsocket(t, conn, issued.Token, machineID)
+	registeredEnvelope, err := readMachineEnvelope(conn)
+	if err != nil {
+		t.Fatalf("read registered envelope: %v", err)
+	}
+	if registeredEnvelope.Type != domain.MessageTypeRegistered {
+		t.Fatalf("expected registered envelope, got %+v", registeredEnvelope)
+	}
+
+	if err := writeMachineEnvelope(conn, domain.MessageTypeAPIRequest, registeredEnvelope.SessionID, domain.APIRelayRequest{
+		RequestID: "req-1",
+		Method:    http.MethodGet,
+		URL:       httpServer.URL + "/api/v1/healthz",
+	}); err != nil {
+		t.Fatalf("write api relay request: %v", err)
+	}
+	responseEnvelope, err := readMachineEnvelope(conn)
+	if err != nil {
+		t.Fatalf("read api relay response: %v", err)
+	}
+	if responseEnvelope.Type != domain.MessageTypeAPIResponse {
+		t.Fatalf("expected api relay response envelope, got %+v", responseEnvelope)
+	}
+	responsePayload, err := domain.DecodePayload[domain.APIRelayResponse](responseEnvelope)
+	if err != nil {
+		t.Fatalf("decode api relay response: %v", err)
+	}
+	if responsePayload.RequestID != "req-1" {
+		t.Fatalf("response request_id = %q", responsePayload.RequestID)
+	}
+	if responsePayload.StatusCode != http.StatusOK {
+		t.Fatalf("response status code = %d, want %d", responsePayload.StatusCode, http.StatusOK)
+	}
+	if !strings.Contains(string(responsePayload.Body), `"service":"openase"`) {
+		t.Fatalf("unexpected relay body: %s", string(responsePayload.Body))
+	}
 }

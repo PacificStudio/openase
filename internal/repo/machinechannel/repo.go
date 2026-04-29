@@ -127,7 +127,7 @@ func (r *EntRepository) RecordConnectedSession(ctx context.Context, input servic
 	if err != nil {
 		return service.MachineRecord{}, mapReadError("get machine for connected session", err)
 	}
-	resources := mergeMachineResources(item.Resources, input.ConnectedAt, input.SystemInfo, input.ToolInventory, input.ResourceSnapshot)
+	resources := mergeMachineResources(item.Resources, input.ConnectedAt, input.SystemInfo, input.ToolInventory, input.ResourceSnapshot, input.WebsocketHealth)
 	updated, err := r.client.Machine.UpdateOneID(input.MachineID).
 		SetDaemonRegistered(true).
 		SetDaemonLastRegisteredAt(input.ConnectedAt.UTC()).
@@ -158,7 +158,7 @@ func (r *EntRepository) RecordHeartbeat(ctx context.Context, input service.Heart
 	if systemInfo == nil {
 		systemInfo = &domain.SystemInfo{}
 	}
-	resources := mergeMachineResources(item.Resources, input.HeartbeatAt, *systemInfo, input.ToolInventory, input.ResourceSnapshot)
+	resources := mergeMachineResources(item.Resources, input.HeartbeatAt, *systemInfo, input.ToolInventory, input.ResourceSnapshot, input.WebsocketHealth)
 	builder := r.client.Machine.UpdateOneID(input.MachineID).
 		SetDaemonRegistered(true).
 		SetDaemonLastRegisteredAt(input.HeartbeatAt.UTC()).
@@ -185,11 +185,13 @@ func (r *EntRepository) RecordDisconnectedSession(ctx context.Context, input ser
 	if err != nil {
 		return service.MachineRecord{}, mapReadError("get machine for disconnect", err)
 	}
+	resources := applyDisconnectedWebsocketHealth(item.Resources, input.DisconnectedAt, input.Reason, item.ConnectionMode)
 	builder := r.client.Machine.UpdateOneID(input.MachineID).
 		SetDaemonRegistered(false).
 		SetDaemonSessionState(entmachine.DaemonSessionStateDisconnected).
 		SetLastHeartbeatAt(input.DisconnectedAt.UTC()).
-		SetStatus(entmachine.StatusOffline)
+		SetStatus(entmachine.StatusOffline).
+		SetResources(resources)
 	if strings.TrimSpace(item.DaemonSessionID) == strings.TrimSpace(input.SessionID) {
 		builder.ClearDaemonSessionID()
 	}
@@ -206,6 +208,8 @@ func mapMachineRecord(item *ent.Machine) service.MachineRecord {
 		OrganizationID:        item.OrganizationID,
 		Name:                  item.Name,
 		ConnectionMode:        string(item.ConnectionMode),
+		ReachabilityMode:      string(item.ReachabilityMode),
+		ExecutionMode:         string(item.ExecutionMode),
 		Status:                string(item.Status),
 		ChannelCredentialKind: string(item.ChannelCredentialKind),
 		ChannelTokenID:        optionalString(item.ChannelTokenID),
@@ -267,6 +271,7 @@ func mergeMachineResources(
 	systemInfo domain.SystemInfo,
 	toolInventory []domain.ToolInfo,
 	snapshot *domain.ResourceSnapshot,
+	websocketHealth *domain.WebsocketHealth,
 ) map[string]any {
 	resources := cloneMap(current)
 	checkedAt := collectedAt.UTC().Format(time.RFC3339)
@@ -285,8 +290,10 @@ func mergeMachineResources(
 		"arch":                strings.TrimSpace(systemInfo.Arch),
 		"openase_binary_path": strings.TrimSpace(systemInfo.OpenASEBinaryPath),
 		"agent_cli_path":      strings.TrimSpace(systemInfo.AgentCLIPath),
+		"agent_cli_paths":     cloneStringMap(systemInfo.AgentCLIPaths),
 		"checked_at":          checkedAt,
 	}
+	storeWebsocketHealth(resources, collectedAt, toolInventory, websocketHealth)
 	if len(toolInventory) > 0 {
 		l4 := ensureMap(monitor, "l4")
 		l4["checked_at"] = checkedAt
@@ -390,6 +397,153 @@ func mergeMachineResources(
 	return resources
 }
 
+func storeWebsocketHealth(
+	resources map[string]any,
+	collectedAt time.Time,
+	toolInventory []domain.ToolInfo,
+	report *domain.WebsocketHealth,
+) {
+	health := defaultWebsocketHealth(collectedAt, toolInventory)
+	if parsed, err := parseReportedWebsocketHealth(report); err == nil {
+		health = parsed
+	} else if existing, existingErr := domaincatalog.ParseStoredWebsocketMachineHealth(resources); existingErr == nil {
+		health.L2 = existing.L2
+		health.L3 = existing.L3
+	}
+	resources["websocket_health"] = domaincatalog.StoreWebsocketMachineHealth(health)
+}
+
+func defaultWebsocketHealth(collectedAt time.Time, toolInventory []domain.ToolInfo) domaincatalog.WebsocketMachineHealth {
+	observedAt := collectedAt.UTC()
+	readyCount := 0
+	for _, tool := range toolInventory {
+		if tool.Ready {
+			readyCount++
+		}
+	}
+	l5State := domaincatalog.WebsocketHealthStateHealthy
+	l5Reason := ""
+	if readyCount == 0 {
+		l5State = domaincatalog.WebsocketHealthStateFailed
+		l5Reason = "no ready machine-agent runtimes reported"
+	}
+	return domaincatalog.WebsocketMachineHealth{
+		TransportMode: domaincatalog.MachineConnectionModeWSReverse,
+		CheckedAt:     observedAt,
+		L2:            domaincatalog.WebsocketHealthUnknownLayer(observedAt, "machine-agent did not report link telemetry", map[string]any{}),
+		L3:            domaincatalog.WebsocketHealthUnknownLayer(observedAt, "machine-agent did not report control-plane network telemetry", map[string]any{}),
+		L4: domaincatalog.WebsocketHealthLayer{
+			State:      domaincatalog.WebsocketHealthStateHealthy,
+			ObservedAt: observedAt,
+			Details: map[string]any{
+				"session_state": "connected",
+			},
+		},
+		L5: domaincatalog.WebsocketHealthLayer{
+			State:      l5State,
+			Reason:     l5Reason,
+			ObservedAt: observedAt,
+			Details: map[string]any{
+				"ready_runtime_count": readyCount,
+				"tool_count":          len(toolInventory),
+			},
+		},
+	}
+}
+
+func parseReportedWebsocketHealth(report *domain.WebsocketHealth) (domaincatalog.WebsocketMachineHealth, error) {
+	if report == nil {
+		return domaincatalog.WebsocketMachineHealth{}, fmt.Errorf("missing websocket health report")
+	}
+	checkedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(report.CheckedAt))
+	if err != nil {
+		return domaincatalog.WebsocketMachineHealth{}, fmt.Errorf("parse websocket health checked_at: %w", err)
+	}
+	transportMode, err := domaincatalog.ParseStoredMachineConnectionMode(strings.TrimSpace(report.TransportMode), "remote")
+	if err != nil {
+		return domaincatalog.WebsocketMachineHealth{}, fmt.Errorf("parse websocket health transport mode: %w", err)
+	}
+	l2, err := parseReportedWebsocketHealthLayer(report.L2, "l2")
+	if err != nil {
+		return domaincatalog.WebsocketMachineHealth{}, err
+	}
+	l3, err := parseReportedWebsocketHealthLayer(report.L3, "l3")
+	if err != nil {
+		return domaincatalog.WebsocketMachineHealth{}, err
+	}
+	l4, err := parseReportedWebsocketHealthLayer(report.L4, "l4")
+	if err != nil {
+		return domaincatalog.WebsocketMachineHealth{}, err
+	}
+	l5, err := parseReportedWebsocketHealthLayer(report.L5, "l5")
+	if err != nil {
+		return domaincatalog.WebsocketMachineHealth{}, err
+	}
+	return domaincatalog.WebsocketMachineHealth{
+		TransportMode: transportMode,
+		CheckedAt:     checkedAt.UTC(),
+		L2:            l2,
+		L3:            l3,
+		L4:            l4,
+		L5:            l5,
+	}, nil
+}
+
+func parseReportedWebsocketHealthLayer(report domain.WebsocketHealthLayer, layer string) (domaincatalog.WebsocketHealthLayer, error) {
+	state, err := domaincatalog.ParseStoredWebsocketHealthState(report.State)
+	if err != nil {
+		return domaincatalog.WebsocketHealthLayer{}, fmt.Errorf("parse websocket health %s state: %w", layer, err)
+	}
+	observedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(report.ObservedAt))
+	if err != nil {
+		return domaincatalog.WebsocketHealthLayer{}, fmt.Errorf("parse websocket health %s observed_at: %w", layer, err)
+	}
+	return domaincatalog.WebsocketHealthLayer{
+		State:      state,
+		Reason:     strings.TrimSpace(report.Reason),
+		ObservedAt: observedAt.UTC(),
+		Details:    cloneMap(report.Details),
+	}, nil
+}
+
+func applyDisconnectedWebsocketHealth(
+	current map[string]any,
+	disconnectedAt time.Time,
+	reason string,
+	connectionMode entmachine.ConnectionMode,
+) map[string]any {
+	resources := cloneMap(current)
+	if connectionMode != entmachine.ConnectionModeWsReverse && connectionMode != entmachine.ConnectionModeWsListener {
+		return resources
+	}
+	health, err := domaincatalog.ParseStoredWebsocketMachineHealth(resources)
+	if err != nil {
+		health = domaincatalog.WebsocketMachineHealth{
+			TransportMode: domaincatalog.MachineConnectionMode(connectionMode),
+			CheckedAt:     disconnectedAt.UTC(),
+			L2:            domaincatalog.WebsocketHealthUnknownLayer(disconnectedAt, "link state unavailable after disconnect", map[string]any{}),
+			L3:            domaincatalog.WebsocketHealthUnknownLayer(disconnectedAt, "network state unavailable after disconnect", map[string]any{}),
+			L5:            domaincatalog.WebsocketHealthUnknownLayer(disconnectedAt, "application state unavailable after transport disconnect", map[string]any{}),
+		}
+	}
+	health.CheckedAt = disconnectedAt.UTC()
+	health.L4 = domaincatalog.WebsocketHealthLayer{
+		State:      domaincatalog.WebsocketHealthStateFailed,
+		Reason:     strings.TrimSpace(reason),
+		ObservedAt: disconnectedAt.UTC(),
+		Details: map[string]any{
+			"session_state": "disconnected",
+		},
+	}
+	health.L5 = domaincatalog.WebsocketHealthUnknownLayer(
+		disconnectedAt,
+		"application state unavailable after transport disconnect",
+		map[string]any{"transport_reason": strings.TrimSpace(reason)},
+	)
+	resources["websocket_health"] = domaincatalog.StoreWebsocketMachineHealth(health)
+	return resources
+}
+
 func cloneMap(raw map[string]any) map[string]any {
 	if len(raw) == 0 {
 		return map[string]any{}
@@ -401,6 +555,18 @@ func cloneMap(raw map[string]any) map[string]any {
 			cloned[key] = cloneMap(nested)
 			continue
 		}
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneStringMap(raw map[string]string) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]string, len(raw))
+	for key, value := range raw {
 		cloned[key] = value
 	}
 	return cloned

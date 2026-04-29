@@ -1,6 +1,7 @@
 import { cleanup, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { i18nStore } from '$lib/i18n/store.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import { markAgentsPageCacheDirty, resetAgentsPageCacheForTests } from '../agents-page-cache'
 import AgentsPage from './agents-page.svelte'
@@ -19,6 +20,12 @@ vi.mock('$lib/api/sse', () => ({
 }))
 
 vi.mock('$lib/features/project-events', () => ({
+  createProjectReconnectRecoveryTask: vi.fn(
+    (recover: (recovery: { sequence: number }) => Promise<void> | void) =>
+      (recovery: { sequence: number }) => {
+        void recover(recovery)
+      },
+  ),
   isProjectDashboardRefreshEvent: vi.fn(() => false),
   readProjectDashboardRefreshSections: vi.fn(() => []),
   subscribeProjectEvents,
@@ -32,6 +39,7 @@ describe('AgentsPage', () => {
   afterEach(() => {
     cleanup()
     resetAgentsPageCacheForTests()
+    i18nStore.setLocale('en')
     appStore.currentOrg = null
     appStore.currentProject = null
     vi.clearAllMocks()
@@ -48,6 +56,23 @@ describe('AgentsPage', () => {
     const { findByText } = render(AgentsPage)
 
     expect(await findByText('Codex Worker')).toBeTruthy()
+  })
+
+  it('renders localized page chrome in Chinese', async () => {
+    i18nStore.setLocale('zh')
+    appStore.currentOrg = orgFixture
+    appStore.currentProject = projectFixture
+
+    loadAgentsPageResult.mockResolvedValue({ ok: true, data: makePageData(makeAgent()) })
+    connectEventStream.mockReturnValue(() => {})
+    subscribeProjectEvents.mockReturnValue(() => {})
+
+    const { findByText } = render(AgentsPage)
+
+    expect(await findByText('代理')).toBeTruthy()
+    expect(await findByText('管理代理定义并跟踪各自的运行状态。')).toBeTruthy()
+    expect(await findByText('注册代理')).toBeTruthy()
+    expect(await findByText('运行中 1/1')).toBeTruthy()
   })
 
   it('reuses the cached agents page snapshot when remounting in the same project', async () => {

@@ -24,6 +24,12 @@ func (Machine) Fields() []ent.Field {
 		field.Enum("connection_mode").
 			Values("local", "ssh", "ws_reverse", "ws_listener").
 			Default("ssh"),
+		field.Enum("reachability_mode").
+			Values("local", "direct_connect", "reverse_connect").
+			Optional(),
+		field.Enum("execution_mode").
+			Values("local_process", "websocket").
+			Optional(),
 		textArrayField("transport_capabilities"),
 		field.String("ssh_user").Optional(),
 		field.String("ssh_key_path").Optional(),
@@ -55,6 +61,7 @@ func (Machine) Fields() []ent.Field {
 			Default("maintenance"),
 		field.String("workspace_root").Optional(),
 		field.String("agent_cli_path").Optional(),
+		field.JSON("agent_cli_paths", map[string]string{}).Optional(),
 		textArrayField("env_vars"),
 		field.Time("last_heartbeat_at").Optional().Nillable(),
 		field.JSON("resources", map[string]any{}).Default(emptyMap),

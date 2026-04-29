@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -657,6 +658,14 @@ func (s *Service) buildSystemPrompt(
 	}
 
 	if input.Source == SourceProjectSidebar {
+		sb.WriteString("\n## Project AI Operating Guidance\n")
+		sb.WriteString("- Primary role: clarify the user's requirements, reduce ambiguity, and turn fuzzy requests into concrete project actions.\n")
+		sb.WriteString("- Prefer planning and orchestration work: recommend next steps, improve workflows and harnesses, create or update agents/workflows/tickets, and operate project state through OpenASE.\n")
+		sb.WriteString("- When the request is implementation-heavy, prefer shaping the work for the asynchronous ticket/agent pipeline instead of doing the full coding task inside Project AI.\n")
+		sb.WriteString("- Only take on substantial coding, large refactors, or broad repo changes inside Project AI when the user explicitly asks for it or when a small direct edit is the clearest way to unblock the project.\n")
+		sb.WriteString("- If the user goal is underspecified, ask focused clarification questions before mutating project state or editing repository content.\n")
+		sb.WriteString("- When recommending default platform permissions for Project AI or a workflow, start from read-only access for tickets, statuses, and workflows; prefer inspection scopes before mutation scopes.\n")
+		sb.WriteString("- For update-capable permissions, recommend read-write only when the workflow may need to respond to potentially severe incidents or urgent project-state corrections; otherwise keep update permissions read-only or omit write access.\n")
 		sb.WriteString("\n## Project Sidebar Execution Constraints\n")
 		sb.WriteString("- When platform data must change, use the runtime-available skill / CLI / tool directly instead of generating a proposal and waiting for confirmation.\n")
 		sb.WriteString("- Prefer human-readable references such as project slug/name, ticket identifier, and status name. If the target cannot be identified uniquely, ask a focused clarification question instead of guessing.\n")
@@ -674,6 +683,13 @@ func (s *Service) writeProjectSidebarContext(
 	tickets, err := s.tickets.List(ctx, ticketservice.ListInput{ProjectID: project.ID})
 	if err != nil {
 		return fmt.Errorf("list tickets for chat context: %w", err)
+	}
+	workflows := []workflowservice.Workflow{}
+	if s.workflows != nil {
+		workflows, err = s.workflows.List(ctx, project.ID)
+		if err != nil {
+			return fmt.Errorf("list workflows for chat context: %w", err)
+		}
 	}
 	activityItems, err := s.listRecentActivity(ctx, project.ID, nil, 20)
 	if err != nil {
@@ -713,6 +729,18 @@ func (s *Service) writeProjectSidebarContext(
 	if focus != nil {
 		sb.WriteString("\n### Current User Focus Area\n")
 		sb.WriteString(renderProjectConversationFocus(focus))
+	}
+	sb.WriteString("\n### Workflow Overview\n")
+	sb.WriteString(renderProjectSidebarWorkflowOverview(workflows, tickets))
+	if focus != nil && focus.Kind == ProjectConversationFocusWorkflow && focus.Workflow != nil {
+		workflowContext, workflowErr := s.renderProjectSidebarFocusedWorkflow(ctx, focus.Workflow.ID, tickets)
+		if workflowErr != nil {
+			return workflowErr
+		}
+		if strings.TrimSpace(workflowContext) != "" {
+			sb.WriteString("\n### Focused Workflow Context\n")
+			sb.WriteString(workflowContext)
+		}
 	}
 	sb.WriteString("\n### Platform Command References\n")
 	_, _ = fmt.Fprintf(sb, "- current_project_id: %s\n", project.ID)
@@ -1098,4 +1126,105 @@ func uuidPtrValue(value *uuid.UUID) uuid.UUID {
 		return uuid.UUID{}
 	}
 	return *value
+}
+
+func renderProjectSidebarWorkflowOverview(workflows []workflowservice.Workflow, tickets []ticketservice.Ticket) string {
+	if len(workflows) == 0 {
+		return "- workflows: none\n"
+	}
+	ticketsByWorkflow := make(map[uuid.UUID][]ticketservice.Ticket)
+	for _, item := range tickets {
+		if item.WorkflowID == nil {
+			continue
+		}
+		ticketsByWorkflow[*item.WorkflowID] = append(ticketsByWorkflow[*item.WorkflowID], item)
+	}
+	var sb strings.Builder
+	for _, workflowItem := range workflows {
+		relatedTickets := ticketsByWorkflow[workflowItem.ID]
+		openCount := 0
+		pausedCount := 0
+		for _, ticketItem := range relatedTickets {
+			stage := strings.ToLower(strings.TrimSpace(ticketItem.StatusStage))
+			if stage != "completed" && stage != "canceled" && stage != "archived" {
+				openCount++
+			}
+			if ticketItem.RetryPaused {
+				pausedCount++
+			}
+		}
+		_, _ = fmt.Fprintf(&sb, "- %s (%s) active=%t open_tickets=%d paused_tickets=%d harness=%s\n", workflowItem.Name, workflowItem.Type.String(), workflowItem.IsActive, openCount, pausedCount, workflowItem.HarnessPath)
+	}
+	return sb.String()
+}
+
+func (s *Service) renderProjectSidebarFocusedWorkflow(ctx context.Context, workflowID uuid.UUID, tickets []ticketservice.Ticket) (string, error) {
+	if s.workflows == nil {
+		return "", nil
+	}
+	workflowDetail, err := s.workflows.Get(ctx, workflowID)
+	if err != nil {
+		return "", fmt.Errorf("load focused workflow context: %w", err)
+	}
+	relatedTickets := make([]ticketservice.Ticket, 0)
+	for _, ticketItem := range tickets {
+		if ticketItem.WorkflowID == nil || *ticketItem.WorkflowID != workflowID {
+			continue
+		}
+		relatedTickets = append(relatedTickets, ticketItem)
+	}
+	slices.SortFunc(relatedTickets, func(left, right ticketservice.Ticket) int {
+		if left.CreatedAt.Equal(right.CreatedAt) {
+			return strings.Compare(left.Identifier, right.Identifier)
+		}
+		if left.CreatedAt.After(right.CreatedAt) {
+			return -1
+		}
+		return 1
+	})
+	if len(relatedTickets) > 6 {
+		relatedTickets = relatedTickets[:6]
+	}
+	var sb strings.Builder
+	_, _ = fmt.Fprintf(&sb, "- workflow_id: %s\n", workflowDetail.ID)
+	_, _ = fmt.Fprintf(&sb, "- name: %s\n", workflowDetail.Name)
+	_, _ = fmt.Fprintf(&sb, "- type: %s\n", workflowDetail.Type.String())
+	_, _ = fmt.Fprintf(&sb, "- role_slug: %s\n", workflowDetail.RoleSlug)
+	_, _ = fmt.Fprintf(&sb, "- harness_path: %s\n", workflowDetail.HarnessPath)
+	_, _ = fmt.Fprintf(&sb, "- is_active: %t\n", workflowDetail.IsActive)
+	if len(relatedTickets) == 0 {
+		sb.WriteString("- recent_tickets: none\n")
+	} else {
+		sb.WriteString("- recent_tickets:\n")
+		for _, ticketItem := range relatedTickets {
+			_, _ = fmt.Fprintf(&sb, "  - %s | %s | status=%s | type=%s | attempts=%d | errors=%d | retry_paused=%t\n", ticketItem.Identifier, ticketItem.Title, ticketItem.StatusName, ticketItem.Type, ticketItem.AttemptCount, ticketItem.ConsecutiveErrors, ticketItem.RetryPaused)
+			if trimmedDescription := strings.TrimSpace(ticketItem.Description); trimmedDescription != "" {
+				_, _ = fmt.Fprintf(&sb, "    description: %s\n", trimChatContext(trimmedDescription, 280))
+			}
+		}
+	}
+	harnessContent := strings.TrimSpace(workflowDetail.HarnessContent)
+	if harnessContent != "" {
+		sb.WriteString("\nCurrent harness:\n```markdown\n")
+		sb.WriteString(harnessContent)
+		if !strings.HasSuffix(harnessContent, "\n") {
+			sb.WriteByte('\n')
+		}
+		sb.WriteString("```\n")
+	}
+	return sb.String(), nil
+}
+
+func trimChatContext(text string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	normalized := strings.Join(strings.Fields(text), " ")
+	if len(normalized) <= limit {
+		return normalized
+	}
+	if limit == 1 {
+		return normalized[:1]
+	}
+	return normalized[:limit-1] + "..."
 }

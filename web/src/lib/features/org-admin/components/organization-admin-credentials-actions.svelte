@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$ui/button'
   import { LoaderCircle, RefreshCw, Trash2 } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     configured = false,
@@ -15,6 +16,7 @@
     onRetest?: () => void
     onDelete?: () => void
   } = $props()
+  const t = i18nStore.t
 </script>
 
 {#if configured}
@@ -25,7 +27,7 @@
       class="size-7"
       onclick={onRetest}
       disabled={anyBusy}
-      title="Retest"
+      title={t('orgAdmin.credentials.actions.retest')}
     >
       {#if actionKey === 'retest'}
         <LoaderCircle class="size-3.5 animate-spin" />
@@ -39,7 +41,7 @@
       class="text-destructive hover:text-destructive size-7"
       onclick={onDelete}
       disabled={anyBusy}
-      title="Delete"
+      title={t('orgAdmin.credentials.actions.delete')}
     >
       {#if actionKey === 'delete'}
         <LoaderCircle class="size-3.5 animate-spin" />

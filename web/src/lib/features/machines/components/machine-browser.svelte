@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Input } from '$ui/input'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Search } from '@lucide/svelte'
   import MachineList from './machine-list.svelte'
   import type { MachineItem } from '../types'
@@ -8,7 +9,7 @@
     searchQuery = '',
     machines,
     selectedId = '',
-    emptyMessage = 'No machines match the current filter.',
+    emptyMessage = i18nStore.t('machines.machineBrowser.emptyState'),
     onSearchChange,
     onSelect,
   }: {
@@ -27,7 +28,7 @@
     <Input
       value={searchQuery}
       class="h-9 pl-8 text-sm"
-      placeholder="Search machines..."
+      placeholder={i18nStore.t('machines.machineBrowser.searchPlaceholder')}
       oninput={(event) => onSearchChange?.((event.currentTarget as HTMLInputElement).value)}
     />
   </div>

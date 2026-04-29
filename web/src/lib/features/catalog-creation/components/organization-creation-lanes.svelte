@@ -18,6 +18,7 @@
   } from '$lib/features/catalog-creation/model'
   import { projectPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import MachineCreationPanel from './machine-creation-panel.svelte'
   import ProjectCreationPanel from './project-creation-panel.svelte'
   import ProviderCreationPanel from './provider-creation-panel.svelte'
@@ -35,6 +36,7 @@
     providers: AgentProvider[]
     machines?: Machine[]
   } = $props()
+  const t = i18nStore.t
 
   const machineConsoleHref = $derived(
     orgId && projects.length > 0 ? projectPath(orgId, projects[0].id, 'machines') : null,
@@ -106,7 +108,7 @@
 
   async function handleCreateProject() {
     if (!orgId) {
-      toastStore.error('Organization context is unavailable.')
+      toastStore.error(t('catalog.creationLanes.errors.noOrgContext'))
       return
     }
 
@@ -123,7 +125,9 @@
       await goto(projectPath(orgId, payload.project.id))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create project.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : t('catalog.creationLanes.errors.createProject'),
       )
     } finally {
       creatingProject = false
@@ -132,7 +136,7 @@
 
   async function handleCreateProvider() {
     if (!orgId) {
-      toastStore.error('Organization context is unavailable.')
+      toastStore.error(t('catalog.creationLanes.errors.noOrgContext'))
       return
     }
 
@@ -147,11 +151,15 @@
     try {
       const payload = await createProvider(orgId, parsed.value)
       providerDraft = createEmptyProviderDraft()
-      toastStore.success(`Created provider ${payload.provider.name}.`)
+      toastStore.success(
+        t('catalog.creationLanes.toasts.providerCreated', { providerName: payload.provider.name }),
+      )
       await invalidateAll()
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : t('catalog.creationLanes.errors.createProvider'),
       )
     } finally {
       creatingProvider = false
@@ -161,10 +169,11 @@
 
 <section class="space-y-4">
   <div>
-    <h2 class="text-foreground text-lg font-semibold">Creation lanes</h2>
+    <h2 class="text-foreground text-lg font-semibold">
+      {t('catalog.creationLanes.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Start new project scope, register provider inventory, and route into machine capacity from one
-      page.
+      {t('catalog.creationLanes.description')}
     </p>
   </div>
 

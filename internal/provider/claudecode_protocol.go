@@ -2,7 +2,6 @@ package provider
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 )
 
@@ -166,22 +165,126 @@ func ClaudeCodeTurnFailure(event ClaudeCodeEvent) (string, string) {
 			additionalDetails = string(encoded)
 		}
 	}
+	payloadMap := asClaudeCodeMap(rawPayload)
 	if message != "" {
 		return message, additionalDetails
 	}
 
-	subtype := strings.TrimSpace(event.Subtype)
-	if subtype != "" {
-		summary := fmt.Sprintf("Claude Code reported an empty %s result.", subtype)
-		if subtype == "error" {
-			summary = "Claude Code reported an empty error result."
-		}
+	if summary := summarizeClaudeCodeFailure(strings.TrimSpace(event.Subtype), payloadMap); summary != "" {
 		return summary, additionalDetails
 	}
 	if additionalDetails != "" {
-		return "Claude Code reported an empty result error.", additionalDetails
+		return "Claude couldn't finish this reply. Try sending your message again.", additionalDetails
 	}
-	return "Claude Code reported an empty result error.", ""
+	return "Claude couldn't finish this reply. Try sending your message again.", ""
+}
+
+type claudeCodeEDEDiagnostic struct {
+	ResultType      string
+	LastContentType string
+	StopReason      string
+}
+
+func summarizeClaudeCodeFailure(subtype string, payload map[string]any) string {
+	switch subtype {
+	case "error_during_execution":
+		switch {
+		case isClaudeCodeInterruptedExecutionFailure(payload):
+			return "Claude couldn't finish this reply because the session was interrupted. Try sending your message again."
+		case isClaudeCodeResumeFailure(payload):
+			return "Claude couldn't resume the previous session. Try sending your message again, or start a new conversation if it keeps failing."
+		case isClaudeCodeAbortedExecutionFailure(payload):
+			return "Claude couldn't finish this reply because the session stopped unexpectedly. Try sending your message again."
+		default:
+			return "Claude couldn't finish this reply. Try sending your message again."
+		}
+	case "error":
+		return "Claude reported an error before this reply finished. Try sending your message again."
+	case "":
+		if len(payload) != 0 {
+			return "Claude couldn't finish this reply. Try sending your message again."
+		}
+	default:
+		return "Claude returned an empty error response. Try sending your message again."
+	}
+	return ""
+}
+
+func isClaudeCodeInterruptedExecutionFailure(payload map[string]any) bool {
+	if len(payload) == 0 {
+		return false
+	}
+	terminalReason := readClaudeCodeString(payload, "terminal_reason")
+	diagnostic := parseClaudeCodeEDEDiagnostic(readClaudeCodeErrors(payload))
+	if diagnostic.ResultType != "user" {
+		return false
+	}
+	if terminalReason == "aborted_streaming" {
+		return true
+	}
+	return containsClaudeCodeErrorText(readClaudeCodeErrors(payload), "request was aborted")
+}
+
+func isClaudeCodeResumeFailure(payload map[string]any) bool {
+	errors := readClaudeCodeErrors(payload)
+	return containsClaudeCodeErrorText(
+		errors,
+		"thread not found",
+		"session not found",
+		"conversation not found",
+		"resume session",
+	)
+}
+
+func isClaudeCodeAbortedExecutionFailure(payload map[string]any) bool {
+	if readClaudeCodeString(payload, "terminal_reason") == "aborted_streaming" {
+		return true
+	}
+	return containsClaudeCodeErrorText(readClaudeCodeErrors(payload), "request was aborted")
+}
+
+func parseClaudeCodeEDEDiagnostic(errors []string) claudeCodeEDEDiagnostic {
+	for _, line := range errors {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "[ede_diagnostic]") {
+			continue
+		}
+		diagnostic := claudeCodeEDEDiagnostic{}
+		for _, field := range strings.Fields(strings.TrimSpace(strings.TrimPrefix(trimmed, "[ede_diagnostic]"))) {
+			key, value, ok := strings.Cut(field, "=")
+			if !ok {
+				continue
+			}
+			switch key {
+			case "result_type":
+				diagnostic.ResultType = strings.TrimSpace(value)
+			case "last_content_type":
+				diagnostic.LastContentType = strings.TrimSpace(value)
+			case "stop_reason":
+				diagnostic.StopReason = strings.TrimSpace(value)
+			}
+		}
+		return diagnostic
+	}
+	return claudeCodeEDEDiagnostic{}
+}
+
+func containsClaudeCodeErrorText(errors []string, snippets ...string) bool {
+	if len(errors) == 0 || len(snippets) == 0 {
+		return false
+	}
+	for _, line := range errors {
+		lowered := strings.ToLower(strings.TrimSpace(line))
+		if lowered == "" {
+			continue
+		}
+		for _, snippet := range snippets {
+			if strings.Contains(lowered, strings.ToLower(strings.TrimSpace(snippet))) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func ClaudeCodeAssistantSnapshotContinues(previous string, next string) bool {
@@ -247,6 +350,28 @@ func readClaudeCodeBool(record map[string]any, key string) bool {
 	}
 	typed, ok := value.(bool)
 	return ok && typed
+}
+
+func readClaudeCodeErrors(record map[string]any) []string {
+	value, ok := record["errors"]
+	if !ok {
+		return nil
+	}
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			continue
+		}
+		if trimmed := strings.TrimSpace(text); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 func firstClaudeCodeNonEmptyString(values ...string) string {

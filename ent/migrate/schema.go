@@ -1033,6 +1033,8 @@ var (
 		{Name: "host", Type: field.TypeString},
 		{Name: "port", Type: field.TypeInt, Default: 22},
 		{Name: "connection_mode", Type: field.TypeEnum, Enums: []string{"local", "ssh", "ws_reverse", "ws_listener"}, Default: "ssh"},
+		{Name: "reachability_mode", Type: field.TypeEnum, Nullable: true, Enums: []string{"local", "direct_connect", "reverse_connect"}},
+		{Name: "execution_mode", Type: field.TypeEnum, Nullable: true, Enums: []string{"local_process", "websocket"}},
 		{Name: "transport_capabilities", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "ssh_user", Type: field.TypeString, Nullable: true},
 		{Name: "ssh_key_path", Type: field.TypeString, Nullable: true},
@@ -1052,6 +1054,7 @@ var (
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"online", "offline", "degraded", "maintenance"}, Default: "maintenance"},
 		{Name: "workspace_root", Type: field.TypeString, Nullable: true},
 		{Name: "agent_cli_path", Type: field.TypeString, Nullable: true},
+		{Name: "agent_cli_paths", Type: field.TypeJSON, Nullable: true},
 		{Name: "env_vars", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
 		{Name: "resources", Type: field.TypeJSON},
@@ -1065,7 +1068,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "machines_organizations_machines",
-				Columns:    []*schema.Column{MachinesColumns[27]},
+				Columns:    []*schema.Column{MachinesColumns[30]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1074,17 +1077,17 @@ var (
 			{
 				Name:    "machine_organization_id_name",
 				Unique:  true,
-				Columns: []*schema.Column{MachinesColumns[27], MachinesColumns[1]},
+				Columns: []*schema.Column{MachinesColumns[30], MachinesColumns[1]},
 			},
 			{
 				Name:    "machine_organization_id_host",
 				Unique:  false,
-				Columns: []*schema.Column{MachinesColumns[27], MachinesColumns[2]},
+				Columns: []*schema.Column{MachinesColumns[30], MachinesColumns[2]},
 			},
 			{
 				Name:    "machine_labels",
 				Unique:  false,
-				Columns: []*schema.Column{MachinesColumns[20]},
+				Columns: []*schema.Column{MachinesColumns[22]},
 				Annotation: &entsql.IndexAnnotation{
 					Type: "GIN",
 				},

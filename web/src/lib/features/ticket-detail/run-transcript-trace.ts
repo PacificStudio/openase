@@ -7,6 +7,7 @@ import {
   parseUnifiedDiffPayloads,
   readString,
 } from '$lib/features/chat'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import type {
   TicketRunTraceEntry,
   TicketRunTranscriptBlock,
@@ -48,7 +49,7 @@ export function applyTicketRunTraceEntry(
           kind: 'task_status',
           id: `status:${entry.id}`,
           statusType: 'thread_status',
-          title: 'Codex thread status',
+          title: i18nStore.t('ticketDetail.trace.codexThreadStatus'),
           detail: buildProviderStateDetail(asRecord(entry.payload)) || entry.output || undefined,
           raw: Object.keys(entry.payload).length > 0 ? entry.payload : undefined,
           at: entry.createdAt,
@@ -60,14 +61,16 @@ export function applyTicketRunTraceEntry(
           kind: 'task_status',
           id: `reasoning:${entry.id}`,
           statusType: 'reasoning_updated',
-          title: 'Reasoning update',
+          title: i18nStore.t('ticketDetail.trace.reasoningUpdate'),
           detail: entry.output || buildReasoningDetail(asRecord(entry.payload)) || undefined,
           raw: Object.keys(entry.payload).length > 0 ? entry.payload : undefined,
           at: entry.createdAt,
         },
       ])
     case 'task_started':
-      return appendTraceBlocks(state, [buildTaskStatusBlock(entry, 'task_started', 'Task started')])
+      return appendTraceBlocks(state, [
+        buildTaskStatusBlock(entry, 'task_started', i18nStore.t('ticketDetail.trace.taskStarted')),
+      ])
     case 'task_progress': {
       const payload = asRecord(entry.payload)
       const stream = readString(payload, 'stream')
@@ -90,7 +93,11 @@ export function applyTicketRunTraceEntry(
         )
       }
       return appendTraceBlocks(state, [
-        buildTaskStatusBlock(entry, 'task_progress', 'Task progress'),
+        buildTaskStatusBlock(
+          entry,
+          'task_progress',
+          i18nStore.t('ticketDetail.trace.taskProgress'),
+        ),
       ])
     }
     case 'task_notification': {
@@ -109,7 +116,11 @@ export function applyTicketRunTraceEntry(
         ])
       }
       return appendTraceBlocks(state, [
-        buildTaskStatusBlock(entry, 'task_notification', 'Task notification'),
+        buildTaskStatusBlock(
+          entry,
+          'task_notification',
+          i18nStore.t('ticketDetail.trace.taskNotification'),
+        ),
       ])
     }
     case 'session_state':
@@ -118,14 +129,16 @@ export function applyTicketRunTraceEntry(
           kind: 'task_status',
           id: `status:${entry.id}`,
           statusType: 'session_state',
-          title: 'Claude session status',
+          title: i18nStore.t('ticketDetail.trace.claudeSessionStatus'),
           detail: buildProviderStateDetail(asRecord(entry.payload)) || entry.output || undefined,
           raw: Object.keys(entry.payload).length > 0 ? entry.payload : undefined,
           at: entry.createdAt,
         },
       ])
     case 'error':
-      return appendTraceBlocks(state, [buildTaskStatusBlock(entry, 'error', 'Turn failed')])
+      return appendTraceBlocks(state, [
+        buildTaskStatusBlock(entry, 'error', i18nStore.t('ticketDetail.trace.turnFailed')),
+      ])
     case 'turn_diff_updated':
       return appendTraceBlocks(
         state,

@@ -55,6 +55,7 @@ const (
 	TypeWorkflowTimeoutChanged           Type = "workflow.timeout_changed"
 	TypeProviderCreated                  Type = "provider.created"
 	TypeProviderUpdated                  Type = "provider.updated"
+	TypeProviderDeleted                  Type = "provider.deleted"
 	TypeProviderAvailabilityChanged      Type = "provider.availability_changed"
 	TypeProviderMachineBindingChanged    Type = "provider.machine_binding_changed"
 	TypeProviderRateLimitUpdated         Type = "provider.rate_limit_updated"
@@ -153,6 +154,7 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeWorkflowTimeoutChanged, Label: "Workflow Timeout Changed"},
 	{EventType: TypeProviderCreated, Label: "Provider Created"},
 	{EventType: TypeProviderUpdated, Label: "Provider Updated"},
+	{EventType: TypeProviderDeleted, Label: "Provider Deleted"},
 	{EventType: TypeProviderAvailabilityChanged, Label: "Provider Availability Changed"},
 	{EventType: TypeProviderMachineBindingChanged, Label: "Provider Machine Binding Changed"},
 	{EventType: TypeProviderRateLimitUpdated, Label: "Provider Rate Limit Updated"},

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { PageScaffold } from '$lib/components/layout'
   import { Button } from '$ui/button'
   import type { AgentProvider } from '$lib/api/contracts'
@@ -63,16 +64,19 @@
     onclick={() => onOpenRegister?.()}
     disabled={!canRegister}
     title={registerButtonTitle}
+    data-tour="agents-register"
   >
     <Plus class="size-3.5" />
-    Register Agent
+    {i18nStore.t('agents.registerAgent')}
   </Button>
 {/snippet}
 
 <PageScaffold
-  title="Agents"
-  description="Manage agent definitions and monitor their runs."
+  title={i18nStore.t('agents.pageTitle')}
+  description={i18nStore.t('agents.pageDescription')}
+  helpSection="agents"
   {actions}
+  class="tour-agents-page"
 >
   <AgentsPagePanel
     {agents}

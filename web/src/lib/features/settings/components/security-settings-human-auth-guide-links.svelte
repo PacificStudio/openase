@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SecurityDocumentationLink } from '$lib/api/contracts'
   import { ExternalLink, LifeBuoy } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let { docs = [] }: { docs?: SecurityDocumentationLink[] } = $props()
 </script>
@@ -8,7 +9,9 @@
 <div class="space-y-2">
   <div class="flex items-center gap-2 px-0.5">
     <LifeBuoy class="text-muted-foreground size-4" />
-    <h4 class="text-sm font-semibold">Mode switch help</h4>
+    <h4 class="text-sm font-semibold">
+      {i18nStore.t('settings.security.humanAuth.guideLinks.heading')}
+    </h4>
   </div>
   <div class="grid gap-3 lg:grid-cols-3">
     {#each docs as doc (doc.href)}

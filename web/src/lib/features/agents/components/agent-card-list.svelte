@@ -1,4 +1,6 @@
 <script lang="ts">
+  import type { TranslationKey } from '$lib/i18n'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import * as Tooltip from '$ui/tooltip'
@@ -63,14 +65,14 @@
     terminated: 'text-slate-500',
   }
 
-  const statusLabels: Record<AgentInstance['status'], string> = {
-    idle: 'Idle',
-    claimed: 'Claimed',
-    running: 'Running',
-    paused: 'Paused',
-    failed: 'Failed',
-    interrupted: 'Interrupted',
-    terminated: 'Terminated',
+  const statusLabels: Record<AgentInstance['status'], TranslationKey> = {
+    idle: 'agents.status.idle',
+    claimed: 'agents.status.claimed',
+    running: 'agents.status.running',
+    paused: 'agents.status.paused',
+    failed: 'agents.status.failed',
+    interrupted: 'agents.status.interrupted',
+    terminated: 'agents.status.terminated',
   }
 
   const runStatusColors: Record<AgentRunInstance['status'], string> = {
@@ -81,6 +83,16 @@
     errored: 'bg-red-500',
     interrupted: 'bg-rose-500',
     terminated: 'bg-slate-500',
+  }
+
+  const runStatusLabels: Record<AgentRunInstance['status'], TranslationKey> = {
+    launching: 'agents.runtime.launching',
+    ready: 'agents.runtime.ready',
+    executing: 'agents.runtime.executing',
+    completed: 'agents.runtime.completed',
+    errored: 'agents.runtime.errored',
+    interrupted: 'agents.runtime.interrupted',
+    terminated: 'agents.runtime.terminated',
   }
 
   function canControlActiveRun(agent: AgentInstance) {
@@ -112,14 +124,13 @@
     <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
       <Bot class="text-muted-foreground size-5" />
     </div>
-    <p class="text-foreground text-sm font-medium">No agents registered</p>
+    <p class="text-foreground text-sm font-medium">{i18nStore.t('agents.noAgentsRegistered')}</p>
     <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
-      Agents are AI workers that pick up and execute tickets. Register an agent definition to
-      connect a Claude model to this project's workflow.
+      {i18nStore.t('agents.noAgentsDescription')}
     </p>
   </div>
 {:else}
-  <div class="space-y-2">
+  <div class="space-y-2" data-tour="agent-cards-list">
     {#each agents as agent (agent.id)}
       {@const Icon = adapterIcons[agent.adapterType] ?? Cpu}
       {@const runs = activeRuns(agent.id)}
@@ -135,7 +146,7 @@
             class="flex shrink-0 items-center"
             onclick={() => hasRuns && toggleExpand(agent.id)}
             disabled={!hasRuns}
-            aria-label={expanded ? 'Collapse' : 'Expand'}
+            aria-label={expanded ? i18nStore.t('agents.collapse') : i18nStore.t('agents.expand')}
           >
             {#if hasRuns}
               {#if expanded}
@@ -159,9 +170,10 @@
           </button>
 
           <span class="text-muted-foreground text-xs whitespace-nowrap">
-            {statusLabels[agent.status]} · {agent.activeRunCount} task{agent.activeRunCount !== 1
-              ? 's'
-              : ''}
+            {i18nStore.t(statusLabels[agent.status])} · {i18nStore.t(
+              agent.activeRunCount === 1 ? 'agents.taskCountOne' : 'agents.taskCountOther',
+              { count: agent.activeRunCount },
+            )}
           </span>
 
           {#if agent.runtimeControlState !== 'active'}
@@ -178,12 +190,12 @@
               )}
             >
               {agent.runtimeControlState === 'interrupt_requested'
-                ? 'Interrupt Requested'
+                ? i18nStore.t('agents.interruptRequested')
                 : agent.runtimeControlState === 'pause_requested'
-                  ? 'Pause Requested'
+                  ? i18nStore.t('agents.pauseRequested')
                   : agent.runtimeControlState === 'retired'
-                    ? 'Retired'
-                    : 'Paused'}
+                    ? i18nStore.t('agents.retired')
+                    : i18nStore.t('agents.status.paused')}
             </span>
           {/if}
 
@@ -191,7 +203,9 @@
 
           {#if agent.lastHeartbeat}
             <span class="text-muted-foreground hidden text-[11px] whitespace-nowrap sm:inline">
-              heartbeat {formatRelativeTime(agent.lastHeartbeat)}
+              {i18nStore.t('agents.heartbeat', {
+                time: formatRelativeTime(agent.lastHeartbeat),
+              })}
             </span>
           {/if}
 
@@ -199,8 +213,8 @@
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="Edit agent"
-              title="Edit agent"
+              aria-label={i18nStore.t('agents.editAgent')}
+              title={i18nStore.t('agents.editAgent')}
               onclick={() => onSelectAgent?.(agent.id)}
             >
               <Pencil class="size-3.5" />
@@ -208,9 +222,9 @@
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="Interrupt agent"
+              aria-label={i18nStore.t('agents.interruptAgent')}
               disabled={!canControlActiveRun(agent) || runtimeActionAgentId === agent.id}
-              title="Interrupt this agent run"
+              title={i18nStore.t('agents.interruptRun')}
               onclick={() => onInterruptAgent?.(agent.id)}
             >
               <Hand class="size-3.5" />
@@ -219,9 +233,9 @@
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Resume agent"
+                aria-label={i18nStore.t('agents.resumeAgent')}
                 disabled={!canResume(agent) || runtimeActionAgentId === agent.id}
-                title="Resume this agent"
+                title={i18nStore.t('agents.resumeThisAgent')}
                 onclick={() => onResumeAgent?.(agent.id)}
               >
                 <Play class="size-3.5" />
@@ -230,9 +244,9 @@
               <Button
                 variant="ghost"
                 size="icon-xs"
-                aria-label="Pause agent"
+                aria-label={i18nStore.t('agents.pauseAgent')}
                 disabled={!canControlActiveRun(agent) || runtimeActionAgentId === agent.id}
-                title="Pause this agent"
+                title={i18nStore.t('agents.pauseThisAgent')}
                 onclick={() => onPauseAgent?.(agent.id)}
               >
                 <Pause class="size-3.5" />
@@ -259,7 +273,7 @@
                     {truncate(run.ticket.title, 40)}
                   </span>
                   <span class="text-muted-foreground/60 text-[10px] whitespace-nowrap">
-                    {run.status}
+                    {i18nStore.t(runStatusLabels[run.status])}
                   </span>
                   {#if run.lastHeartbeat}
                     <span class="text-muted-foreground text-[10px] whitespace-nowrap">

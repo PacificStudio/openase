@@ -65,11 +65,19 @@ func NewScheduler(client *ent.Client, logger *slog.Logger, events provider.Event
 	}
 
 	return &Scheduler{
-		client:        client,
-		logger:        logger.With("component", "scheduler"),
-		events:        events,
-		scheduledJobs: scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketservice.NewService(ticketrepo.NewEntRepository(client)), logger),
-		now:           time.Now,
+		client: client,
+		logger: logger.With("component", "scheduler"),
+		events: events,
+		scheduledJobs: scheduledjobservice.NewService(scheduledjobrepo.NewEntRepository(client), ticketservice.NewService(ticketservice.Dependencies{
+			Activity: ticketrepo.NewActivityRepository(client),
+			Query:    ticketrepo.NewQueryRepository(client),
+			Command:  ticketrepo.NewCommandRepository(client),
+			Link:     ticketrepo.NewLinkRepository(client),
+			Comment:  ticketrepo.NewCommentRepository(client),
+			Usage:    ticketrepo.NewUsageRepository(client),
+			Runtime:  ticketrepo.NewRuntimeRepository(client),
+		}), logger),
+		now: time.Now,
 	}
 }
 
@@ -277,6 +285,7 @@ func (s *Scheduler) resolveExecutionMachine(
 		MachineSSHUser:       schedulerOptionalString(machine.SSHUser),
 		MachineWorkspaceRoot: schedulerOptionalString(machine.WorkspaceRoot),
 		MachineAgentCLIPath:  schedulerOptionalString(machine.AgentCliPath),
+		MachineAgentCLIPaths: domaincatalog.CloneMachineAgentCLIPaths(domaincatalog.MachineAgentCLIPathsFromRaw(machine.AgentCliPaths)),
 		MachineResources:     cloneResourceMap(machine.Resources),
 		Name:                 providerItem.Name,
 		AdapterType:          domaincatalog.AgentProviderAdapterType(providerItem.AdapterType),

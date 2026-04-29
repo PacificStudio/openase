@@ -2,6 +2,7 @@
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
   import { AlertCircle, Trash2 } from '@lucide/svelte'
+  import { t } from './i18n'
 
   let {
     errorMessage = '',
@@ -40,14 +41,16 @@
     >
       <Trash2 class="size-4" />
       {#if deleting}
-        {isActive ? 'Retiring…' : 'Deleting…'}
+        {isActive ? t('workflows.detail.actions.retiring') : t('workflows.detail.actions.deleting')}
       {:else}
-        {isActive ? 'Retire Workflow' : 'Delete Permanently'}
+        {isActive
+          ? t('workflows.detail.actions.retire')
+          : t('workflows.detail.actions.deletePermanently')}
       {/if}
     </Button>
 
     <Button type="submit" size="sm" disabled={!isDirty || saving || deleting}>
-      {saving ? 'Saving…' : 'Save Changes'}
+      {saving ? t('workflows.detail.actions.saving') : t('workflows.detail.actions.save')}
     </Button>
   </div>
 </div>

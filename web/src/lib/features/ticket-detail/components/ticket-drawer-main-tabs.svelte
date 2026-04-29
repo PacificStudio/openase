@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { StreamConnectionState } from '$lib/api/sse'
+  import { ticketsT } from '$lib/features/tickets'
   import * as Tabs from '$ui/tabs'
   import TicketCommentsThread from './ticket-comments-thread.svelte'
   import TicketRunHistoryPanel from './ticket-run-history-panel.svelte'
@@ -104,8 +105,14 @@
 <Tabs.Root bind:value={activeView} class="flex flex-col gap-0">
   <div class="border-border bg-background sticky top-0 z-10 border-b px-4">
     <Tabs.List variant="line" class="h-7 gap-0">
-      <Tabs.Trigger value="discussion" class="px-2.5 py-1 text-xs">Discussion</Tabs.Trigger>
-      <Tabs.Trigger value="runs" class="px-2.5 py-1 text-xs"
+      <Tabs.Trigger
+        value="discussion"
+        class="px-2.5 py-1 text-xs"
+        data-tour="ticket-detail-tab-discussion"
+      >
+        {ticketsT('tickets.drawer.tabs.discussion')}
+      </Tabs.Trigger>
+      <Tabs.Trigger value="runs" class="px-2.5 py-1 text-xs" data-tour="ticket-detail-tab-runs"
         >Runs{runs.length > 0 ? ` (${runs.length})` : ''}</Tabs.Trigger
       >
     </Tabs.List>

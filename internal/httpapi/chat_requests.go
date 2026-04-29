@@ -57,6 +57,15 @@ type projectConversationWorkspaceFileRequest struct {
 	Path     string
 }
 
+type projectConversationWorkspaceRepoRefsRequest struct {
+	RepoPath chatservice.WorkspaceRepoPath
+}
+
+type projectConversationWorkspaceGitGraphRequest struct {
+	RepoPath chatservice.WorkspaceRepoPath
+	Window   chatservice.WorkspaceGitGraphWindow
+}
+
 type rawUpdateProjectConversationWorkspaceFileRequest struct {
 	RepoPath     string `json:"repo_path"`
 	Path         string `json:"path"`
@@ -82,6 +91,15 @@ type rawDeleteProjectConversationWorkspaceFileRequest struct {
 	Path     string `json:"path"`
 }
 
+type rawProjectConversationWorkspaceCheckoutRequest struct {
+	RepoPath               string `json:"repo_path"`
+	TargetKind             string `json:"target_kind"`
+	TargetName             string `json:"target_name"`
+	CreateTrackingBranch   bool   `json:"create_tracking_branch"`
+	LocalBranchName        string `json:"local_branch_name"`
+	ExpectedCleanWorkspace bool   `json:"expected_clean_workspace"`
+}
+
 type updateProjectConversationWorkspaceFileRequest struct {
 	File chatservice.ProjectConversationWorkspaceFileSaveInput
 }
@@ -97,6 +115,8 @@ type renameProjectConversationWorkspaceFileRequest struct {
 type deleteProjectConversationWorkspaceFileRequest struct {
 	File chatservice.ProjectConversationWorkspaceFileDeleteInput
 }
+
+type projectConversationWorkspaceCheckoutRequest = chatservice.ProjectConversationWorkspaceCheckoutInput
 
 type rawProjectConversationWorkspaceFileDraftContext struct {
 	RepoPath   string `json:"repo_path"`
@@ -177,6 +197,34 @@ func parseProjectConversationWorkspaceTreeRequest(
 	return projectConversationWorkspaceTreeRequest{
 		RepoPath: trimmedRepoPath,
 		Path:     strings.TrimSpace(path),
+	}, nil
+}
+
+func parseProjectConversationWorkspaceRepoRefsRequest(
+	repoPath string,
+) (projectConversationWorkspaceRepoRefsRequest, error) {
+	parsedRepoPath, err := chatservice.ParseWorkspaceRepoPath(repoPath)
+	if err != nil {
+		return projectConversationWorkspaceRepoRefsRequest{}, writeableError(err.Error())
+	}
+	return projectConversationWorkspaceRepoRefsRequest{RepoPath: parsedRepoPath}, nil
+}
+
+func parseProjectConversationWorkspaceGitGraphRequest(
+	repoPath string,
+	limit string,
+) (projectConversationWorkspaceGitGraphRequest, error) {
+	parsedRepoPath, err := chatservice.ParseWorkspaceRepoPath(repoPath)
+	if err != nil {
+		return projectConversationWorkspaceGitGraphRequest{}, writeableError(err.Error())
+	}
+	window, err := chatservice.ParseWorkspaceGitGraphWindow(limit)
+	if err != nil {
+		return projectConversationWorkspaceGitGraphRequest{}, writeableError(err.Error())
+	}
+	return projectConversationWorkspaceGitGraphRequest{
+		RepoPath: parsedRepoPath,
+		Window:   window,
 	}, nil
 }
 
@@ -334,6 +382,29 @@ func parseDeleteProjectConversationWorkspaceFileRequest(
 			RepoPath: repoPath,
 			Path:     filePath,
 		},
+	}, nil
+}
+
+func parseProjectConversationWorkspaceCheckoutRequest(
+	raw rawProjectConversationWorkspaceCheckoutRequest,
+) (projectConversationWorkspaceCheckoutRequest, error) {
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return projectConversationWorkspaceCheckoutRequest{}, writeableError(err.Error())
+	}
+	target, err := chatservice.ParseWorkspaceCheckoutTarget(
+		raw.TargetKind,
+		raw.TargetName,
+		raw.CreateTrackingBranch,
+		raw.LocalBranchName,
+	)
+	if err != nil {
+		return projectConversationWorkspaceCheckoutRequest{}, writeableError(err.Error())
+	}
+	return projectConversationWorkspaceCheckoutRequest{
+		RepoPath:               repoPath,
+		Target:                 target,
+		ExpectedCleanWorkspace: raw.ExpectedCleanWorkspace,
 	}, nil
 }
 

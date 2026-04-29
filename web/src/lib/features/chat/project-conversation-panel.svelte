@@ -9,6 +9,7 @@
   import ProjectConversationHeader from './project-conversation-header.svelte'
   import { runProjectConversationDeleteFlow } from './project-conversation-panel-delete'
   import { interruptFocusedProjectAgent } from './project-conversation-panel-interrupt'
+  import { chatT } from './i18n'
   import {
     describeProjectAIFocus,
     projectAIFocusKey,
@@ -18,6 +19,8 @@
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import { applyEligibleInitialPrompt } from './project-conversation-panel-prompt'
   import { watchProjectConversationProviders } from './project-conversation-panel-provider-sync'
+  import { startProjectAITour, hasProjectAITourBeenShown } from '$lib/features/tour'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     context,
@@ -25,8 +28,8 @@
     providers = [],
     defaultProviderId = null,
     focus = null,
-    title = 'Project AI',
-    placeholder = 'Ask anything about this project…',
+    title = chatT('layout.projectAI'),
+    placeholder = chatT('chat.composerPlaceholder'),
     initialPrompt = '',
     onClose,
   }: {
@@ -147,6 +150,17 @@
   $effect(() => () => controller.dispose())
 
   $effect(() => {
+    const projectId = context.projectId
+    if (!projectId) return
+    if (hasProjectAITourBeenShown(projectId)) return
+    const timer = setTimeout(() => {
+      if (context.projectId !== projectId) return
+      startProjectAITour(projectId, i18nStore.t)
+    }, 600)
+    return () => clearTimeout(timer)
+  })
+
+  $effect(() => {
     if (!effectiveFocusKey) {
       suppressedFocusKey = ''
     }
@@ -210,7 +224,7 @@
       conversationId,
       force,
       deleteConversation: controller.deleteConversation,
-      onDeleted: () => toastStore.success('Project AI conversation deleted.'),
+      onDeleted: () => toastStore.success(chatT('chat.conversationDeletedSuccess')),
       onError: (message) => toastStore.error(message),
     })
   }
@@ -246,6 +260,7 @@
     onSelectTab={controller.selectTab}
     onCloseTab={controller.closeTab}
     onRespondInterrupt={controller.respondInterrupt}
+    onPickPrompt={(text) => controller.setDraft(text)}
   />
   <ProjectConversationComposer
     {loadingProviders}
@@ -253,7 +268,7 @@
     providerCount={chatProviders.length}
     statusMessage={statusMessage ?? undefined}
     {focusCard}
-    focusActionLabel={focusInterruptTarget ? 'Interrupt Agent' : ''}
+    focusActionLabel={focusInterruptTarget ? chatT('chat.interruptAgent') : ''}
     focusActionDisabled={!focusInterruptTarget}
     {queuedTurns}
     hasPendingInterrupt={controller.hasPendingInterrupt}

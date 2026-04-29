@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Separator } from '$ui/separator'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import RepositoriesList from './repository-list.svelte'
   import RepositoryEditorSheet from './repository-editor-sheet.svelte'
   import { createRepositoriesSettingsState } from './repositories-settings-state.svelte'
@@ -9,9 +10,11 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Repositories</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.repositories.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Manage project repository bindings used for direct remote checkout and ticket workspaces.
+      {i18nStore.t('settings.repositories.description')}
     </p>
   </div>
 

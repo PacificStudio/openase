@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { OrganizationMembership } from '$lib/api/auth'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import * as Avatar from '$ui/avatar'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -120,7 +121,7 @@
           {entry.user?.displayName || entry.email}
         </p>
         {#if entry.user?.id === currentUserId}
-          <Badge variant="secondary">You</Badge>
+          <Badge variant="secondary">{i18nStore.t('orgMembers.row.currentUser')}</Badge>
         {/if}
         <Badge variant={roleBadgeVariant(entry.role)} class="capitalize">{entry.role}</Badge>
         <Badge variant={statusBadgeVariant(entry.status)} class="capitalize">

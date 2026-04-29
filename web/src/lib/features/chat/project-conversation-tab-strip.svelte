@@ -5,6 +5,7 @@
   import * as Dialog from '$ui/dialog'
   import * as Tooltip from '$ui/tooltip'
   import { LoaderCircle, X } from '@lucide/svelte'
+  import { chatT } from './i18n'
   import {
     formatProjectConversationLabel,
     formatProjectConversationTabStatus,
@@ -137,15 +138,17 @@
 <Dialog.Root bind:open={confirmOpen}>
   <Dialog.Content class="max-w-sm">
     <Dialog.Header>
-      <Dialog.Title class="text-sm">Close active conversation?</Dialog.Title>
+      <Dialog.Title class="text-sm">{chatT('chat.tabs.confirmClose.title')}</Dialog.Title>
       <Dialog.Description class="text-muted-foreground text-xs">
-        This conversation is still running. Closing the tab may stop the Project AI runtime.
+        {chatT('chat.tabs.confirmClose.description')}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="gap-2">
-      <Button variant="ghost" size="sm" class="text-xs" onclick={handleCancelClose}>Cancel</Button>
+      <Button variant="ghost" size="sm" class="text-xs" onclick={handleCancelClose}>
+        {chatT('chat.tabs.confirmClose.actions.cancel')}
+      </Button>
       <Button variant="destructive" size="sm" class="text-xs" onclick={handleConfirmClose}>
-        Close anyway
+        {chatT('chat.tabs.confirmClose.actions.closeAnyway')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

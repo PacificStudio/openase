@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ScheduledJob } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
@@ -9,6 +10,7 @@
   import { ChevronDown, ChevronRight } from '@lucide/svelte'
   import { Switch } from '$ui/switch'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
+  import type { RepoScopeOption as TicketRepoOption } from '$lib/features/repo-scope-selection'
   import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { type ScheduledJobDraft } from './workflow-scheduled-jobs'
   import WorkflowScheduledJobCronHelperDialog from './workflow-scheduled-job-cron-helper-dialog.svelte'
@@ -19,12 +21,15 @@
     open = $bindable(false),
     draft,
     projectId,
+    repoOptions,
     selectedJob = null,
     statusOptions,
     saving = false,
     deleting = false,
     triggering = false,
     onFieldChange,
+    onToggleRepoScope,
+    onUpdateRepoBranchOverride,
     onSubmit,
     onDelete,
     onTrigger,
@@ -33,12 +38,15 @@
     open?: boolean
     draft: ScheduledJobDraft
     projectId: string
+    repoOptions: TicketRepoOption[]
     selectedJob?: ScheduledJob | null
     statusOptions: WorkflowStatusOption[]
     saving?: boolean
     deleting?: boolean
     triggering?: boolean
     onFieldChange?: (field: keyof ScheduledJobDraft, value: string | boolean) => void
+    onToggleRepoScope?: (repoId: string) => void
+    onUpdateRepoBranchOverride?: (repoId: string, value: string) => void
     onSubmit?: () => void
     onDelete?: () => void
     onTrigger?: () => void
@@ -63,6 +71,10 @@
         ].join('\n')
       : 'The user is creating a scheduled job for this project and needs help drafting a cron expression.',
   )
+  const hasExplicitRepoTemplateConfig = $derived(
+    Object.keys(draft.ticketRepoBranchOverrides).length > 0 ||
+      (repoOptions.length > 1 && draft.ticketRepoIds.length > 0),
+  )
 
   const hasTemplateValues = $derived(
     !!(
@@ -70,6 +82,7 @@
       draft.ticketDescription ||
       draft.ticketCreatedBy ||
       draft.ticketBudgetUsd ||
+      hasExplicitRepoTemplateConfig ||
       draft.ticketPriority !== 'medium' ||
       draft.ticketType !== 'feature'
     ),
@@ -111,18 +124,22 @@
       <div class="space-y-4">
         <!-- Job name -->
         <div class="space-y-1.5">
-          <Label for="scheduled-job-name" class="text-xs">Job name</Label>
+          <Label for="scheduled-job-name" class="text-xs">
+            {i18nStore.t('settings.workflowScheduledJobEditor.labels.jobName')}
+          </Label>
           <Input
             id="scheduled-job-name"
             value={draft.name}
-            placeholder="Nightly regression sweep"
+            placeholder={i18nStore.t('settings.workflowScheduledJobEditor.placeholders.jobName')}
             oninput={(event) =>
               onFieldChange?.('name', (event.currentTarget as HTMLInputElement).value)}
           />
         </div>
 
         <div class="space-y-1.5">
-          <Label class="text-xs">Target status</Label>
+          <Label class="text-xs">
+            {i18nStore.t('settings.workflowScheduledJobEditor.labels.targetStatus')}
+          </Label>
           <Select.Root
             type="single"
             value={draft.ticketStatusId}
@@ -160,7 +177,9 @@
 
         <!-- Enabled switch -->
         <div class="flex items-center justify-between">
-          <Label for="scheduled-job-enabled" class="text-xs">Enabled</Label>
+          <Label for="scheduled-job-enabled" class="text-xs">
+            {i18nStore.t('settings.workflowScheduledJobEditor.labels.enabled')}
+          </Label>
           <Switch
             id="scheduled-job-enabled"
             checked={draft.isEnabled}
@@ -185,12 +204,20 @@
             {/if}
             Ticket template
             {#if !templateExpanded && hasTemplateValues}
-              <span class="text-muted-foreground/60 ml-1 font-normal"> (configured) </span>
+              <span class="text-muted-foreground/60 ml-1 font-normal">
+                {i18nStore.t('settings.workflowScheduledJobEditor.templateConfigured')}
+              </span>
             {/if}
           </button>
 
           {#if templateExpanded}
-            <WorkflowScheduledJobTemplateFields {draft} {onFieldChange} />
+            <WorkflowScheduledJobTemplateFields
+              {draft}
+              {repoOptions}
+              {onFieldChange}
+              {onToggleRepoScope}
+              {onUpdateRepoBranchOverride}
+            />
           {/if}
         </div>
       </div>

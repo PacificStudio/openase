@@ -1,4 +1,6 @@
-import { formatRelativeTime } from '$lib/utils'
+import { i18nStore } from '$lib/i18n/store.svelte'
+import { formatMachineRelativeTime } from '../machine-i18n'
+import { machineStatusDescription } from '../machine-status'
 import type { MachineItem, MachineSnapshot } from '../types'
 
 export type StatusDot = {
@@ -34,49 +36,58 @@ export function buildStatusDots(
     {
       key: 'heartbeat',
       label: machine.last_heartbeat_at
-        ? formatRelativeTime(machine.last_heartbeat_at)
-        : 'No heartbeat',
-      description: 'Heartbeat',
+        ? formatMachineRelativeTime(machine.last_heartbeat_at)
+        : i18nStore.t('machines.machineRowCard.messages.noHeartbeat'),
+      description: i18nStore.t('machines.shared.heartbeat'),
       color: machine.last_heartbeat_at ? 'green' : 'gray',
     },
     {
       key: 'l1',
-      label: 'Reachability',
+      label: i18nStore.t('machines.shared.reachability'),
       description:
         monitor?.l1?.reachable === true
-          ? 'Reachable'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.reachable')
           : monitor?.l1?.reachable === false
-            ? 'Unreachable'
-            : 'Not checked',
+            ? i18nStore.t('machines.machineHealthPanel.dynamic.unavailable')
+            : i18nStore.t('machines.machineHealthPanel.dynamic.notCheckedYet'),
       color: monitorColor(monitor?.l1),
     },
     {
       key: 'l2',
-      label: 'System',
+      label: i18nStore.t('machines.shared.system'),
       description:
         snapshot?.cpuUsagePercent !== undefined
           ? `CPU ${snapshot.cpuUsagePercent.toFixed(0)}%`
-          : 'Not checked',
+          : i18nStore.t('machines.machineHealthPanel.dynamic.notCheckedYet'),
       color: monitorColor(monitor?.l2),
     },
     {
       key: 'l3',
       label: 'GPU',
-      description: monitor?.l3?.available ? `${snapshot?.gpus.length ?? 0} GPU` : 'No GPU',
+      description: monitor?.l3?.available
+        ? i18nStore.t('machines.machineRowCard.resources.gpuSummary', {
+            count: snapshot?.gpus.length ?? 0,
+          })
+        : i18nStore.t('machines.machineHealthPanel.dynamic.noGpuDetected'),
       color: monitorColor(monitor?.l3),
     },
     {
       key: 'l4',
-      label: 'Runtime',
+      label: i18nStore.t('machines.shared.runtime'),
       description: snapshot?.agentEnvironment.length
-        ? `${snapshot.agentEnvironment.filter((runtime) => runtime.ready).length}/${snapshot.agentEnvironment.length} ready`
-        : 'Not checked',
+        ? i18nStore.t('machines.machineHealthPanel.dynamic.runtimesReady', {
+            ready: snapshot.agentEnvironment.filter((runtime) => runtime.ready).length,
+            total: snapshot.agentEnvironment.length,
+          })
+        : i18nStore.t('machines.machineHealthPanel.dynamic.notCheckedYet'),
       color: monitorColor(monitor?.l4),
     },
     {
       key: 'l5',
-      label: 'Tooling',
-      description: snapshot?.fullAudit?.checkedAt ? 'Audit captured' : 'Not checked',
+      label: i18nStore.t('machines.shared.tooling'),
+      description: snapshot?.fullAudit?.checkedAt
+        ? i18nStore.t('machines.machineHealthPanel.dynamic.auditCaptured')
+        : i18nStore.t('machines.machineHealthPanel.dynamic.notCheckedYet'),
       color: monitorColor(monitor?.l5),
     },
   ]
@@ -96,29 +107,35 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
       percent: snapshot?.cpuUsagePercent ?? 0,
       summary:
         snapshot?.cpuUsagePercent === undefined
-          ? 'Pending'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.pending')
           : `${snapshot.cpuUsagePercent.toFixed(0)}%`,
       detail:
         snapshot?.cpuUsagePercent === undefined
-          ? 'CPU usage has not been collected yet.'
-          : `${snapshot.cpuUsagePercent.toFixed(1)}% CPU in use across ${snapshot.cpuCores?.toFixed(0) ?? '?'} cores.`,
+          ? i18nStore.t('machines.machineRowCard.resources.cpuPending')
+          : i18nStore.t('machines.machineRowCard.resources.cpuDetail', {
+              used: snapshot.cpuUsagePercent.toFixed(1),
+              cores: snapshot.cpuCores?.toFixed(0) ?? '?',
+            }),
       barClass: toneForPercent(snapshot?.cpuUsagePercent),
     },
     {
       key: 'memory',
-      label: 'Memory',
+      label: i18nStore.t('machines.shared.memory'),
       percent:
         snapshot?.memoryTotalGB && snapshot.memoryUsedGB !== undefined
           ? clampPercent((snapshot.memoryUsedGB / snapshot.memoryTotalGB) * 100)
           : 0,
       summary:
         snapshot?.memoryUsedGB === undefined
-          ? 'Pending'
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.pending')
           : `${snapshot.memoryUsedGB.toFixed(1)} / ${snapshot.memoryTotalGB?.toFixed(1) ?? '?'} GB`,
       detail:
         snapshot?.memoryUsedGB === undefined
-          ? 'Memory usage has not been collected yet.'
-          : `${snapshot.memoryAvailableGB?.toFixed(1) ?? '?'} GB free out of ${snapshot.memoryTotalGB?.toFixed(1) ?? '?'} GB total.`,
+          ? i18nStore.t('machines.machineRowCard.resources.memoryPending')
+          : i18nStore.t('machines.machineRowCard.resources.memoryDetail', {
+              free: snapshot.memoryAvailableGB?.toFixed(1) ?? '?',
+              total: snapshot.memoryTotalGB?.toFixed(1) ?? '?',
+            }),
       barClass: toneForPercent(
         snapshot?.memoryTotalGB && snapshot.memoryUsedGB !== undefined
           ? (snapshot.memoryUsedGB / snapshot.memoryTotalGB) * 100
@@ -127,7 +144,7 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
     },
     {
       key: 'disk',
-      label: 'Disk',
+      label: i18nStore.t('machines.shared.disk'),
       percent:
         snapshot?.diskTotalGB && snapshot.diskAvailableGB !== undefined
           ? clampPercent(
@@ -136,12 +153,17 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
           : 0,
       summary:
         snapshot?.diskAvailableGB === undefined
-          ? 'Pending'
-          : `${snapshot.diskAvailableGB.toFixed(1)} GB free`,
+          ? i18nStore.t('machines.machineHealthPanel.dynamic.pending')
+          : i18nStore.t('machines.machineRowCard.resources.freeGb', {
+              free: snapshot.diskAvailableGB.toFixed(1),
+            }),
       detail:
         snapshot?.diskAvailableGB === undefined
-          ? 'Disk usage has not been collected yet.'
-          : `${snapshot.diskAvailableGB.toFixed(1)} GB free out of ${snapshot.diskTotalGB?.toFixed(1) ?? '?'} GB.`,
+          ? i18nStore.t('machines.machineRowCard.resources.diskPending')
+          : i18nStore.t('machines.machineRowCard.resources.diskDetail', {
+              free: snapshot.diskAvailableGB.toFixed(1),
+              total: snapshot.diskTotalGB?.toFixed(1) ?? '?',
+            }),
       barClass: toneForPercent(
         snapshot?.diskTotalGB && snapshot.diskAvailableGB !== undefined
           ? ((snapshot.diskTotalGB - snapshot.diskAvailableGB) / snapshot.diskTotalGB) * 100
@@ -153,16 +175,22 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
       label: 'GPU',
       percent: clampPercent(gpuAverage ?? 0),
       summary: snapshot?.gpus.length
-        ? `${snapshot.gpus.length} GPU${snapshot.gpus.length === 1 ? '' : 's'}`
-        : 'No GPU',
+        ? i18nStore.t('machines.machineRowCard.resources.gpuSummary', {
+            count: snapshot.gpus.length,
+          })
+        : i18nStore.t('machines.machineHealthPanel.dynamic.noGpuDetected'),
       detail: snapshot?.gpus.length
         ? snapshot.gpus
-            .map(
-              (gpu) =>
-                `${gpu.name}: ${gpu.memoryUsedGB.toFixed(1)}/${gpu.memoryTotalGB.toFixed(1)} GB VRAM, ${gpu.utilizationPercent.toFixed(0)}% util`,
+            .map((gpu) =>
+              i18nStore.t('machines.machineRowCard.resources.gpuDetail', {
+                name: gpu.name,
+                used: gpu.memoryUsedGB.toFixed(1),
+                total: gpu.memoryTotalGB.toFixed(1),
+                util: gpu.utilizationPercent.toFixed(0),
+              }),
             )
             .join('\n')
-        : 'This machine has no GPU inventory in the latest snapshot.',
+        : i18nStore.t('machines.machineRowCard.resources.gpuInventoryMissing'),
       barClass: snapshot?.gpuDispatchable ? 'bg-sky-500' : 'bg-slate-400',
       segments: snapshot?.gpus.length
         ? [
@@ -180,7 +208,7 @@ export function buildResourceBars(snapshot: MachineSnapshot | null): ResourceBar
               ),
             },
             {
-              label: 'Util',
+              label: i18nStore.t('machines.shared.utilization'),
               percent: clampPercent(gpuAverage ?? 0),
               barClass: snapshot.gpuDispatchable ? 'bg-sky-500' : 'bg-slate-400',
             },
@@ -221,17 +249,4 @@ function toneForPercent(value: number | undefined) {
   if (value >= 85) return 'bg-rose-500'
   if (value >= 65) return 'bg-amber-500'
   return 'bg-emerald-500'
-}
-
-function machineStatusDescription(status: string) {
-  switch (status) {
-    case 'online':
-      return 'Machine is reachable and can accept work.'
-    case 'degraded':
-      return 'Machine is reachable but at least one monitor reported issues.'
-    case 'offline':
-      return 'Machine is currently unreachable.'
-    default:
-      return 'Machine status is unknown.'
-  }
 }

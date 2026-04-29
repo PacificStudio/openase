@@ -6,6 +6,7 @@
   import * as Popover from '$ui/popover'
   import { Blocks, Link, Lock, Settings, Unlink } from '@lucide/svelte'
   import type { SkillState } from '../model'
+  import { t } from './i18n'
 
   let {
     skillStates,
@@ -48,7 +49,7 @@
       const payload = await getSkill(skill.id)
       contentCache = { ...contentCache, [skill.id]: payload.content || '' }
     } catch {
-      loadError = 'Failed to load skill content.'
+      loadError = t('workflows.skills.dropdown.errors.loadFailed')
     } finally {
       loadingSkillId = null
     }
@@ -66,7 +67,7 @@
     >
       <Blocks class="size-3.5 shrink-0" />
       <span>
-        Skills
+        {t('workflows.skills.dropdown.trigger.label')}
         <span class="text-muted-foreground">{boundCount}/{skillStates.length}</span>
       </span>
     </button>
@@ -100,7 +101,7 @@
                   <span
                     class="text-primary rounded-full border border-current px-1.5 py-0.5 text-[10px] font-medium uppercase"
                   >
-                    Required
+                    {t('workflows.skills.dropdown.badge.required')}
                   </span>
                 {/if}
               </div>
@@ -125,10 +126,10 @@
                 onToggleSkill?.(skill)
               }}
               title={skill.required
-                ? 'Required skill'
+                ? t('workflows.skills.dropdown.actions.titles.required')
                 : skill.bound
-                  ? 'Unbind skill'
-                  : 'Bind skill'}
+                  ? t('workflows.skills.dropdown.actions.titles.unbind')
+                  : t('workflows.skills.dropdown.actions.titles.bind')}
             >
               {#if skill.required}
                 <Lock class="size-3" />
@@ -167,8 +168,9 @@
                 <p class="text-destructive text-xs">{loadError}</p>
               {:else if cachedContent !== undefined}
                 <pre
-                  class="text-foreground/80 max-h-48 overflow-y-auto font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{cachedContent ||
-                    'No content.'}</pre>
+                  class="text-foreground/80 max-h-48 overflow-y-auto font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">
+                    {cachedContent || t('workflows.skills.dropdown.labels.noContent')}
+                </pre>
               {/if}
               <div class="text-muted-foreground mt-1.5 truncate font-mono text-[10px]">
                 {skill.path}
@@ -187,7 +189,7 @@
           onclick={() => (open = false)}
         >
           <Settings class="size-3" />
-          Manage skills
+          {t('workflows.skills.dropdown.actions.manage')}
         </a>
       </div>
     {/if}

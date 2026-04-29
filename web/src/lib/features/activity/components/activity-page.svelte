@@ -24,6 +24,7 @@
   import ActivityPageLoading from './activity-page-loading.svelte'
   import ActivityLoadMorePlaceholder from './activity-load-more-placeholder.svelte'
   import ActivityTimeline from './activity-timeline.svelte'
+  import { activityT } from '../i18n'
 
   const loadMoreAnimationDurationMs = 240
 
@@ -102,7 +103,10 @@
       })
     } catch (caughtError) {
       if (isStaleLoad(projectId, version)) return
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load activity.'
+      error =
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : activityT('activity.error.loadActivity')
     } finally {
       if (!isStaleLoad(projectId, version)) {
         loading = false
@@ -144,7 +148,8 @@
       })
     } catch (caughtError) {
       if (activeProjectId !== projectId) return
-      error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load more activity.'
+      error =
+        caughtError instanceof ApiError ? caughtError.detail : activityT('activity.error.loadMore')
     } finally {
       if (activeProjectId === projectId) {
         loadingMore = false
@@ -220,12 +225,23 @@
   })
 </script>
 
-<PageScaffold title="Activity" description="Runtime events and agent lifecycle updates.">
+<PageScaffold
+  title={activityT('activity.page.title')}
+  description={activityT('activity.page.description')}
+  helpSection="activity"
+>
   <div class="w-full space-y-4">
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+    <div
+      class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3"
+      data-tour="activity-filters"
+    >
       <div class="relative min-w-0 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-        <Input placeholder="Search events..." class="pl-9" bind:value={searchQuery} />
+        <Input
+          placeholder={activityT('activity.searchPlaceholder')}
+          class="pl-9"
+          bind:value={searchQuery}
+        />
       </div>
       <Select.Root
         type="single"
@@ -234,7 +250,8 @@
         }}
       >
         <Select.Trigger class="w-full sm:w-44">
-          {activityEventFilterOptions.find((t) => t.value === selectedType)?.label ?? 'All events'}
+          {activityEventFilterOptions.find((t) => t.value === selectedType)?.label ??
+            activityT('activity.filter.allEvents')}
         </Select.Trigger>
         <Select.Content class="max-h-72">
           {#each activityEventFilterOptions as t (t.value)}
@@ -253,22 +270,27 @@
         {error}
       </div>
     {:else if filtered.length > 0}
-      <ActivityTimeline entries={filtered} />
+      <div data-tour="activity-timeline">
+        <ActivityTimeline entries={filtered} />
+      </div>
     {:else}
       <div class="animate-fade-in-up flex flex-col items-center justify-center py-20">
         <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
           <Activity class="text-muted-foreground size-5" />
         </div>
         {#if entries.length === 0}
-          <p class="text-foreground text-sm font-medium">No activity yet</p>
+          <p class="text-foreground text-sm font-medium">
+            {activityT('activity.empty.title')}
+          </p>
           <p class="text-muted-foreground mt-1 max-w-sm text-sm">
-            Activity captures every agent run, ticket transition, and workflow event in real time.
-            Create a ticket or trigger a workflow to see events here.
+            {activityT('activity.empty.description')}
           </p>
         {:else}
-          <p class="text-foreground text-sm font-medium">No matching events</p>
+          <p class="text-foreground text-sm font-medium">
+            {activityT('activity.empty.filteredTitle')}
+          </p>
           <p class="text-muted-foreground mt-1 text-sm">
-            Try adjusting your search or filter criteria.
+            {activityT('activity.empty.filteredDescription')}
           </p>
         {/if}
       </div>
@@ -281,7 +303,9 @@
         {/if}
         <div class="flex justify-center">
           <Button variant="outline" onclick={handleLoadMore} disabled={loadingMore}>
-            {loadingMore ? 'Loading…' : 'Load more'}
+            {loadingMore
+              ? activityT('activity.actions.loading')
+              : activityT('activity.actions.loadMore')}
           </Button>
         </div>
       </div>
