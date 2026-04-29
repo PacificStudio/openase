@@ -13,6 +13,7 @@ import (
 	entworkflowversion "github.com/BetterAndBetterII/openase/ent/workflowversion"
 	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
+	"github.com/BetterAndBetterII/openase/internal/repo/enttx"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 	"go.yaml.in/yaml/v3"
@@ -179,7 +180,8 @@ func workflowVersionNeedsMetadataMigration(item *ent.WorkflowVersion) bool {
 }
 
 func (r *EntRepository) ensureProjectWorkflowsMigrated(ctx context.Context, projectID uuid.UUID) error {
-	ids, err := r.client.Workflow.Query().
+	client := enttx.Client(ctx, r.client)
+	ids, err := client.Workflow.Query().
 		Where(entworkflow.ProjectIDEQ(projectID)).
 		IDs(ctx)
 	if err != nil {
@@ -194,7 +196,8 @@ func (r *EntRepository) ensureProjectWorkflowsMigrated(ctx context.Context, proj
 }
 
 func (r *EntRepository) ensureWorkflowMigrated(ctx context.Context, workflowID uuid.UUID) error {
-	workflowItem, err := r.client.Workflow.Query().
+	client := enttx.Client(ctx, r.client)
+	workflowItem, err := client.Workflow.Query().
 		Where(entworkflow.IDEQ(workflowID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
 			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
@@ -257,11 +260,12 @@ func (r *EntRepository) ensureWorkflowMigrated(ctx context.Context, workflowID u
 		legacyCurrent.PlatformAccessAllowed,
 	))
 
-	tx, err := r.client.Tx(ctx)
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return fmt.Errorf("start workflow metadata migration tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
 
 	if workflowNeedsMetadataMigration(workflowItem) {
 		if _, err := tx.Workflow.UpdateOneID(workflowID).
@@ -308,7 +312,7 @@ func (r *EntRepository) ensureWorkflowMigrated(ctx context.Context, workflowID u
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return fmt.Errorf("commit workflow metadata migration tx: %w", err)
 	}
 	return nil
