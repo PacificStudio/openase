@@ -195,10 +195,6 @@ func (r *EntRepository) StatusNames(ctx context.Context, statusIDs []uuid.UUID) 
 }
 
 func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain.Workflow, error) {
-	if err := r.ensureProjectWorkflowsMigrated(ctx, projectID); err != nil {
-		return nil, err
-	}
-
 	items, err := r.client.Workflow.Query().
 		Where(entworkflow.ProjectIDEQ(projectID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
@@ -221,10 +217,6 @@ func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain
 }
 
 func (r *EntRepository) Get(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error) {
-	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
-		return domain.Workflow{}, err
-	}
-
 	item, err := r.client.Workflow.Query().
 		Where(entworkflow.IDEQ(workflowID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
@@ -385,10 +377,6 @@ func (r *EntRepository) Delete(ctx context.Context, workflowID uuid.UUID) (domai
 }
 
 func (r *EntRepository) CurrentWorkflowVersion(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowVersionRecord, error) {
-	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
-		return domain.WorkflowVersionRecord{}, err
-	}
-
 	item, err := r.client.WorkflowVersion.Query().
 		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
 		Order(ent.Desc(entworkflowversion.FieldVersion)).
@@ -404,10 +392,6 @@ func (r *EntRepository) RecordedWorkflowVersion(
 	workflowID uuid.UUID,
 	workflowVersionID *uuid.UUID,
 ) (domain.WorkflowVersionRecord, error) {
-	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
-		return domain.WorkflowVersionRecord{}, err
-	}
-
 	if workflowVersionID == nil || *workflowVersionID == uuid.Nil {
 		return r.CurrentWorkflowVersion(ctx, workflowID)
 	}
@@ -427,10 +411,6 @@ func (r *EntRepository) RecordedWorkflowVersion(
 }
 
 func (r *EntRepository) ListWorkflowVersions(ctx context.Context, workflowID uuid.UUID) ([]domain.VersionSummary, error) {
-	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
-		return nil, err
-	}
-
 	if _, err := r.CurrentWorkflowVersion(ctx, workflowID); err != nil {
 		return nil, err
 	}
@@ -1094,10 +1074,6 @@ func (r *EntRepository) ApplyWorkflowSkillBindings(
 }
 
 func (r *EntRepository) ResolveRuntimeSnapshot(ctx context.Context, workflowID uuid.UUID) (domain.RuntimeSnapshot, error) {
-	if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
-		return domain.RuntimeSnapshot{}, err
-	}
-
 	workflowItem, err := r.Get(ctx, workflowID)
 	if err != nil {
 		return domain.RuntimeSnapshot{}, err
@@ -1140,10 +1116,6 @@ func (r *EntRepository) ResolveRecordedRuntimeSnapshot(
 	ctx context.Context,
 	input domain.ResolveRecordedRuntimeSnapshotInput,
 ) (domain.RuntimeSnapshot, error) {
-	if err := r.ensureWorkflowMigrated(ctx, input.WorkflowID); err != nil {
-		return domain.RuntimeSnapshot{}, err
-	}
-
 	workflowItem, err := r.Get(ctx, input.WorkflowID)
 	if err != nil {
 		return domain.RuntimeSnapshot{}, err
@@ -1192,10 +1164,6 @@ func (r *EntRepository) BuildHarnessTemplateData(
 	ctx context.Context,
 	input domain.BuildHarnessTemplateDataInput,
 ) (domain.HarnessTemplateData, error) {
-	if err := r.ensureWorkflowMigrated(ctx, input.WorkflowID); err != nil {
-		return domain.HarnessTemplateData{}, err
-	}
-
 	workflowItem, err := r.client.Workflow.Query().
 		Where(entworkflow.IDEQ(input.WorkflowID)).
 		WithProject().

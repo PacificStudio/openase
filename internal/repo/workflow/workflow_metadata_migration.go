@@ -178,22 +178,24 @@ func workflowVersionNeedsMetadataMigration(item *ent.WorkflowVersion) bool {
 		len(item.PlatformAccessAllowed) == 0
 }
 
-func (r *EntRepository) ensureProjectWorkflowsMigrated(ctx context.Context, projectID uuid.UUID) error {
+// MigrateLegacyMetadata runs the retained workflow metadata backfill as an
+// explicit startup migration instead of a normal read-path side effect.
+func (r *EntRepository) MigrateLegacyMetadata(ctx context.Context) error {
 	ids, err := r.client.Workflow.Query().
-		Where(entworkflow.ProjectIDEQ(projectID)).
+		Order(ent.Asc(entworkflow.FieldName)).
 		IDs(ctx)
 	if err != nil {
 		return fmt.Errorf("list workflows for metadata migration: %w", err)
 	}
 	for _, workflowID := range ids {
-		if err := r.ensureWorkflowMigrated(ctx, workflowID); err != nil {
+		if err := r.migrateWorkflowMetadataIfNeeded(ctx, workflowID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *EntRepository) ensureWorkflowMigrated(ctx context.Context, workflowID uuid.UUID) error {
+func (r *EntRepository) migrateWorkflowMetadataIfNeeded(ctx context.Context, workflowID uuid.UUID) error {
 	workflowItem, err := r.client.Workflow.Query().
 		Where(entworkflow.IDEQ(workflowID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
