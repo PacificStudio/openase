@@ -43,6 +43,7 @@ import (
 	secretsrepo "github.com/BetterAndBetterII/openase/internal/repo/secrets"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
+	userapikeyrepo "github.com/BetterAndBetterII/openase/internal/repo/userapikey"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
@@ -54,6 +55,7 @@ import (
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
+	userapikeyservice "github.com/BetterAndBetterII/openase/internal/service/userapikey"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -315,12 +317,14 @@ func (a *App) RunServe(ctx context.Context) error {
 		humanAuthSvc = humanauthservice.NewService(humanAuthRepo, http.DefaultClient, instanceAuthSvc)
 		humanAuthorizer = humanauthservice.NewAuthorizer(humanAuthRepo)
 	}
+	userAPIKeySvc := userapikeyservice.NewService(userapikeyrepo.NewEntRepository(client), humanAuthorizer)
 	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
 	machineSessions := machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)
 	serverOpts := []httpapi.ServerOption{
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithGitHubRepoService(githubRepoSvc),
 		httpapi.WithSecretService(secretSvc),
+		httpapi.WithUserAPIKeyService(userAPIKeySvc),
 		httpapi.WithInstanceAuthService(instanceAuthSvc),
 		httpapi.WithRuntimeConfigFile(a.config.Metadata.ConfigFile),
 		httpapi.WithHomeDir(homeDir),

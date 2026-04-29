@@ -776,6 +776,22 @@ export type RetestGitHubOutboundCredentialResponse = DeepRequired<
 export type DeleteGitHubOutboundCredentialResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'delete'>
 >
+export type ProjectUserAPIKeyListResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/api-keys', 'get'>
+>
+export type ProjectUserAPIKey = ItemOf<ProjectUserAPIKeyListResponse['api_keys']>
+export type CreateProjectUserAPIKeyResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/api-keys', 'post'>
+>
+export type RotateProjectUserAPIKeyResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/rotate', 'post'>
+>
+export type DisableProjectUserAPIKeyResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/disable', 'post'>
+>
+export type DeleteProjectUserAPIKeyResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}', 'delete'>
+>
 
 // Org-level GitHub credential — managed under /orgs/:orgId/security/github-credential
 export type GitHubCredentialSlot = {

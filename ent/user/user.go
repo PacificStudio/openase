@@ -34,6 +34,8 @@ const (
 	EdgeOrganizationMemberships = "organization_memberships"
 	// EdgeAcceptedOrganizationInvitations holds the string denoting the accepted_organization_invitations edge name in mutations.
 	EdgeAcceptedOrganizationInvitations = "accepted_organization_invitations"
+	// EdgeAPIKeys holds the string denoting the api_keys edge name in mutations.
+	EdgeAPIKeys = "api_keys"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// OrganizationMembershipsTable is the table that holds the organization_memberships relation/edge.
@@ -50,6 +52,13 @@ const (
 	AcceptedOrganizationInvitationsInverseTable = "organization_invitations"
 	// AcceptedOrganizationInvitationsColumn is the table column denoting the accepted_organization_invitations relation/edge.
 	AcceptedOrganizationInvitationsColumn = "accepted_by_user_id"
+	// APIKeysTable is the table that holds the api_keys relation/edge.
+	APIKeysTable = "user_api_keys"
+	// APIKeysInverseTable is the table name for the UserAPIKey entity.
+	// It exists in this package in order to avoid circular dependency with the "userapikey" package.
+	APIKeysInverseTable = "user_api_keys"
+	// APIKeysColumn is the table column denoting the api_keys relation/edge.
+	APIKeysColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -187,6 +196,20 @@ func ByAcceptedOrganizationInvitations(term sql.OrderTerm, terms ...sql.OrderTer
 		sqlgraph.OrderByNeighborTerms(s, newAcceptedOrganizationInvitationsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAPIKeysCount orders the results by api_keys count.
+func ByAPIKeysCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAPIKeysStep(), opts...)
+	}
+}
+
+// ByAPIKeys orders the results by api_keys terms.
+func ByAPIKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAPIKeysStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newOrganizationMembershipsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -199,5 +222,12 @@ func newAcceptedOrganizationInvitationsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AcceptedOrganizationInvitationsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AcceptedOrganizationInvitationsTable, AcceptedOrganizationInvitationsColumn),
+	)
+}
+func newAPIKeysStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(APIKeysInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, APIKeysTable, APIKeysColumn),
 	)
 }

@@ -2599,6 +2599,66 @@ var (
 			},
 		},
 	}
+	// UserAPIKeysColumns holds the columns for the "user_api_keys" table.
+	UserAPIKeysColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "name", Type: field.TypeString},
+		{Name: "token_prefix", Type: field.TypeString},
+		{Name: "token_hint", Type: field.TypeString},
+		{Name: "token_hash", Type: field.TypeString},
+		{Name: "scopes", Type: field.TypeJSON},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"active", "disabled", "revoked"}, Default: "active"},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "disabled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// UserAPIKeysTable holds the schema information for the "user_api_keys" table.
+	UserAPIKeysTable = &schema.Table{
+		Name:       "user_api_keys",
+		Columns:    UserAPIKeysColumns,
+		PrimaryKey: []*schema.Column{UserAPIKeysColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_api_keys_projects_user_api_keys",
+				Columns:    []*schema.Column{UserAPIKeysColumns[13]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "user_api_keys_users_api_keys",
+				Columns:    []*schema.Column{UserAPIKeysColumns[14]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "userapikey_token_hash",
+				Unique:  true,
+				Columns: []*schema.Column{UserAPIKeysColumns[4]},
+			},
+			{
+				Name:    "userapikey_project_id_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserAPIKeysColumns[13], UserAPIKeysColumns[14]},
+			},
+			{
+				Name:    "userapikey_project_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{UserAPIKeysColumns[13], UserAPIKeysColumns[6]},
+			},
+			{
+				Name:    "userapikey_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserAPIKeysColumns[7]},
+			},
+		},
+	}
 	// UserGroupMembershipsColumns holds the columns for the "user_group_memberships" table.
 	UserGroupMembershipsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -2962,6 +3022,7 @@ var (
 		TicketRepoWorkspacesTable,
 		TicketStatusTable,
 		UsersTable,
+		UserAPIKeysTable,
 		UserGroupMembershipsTable,
 		UserIdentitiesTable,
 		WorkflowsTable,
@@ -3062,6 +3123,8 @@ func init() {
 	TicketRepoWorkspacesTable.ForeignKeys[1].RefTable = ProjectReposTable
 	TicketRepoWorkspacesTable.ForeignKeys[2].RefTable = TicketsTable
 	TicketStatusTable.ForeignKeys[0].RefTable = ProjectsTable
+	UserAPIKeysTable.ForeignKeys[0].RefTable = ProjectsTable
+	UserAPIKeysTable.ForeignKeys[1].RefTable = UsersTable
 	WorkflowsTable.ForeignKeys[0].RefTable = AgentsTable
 	WorkflowsTable.ForeignKeys[1].RefTable = ProjectsTable
 	WorkflowsTable.ForeignKeys[2].RefTable = WorkflowVersionsTable

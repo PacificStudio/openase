@@ -131,6 +131,33 @@ export function configuredSecurity() {
         },
       ],
     },
+    user_api_keys: {
+      token_prefix: 'ase_pat_',
+      supported_scopes: [
+        'activity.read',
+        'project_updates.read',
+        'project_updates.write',
+        'repos.read',
+        'statuses.list',
+        'tickets.create',
+        'tickets.list',
+        'tickets.update',
+        'workflows.read',
+      ],
+      supported_scope_groups: [
+        {
+          category: 'tickets',
+          scopes: ['tickets.create', 'tickets.list', 'tickets.update'],
+        },
+      ],
+      allowed_scopes: ['tickets.create', 'tickets.list', 'tickets.update'],
+      allowed_scope_groups: [
+        {
+          category: 'tickets',
+          scopes: ['tickets.create', 'tickets.list', 'tickets.update'],
+        },
+      ],
+    },
     github: {
       effective: {
         scope: 'organization',
@@ -173,9 +200,10 @@ export function configuredSecurity() {
           state: 'missing',
           configured: false,
           valid: false,
+          login: '',
           permissions: [],
           repo_access: 'not_checked',
-          checked_at: undefined,
+          checked_at: null,
           last_error: '',
         },
       },

@@ -22,6 +22,7 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
+	entuserapikey "github.com/BetterAndBetterII/openase/ent/userapikey"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -341,6 +342,137 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	if forbiddenCommentRec.Code != http.StatusForbidden {
 		t.Fatalf("expected commenting on another ticket to return 403, got %d: %s", forbiddenCommentRec.Code, forbiddenCommentRec.Body.String())
 	}
+}
+
+func TestAgentPlatformAcceptsProjectScopedUserAPIKeys(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	userID := uuid.New()
+	if _, err := client.User.Create().SetID(userID).SetPrimaryEmail("user@example.com").SetDisplayName("User").Save(ctx); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	token, tokenHash, err := agentplatform.GenerateOpaqueToken(agentplatform.UserAPIKeyTokenPrefix(), strings.NewReader(strings.Repeat("a", 48)))
+	if err != nil {
+		t.Fatalf("generate user api key token: %v", err)
+	}
+	if _, err := client.UserAPIKey.Create().
+		SetUserID(userID).
+		SetProjectID(projectID).
+		SetName("Buildkite").
+		SetTokenPrefix(agentplatform.UserAPIKeyTokenPrefix()).
+		SetTokenHint(agentplatform.TokenPreview(token)).
+		SetTokenHash(tokenHash).
+		SetScopes([]string{string(agentplatform.ScopeTicketsList)}).
+		SetStatus(entuserapikey.StatusActive).
+		Save(ctx); err != nil {
+		t.Fatalf("create user api key: %v", err)
+	}
+
+	listResp := struct {
+		Tickets []ticketResponse `json:"tickets"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + token},
+		http.StatusOK,
+		&listResp,
+	)
+	if len(listResp.Tickets) == 0 {
+		t.Fatalf("expected project tickets for user api key, got %+v", listResp.Tickets)
+	}
+
+	scopeDenied := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
+		`{"description":"blocked"}`,
+		map[string]string{
+			echo.HeaderAuthorization: "Bearer " + token,
+			echo.HeaderContentType:   echo.MIMEApplicationJSON,
+		},
+	)
+	if scopeDenied.Code != http.StatusForbidden || !strings.Contains(scopeDenied.Body.String(), "AGENT_SCOPE_FORBIDDEN") {
+		t.Fatalf("expected scope denied for user api key update, got %d: %s", scopeDenied.Code, scopeDenied.Body.String())
+	}
+
+	otherProjectID := uuid.New()
+	currentProject, err := client.Project.Get(ctx, projectID)
+	if err != nil {
+		t.Fatalf("load current project: %v", err)
+	}
+	if _, err := client.Project.Create().SetID(otherProjectID).SetOrganizationID(currentProject.OrganizationID).SetName("Other").SetSlug("other").Save(ctx); err != nil {
+		t.Fatalf("create other project: %v", err)
+	}
+	projectDenied := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", otherProjectID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + token},
+	)
+	if projectDenied.Code != http.StatusForbidden || !strings.Contains(projectDenied.Body.String(), "AGENT_PROJECT_FORBIDDEN") {
+		t.Fatalf("expected project denied for user api key, got %d: %s", projectDenied.Code, projectDenied.Body.String())
+	}
+
+	if _, err := client.UserAPIKey.Update().
+		Where(entuserapikey.UserIDEQ(userID)).
+		SetStatus(entuserapikey.StatusDisabled).
+		Save(ctx); err != nil {
+		t.Fatalf("disable user api key: %v", err)
+	}
+	disabledRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + token},
+	)
+	if disabledRec.Code != http.StatusUnauthorized || !strings.Contains(disabledRec.Body.String(), "AGENT_TOKEN_DISABLED") {
+		t.Fatalf("expected disabled user api key rejection, got %d: %s", disabledRec.Code, disabledRec.Body.String())
+	}
+
+	expiredAt := time.Now().UTC().Add(-time.Minute)
+	if _, err := client.UserAPIKey.Update().
+		Where(entuserapikey.UserIDEQ(userID)).
+		SetStatus(entuserapikey.StatusActive).
+		SetNillableExpiresAt(&expiredAt).
+		Save(ctx); err != nil {
+		t.Fatalf("expire user api key: %v", err)
+	}
+	expiredRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + token},
+	)
+	if expiredRec.Code != http.StatusUnauthorized || !strings.Contains(expiredRec.Body.String(), "AGENT_TOKEN_EXPIRED") {
+		t.Fatalf("expected expired user api key rejection, got %d: %s", expiredRec.Code, expiredRec.Body.String())
+	}
+
+	_ = agentID
 }
 
 func TestAgentPlatformTicketDependencyRoutesRespectScopes(t *testing.T) {

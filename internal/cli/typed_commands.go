@@ -812,6 +812,60 @@ func newSecretCommand() *cobra.Command {
 	return command
 }
 
+func newUserAPIKeyCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "api-key",
+		Short: "Operate on project-scoped user API keys.",
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId]",
+		Short:            "List the current user's project API keys.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/security-settings/api-keys",
+		PositionalParams: []string{"projectId"},
+		Example:          "openase api-key list $OPENASE_PROJECT_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId]",
+		Short:            "Create a project-scoped user API key.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/security-settings/api-keys",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"The plaintext token is only returned by the create response; store it before leaving the terminal.",
+		},
+		Example: "openase api-key create $OPENASE_PROJECT_ID --name Buildkite --scopes tickets.list --scopes tickets.update",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "rotate [projectId] [keyId]",
+		Short:            "Rotate a project-scoped user API key.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/rotate",
+		PositionalParams: []string{"projectId", "keyId"},
+		HelpNotes: []string{
+			"Rotation returns a fresh plaintext token once and reactivates the key with the stored scope set.",
+		},
+		Example: "openase api-key rotate $OPENASE_PROJECT_ID $API_KEY_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "disable [projectId] [keyId]",
+		Short:            "Disable a project-scoped user API key.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/disable",
+		PositionalParams: []string{"projectId", "keyId"},
+		Example:          "openase api-key disable $OPENASE_PROJECT_ID $API_KEY_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [projectId] [keyId]",
+		Short:            "Delete a project-scoped user API key.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}",
+		PositionalParams: []string{"projectId", "keyId"},
+		Example:          "openase api-key delete $OPENASE_PROJECT_ID $API_KEY_ID",
+	}))
+	return command
+}
+
 func newProjectUpdatesCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "updates",
@@ -2370,6 +2424,11 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "list [projectId]", Short: "List workflow and ticket secret bindings.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/security-settings/secret-bindings", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a workflow or ticket secret binding.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/secret-bindings", PositionalParams: []string{"projectId"}},
 		{Use: "delete [projectId] [bindingId]", Short: "Delete a workflow or ticket secret binding.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}", PositionalParams: []string{"projectId", "bindingId"}},
+		{Use: "list [projectId]", Short: "List the current user's project API keys.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/security-settings/api-keys", PositionalParams: []string{"projectId"}},
+		{Use: "create [projectId]", Short: "Create a project-scoped user API key.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/api-keys", PositionalParams: []string{"projectId"}},
+		{Use: "rotate [projectId] [keyId]", Short: "Rotate a project-scoped user API key.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/rotate", PositionalParams: []string{"projectId", "keyId"}},
+		{Use: "disable [projectId] [keyId]", Short: "Disable a project-scoped user API key.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/disable", PositionalParams: []string{"projectId", "keyId"}},
+		{Use: "delete [projectId] [keyId]", Short: "Delete a project-scoped user API key.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}", PositionalParams: []string{"projectId", "keyId"}},
 		{Use: "list [projectId]", Short: "List project update threads.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/updates", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a project update thread.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/updates", PositionalParams: []string{"projectId"}},
 		{Use: "update [projectId] [threadId]", Short: "Update a project update thread.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/updates/{threadId}", PositionalParams: []string{"projectId", "threadId"}},

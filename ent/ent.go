@@ -67,6 +67,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/BetterAndBetterII/openase/ent/usergroupmembership"
 	"github.com/BetterAndBetterII/openase/ent/useridentity"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -188,6 +189,7 @@ func checkColumn(t, c string) error {
 			ticketrepoworkspace.Table:           ticketrepoworkspace.ValidColumn,
 			ticketstatus.Table:                  ticketstatus.ValidColumn,
 			user.Table:                          user.ValidColumn,
+			userapikey.Table:                    userapikey.ValidColumn,
 			usergroupmembership.Table:           usergroupmembership.ValidColumn,
 			useridentity.Table:                  useridentity.ValidColumn,
 			workflow.Table:                      workflow.ValidColumn,

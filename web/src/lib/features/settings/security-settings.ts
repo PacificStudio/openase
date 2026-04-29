@@ -8,6 +8,21 @@ export function normalizeSecuritySettings(
 ): SecuritySettingsResponse['security'] {
   return {
     ...security,
+    user_api_keys: {
+      ...security.user_api_keys,
+      supported_scopes: Array.isArray(security.user_api_keys.supported_scopes)
+        ? security.user_api_keys.supported_scopes
+        : [],
+      supported_scope_groups: Array.isArray(security.user_api_keys.supported_scope_groups)
+        ? security.user_api_keys.supported_scope_groups
+        : [],
+      allowed_scopes: Array.isArray(security.user_api_keys.allowed_scopes)
+        ? security.user_api_keys.allowed_scopes
+        : [],
+      allowed_scope_groups: Array.isArray(security.user_api_keys.allowed_scope_groups)
+        ? security.user_api_keys.allowed_scope_groups
+        : [],
+    },
     deferred: Array.isArray(security.deferred) ? security.deferred : [],
     github: {
       ...security.github,

@@ -41,6 +41,9 @@ func (s *Server) requireHumanSession(next echo.HandlerFunc) echo.HandlerFunc {
 					return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_INVALID", err.Error())
 				}
 			}
+			if localSession.Principal != nil {
+				setHumanPrincipal(c, *localSession.Principal)
+			}
 			if err := s.validateMutatingCSRFRequest(c, localSession.CSRFToken); err != nil {
 				return err
 			}

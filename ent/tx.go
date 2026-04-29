@@ -122,6 +122,8 @@ type Tx struct {
 	TicketStatus *TicketStatusClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserAPIKey is the client for interacting with the UserAPIKey builders.
+	UserAPIKey *UserAPIKeyClient
 	// UserGroupMembership is the client for interacting with the UserGroupMembership builders.
 	UserGroupMembership *UserGroupMembershipClient
 	// UserIdentity is the client for interacting with the UserIdentity builders.
@@ -320,6 +322,7 @@ func (tx *Tx) init() {
 	tx.TicketRepoWorkspace = NewTicketRepoWorkspaceClient(tx.config)
 	tx.TicketStatus = NewTicketStatusClient(tx.config)
 	tx.User = NewUserClient(tx.config)
+	tx.UserAPIKey = NewUserAPIKeyClient(tx.config)
 	tx.UserGroupMembership = NewUserGroupMembershipClient(tx.config)
 	tx.UserIdentity = NewUserIdentityClient(tx.config)
 	tx.Workflow = NewWorkflowClient(tx.config)

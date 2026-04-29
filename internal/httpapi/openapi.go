@@ -2021,6 +2021,46 @@ type OpenAPISecurityAgentTokens struct {
 	SupportedScopeGroups   []OpenAPISecurityScopeGroup `json:"supported_scope_groups"`
 }
 
+type OpenAPIProjectUserAPIKey struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	TokenHint  string   `json:"token_hint"`
+	Scopes     []string `json:"scopes"`
+	Status     string   `json:"status"`
+	ExpiresAt  *string  `json:"expires_at,omitempty"`
+	LastUsedAt *string  `json:"last_used_at,omitempty"`
+	CreatedAt  string   `json:"created_at"`
+	DisabledAt *string  `json:"disabled_at,omitempty"`
+	RevokedAt  *string  `json:"revoked_at,omitempty"`
+}
+
+type OpenAPIProjectUserAPIKeysResponse struct {
+	APIKeys []OpenAPIProjectUserAPIKey `json:"api_keys"`
+}
+
+type OpenAPIProjectUserAPIKeyResponse struct {
+	APIKey OpenAPIProjectUserAPIKey `json:"api_key"`
+}
+
+type OpenAPIProjectUserAPIKeyCreateResponse struct {
+	APIKey         OpenAPIProjectUserAPIKey `json:"api_key"`
+	PlainTextToken string                   `json:"plain_text_token"`
+}
+
+type OpenAPICreateProjectUserAPIKeyRequest struct {
+	Name      string   `json:"name"`
+	Scopes    []string `json:"scopes"`
+	ExpiresAt *string  `json:"expires_at,omitempty"`
+}
+
+type OpenAPISecurityUserAPIKeys struct {
+	TokenPrefix          string                      `json:"token_prefix"`
+	SupportedScopes      []string                    `json:"supported_scopes"`
+	SupportedScopeGroups []OpenAPISecurityScopeGroup `json:"supported_scope_groups"`
+	AllowedScopes        []string                    `json:"allowed_scopes"`
+	AllowedScopeGroups   []OpenAPISecurityScopeGroup `json:"allowed_scope_groups"`
+}
+
 type OpenAPISecurityAuthBootstrapState struct {
 	Status      string   `json:"status"`
 	AdminEmails []string `json:"admin_emails"`
@@ -2135,6 +2175,7 @@ type OpenAPISecuritySettings struct {
 	ProjectID        string                              `json:"project_id"`
 	Auth             OpenAPISecurityAuthSettings         `json:"auth"`
 	AgentTokens      OpenAPISecurityAgentTokens          `json:"agent_tokens"`
+	UserAPIKeys      OpenAPISecurityUserAPIKeys          `json:"user_api_keys"`
 	GitHub           OpenAPIGitHubOutboundCredential     `json:"github"`
 	Webhooks         OpenAPISecurityWebhooks             `json:"webhooks"`
 	SecretHygiene    OpenAPISecuritySecretHygiene        `json:"secret_hygiene"`
@@ -2884,6 +2925,11 @@ var (
 		"branch_name":      "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
 	}
+	openAPIProjectUserAPIKeyCreateDescriptions = map[string]string{
+		"name":       "Human-readable label for the project-scoped user API key.",
+		"scopes":     "Explicit OpenASE platform API scopes granted to the key. Scopes must be supported for user API keys and allowed by the caller's current project permissions.",
+		"expires_at": "Optional RFC3339 timestamp after which the API key automatically expires.",
+	}
 	openAPIRepoScopePatchDescriptions = map[string]string{
 		"branch_name":      "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
 		"pull_request_url": "Pull request URL associated with the repository scope.",
@@ -3131,6 +3177,7 @@ var (
 		"POST /api/v1/projects/{projectId}/notification-rules":                                         openAPINotificationRuleDescriptions,
 		"PATCH /api/v1/notification-rules/{ruleId}":                                                    openAPINotificationRuleDescriptions,
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/api-keys":                                 openAPIProjectUserAPIKeyCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
 		"POST /api/v1/chat":               openAPIChatRequestDescriptions,
@@ -6403,6 +6450,103 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	}
 	securityGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings", http.MethodGet, securityGet)
+
+	userAPIKeyList, err := b.jsonOperation(
+		"listProjectUserAPIKeys",
+		"List the current user's project-scoped API keys",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIProjectUserAPIKeysResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	userAPIKeyList.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/api-keys", http.MethodGet, userAPIKeyList)
+
+	userAPIKeyCreate, err := b.jsonOperation(
+		"createProjectUserAPIKey",
+		"Create a new project-scoped user API key for the current human principal",
+		[]string{"security-settings"},
+		http.StatusCreated,
+		OpenAPIProjectUserAPIKeyCreateResponse{},
+		OpenAPICreateProjectUserAPIKeyRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	userAPIKeyCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/api-keys", http.MethodPost, userAPIKeyCreate)
+
+	userAPIKeyRotate, err := b.jsonOperation(
+		"rotateProjectUserAPIKey",
+		"Rotate a project-scoped user API key and return the new plaintext token once",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIProjectUserAPIKeyCreateResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	userAPIKeyRotate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	userAPIKeyRotate.AddParameter(uuidPathParameter("keyId", "API key ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/rotate", http.MethodPost, userAPIKeyRotate)
+
+	userAPIKeyDisable, err := b.jsonOperation(
+		"disableProjectUserAPIKey",
+		"Disable a project-scoped user API key immediately",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIProjectUserAPIKeyResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	userAPIKeyDisable.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	userAPIKeyDisable.AddParameter(uuidPathParameter("keyId", "API key ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/disable", http.MethodPost, userAPIKeyDisable)
+
+	userAPIKeyDelete := openapi3.NewOperation()
+	userAPIKeyDelete.OperationID = "deleteProjectUserAPIKey"
+	userAPIKeyDelete.Summary = "Delete a project-scoped user API key"
+	userAPIKeyDelete.Tags = []string{"security-settings"}
+	userAPIKeyDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("User API key deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusServiceUnavailable, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		userAPIKeyDelete.AddResponse(code, errorResponse)
+	}
+	userAPIKeyDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	userAPIKeyDelete.AddParameter(uuidPathParameter("keyId", "API key ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}", http.MethodDelete, userAPIKeyDelete)
 
 	secretList, err := b.jsonOperation(
 		"listScopedSecrets",
