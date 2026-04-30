@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.8.0](https://github.com/PacificStudio/openase/compare/v0.7.0...v0.8.0) (2026-04-30)
+
+
+### Features
+
+* add provider delete flow ([57cc325](https://github.com/PacificStudio/openase/commit/57cc325b0991f0a85d75828ce7b389b4806c02d5))
+* **codex:** add gpt-5.5 as default model ([baaa632](https://github.com/PacificStudio/openase/commit/baaa6328a292915c65fe940d04b889c5bb8fb971))
+* **provider:** add provider delete flow ([c6c4e34](https://github.com/PacificStudio/openase/commit/c6c4e34843fa6fd16b6720f9046869c1db6c203a))
+
+
+### Bug Fixes
+
+* **activity:** normalize catalog labels ([9ca9dbd](https://github.com/PacificStudio/openase/commit/9ca9dbdb6d64cb5e80d6b5a062f6fccc60cf663a))
+* **chat:** drain remote terminal output before exit ([76e3f9d](https://github.com/PacificStudio/openase/commit/76e3f9d417e4b85ff12e2abf4f20dadcd30e328e))
+* **chat:** mark initial workspace clone as preparing ([#755](https://github.com/PacificStudio/openase/issues/755)) ([fca69ca](https://github.com/PacificStudio/openase/commit/fca69cab7e98bea69e24a158179f35243926bfb5))
+* clean up zh copy and parse settings display text ([#753](https://github.com/PacificStudio/openase/issues/753)) ([30f822b](https://github.com/PacificStudio/openase/commit/30f822b3b301369ee631fce5d46da49c3a353f5a))
+* **cli:** expose provider delete command ([add2364](https://github.com/PacificStudio/openase/commit/add236408b83783dcc07093b0f265d059f6afb9b))
+* **deps:** upgrade pgx to v5.9.0 ([2d92cb3](https://github.com/PacificStudio/openase/commit/2d92cb32ffdba0e1ebd563c4dd852d8fb4c4312d))
+* **httpapi:** sanitize legacy project ai scopes on patch ([1391419](https://github.com/PacificStudio/openase/commit/139141907a3c7ac4cfd36b2006926c80c416d9c1))
+* **machine:** dedupe local registrations and probes ([8fab813](https://github.com/PacificStudio/openase/commit/8fab813a561d28dadb80e1fc2aa3461c9e5885ff))
+* **machines:** satisfy lint after maintenance refactor ([6a550e8](https://github.com/PacificStudio/openase/commit/6a550e84c88ab157a0d18d3e12a7992aebe52e62))
+* **orchestrator:** narrow pending completion summary query ([c0c5961](https://github.com/PacificStudio/openase/commit/c0c59611adc87ba023ce015569a01c0cffbc76ac))
+* **orchestrator:** sanitize runtime persistence text ([fd12c80](https://github.com/PacificStudio/openase/commit/fd12c802b117893fe5c53fb1c42a55aab20d98a5))
+* sanitize runtime command output before persistence ([1a02041](https://github.com/PacificStudio/openase/commit/1a02041ca4bea8f626b4a805ef4fe709ac4e213f))
+* **settings:** restore provider delete type import ([cc8c80a](https://github.com/PacificStudio/openase/commit/cc8c80a9aa522833bcd3ccdf2e591d6f537cc732))
+* upgrade pgx to v5.9.0 for Dependabot alert [#38](https://github.com/PacificStudio/openase/issues/38) ([df3e651](https://github.com/PacificStudio/openase/commit/df3e6512f4a5c26a65b004e990eae102ffd01630))
+* **web:** localize provider delete dialog ([1c88c1e](https://github.com/PacificStudio/openase/commit/1c88c1e07be79c9b3e73638f983188723b64094c))
+* **workspace:** upgrade go-git redirect protection ([7abba82](https://github.com/PacificStudio/openase/commit/7abba82e54bf799f1f8efa9d46bb4ee578247ae8))
+
 ## [0.7.0](https://github.com/PacificStudio/openase/compare/v0.6.0...v0.7.0) (2026-04-16)
 
 
