@@ -76,9 +76,12 @@ if [[ -n "$ticket_identifier" ]]; then
       cat <<EOF
 ticket_identifier=$ticket_identifier
 environment_name=$env_name
+mapping_status=already_absent
 matched_application_count=0
-deleted_application_names=
-deleted_application_uuids=
+matched_application_names=
+matched_application_uuids=
+deleted_application_name=
+deleted_application_uuid=
 EOF
       exit 0
       ;;
@@ -88,13 +91,13 @@ EOF
   esac
 
   matches="$(
-    python3 - "$ticket_slug" "$API_BODY" <<'PY'
+    python3 -c '
 import json
 import re
 import sys
 
 ticket_slug = sys.argv[1]
-payload = json.loads(sys.argv[2])
+payload = json.load(sys.stdin)
 pattern = re.compile(rf"(^|[^a-z0-9]){re.escape(ticket_slug)}([^a-z0-9]|$)")
 
 for app in payload.get("applications", []):
@@ -106,34 +109,66 @@ for app in payload.get("applications", []):
     ]
     normalized = [value.lower() for value in haystacks if value]
     if any(pattern.search(value) for value in normalized):
-        print(f"{app.get('name', '')}\t{app.get('uuid', '')}")
-PY
+        print("{}\t{}".format(app.get("name", ""), app.get("uuid", "")))
+' "$ticket_slug" <<<"$API_BODY"
   )"
 
-  deleted_names=()
-  deleted_uuids=()
-
-  if [[ -z "$matches" ]]; then
-    info "application for ticket $ticket_identifier is already absent in environment $env_name"
-  else
+  matched_names=()
+  matched_uuids=()
+  if [[ -n "$matches" ]]; then
     while IFS=$'\t' read -r matched_name matched_uuid; do
       [[ -n "$matched_name" && -n "$matched_uuid" ]] || continue
-      info "deleting application $matched_name ($matched_uuid) for ticket $ticket_identifier"
-      api_request DELETE "/api/v1/applications/$matched_uuid?delete_configurations=true&delete_volumes=true&docker_cleanup=true&delete_connected_networks=true"
-      [[ "$API_STATUS" == "200" ]] || die "failed to delete application $matched_uuid: HTTP $API_STATUS: $API_BODY"
-      deleted_names+=("$matched_name")
-      deleted_uuids+=("$matched_uuid")
+      matched_names+=("$matched_name")
+      matched_uuids+=("$matched_uuid")
     done <<<"$matches"
   fi
 
-  deleted_names_csv="$(IFS=,; printf '%s' "${deleted_names[*]-}")"
-  deleted_uuids_csv="$(IFS=,; printf '%s' "${deleted_uuids[*]-}")"
+  matched_names_csv="$(IFS=,; printf '%s' "${matched_names[*]-}")"
+  matched_uuids_csv="$(IFS=,; printf '%s' "${matched_uuids[*]-}")"
+
+  if [[ "${#matched_uuids[@]}" -eq 0 ]]; then
+    info "application for ticket $ticket_identifier is already absent in environment $env_name"
+    cat <<EOF
+ticket_identifier=$ticket_identifier
+environment_name=$env_name
+mapping_status=already_absent
+matched_application_count=0
+matched_application_names=
+matched_application_uuids=
+deleted_application_name=
+deleted_application_uuid=
+EOF
+    exit 0
+  fi
+
+  if [[ "${#matched_uuids[@]}" -gt 1 ]]; then
+    info "ticket $ticket_identifier matched multiple applications in environment $env_name: $matched_names_csv"
+    cat <<EOF
+ticket_identifier=$ticket_identifier
+environment_name=$env_name
+mapping_status=ambiguous
+matched_application_count=${#matched_uuids[@]}
+matched_application_names=$matched_names_csv
+matched_application_uuids=$matched_uuids_csv
+deleted_application_name=
+deleted_application_uuid=
+EOF
+    exit 0
+  fi
+
+  info "deleting application ${matched_names[0]} (${matched_uuids[0]}) for ticket $ticket_identifier"
+  api_request DELETE "/api/v1/applications/${matched_uuids[0]}?delete_configurations=true&delete_volumes=true&docker_cleanup=true&delete_connected_networks=true"
+  [[ "$API_STATUS" == "200" ]] || die "failed to delete application ${matched_uuids[0]}: HTTP $API_STATUS: $API_BODY"
+
   cat <<EOF
 ticket_identifier=$ticket_identifier
 environment_name=$env_name
-matched_application_count=${#deleted_uuids[@]}
-deleted_application_names=$deleted_names_csv
-deleted_application_uuids=$deleted_uuids_csv
+mapping_status=deleted
+matched_application_count=1
+matched_application_names=${matched_names[0]}
+matched_application_uuids=${matched_uuids[0]}
+deleted_application_name=${matched_names[0]}
+deleted_application_uuid=${matched_uuids[0]}
 EOF
   exit 0
 fi
