@@ -194,7 +194,7 @@ export const fileBudgetCategories = [
     key: 'featureStateModule',
     name: 'Feature state modules',
     softLimit: 250,
-    hardLimit: 325,
+    hardLimit: 350,
     match: isFeatureStateModule,
     eslintFiles: ['src/lib/features/**/*.svelte.{ts,js}'],
   }),

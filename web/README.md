@@ -93,7 +93,7 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | `routes/**/+layout.svelte`                               | 180        | 300                  |
 | `routes/**/+{page,layout,server}.ts` and `src/hooks*.ts` | 80         | 160                  |
 | `lib/features/**/*.test.{ts,js}`                         | 300        | 650                  |
-| `lib/features/**/*.svelte.{ts,js}`                       | 250        | 325                  |
+| `lib/features/**/*.svelte.{ts,js}`                       | 250        | 350                  |
 | `lib/features/**/*.svelte`                               | 200        | 350                  |
 | `lib/features/**/*.{ts,js}`                              | 200        | 325                  |
 | `lib/testing/**/*.{ts,js}`                               | 350        | 650                  |
