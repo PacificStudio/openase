@@ -1,7 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { fileBudgetRules } from '../file-budgets.config.mjs'
+import {
+  fileBudgetRules,
+  isBudgetCoverageIgnoredFile,
+  isBudgetTrackedSourceFile,
+} from '../file-budgets.config.mjs'
 
 const repoRoot = process.cwd()
 const sourceRoot = path.join(repoRoot, 'src')
@@ -12,8 +16,16 @@ const failures = []
 
 for (const absoluteFile of files) {
   const relativeFile = toRepoPath(absoluteFile)
+  if (isBudgetCoverageIgnoredFile(relativeFile) || !isBudgetTrackedSourceFile(relativeFile)) {
+    continue
+  }
+
   const budget = fileBudgetRules.find((rule) => rule.match(relativeFile))
   if (!budget) {
+    failures.push({
+      file: relativeFile,
+      reason: 'No file budget category matched this source file.',
+    })
     continue
   }
 
@@ -39,6 +51,10 @@ if (warnings.length > 0) {
 if (failures.length > 0) {
   console.error('File budget violations:')
   for (const item of failures) {
+    if (item.reason) {
+      console.error(`  - ${item.file}: ${item.reason}`)
+      continue
+    }
     console.error(`  - ${item.file}: ${item.lineCount} lines (hard limit ${item.budget.hardLimit})`)
   }
   process.exit(1)
