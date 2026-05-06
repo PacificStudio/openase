@@ -7,6 +7,7 @@ import {
   assertDescriptorsReachable,
   assertNoUnexpectedHorizontalScroll,
   buildPolicyUrl,
+  gotoProjectRoute,
   policyAppliesToProject,
 } from './helpers'
 
@@ -24,7 +25,10 @@ for (const policy of projectPageMobilePolicies.filter(isResponsiveRoutePolicy)) 
       throw new Error(`Missing smoke config for ${policy.routeId}`)
     }
 
-    await page.goto(buildPolicyUrl(projectPath, policy.routeId, policy.interaction?.hash))
+    await gotoProjectRoute(
+      page,
+      buildPolicyUrl(projectPath, policy.routeId, policy.interaction?.hash),
+    )
 
     await expect(
       page.getByRole('heading', { name: policy.smoke.heading, exact: true }),

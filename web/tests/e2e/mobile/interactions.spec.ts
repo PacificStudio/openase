@@ -4,6 +4,7 @@ import { test } from '../fixtures'
 import { projectPageMobilePolicies, isResponsiveRoutePolicy } from './policies.js'
 import {
   buildPolicyUrl,
+  gotoProjectRoute,
   locatorFromDescriptor,
   openAndAssertSurface,
   policyAppliesToProject,
@@ -24,7 +25,8 @@ for (const policy of projectPageMobilePolicies.filter(isResponsiveRoutePolicy)) 
       throw new Error(`Missing interaction config for ${policy.routeId}`)
     }
 
-    await page.goto(
+    await gotoProjectRoute(
+      page,
       buildPolicyUrl(projectPath, interaction.route ?? policy.routeId, interaction.hash),
     )
 
