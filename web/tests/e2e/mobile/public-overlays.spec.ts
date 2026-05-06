@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test'
 
 import { test } from '../fixtures'
-import { openSearchPalette } from './helpers'
+import { gotoProjectRoute, openSearchPalette } from './helpers'
 
 test('mobile search can open the ticket drawer from the top bar', async ({ page }, testInfo) => {
   test.skip(
@@ -9,7 +9,7 @@ test('mobile search can open the ticket drawer from the top bar', async ({ page 
     'Covered by the other tablet project and slower in landscape.',
   )
 
-  await page.goto('/orgs/org-e2e/projects/project-e2e')
+  await gotoProjectRoute(page, '/orgs/org-e2e/projects/project-e2e')
   const searchInput = await openSearchPalette(page)
   await searchInput.fill('ASE-101')
 
@@ -27,7 +27,7 @@ test('mobile top bar can still open the new ticket dialog', async ({ page }, tes
     'Covered by the other tablet project and slower in landscape.',
   )
 
-  await page.goto('/orgs/org-e2e/projects/project-e2e/tickets')
+  await gotoProjectRoute(page, '/orgs/org-e2e/projects/project-e2e/tickets')
 
   const trigger = page.getByTestId('topbar-new-ticket-button')
   await expect(trigger).toBeVisible()

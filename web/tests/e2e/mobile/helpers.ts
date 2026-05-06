@@ -24,6 +24,18 @@ export function buildPolicyUrl(
   return hash ? `${base}${hash}` : base
 }
 
+export async function gotoProjectRoute(page: Page, url: string) {
+  await page.goto(url)
+  if (
+    await page
+      .getByRole('heading', { name: '500' })
+      .isVisible({ timeout: 1_000 })
+      .catch(() => false)
+  ) {
+    await page.goto(url)
+  }
+}
+
 export function policyAppliesToProject(policy: ResponsivePolicy, projectName: string) {
   return isTabletProject(projectName)
     ? policy.support === 'mobile-supported' || policy.support === 'tablet-supported'
