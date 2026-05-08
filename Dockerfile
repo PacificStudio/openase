@@ -2,11 +2,13 @@ FROM node:22-alpine AS web-builder
 WORKDIR /src
 
 COPY web/package.json web/pnpm-lock.yaml ./web/
-RUN corepack enable && corepack pnpm --dir /src/web install --frozen-lockfile --reporter=append-only
+RUN corepack enable \
+    && corepack install --global "$(node -p "require('./web/package.json').packageManager")" \
+    && pnpm --dir /src/web install --frozen-lockfile --reporter=append-only
 
 COPY web ./web
 RUN mkdir -p /src/internal/webui/static
-RUN corepack pnpm --dir /src/web run build
+RUN pnpm --dir /src/web run build
 
 FROM golang:1.26.1-alpine AS go-builder
 WORKDIR /src
