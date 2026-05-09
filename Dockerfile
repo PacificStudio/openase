@@ -2,7 +2,8 @@ FROM node:22-alpine AS web-builder
 WORKDIR /src
 
 COPY web/package.json web/pnpm-lock.yaml ./web/
-RUN corepack enable && pnpm --dir /src/web install --frozen-lockfile --reporter=append-only
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate \
+    && pnpm --dir /src/web install --frozen-lockfile --reporter=append-only
 
 COPY web ./web
 RUN mkdir -p /src/internal/webui/static
