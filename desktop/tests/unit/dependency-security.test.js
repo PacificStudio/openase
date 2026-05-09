@@ -18,12 +18,14 @@ function listFiles(dir) {
 describe('desktop dependency security guardrails', () => {
   it('pins redirect-following dependencies to patched versions', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(desktopRoot, 'package.json'), 'utf8'))
-    expect(pkg.pnpm?.overrides?.axios).toBe('^1.15.0')
+    expect(pkg.pnpm?.overrides?.axios).toBe('^1.16.0')
     expect(pkg.pnpm?.overrides?.['follow-redirects']).toBe('^1.16.0')
 
     const lockfile = fs.readFileSync(path.join(desktopRoot, 'pnpm-lock.yaml'), 'utf8')
     expect(lockfile).not.toContain('axios@1.14.0')
-    expect(lockfile).toMatch(/axios@1\.15\./)
+    expect(lockfile).not.toContain('axios@1.15.0')
+    expect(lockfile).not.toContain('axios@1.15.1')
+    expect(lockfile).toMatch(/axios@1\.16\./)
     expect(lockfile).not.toContain('follow-redirects@1.15.')
     expect(lockfile).toMatch(/follow-redirects@1\.16\./)
   })
