@@ -1,19 +1,36 @@
 import { spawnSync } from 'node:child_process'
 
-run('corepack', ['pnpm', 'run', 'test:unit'])
+runPnpm(['run', 'test:unit'])
 runPlaywright()
-run('corepack', ['pnpm', 'run', 'package:smoke'])
+runPnpm(['run', 'package:smoke'])
 
 function runPlaywright() {
   if (process.platform === 'linux' && !process.env.DISPLAY) {
     const xvfbCheck = spawnSync('sh', ['-lc', 'command -v xvfb-run >/dev/null 2>&1'])
     if (xvfbCheck.status === 0) {
-      run('xvfb-run', ['-a', 'corepack', 'pnpm', 'run', 'test:e2e'])
+      const { command, args } = resolvePnpm(['run', 'test:e2e'])
+      run('xvfb-run', ['-a', command, ...args])
       return
     }
   }
 
-  run('corepack', ['pnpm', 'run', 'test:e2e'])
+  runPnpm(['run', 'test:e2e'])
+}
+
+function runPnpm(args) {
+  const { command, args: resolvedArgs } = resolvePnpm(args)
+  run(command, resolvedArgs)
+}
+
+function resolvePnpm(args) {
+  const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+  const pnpmCheck = spawnSync(pnpmCommand, ['--version'], { stdio: 'ignore', env: process.env })
+  if (pnpmCheck.status === 0) {
+    return { command: pnpmCommand, args }
+  }
+
+  const corepackCommand = process.platform === 'win32' ? 'corepack.cmd' : 'corepack'
+  return { command: corepackCommand, args: ['pnpm', ...args] }
 }
 
 function run(command, args) {

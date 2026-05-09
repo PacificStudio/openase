@@ -4,7 +4,7 @@ WEB_DIR := web
 DESKTOP_DIR := desktop
 GO ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/go" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/go"; elif command -v go >/dev/null 2>&1; then command -v go; else printf '%s' "go"; fi)
 GOFMT ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/gofmt" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/gofmt"; elif command -v gofmt >/dev/null 2>&1; then command -v gofmt; else printf '%s' "gofmt"; fi)
-PNPM ?= corepack pnpm
+PNPM ?= pnpm
 LINT_SCRIPT := ./scripts/ci/lint.sh
 OPENASE_MAIN := ./cmd/openase
 OPENASE_BIN := ./bin/openase
@@ -124,7 +124,7 @@ hooks-run:
 
 openapi-generate: web-install
 	$(GO) run $(OPENASE_MAIN) openapi generate --output api/openapi.json
-	$(PNPM) --dir $(WEB_DIR) run api:generate
+	$(FRONTEND_PNPM) --dir $(WEB_DIR) run api:generate
 
 openapi-check: openapi-generate
 	git diff --exit-code -- api/openapi.json web/src/lib/api/generated/openapi.d.ts
@@ -134,7 +134,7 @@ openapi-check-ci:
 	@tmp_dir="$$(mktemp -d)"; \
 	trap 'rm -rf "$$tmp_dir"' EXIT; \
 	printf '{ "private": true }\n' > "$$tmp_dir/package.json"; \
-	$(PNPM) --dir "$$tmp_dir" add --save-dev --ignore-scripts --reporter=append-only openapi-typescript@7.13.0 prettier@3.8.1; \
+	$(FRONTEND_PNPM) --dir "$$tmp_dir" add --save-dev --ignore-scripts --reporter=append-only openapi-typescript@7.13.0 prettier@3.8.1; \
 	"$$tmp_dir/node_modules/.bin/openapi-typescript" "$(CURDIR)/api/openapi.json" -o "$(CURDIR)/web/src/lib/api/generated/openapi.d.ts"; \
 	node "$$tmp_dir/node_modules/prettier/bin/prettier.cjs" \
 		--log-level warn \

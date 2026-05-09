@@ -23,7 +23,8 @@ if (prepare.status !== 0) {
   throw new Error('desktop bundle preparation failed')
 }
 
-const result = spawnSync('corepack', builderArgs, {
+const { command, args } = resolvePnpm(builderArgs)
+const result = spawnSync(command, args, {
   cwd: desktopRoot,
   stdio: 'inherit',
   env: process.env,
@@ -31,4 +32,17 @@ const result = spawnSync('corepack', builderArgs, {
 
 if (result.status !== 0) {
   throw new Error(`electron-builder failed with exit code ${result.status}`)
+}
+
+function resolvePnpm(args) {
+  const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+  const pnpmCheck = spawnSync(pnpmCommand, ['--version'], { stdio: 'ignore', env: process.env })
+  if (pnpmCheck.status === 0) {
+    return { command: pnpmCommand, args }
+  }
+
+  return {
+    command: process.platform === 'win32' ? 'corepack.cmd' : 'corepack',
+    args: ['pnpm', ...args],
+  }
 }
