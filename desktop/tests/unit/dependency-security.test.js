@@ -3,6 +3,10 @@ const path = require('node:path')
 
 const desktopRoot = path.resolve(__dirname, '../..')
 const runtimeRoots = ['main', 'preload', 'scripts']
+const PATCHED_MINIMUMS = {
+  axios: [1, 15, 1],
+  'follow-redirects': [1, 16, 0],
+}
 
 function listFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true })
@@ -15,17 +19,51 @@ function listFiles(dir) {
   })
 }
 
+function parseVersionFloor(range) {
+  const match = range.match(/(\d+)\.(\d+)\.(\d+)/)
+  if (!match) {
+    throw new Error(`Unable to parse package range: ${range}`)
+  }
+  return match.slice(1).map((part) => Number(part))
+}
+
+function versionAtLeast(version, minimum) {
+  for (let index = 0; index < minimum.length; index += 1) {
+    const current = version[index] ?? 0
+    const required = minimum[index]
+    if (current > required) {
+      return true
+    }
+    if (current < required) {
+      return false
+    }
+  }
+  return true
+}
+
+function extractPackageVersions(lockfile, packageName) {
+  const pattern = new RegExp(`${packageName}@(\\d+\\.\\d+\\.\\d+)`, 'g')
+  const versions = new Set()
+  for (const match of lockfile.matchAll(pattern)) {
+    versions.add(match[1])
+  }
+  return [...versions].map((version) => version.split('.').map((part) => Number(part)))
+}
+
 describe('desktop dependency security guardrails', () => {
   it('pins redirect-following dependencies to patched versions', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(desktopRoot, 'package.json'), 'utf8'))
-    expect(pkg.pnpm?.overrides?.axios).toBe('^1.15.0')
-    expect(pkg.pnpm?.overrides?.['follow-redirects']).toBe('^1.16.0')
+    expect(versionAtLeast(parseVersionFloor(pkg.pnpm?.overrides?.axios ?? ''), PATCHED_MINIMUMS.axios)).toBe(true)
+    expect(versionAtLeast(parseVersionFloor(pkg.pnpm?.overrides?.['follow-redirects'] ?? ''), PATCHED_MINIMUMS['follow-redirects'])).toBe(true)
 
     const lockfile = fs.readFileSync(path.join(desktopRoot, 'pnpm-lock.yaml'), 'utf8')
-    expect(lockfile).not.toContain('axios@1.14.0')
-    expect(lockfile).toMatch(/axios@1\.15\./)
-    expect(lockfile).not.toContain('follow-redirects@1.15.')
-    expect(lockfile).toMatch(/follow-redirects@1\.16\./)
+    const axiosVersions = extractPackageVersions(lockfile, 'axios')
+    const followRedirectVersions = extractPackageVersions(lockfile, 'follow-redirects')
+
+    expect(axiosVersions.length).toBeGreaterThan(0)
+    expect(followRedirectVersions.length).toBeGreaterThan(0)
+    expect(axiosVersions.every((version) => versionAtLeast(version, PATCHED_MINIMUMS.axios))).toBe(true)
+    expect(followRedirectVersions.every((version) => versionAtLeast(version, PATCHED_MINIMUMS['follow-redirects']))).toBe(true)
   })
 
   it('keeps desktop-owned code paths off custom axios redirect flows', () => {
