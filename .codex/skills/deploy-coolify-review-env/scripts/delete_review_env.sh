@@ -194,7 +194,7 @@ case "$API_STATUS" in
   200)
     info "deleted environment $env_name"
     ;;
-  404|422)
+  400|404|422)
     info "environment $env_name is already absent or not empty"
     ;;
   *)
