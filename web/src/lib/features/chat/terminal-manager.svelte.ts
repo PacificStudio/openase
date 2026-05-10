@@ -1,13 +1,9 @@
-import {
-  encodeTerminalPayload,
-  mountProjectConversationTerminal,
-} from './project-conversation-terminal-panel-helpers'
 import { createTerminalConnectionHelpers } from './terminal-manager-connection'
+import { mountTerminalInstance, unmountTerminalInstance } from './terminal-manager-mounting'
 import {
   TERMINAL_RECONNECT_ATTEMPT_LIMIT,
   clearTerminalReconnectTimer,
   ensureTerminalRuntime,
-  forgetTerminalRuntime,
   generateTerminalManagerID,
   nextTerminalReconnectDelay,
 } from './terminal-manager-runtime'
@@ -31,6 +27,7 @@ export function createTerminalManager(input: {
   const elementMap = new Map<string, HTMLDivElement>()
   const resizeObserverMap = new Map<string, ResizeObserver>()
   const runtimeMap = new Map<string, TerminalInstanceRuntime>()
+  const maps = { xtermMap, socketMap, elementMap, resizeObserverMap, runtimeMap }
 
   function updateInstance(id: string, updates: Partial<TerminalInstance>) {
     instances = instances.map((inst) => (inst.id === id ? { ...inst, ...updates } : inst))
@@ -56,67 +53,11 @@ export function createTerminalManager(input: {
     })
 
   async function mountTerminal(id: string, element: HTMLDivElement) {
-    // Prevent double-mount
-    if (xtermMap.has(id) && elementMap.get(id) === element) return
-
-    const runtime = ensureTerminalRuntime(runtimeMap, id)
-    runtime.mountRevision += 1
-    const mountRevision = runtime.mountRevision
-
-    // Clean up previous mount for this id
-    unmountTerminal(id, false)
-    elementMap.set(id, element)
-
-    const mounted = await mountProjectConversationTerminal({
-      element,
-      onData: (data) => {
-        const socket = socketMap.get(id)
-        if (socket?.readyState !== WebSocket.OPEN) return
-        socket.send(JSON.stringify({ type: 'input', data: encodeTerminalPayload(data) }))
-      },
-      onResize: ({ cols, rows }) => {
-        const socket = socketMap.get(id)
-        if (socket?.readyState !== WebSocket.OPEN) return
-        socket.send(JSON.stringify({ type: 'resize', cols, rows }))
-      },
-    })
-
-    if (
-      !hasInstance(id) ||
-      runtimeMap.get(id)?.mountRevision !== mountRevision ||
-      elementMap.get(id) !== element
-    ) {
-      mounted.dispose()
-      return
-    }
-
-    xtermMap.set(id, mounted)
-
-    const ro = new ResizeObserver(() => {
-      const entry = xtermMap.get(id)
-      if (!entry) return
-      entry.fitAddon.fit()
-      const socket = socketMap.get(id)
-      if (socket?.readyState === WebSocket.OPEN) {
-        socket.send(
-          JSON.stringify({ type: 'resize', cols: entry.terminal.cols, rows: entry.terminal.rows }),
-        )
-      }
-    })
-    ro.observe(element)
-    resizeObserverMap.set(id, ro)
+    await mountTerminalInstance({ id, element, hasInstance, closeSocket, maps })
   }
 
   function unmountTerminal(id: string, forget: boolean) {
-    resizeObserverMap.get(id)?.disconnect()
-    resizeObserverMap.delete(id)
-    closeSocket(id, { updateStatus: false, reconnect: false, terminate: true })
-    xtermMap.get(id)?.dispose()
-    xtermMap.delete(id)
-    elementMap.delete(id)
-    if (forget) {
-      forgetTerminalRuntime(runtimeMap, id)
-    }
+    unmountTerminalInstance({ id, forget, closeSocket, maps })
   }
 
   function closeSocket(
