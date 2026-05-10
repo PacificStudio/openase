@@ -21,6 +21,7 @@ describe('desktop dependency security guardrails', () => {
     expect(pkg.pnpm?.overrides?.['@xmldom/xmldom']).toBe('^0.8.13')
     expect(pkg.pnpm?.overrides?.axios).toBe('1.15.1')
     expect(pkg.pnpm?.overrides?.['follow-redirects']).toBe('^1.16.0')
+    expect(pkg.pnpm?.overrides?.postcss).toBe('^8.5.10')
 
     const lockfile = fs.readFileSync(path.join(desktopRoot, 'pnpm-lock.yaml'), 'utf8')
     expect(lockfile).not.toContain('@xmldom/xmldom@0.8.12')
@@ -29,6 +30,8 @@ describe('desktop dependency security guardrails', () => {
     expect(lockfile).toContain('axios@1.15.1')
     expect(lockfile).not.toContain('follow-redirects@1.15.')
     expect(lockfile).toMatch(/follow-redirects@1\.16\./)
+    expect(lockfile).not.toContain('postcss@8.5.9')
+    expect(lockfile).toMatch(/postcss@8\.5\.(?:1\d|[2-9]\d)/)
   })
 
   it('keeps desktop-owned code paths off custom axios redirect flows', () => {
