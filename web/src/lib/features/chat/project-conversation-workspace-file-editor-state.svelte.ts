@@ -1,26 +1,14 @@
 import { type ChatDiffPayload, type ProjectConversationWorkspaceFilePreview } from '$lib/api/chat'
 import { saveWorkspaceFile } from './workspace-file-editor-save'
-import {
-  buildWorkspaceWorkingSet,
-  type WorkspaceSelectionInput,
-} from './project-conversation-workspace-editor-helpers'
-import {
-  computeDraftLineDiff,
-  type WorkspaceFileLineDiffMarkers,
-  type WorkspaceRecentFile,
-} from './project-conversation-workspace-browser-state-helpers'
+import { buildWorkspaceWorkingSet } from './project-conversation-workspace-editor-helpers'
+import { type WorkspaceRecentFile } from './project-conversation-workspace-browser-state-helpers'
 import {
   applyWorkspaceEditorPendingPatch,
-  formatWorkspaceEditorDocument,
-  formatWorkspaceEditorSelection,
-  keepWorkspaceEditorDraft,
-  revertWorkspaceEditorDraft,
   reviewWorkspaceEditorPatch,
   syncWorkspaceEditorStateFromPreview,
-  updateWorkspaceEditorDraft,
-  updateWorkspaceEditorSelection,
 } from './project-conversation-workspace-file-editor-state-transforms'
 import { createWorkspaceFileEditorRegistry } from './project-conversation-workspace-file-editor-registry.svelte'
+import { createWorkspaceFileEditorSelectedActions } from './project-conversation-workspace-file-editor-selected-actions'
 import { createWorkspaceFileEditorStoreApi } from './project-conversation-workspace-file-editor-store-api'
 
 export function createWorkspaceFileEditorStore(input: {
@@ -53,16 +41,6 @@ export function createWorkspaceFileEditorStore(input: {
     },
   })
 
-  function getSelectedEditorContext() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = registry.getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return null
-    }
-    return { repoPath, filePath, editor }
-  }
-
   function syncFromPreview(
     repoPath: string,
     filePath: string,
@@ -83,68 +61,9 @@ export function createWorkspaceFileEditorStore(input: {
     registry.reset()
   }
 
-  function updateSelectedDraft(nextDraftContent: string) {
-    const selected = getSelectedEditorContext()
-    if (!selected) {
-      return
-    }
-    registry.setEditorState(
-      selected.repoPath,
-      selected.filePath,
-      updateWorkspaceEditorDraft(selected.editor, nextDraftContent),
-    )
-  }
-
-  function updateSelectedSelection(selection: WorkspaceSelectionInput | null) {
-    const selected = getSelectedEditorContext()
-    if (!selected) {
-      return
-    }
-    registry.setEditorState(
-      selected.repoPath,
-      selected.filePath,
-      updateWorkspaceEditorSelection(selected.editor, selection),
-    )
-  }
-
-  function revertSelectedDraft() {
-    const selected = getSelectedEditorContext()
-    if (!selected) {
-      return
-    }
-    registry.setEditorState(
-      selected.repoPath,
-      selected.filePath,
-      revertWorkspaceEditorDraft(selected.editor),
-    )
-  }
-
-  function keepSelectedDraft() {
-    const selected = getSelectedEditorContext()
-    if (!selected) {
-      return
-    }
-    registry.setEditorState(
-      selected.repoPath,
-      selected.filePath,
-      keepWorkspaceEditorDraft(selected.editor),
-    )
-  }
-
-  function discardSelectedDraft() {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    if (!repoPath || !filePath) return
-    registry.setEditorState(repoPath, filePath, null)
-  }
-
   function discardDraft(repoPath: string, filePath: string) {
     if (!repoPath || !filePath) return
     registry.setEditorState(repoPath, filePath, null)
-  }
-
-  function reloadSelectedSavedVersion() {
-    revertSelectedDraft()
   }
 
   function reviewPatch(repoPath: string, filePath: string, diff: ChatDiffPayload) {
@@ -171,41 +90,14 @@ export function createWorkspaceFileEditorStore(input: {
     repoPath = input.getSelectedRepoPath(),
     filePath = input.getSelectedFilePath(),
   ) {
+    if (!repoPath || !filePath) return
     const editor = registry.getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
+    if (!editor) return
     registry.setEditorState(repoPath, filePath, {
       ...editor,
       pendingPatch: null,
       errorMessage: '',
     })
-  }
-
-  function formatSelectedDocument() {
-    const selected = getSelectedEditorContext()
-    if (!selected) {
-      return false
-    }
-    const result = formatWorkspaceEditorDocument({
-      filePath: selected.filePath,
-      editor: selected.editor,
-    })
-    registry.setEditorState(selected.repoPath, selected.filePath, result.nextState)
-    return result.ok
-  }
-
-  function formatSelectedSelection() {
-    const selected = getSelectedEditorContext()
-    if (!selected) {
-      return false
-    }
-    const result = formatWorkspaceEditorSelection({
-      filePath: selected.filePath,
-      editor: selected.editor,
-    })
-    registry.setEditorState(selected.repoPath, selected.filePath, result.nextState)
-    return result.ok
   }
 
   function renameFileState(repoPath: string, fromPath: string, toPath: string) {
@@ -256,32 +148,36 @@ export function createWorkspaceFileEditorStore(input: {
   async function saveSelectedFile(): Promise<boolean> {
     return saveFile(input.getSelectedRepoPath(), input.getSelectedFilePath())
   }
+
+  const selectedActions = createWorkspaceFileEditorSelectedActions({
+    getSelectedRepoPath: input.getSelectedRepoPath,
+    getSelectedFilePath: input.getSelectedFilePath,
+    getEditorState: registry.getEditorState,
+    setEditorState: registry.setEditorState,
+  })
+
   return createWorkspaceFileEditorStoreApi({
     getSelectedEditorState: () =>
       registry.getEditorState(input.getSelectedRepoPath(), input.getSelectedFilePath()),
-    getSelectedDraftLineDiff: (): WorkspaceFileLineDiffMarkers | null => {
-      const selected = getSelectedEditorContext()
-      if (!selected) return null
-      return computeDraftLineDiff(selected.editor.latestSavedContent, selected.editor.draftContent)
-    },
+    getSelectedDraftLineDiff: selectedActions.getSelectedDraftLineDiff,
     getEditorState: registry.getEditorState,
     reset,
     syncFromPreview,
-    updateSelectedDraft,
-    updateSelectedSelection,
-    revertSelectedDraft,
-    keepSelectedDraft,
-    reloadSelectedSavedVersion,
+    updateSelectedDraft: selectedActions.updateSelectedDraft,
+    updateSelectedSelection: selectedActions.updateSelectedSelection,
+    revertSelectedDraft: selectedActions.revertSelectedDraft,
+    keepSelectedDraft: selectedActions.keepSelectedDraft,
+    reloadSelectedSavedVersion: selectedActions.reloadSelectedSavedVersion,
     reviewPatch,
     applyPendingPatch,
     discardPendingPatch,
-    formatSelectedDocument,
-    formatSelectedSelection,
+    formatSelectedDocument: selectedActions.formatSelectedDocument,
+    formatSelectedSelection: selectedActions.formatSelectedSelection,
     renameFileState,
     buildWorkingSet,
     saveSelectedFile,
     saveFile,
-    discardSelectedDraft,
+    discardSelectedDraft: selectedActions.discardSelectedDraft,
     discardDraft,
   })
 }

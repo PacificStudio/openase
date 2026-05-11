@@ -35,11 +35,9 @@ export function createTerminalManager(input: {
   function updateInstance(id: string, updates: Partial<TerminalInstance>) {
     instances = instances.map((inst) => (inst.id === id ? { ...inst, ...updates } : inst))
   }
-
   function getActiveInstance(): TerminalInstance | undefined {
     return instances.find((i) => i.id === activeId)
   }
-
   function hasInstance(id: string) {
     return instances.some((inst) => inst.id === id)
   }
@@ -281,7 +279,6 @@ export function createTerminalManager(input: {
   function closePanel() {
     panelOpen = false
   }
-
   function disposeAll() {
     for (const inst of instances) {
       unmountTerminal(inst.id, true)
