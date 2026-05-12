@@ -1,18 +1,5 @@
 import { ApiError } from '$lib/api/client'
-import {
-  getHRAdvisor,
-  getSystemDashboard,
-  listActivity,
-  listAgents,
-  listTickets,
-  updateProject,
-} from '$lib/api/openase'
-import {
-  createProjectReconnectRecoveryTask,
-  isProjectDashboardRefreshEvent,
-  readProjectDashboardRefreshSections,
-  subscribeProjectEvents,
-} from '$lib/features/project-events'
+import { updateProject } from '$lib/api/openase'
 import {
   markProjectOnboardingCompleted,
   readProjectOnboardingCompletion,
@@ -20,21 +7,10 @@ import {
 import { createProjectUpdatesController } from '$lib/features/project-updates'
 import { appStore } from '$lib/stores/app.svelte'
 import { toastStore } from '$lib/stores/toast.svelte'
-import {
-  type DashboardSection,
-  emptyDashboardStats,
-  mergeDashboardSections,
-  systemDashboardRefreshIntervalMs,
-  toAdvisorSnapshot,
-} from './org-dashboard-controller-helpers'
-import {
-  buildActivityItems,
-  buildDashboardStats,
-  buildExceptionItems,
-  shouldShowProjectOnboarding,
-} from '../model'
+import { emptyDashboardStats } from './org-dashboard-controller-helpers'
+import { buildActivityItems, buildExceptionItems, shouldShowProjectOnboarding } from '../model'
 import { createOrgDashboardControllerApi } from './org-dashboard-controller-api'
-import { loadOrganizationDashboardSummary } from '../organization-summary'
+import { startOrgDashboardDataLoader } from './org-dashboard-controller-loader'
 import type { DashboardStats, HRAdvisorSnapshot, MemorySnapshot, ProjectStatus } from '../types'
 
 export function createOrgDashboardController() {
@@ -128,143 +104,39 @@ export function createOrgDashboardController() {
     markProjectOnboardingCompleted(projectId)
     onboardingDismissed = true
   }
+
+  function resetDashboardState() {
+    activities = []
+    exceptions = []
+    hrAdvisor = null
+    memory = null
+    stats = emptyDashboardStats
+    error = ''
+    loading = false
+  }
+
   $effect(() => {
     const projectId = appStore.currentProject?.id
     const orgId = appStore.currentOrg?.id
     if (!projectId) {
-      activities = []
-      exceptions = []
-      hrAdvisor = null
-      memory = null
-      stats = emptyDashboardStats
-      error = ''
-      loading = false
+      resetDashboardState()
       return
     }
 
-    let cancelled = false
-    let hasLoaded = false
-    let inFlight = false
-    let pendingShowLoading = false
-    let queuedSections: DashboardSection[] = []
-    let cachedAgents = [] as Awaited<ReturnType<typeof listAgents>>['agents']
-    let cachedTickets = [] as Awaited<ReturnType<typeof listTickets>>['tickets']
-
-    const queueLoad = (sections: Iterable<DashboardSection>, showLoading = false) => {
-      queuedSections = mergeDashboardSections(queuedSections, sections)
-      pendingShowLoading = pendingShowLoading || showLoading
-      if (!inFlight) void flushLoads()
-    }
-
-    const flushLoads = async () => {
-      if (inFlight) return
-
-      inFlight = true
-      while (!cancelled && queuedSections.length > 0) {
-        const sections = queuedSections
-        queuedSections = []
-        const showLoading = pendingShowLoading
-        pendingShowLoading = false
-        if (showLoading) loading = true
-
-        try {
-          const [
-            agentPayload,
-            ticketPayload,
-            activityPayload,
-            systemPayload,
-            hrAdvisorPayload,
-            organizationSummary,
-          ] = await Promise.all([
-            sections.includes('agents') ? listAgents(projectId) : Promise.resolve(null),
-            sections.includes('tickets') ? listTickets(projectId) : Promise.resolve(null),
-            sections.includes('activity')
-              ? listActivity(projectId, { limit: 24 })
-              : Promise.resolve(null),
-            sections.includes('memory') ? getSystemDashboard() : Promise.resolve(null),
-            sections.includes('hr_advisor')
-              ? getHRAdvisor(projectId).catch(() => null)
-              : Promise.resolve(null),
-            sections.includes('organization_summary') && orgId
-              ? loadOrganizationDashboardSummary(orgId).catch(() => null)
-              : Promise.resolve(null),
-          ])
-
-          if (cancelled) return
-          if (agentPayload) cachedAgents = agentPayload.agents
-          if (ticketPayload) {
-            cachedTickets = ticketPayload.tickets
-            if (cachedTickets.length > 0 && !onboardingDismissed && projectId) {
-              markProjectOnboardingCompleted(projectId)
-              onboardingDismissed = true
-            }
-          }
-
-          if (
-            sections.includes('agents') ||
-            sections.includes('tickets') ||
-            sections.includes('organization_summary')
-          ) {
-            stats = buildDashboardStats(cachedAgents, cachedTickets, {
-              ticketSpendToday:
-                organizationSummary?.projectMetrics[projectId]?.todayCost ?? stats.ticketSpendToday,
-            })
-          }
-          if (systemPayload) memory = systemPayload.memory
-          if (sections.includes('hr_advisor')) hrAdvisor = toAdvisorSnapshot(hrAdvisorPayload)
-          if (activityPayload) {
-            activities = buildActivityItems(activityPayload.events)
-            exceptions = buildExceptionItems(activityPayload.events)
-          }
-
-          error = ''
-          hasLoaded = true
-        } catch (caughtError) {
-          if (cancelled || hasLoaded) continue
-          error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load dashboard.'
-        } finally {
-          if (showLoading && !cancelled) loading = false
-        }
-      }
-
-      inFlight = false
-    }
-
-    queueLoad(
-      ['agents', 'tickets', 'activity', 'memory', 'hr_advisor', 'organization_summary'],
-      true,
-    )
-
-    const unsubscribeDashboard = subscribeProjectEvents(
+    return startOrgDashboardDataLoader({
       projectId,
-      (event) => {
-        if (!isProjectDashboardRefreshEvent(event)) return
-        const sections = readProjectDashboardRefreshSections(event)
-        if (sections.length > 0) queueLoad(sections)
-      },
-      {
-        onReconnectRecovery: createProjectReconnectRecoveryTask(() => {
-          queueLoad([
-            'agents',
-            'tickets',
-            'activity',
-            'memory',
-            'hr_advisor',
-            'organization_summary',
-          ])
-        }),
-      },
-    )
-
-    const memoryInterval = window.setInterval(() => {
-      queueLoad(['memory'])
-    }, systemDashboardRefreshIntervalMs)
-
-    return () => {
-      cancelled = true
-      unsubscribeDashboard()
-      window.clearInterval(memoryInterval)
-    }
+      orgId: orgId ?? '',
+      getOnboardingDismissed: () => onboardingDismissed,
+      setOnboardingDismissed: (value) => (onboardingDismissed = value),
+      getStats: () => stats,
+      setStats: (value) => (stats = value),
+      setActivities: (value) => (activities = value),
+      setExceptions: (value) => (exceptions = value),
+      setHrAdvisor: (value) => (hrAdvisor = value),
+      setMemory: (value) => (memory = value),
+      setError: (value) => (error = value),
+      setLoading: (value) => (loading = value),
+    })
   })
 
   return createOrgDashboardControllerApi({
