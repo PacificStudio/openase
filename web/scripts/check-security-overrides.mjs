@@ -16,7 +16,8 @@ const requiredOverrides = {
   },
   mermaid: {
     requiredVersion: '11.15.0',
-    stalePattern: /mermaid(?::|@)\s*11\.(?:[0-9]|1[0-4])(?:\.[0-9A-Za-z.-]+)?\b|mermaid@11\.(?:[0-9]|1[0-4])(?:\.[0-9A-Za-z.-]+)?:/m,
+    stalePattern:
+      /mermaid(?::|@)\s*11\.(?:[0-9]|1[0-4])(?:\.[0-9A-Za-z.-]+)?\b|mermaid@11\.(?:[0-9]|1[0-4])(?:\.[0-9A-Za-z.-]+)?:/m,
   },
 }
 
