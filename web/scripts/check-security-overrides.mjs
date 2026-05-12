@@ -10,6 +10,10 @@ const requiredOverrides = {
     requiredVersion: '4.18.1',
     staleVersion: '4.17.23',
   },
+  mermaid: {
+    requiredVersion: '11.15.0',
+    staleVersion: '11.13.0',
+  },
   uuid: {
     requiredVersion: '14.0.0',
     staleVersion: '11.1.0',
