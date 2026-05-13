@@ -1,0 +1,56 @@
+version: 1
+preset:
+  key: fullstack-default
+  name: Fullstack Delivery Pipeline
+  description: Opinionated starter pipeline for software projects that are ready to ship product work.
+statuses:
+  - name: Backlog
+    stage: backlog
+    color: "#6B7280"
+    icon: archive
+    default: true
+    description: Queued work that is not ready to pick up yet.
+  - name: Todo
+    stage: unstarted
+    color: "#3B82F6"
+    icon: list-todo
+    description: Ready for an agent to pick up.
+  - name: In Progress
+    stage: started
+    color: "#F59E0B"
+    icon: play-circle
+    description: Actively being implemented.
+  - name: In Review
+    stage: started
+    color: "#8B5CF6"
+    icon: search-check
+    description: Waiting for review and feedback.
+  - name: Done
+    stage: completed
+    color: "#10B981"
+    icon: check-circle-2
+    description: Completed successfully.
+  - name: Cancelled
+    stage: canceled
+    color: "#4B5563"
+    icon: circle-slash
+    description: Intentionally stopped.
+workflows:
+  - key: fullstack-developer
+    name: Fullstack Developer Workflow
+    type: coding
+    role_slug: fullstack-developer
+    role_name: Fullstack Developer
+    role_description: Implement product changes end to end, covering backend, frontend, and verification.
+    harness_path: .openase/harnesses/fullstack-developer-workflow.md
+    pickup_statuses: [Todo]
+    finish_statuses: [Done]
+    max_retry_attempts: 1
+    timeout_minutes: 60
+    stall_timeout_minutes: 5
+project_ai:
+  skill_references:
+    - skill: auto-harness
+      files:
+        - references/checklist.md
+        - references/guide.md

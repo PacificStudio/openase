@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
+	"github.com/BetterAndBetterII/openase/internal/repo/enttx"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -45,7 +46,8 @@ func NewEntRepository(client *ent.Client) *EntRepository {
 }
 
 func (r *EntRepository) EnsureProjectExists(ctx context.Context, projectID uuid.UUID) error {
-	exists, err := r.client.Project.Query().Where(entproject.ID(projectID)).Exist(ctx)
+	client := enttx.Client(ctx, r.client)
+	exists, err := client.Project.Query().Where(entproject.ID(projectID)).Exist(ctx)
 	if err != nil {
 		return fmt.Errorf("check project existence: %w", err)
 	}
@@ -56,7 +58,8 @@ func (r *EntRepository) EnsureProjectExists(ctx context.Context, projectID uuid.
 }
 
 func (r *EntRepository) EnsureAgentBelongsToProject(ctx context.Context, projectID uuid.UUID, agentID uuid.UUID) error {
-	exists, err := r.client.Agent.Query().
+	client := enttx.Client(ctx, r.client)
+	exists, err := client.Agent.Query().
 		Where(
 			entagent.ProjectIDEQ(projectID),
 			entagent.IDEQ(agentID),
@@ -73,7 +76,8 @@ func (r *EntRepository) EnsureAgentBelongsToProject(ctx context.Context, project
 }
 
 func (r *EntRepository) EnsureStatusBindingsBelongToProject(ctx context.Context, projectID uuid.UUID, statusIDs []uuid.UUID) error {
-	count, err := r.client.TicketStatus.Query().
+	client := enttx.Client(ctx, r.client)
+	count, err := client.TicketStatus.Query().
 		Where(
 			entticketstatus.IDIn(statusIDs...),
 			entticketstatus.ProjectIDEQ(projectID),
@@ -94,7 +98,8 @@ func (r *EntRepository) EnsurePickupStatusBindingsAvailable(
 	statusIDs []uuid.UUID,
 	excludeWorkflowID uuid.UUID,
 ) error {
-	query := r.client.Workflow.Query().
+	client := enttx.Client(ctx, r.client)
+	query := client.Workflow.Query().
 		Where(
 			entworkflow.ProjectIDEQ(projectID),
 			entworkflow.HasPickupStatusesWith(entticketstatus.IDIn(statusIDs...)),
@@ -139,7 +144,8 @@ func (r *EntRepository) EnsureWorkflowNameAvailable(
 	name string,
 	excludeWorkflowID uuid.UUID,
 ) error {
-	query := r.client.Workflow.Query().Where(
+	client := enttx.Client(ctx, r.client)
+	query := client.Workflow.Query().Where(
 		entworkflow.ProjectIDEQ(projectID),
 		entworkflow.NameEQ(strings.TrimSpace(name)),
 	)
@@ -162,7 +168,8 @@ func (r *EntRepository) EnsureHarnessPathAvailable(
 	harnessPath string,
 	excludeWorkflowID uuid.UUID,
 ) error {
-	query := r.client.Workflow.Query().Where(
+	client := enttx.Client(ctx, r.client)
+	query := client.Workflow.Query().Where(
 		entworkflow.ProjectIDEQ(projectID),
 		entworkflow.HarnessPathEQ(harnessPath),
 	)
@@ -180,7 +187,8 @@ func (r *EntRepository) EnsureHarnessPathAvailable(
 }
 
 func (r *EntRepository) StatusNames(ctx context.Context, statusIDs []uuid.UUID) ([]string, error) {
-	items, err := r.client.TicketStatus.Query().
+	client := enttx.Client(ctx, r.client)
+	items, err := client.TicketStatus.Query().
 		Where(entticketstatus.IDIn(statusIDs...)).
 		Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName)).
 		All(ctx)
@@ -199,7 +207,8 @@ func (r *EntRepository) List(ctx context.Context, projectID uuid.UUID) ([]domain
 		return nil, err
 	}
 
-	items, err := r.client.Workflow.Query().
+	client := enttx.Client(ctx, r.client)
+	items, err := client.Workflow.Query().
 		Where(entworkflow.ProjectIDEQ(projectID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
 			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
@@ -225,7 +234,8 @@ func (r *EntRepository) Get(ctx context.Context, workflowID uuid.UUID) (domain.W
 		return domain.Workflow{}, err
 	}
 
-	item, err := r.client.Workflow.Query().
+	client := enttx.Client(ctx, r.client)
+	item, err := client.Workflow.Query().
 		Where(entworkflow.IDEQ(workflowID)).
 		WithPickupStatuses(func(query *ent.TicketStatusQuery) {
 			query.Order(ent.Asc(entticketstatus.FieldPosition), ent.Asc(entticketstatus.FieldName))
@@ -246,11 +256,13 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, sk
 		workflowID = uuid.New()
 	}
 
-	tx, err := r.client.Tx(ctx)
+	baseCtx := ctx
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return domain.Workflow{}, fmt.Errorf("start workflow create tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
 
 	_, err = tx.Workflow.Create().
 		SetID(workflowID).
@@ -308,14 +320,18 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, sk
 		return domain.Workflow{}, mapWorkflowWriteError("set workflow current version", err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return domain.Workflow{}, fmt.Errorf("commit workflow create tx: %w", err)
+	}
+	if session.Owned() {
+		return r.Get(baseCtx, workflowID)
 	}
 	return r.Get(ctx, workflowID)
 }
 
 func (r *EntRepository) Update(ctx context.Context, workflow domain.Workflow) (domain.Workflow, error) {
-	builder := r.client.Workflow.UpdateOneID(workflow.ID).
+	client := enttx.Client(ctx, r.client)
+	builder := client.Workflow.UpdateOneID(workflow.ID).
 		SetName(workflow.Name).
 		SetType(workflow.Type.String()).
 		SetRoleSlug(strings.TrimSpace(workflow.RoleSlug)).
@@ -359,11 +375,12 @@ func (r *EntRepository) Delete(ctx context.Context, workflowID uuid.UUID) (domai
 		return domain.Workflow{}, &domain.WorkflowImpactConflict{Err: conflictErr, Impact: impact}
 	}
 
-	tx, err := r.client.Tx(ctx)
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return domain.Workflow{}, fmt.Errorf("start workflow delete tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
 
 	if _, err := tx.WorkflowSkillBinding.Delete().
 		Where(entworkflowskillbinding.WorkflowIDEQ(workflowID)).
@@ -378,7 +395,7 @@ func (r *EntRepository) Delete(ctx context.Context, workflowID uuid.UUID) (domai
 	if err := tx.Workflow.DeleteOneID(workflowID).Exec(ctx); err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("delete workflow", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return domain.Workflow{}, fmt.Errorf("commit workflow delete tx: %w", err)
 	}
 	return current, nil
@@ -389,7 +406,8 @@ func (r *EntRepository) CurrentWorkflowVersion(ctx context.Context, workflowID u
 		return domain.WorkflowVersionRecord{}, err
 	}
 
-	item, err := r.client.WorkflowVersion.Query().
+	client := enttx.Client(ctx, r.client)
+	item, err := client.WorkflowVersion.Query().
 		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
 		Order(ent.Desc(entworkflowversion.FieldVersion)).
 		First(ctx)
@@ -411,7 +429,8 @@ func (r *EntRepository) RecordedWorkflowVersion(
 	if workflowVersionID == nil || *workflowVersionID == uuid.Nil {
 		return r.CurrentWorkflowVersion(ctx, workflowID)
 	}
-	item, err := r.client.WorkflowVersion.Query().
+	client := enttx.Client(ctx, r.client)
+	item, err := client.WorkflowVersion.Query().
 		Where(
 			entworkflowversion.IDEQ(*workflowVersionID),
 			entworkflowversion.WorkflowIDEQ(workflowID),
@@ -435,7 +454,8 @@ func (r *EntRepository) ListWorkflowVersions(ctx context.Context, workflowID uui
 		return nil, err
 	}
 
-	items, err := r.client.WorkflowVersion.Query().
+	client := enttx.Client(ctx, r.client)
+	items, err := client.WorkflowVersion.Query().
 		Where(entworkflowversion.WorkflowIDEQ(workflowID)).
 		Order(ent.Desc(entworkflowversion.FieldVersion)).
 		All(ctx)
@@ -461,11 +481,13 @@ func (r *EntRepository) PublishWorkflowVersion(ctx context.Context, workflowID u
 		return domain.Workflow{}, err
 	}
 
-	tx, err := r.client.Tx(ctx)
+	baseCtx := ctx
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return domain.Workflow{}, fmt.Errorf("start workflow publish tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
 
 	versionItem, err := r.createWorkflowVersionSnapshot(
 		ctx,
@@ -486,14 +508,18 @@ func (r *EntRepository) PublishWorkflowVersion(ctx context.Context, workflowID u
 		return domain.Workflow{}, mapWorkflowWriteError("update workflow current version", err)
 	}
 
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return domain.Workflow{}, fmt.Errorf("commit workflow publish tx: %w", err)
+	}
+	if session.Owned() {
+		return r.Get(baseCtx, workflowID)
 	}
 	return r.Get(ctx, workflowID)
 }
 
 func (r *EntRepository) ListWorkflowBoundSkillNames(ctx context.Context, workflowID uuid.UUID, enabledOnly bool) ([]string, error) {
-	workflowItem, err := r.client.Workflow.Query().
+	client := enttx.Client(ctx, r.client)
+	workflowItem, err := client.Workflow.Query().
 		Where(entworkflow.IDEQ(workflowID)).
 		Only(ctx)
 	if err != nil {
@@ -502,7 +528,7 @@ func (r *EntRepository) ListWorkflowBoundSkillNames(ctx context.Context, workflo
 		}
 		return nil, fmt.Errorf("get workflow for skill bindings: %w", err)
 	}
-	bindings, err := r.client.WorkflowSkillBinding.Query().
+	bindings, err := client.WorkflowSkillBinding.Query().
 		Where(entworkflowskillbinding.WorkflowIDEQ(workflowID)).
 		WithSkill().
 		All(ctx)
@@ -532,7 +558,8 @@ func (r *EntRepository) ListWorkflowBoundSkillNames(ctx context.Context, workflo
 }
 
 func (r *EntRepository) EnsureBuiltinSkills(ctx context.Context, projectID uuid.UUID, now time.Time, bundles []domain.SkillBundle) error {
-	existing, err := r.client.Skill.Query().
+	client := enttx.Client(ctx, r.client)
+	existing, err := client.Skill.Query().
 		Where(entskill.ProjectIDEQ(projectID)).
 		All(ctx)
 	if err != nil {
@@ -561,11 +588,12 @@ func (r *EntRepository) EnsureBuiltinSkills(ctx context.Context, projectID uuid.
 			return fmt.Errorf("builtin skill bundle %s missing", template.Name)
 		}
 
-		tx, err := r.client.Tx(ctx)
+		_, session, err := enttx.Begin(ctx, r.client)
 		if err != nil {
 			return fmt.Errorf("start builtin skill tx: %w", err)
 		}
-		defer rollback(tx)
+		defer session.Rollback()
+		tx := session.Tx()
 
 		skillItem, err := tx.Skill.Create().
 			SetProjectID(projectID).
@@ -595,7 +623,7 @@ func (r *EntRepository) EnsureBuiltinSkills(ctx context.Context, projectID uuid.
 			Save(ctx); err != nil {
 			return fmt.Errorf("update builtin skill current version %s: %w", template.Name, err)
 		}
-		if err := tx.Commit(); err != nil {
+		if err := session.Commit(); err != nil {
 			return fmt.Errorf("commit builtin skill %s: %w", template.Name, err)
 		}
 	}
@@ -745,7 +773,8 @@ func (r *EntRepository) SkillInProject(ctx context.Context, projectID uuid.UUID,
 }
 
 func (r *EntRepository) SkillByName(ctx context.Context, projectID uuid.UUID, name string) (domain.SkillRecord, error) {
-	item, err := r.client.Skill.Query().
+	client := enttx.Client(ctx, r.client)
+	item, err := client.Skill.Query().
 		Where(
 			entskill.ProjectIDEQ(projectID),
 			entskill.NameEQ(name),
@@ -1043,11 +1072,13 @@ func (r *EntRepository) ApplyWorkflowSkillBindings(
 		return domain.Workflow{}, err
 	}
 
-	tx, err := r.client.Tx(ctx)
+	baseCtx := ctx
+	ctx, session, err := enttx.Begin(ctx, r.client)
 	if err != nil {
 		return domain.Workflow{}, fmt.Errorf("start workflow skill binding tx: %w", err)
 	}
-	defer rollback(tx)
+	defer session.Rollback()
+	tx := session.Tx()
 
 	for _, skillID := range skillIDs {
 		if bind {
@@ -1087,8 +1118,11 @@ func (r *EntRepository) ApplyWorkflowSkillBindings(
 		Save(ctx); err != nil {
 		return domain.Workflow{}, mapWorkflowWriteError("update workflow current version", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err := session.Commit(); err != nil {
 		return domain.Workflow{}, fmt.Errorf("commit workflow skill binding tx: %w", err)
+	}
+	if session.Owned() {
+		return r.Get(baseCtx, workflowID)
 	}
 	return r.Get(ctx, workflowID)
 }
