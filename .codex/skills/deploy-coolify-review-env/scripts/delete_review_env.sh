@@ -38,7 +38,7 @@ list_ticket_scoped_apps() {
       ;;
   esac
 
-  python3 - "$ticket_identifier" <<'PY' <<<"$API_BODY"
+  python3 -c '
 import json
 import re
 import sys
@@ -59,8 +59,8 @@ for app in environment.get("applications", []):
         str(app.get("description") or ""),
     ]
     if any(pattern.search(item.lower()) for item in haystacks):
-        print(f'{app.get("uuid", "")}\t{app.get("name", "")}')
-PY
+        print("%s\t%s" % (app.get("uuid", ""), app.get("name", "")))
+' "$ticket_identifier" <<<"$API_BODY"
 }
 
 while [[ $# -gt 0 ]]; do
