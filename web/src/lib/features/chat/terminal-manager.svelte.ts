@@ -3,6 +3,7 @@ import {
   mountProjectConversationTerminal,
 } from './project-conversation-terminal-panel-helpers'
 import { createTerminalConnectionHelpers } from './terminal-manager-connection'
+import { createTerminalManagerInstanceState } from './terminal-manager-instance-state.svelte'
 import {
   TERMINAL_RECONNECT_ATTEMPT_LIMIT,
   clearTerminalReconnectTimer,
@@ -11,19 +12,13 @@ import {
   generateTerminalManagerID,
   nextTerminalReconnectDelay,
 } from './terminal-manager-runtime'
-import type {
-  MountedTerminal,
-  TerminalInstance,
-  TerminalInstanceRuntime,
-} from './terminal-manager-types'
+import type { MountedTerminal, TerminalInstanceRuntime } from './terminal-manager-types'
 
 export function createTerminalManager(input: {
   getConversationId: () => string
   getWorkspacePath: () => string
 }) {
-  let instances = $state<TerminalInstance[]>([])
-  let activeId = $state<string>('')
-  let panelOpen = $state(false)
+  const instanceState = createTerminalManagerInstanceState()
 
   // Internal state per instance (not reactive, keyed by id)
   const xtermMap = new Map<string, MountedTerminal>()
@@ -32,27 +27,15 @@ export function createTerminalManager(input: {
   const resizeObserverMap = new Map<string, ResizeObserver>()
   const runtimeMap = new Map<string, TerminalInstanceRuntime>()
 
-  function updateInstance(id: string, updates: Partial<TerminalInstance>) {
-    instances = instances.map((inst) => (inst.id === id ? { ...inst, ...updates } : inst))
-  }
-
-  function getActiveInstance(): TerminalInstance | undefined {
-    return instances.find((i) => i.id === activeId)
-  }
-
-  function hasInstance(id: string) {
-    return instances.some((inst) => inst.id === id)
-  }
-
   const { attachSocket, matchesConnectionState, resolveTerminalSession, setConnectingStatus } =
     createTerminalConnectionHelpers({
       getConversationId: input.getConversationId,
-      hasInstance,
-      listInstances: () => instances,
+      hasInstance: instanceState.hasInstance,
+      listInstances: () => instanceState.instances,
       runtimeMap,
       socketMap,
       scheduleReconnect,
-      updateInstance,
+      updateInstance: instanceState.updateInstance,
     })
 
   async function mountTerminal(id: string, element: HTMLDivElement) {
@@ -82,7 +65,7 @@ export function createTerminalManager(input: {
     })
 
     if (
-      !hasInstance(id) ||
+      !instanceState.hasInstance(id) ||
       runtimeMap.get(id)?.mountRevision !== mountRevision ||
       elementMap.get(id) !== element
     ) {
@@ -145,7 +128,11 @@ export function createTerminalManager(input: {
       runtime.session = null
     }
     if (options.updateStatus) {
-      updateInstance(id, { status: 'closed', statusMessage: 'Terminal closed.', sessionID: '' })
+      instanceState.updateInstance(id, {
+        status: 'closed',
+        statusMessage: 'Terminal closed.',
+        sessionID: '',
+      })
     }
   }
 
@@ -155,7 +142,7 @@ export function createTerminalManager(input: {
       !runtime ||
       !runtime.reconnectEnabled ||
       !runtime.session ||
-      !hasInstance(id) ||
+      !instanceState.hasInstance(id) ||
       !xtermMap.has(id)
     ) {
       return
@@ -163,7 +150,7 @@ export function createTerminalManager(input: {
 
     if (runtime.reconnectAttempts >= TERMINAL_RECONNECT_ATTEMPT_LIMIT) {
       runtime.reconnectEnabled = false
-      updateInstance(id, {
+      instanceState.updateInstance(id, {
         status: 'error',
         statusMessage: 'Terminal disconnected. Reconnect attempts exhausted.',
         sessionID: '',
@@ -173,14 +160,14 @@ export function createTerminalManager(input: {
 
     runtime.reconnectAttempts += 1
     const delay = nextTerminalReconnectDelay(runtime.reconnectAttempts)
-    updateInstance(id, {
+    instanceState.updateInstance(id, {
       status: 'connecting',
       statusMessage: `Reconnecting shell in ${label}...`,
       sessionID: '',
     })
     runtime.reconnectTimer = setTimeout(() => {
       runtime.reconnectTimer = null
-      if (!runtime.reconnectEnabled || !hasInstance(id) || !xtermMap.has(id)) {
+      if (!runtime.reconnectEnabled || !instanceState.hasInstance(id) || !xtermMap.has(id)) {
         return
       }
       void connectTerminal(id, true)
@@ -192,7 +179,7 @@ export function createTerminalManager(input: {
     const workspacePath = input.getWorkspacePath()
     const runtime = ensureTerminalRuntime(runtimeMap, id)
     const entry = xtermMap.get(id)
-    if (!conversationId || !entry || !hasInstance(id)) return
+    if (!conversationId || !entry || !instanceState.hasInstance(id)) return
 
     closeSocket(id, { updateStatus: false, reconnect: false, terminate: false })
     runtime.connectRevision += 1
@@ -202,7 +189,7 @@ export function createTerminalManager(input: {
     entry.fitAddon.fit()
 
     const label = workspacePath || 'workspace root'
-    updateInstance(id, { label })
+    instanceState.updateInstance(id, { label })
     setConnectingStatus(id, label, isReconnect)
 
     const session = await resolveTerminalSession({
@@ -222,7 +209,7 @@ export function createTerminalManager(input: {
     }
 
     runtime.session = session
-    updateInstance(id, { sessionID: session.id })
+    instanceState.updateInstance(id, { sessionID: session.id })
     attachSocket({
       id,
       session,
@@ -233,62 +220,36 @@ export function createTerminalManager(input: {
     })
   }
 
-  function createInstance(): string {
-    const id = generateTerminalManagerID()
-    const index = instances.length + 1
-    instances = [
-      ...instances,
-      {
-        id,
-        label: `Terminal ${index}`,
-        status: 'idle',
-        statusMessage: 'Connecting...',
-        sessionID: '',
-      },
-    ]
-    activeId = id
-    return id
+  function createInstance() {
+    return instanceState.createInstance(generateTerminalManagerID)
   }
 
   function removeInstance(id: string) {
-    const closingIndex = instances.findIndex((inst) => inst.id === id)
     unmountTerminal(id, true)
-    instances = instances.filter((i) => i.id !== id)
-    if (activeId === id) {
-      const nextActive = instances[closingIndex] ?? instances[Math.max(closingIndex - 1, 0)]
-      activeId = nextActive?.id ?? ''
-    }
-    if (instances.length === 0) {
-      panelOpen = false
-    }
+    instanceState.removeInstance(id)
   }
 
   function openPanel() {
-    panelOpen = true
-    if (instances.length === 0) {
+    instanceState.openPanel(() => {
       createInstance()
-    }
+    })
   }
 
   function togglePanel() {
-    if (panelOpen) {
-      panelOpen = false
-    } else {
-      openPanel()
-    }
+    instanceState.togglePanel(() => {
+      createInstance()
+    })
   }
 
   function closePanel() {
-    panelOpen = false
+    instanceState.closePanel()
   }
 
   function disposeAll() {
-    for (const inst of instances) {
+    for (const inst of instanceState.instances) {
       unmountTerminal(inst.id, true)
     }
-    instances = []
-    activeId = ''
-    panelOpen = false
+    instanceState.reset()
   }
 
   /** Refits all visible terminals (call after panel resize). */
@@ -300,18 +261,18 @@ export function createTerminalManager(input: {
 
   return {
     get instances() {
-      return instances
+      return instanceState.instances
     },
     get activeId() {
-      return activeId
+      return instanceState.activeId
     },
     set activeId(id: string) {
-      activeId = id
+      instanceState.activeId = id
     },
     get panelOpen() {
-      return panelOpen
+      return instanceState.panelOpen
     },
-    getActiveInstance,
+    getActiveInstance: instanceState.getActiveInstance,
     mountTerminal,
     connectTerminal,
     createInstance,
