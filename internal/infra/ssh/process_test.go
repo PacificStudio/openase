@@ -14,9 +14,11 @@ func TestProcessManagerStartsRemoteCommand(t *testing.T) {
 	session := &fakeSession{waitCh: make(chan error, 1)}
 	client := &fakeClient{session: session}
 	dialer := &fakeDialer{clients: []Client{client}}
-	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	pool := NewPool("/tmp/openase",
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		WithHostKeyCallback(testHostKeyCallback()),
+	)
 
 	manager := NewProcessManager(pool, testRemoteMachine())
 	workingDirectory := provider.MustParseAbsolutePath("/srv/openase/workspaces/ASE-104")
@@ -52,9 +54,11 @@ func TestRemoteProcessStopSignalsInterrupt(t *testing.T) {
 	session := &fakeSession{waitCh: make(chan error, 1)}
 	client := &fakeClient{session: session}
 	dialer := &fakeDialer{clients: []Client{client}}
-	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	pool := NewPool("/tmp/openase",
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		WithHostKeyCallback(testHostKeyCallback()),
+	)
 
 	manager := NewProcessManager(pool, testRemoteMachine())
 	spec, err := provider.NewAgentCLIProcessSpec(provider.MustParseAgentCLICommand("codex"), nil, nil, nil)
@@ -87,9 +91,11 @@ func TestRemoteProcessStopReturnsWaitErrorWhenContextCloses(t *testing.T) {
 	}
 	client := &fakeClient{session: session}
 	dialer := &fakeDialer{clients: []Client{client}}
-	pool := NewPool("/tmp/openase", WithDialer(dialer), WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	pool := NewPool("/tmp/openase",
+		WithDialer(dialer),
+		WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		WithHostKeyCallback(testHostKeyCallback()),
+	)
 
 	manager := NewProcessManager(pool, testRemoteMachine())
 	spec, err := provider.NewAgentCLIProcessSpec(provider.MustParseAgentCLICommand("codex"), nil, nil, nil)

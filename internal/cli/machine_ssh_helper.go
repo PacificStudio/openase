@@ -262,6 +262,73 @@ when you can still reach the machine over SSH.
 	return command
 }
 
+func newMachineSSHEnrollCommand() *cobra.Command {
+	var apiOptions apiCommandOptions
+	var replace bool
+
+	command := &cobra.Command{
+		Use:   "ssh-enroll [machineId]",
+		Short: "Fetch and store the remote machine's SSH host key for strict verification.",
+		Long: strings.TrimSpace(`
+Fetch and store the remote machine's SSH host key for strict verification.
+
+OpenASE now fails closed for SSH helper access until a host key has been
+explicitly enrolled for the target machine. This command connects to the
+remote endpoint, captures the currently presented host key, and stores it
+under ~/.openase/ssh/known_hosts.d/<machine-id>.known_hosts so later SSH
+helper operations can enforce strict verification.
+
+The [machineId] argument must be a machine UUID.
+
+Run this once before the first SSH helper connection. If a machine's host key
+is rotated after out-of-band verification, rerun the command with --replace to
+overwrite the stored key explicitly.
+`),
+		Example: strings.TrimSpace(`
+  openase machine ssh-enroll $OPENASE_MACHINE_ID
+  openase machine ssh-enroll 550e8400-e29b-41d4-a716-446655440000
+  openase machine ssh-enroll $OPENASE_MACHINE_ID --replace
+`),
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			if err != nil {
+				return err
+			}
+			machine, err := fetchCLIMachine(cmd.Context(), apiContext, strings.TrimSpace(args[0]))
+			if err != nil {
+				return err
+			}
+
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve user home directory: %w", err)
+			}
+			pool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
+			defer func() {
+				_ = pool.Close()
+			}()
+
+			result, err := pool.EnrollHostKey(cmd.Context(), machine, sshinfra.HostKeyEnrollmentOptions{Replace: replace})
+			if err != nil {
+				return err
+			}
+
+			body, err := json.Marshal(result)
+			if err != nil {
+				return fmt.Errorf("marshal ssh host key enrollment result: %w", err)
+			}
+			return writePrettyJSON(cmd.OutOrStdout(), body)
+		},
+	}
+
+	command.SetFlagErrorFunc(flagErrorWithNormalize)
+	applyCLICommandFlagNormalization(command)
+	bindAPICommandFlags(command.Flags(), &apiOptions)
+	command.Flags().BoolVar(&replace, "replace", false, "Overwrite an existing stored host key after you verify the rotation out-of-band.")
+	return command
+}
+
 func newMachineSSHDiagnosticsCommand() *cobra.Command {
 	var apiOptions apiCommandOptions
 

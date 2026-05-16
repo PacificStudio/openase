@@ -19,6 +19,18 @@ const bannedEntries = [
     reason:
       'GHSA-c2c7-rcm5-vvqj / CVE-2026-33671 allows ReDoS via extglob quantifiers, and GHSA-3v7f-55p6-f55p / CVE-2026-33672 allows incorrect glob matching in POSIX character classes.',
   },
+  {
+    packageName: 'postcss',
+    version: '8.5.8',
+    reason:
+      'GHSA-qx2v-qp2m-jg93 / CVE-2026-41305 allows stringified CSS to emit an unescaped </style> sequence; keep the lockfile on 8.5.10 or newer.',
+  },
+  {
+    packageName: 'postcss',
+    version: '8.5.9',
+    reason:
+      'GHSA-qx2v-qp2m-jg93 / CVE-2026-41305 allows stringified CSS to emit an unescaped </style> sequence; keep the lockfile on 8.5.10 or newer.',
+  },
 ]
 
 const findings = bannedEntries.filter((entry) => {
