@@ -18,6 +18,7 @@ func TestMonitorCollectorCollectReachabilityUsesInjectedClockForLatency(t *testi
 			WithReadFile(func(string) ([]byte, error) {
 				return []byte("key"), nil
 			}),
+			WithHostKeyCallback(testHostKeyCallback()),
 		),
 		now: func() time.Time {
 			calls++

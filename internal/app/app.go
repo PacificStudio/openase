@@ -306,15 +306,8 @@ func (a *App) RunServe(ctx context.Context) error {
 	if _, err := instanceAuthSvc.Refresh(ctx); err != nil {
 		return fmt.Errorf("initialize instance auth runtime state: %w", err)
 	}
-	desktopAuthDisabled := desktopHumanAuthDisabled(os.Getenv)
-	var humanAuthSvc *humanauthservice.Service
-	var humanAuthorizer *humanauthservice.Authorizer
-	if desktopAuthDisabled {
-		a.logger.Info("desktop runtime requested auth bypass; human browser auth service disabled")
-	} else {
-		humanAuthSvc = humanauthservice.NewService(humanAuthRepo, http.DefaultClient, instanceAuthSvc)
-		humanAuthorizer = humanauthservice.NewAuthorizer(humanAuthRepo)
-	}
+	humanAuthSvc := humanauthservice.NewService(humanAuthRepo, http.DefaultClient, instanceAuthSvc)
+	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
 	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
 	machineSessions := machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)
 	serverOpts := []httpapi.ServerOption{
@@ -338,9 +331,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithSSHBootstrapper(machinesetup.NewBootstrapper(sshPool, machineChannelSvc)),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	}
-	if humanAuthSvc != nil && humanAuthorizer != nil {
-		serverOpts = append(serverOpts, httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer))
-	}
+	serverOpts = append(serverOpts, httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer))
 	server := httpapi.NewServerWithServices(
 		a.config.Server,
 		a.config.GitHub,

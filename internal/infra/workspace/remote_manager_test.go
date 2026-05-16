@@ -12,6 +12,7 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
@@ -20,7 +21,7 @@ func TestRemoteManagerPrepareBuildsCloneAndCheckoutCommands(t *testing.T) {
 	dialer := &remoteTestDialer{client: client}
 	pool := sshinfra.NewPool("/tmp/openase", sshinfra.WithDialer(dialer), sshinfra.WithReadFile(func(string) ([]byte, error) {
 		return []byte("key"), nil
-	}))
+	}), sshinfra.WithHostKeyCallback(gossh.InsecureIgnoreHostKey())) //nolint:gosec
 
 	manager := NewRemoteManager(pool)
 	request := SetupRequest{
