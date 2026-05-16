@@ -198,6 +198,49 @@ func TestLocalBootstrapProtectedRoutesRequireAuthorizedBrowserSession(t *testing
 	}
 }
 
+func TestLocalBootstrapProtectedRoutesRequireCSRFForMutations(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalBootstrapFixture(t, config.AuthConfig{Mode: config.AuthModeDisabled})
+
+	issued, err := fixture.humanAuth.CreateLocalBootstrapRequest(context.Background(), humanauthservice.LocalBootstrapIssueInput{
+		RequestedBy: "cli:test",
+		Purpose:     "browser_session",
+		TTL:         5 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("CreateLocalBootstrapRequest() error = %v", err)
+	}
+
+	redeem := performJSONRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		"/api/v1/auth/local-bootstrap/redeem",
+		`{"request_id":"`+issued.RequestID+`","code":"`+issued.Code+`","nonce":"`+issued.Nonce+`"}`,
+	)
+	if redeem.Code != http.StatusOK {
+		t.Fatalf("expected redeem 200, got %d: %s", redeem.Code, redeem.Body.String())
+	}
+	cookies := redeem.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value == "" {
+		t.Fatalf("expected redeemed session cookie, got %#v", cookies)
+	}
+
+	mutating := performJSONRequestWithHeaders(t, fixture.server, http.MethodPost, "http://127.0.0.1:40023/api/v1/auth/sessions/revoke-all", "", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + cookies[0].Value,
+		"Origin":     "http://127.0.0.1:40023",
+		"User-Agent": "LocalBootstrapCSRFTest/1.0",
+	})
+	assertAPIErrorResponse(
+		t,
+		mutating,
+		http.StatusForbidden,
+		"CSRF_TOKEN_INVALID",
+		"csrf token is missing or invalid",
+	)
+}
+
 func TestLocalBootstrapRedeemRejectsExpiredRequest(t *testing.T) {
 	t.Parallel()
 
