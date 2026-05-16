@@ -14,6 +14,10 @@ const requiredOverrides = {
     requiredVersion: '8.5.10',
     staleVersions: ['8.5.8', '8.5.9'],
   },
+  mermaid: {
+    requiredVersion: '11.15.0',
+    staleVersionPatterns: ['11\\.(?:[0-9]|1[0-4])(?:\\.\\d+)?(?:-[^\\s:]+)?'],
+  },
   uuid: {
     requiredVersion: '14.0.0',
     staleVersions: ['11.1.0'],
@@ -43,13 +47,24 @@ for (const [packageName, config] of Object.entries(requiredOverrides)) {
     problems.push(`pnpm-lock.yaml must record the ${packageName} override at ${requiredVersion}`)
   }
 
-  for (const staleVersion of staleVersions) {
-    const staleVersionPattern = new RegExp(
-      `${escapeRegExp(packageName)}(?::|@)\\s*${escapeRegExp(staleVersion)}\\b|${escapeRegExp(packageName)}@${escapeRegExp(staleVersion)}:`,
+  const staleVersionPatterns =
+    config.staleVersionPatterns ?? staleVersions.map((staleVersion) => escapeRegExp(staleVersion))
+  for (const staleVersionPattern of staleVersionPatterns) {
+    if (!staleVersionPattern) {
+      continue
+    }
+    const staleEntryPattern = new RegExp(
+      `${escapeRegExp(packageName)}(?::|@)\\s*(?:${staleVersionPattern})\\b|${escapeRegExp(packageName)}@(?:${staleVersionPattern}):`,
       'm',
     )
-    if (staleVersionPattern.test(lockfile)) {
-      problems.push(`pnpm-lock.yaml still references stale ${packageName} ${staleVersion} entries`)
+    if (staleEntryPattern.test(lockfile)) {
+      const staleVersionLabel =
+        staleVersions.find((staleVersion) => escapeRegExp(staleVersion) === staleVersionPattern) ??
+        `/${staleVersionPattern.replaceAll('\\\\', '\\')}/`
+      problems.push(
+        `pnpm-lock.yaml still references stale ${packageName} ${staleVersionLabel} entries`,
+      )
+      break
     }
   }
 
