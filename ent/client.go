@@ -71,6 +71,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/BetterAndBetterII/openase/ent/usergroupmembership"
 	"github.com/BetterAndBetterII/openase/ent/useridentity"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -194,6 +195,8 @@ type Client struct {
 	TicketStatus *TicketStatusClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// UserAPIKey is the client for interacting with the UserAPIKey builders.
+	UserAPIKey *UserAPIKeyClient
 	// UserGroupMembership is the client for interacting with the UserGroupMembership builders.
 	UserGroupMembership *UserGroupMembershipClient
 	// UserIdentity is the client for interacting with the UserIdentity builders.
@@ -272,6 +275,7 @@ func (c *Client) init() {
 	c.TicketRepoWorkspace = NewTicketRepoWorkspaceClient(c.config)
 	c.TicketStatus = NewTicketStatusClient(c.config)
 	c.User = NewUserClient(c.config)
+	c.UserAPIKey = NewUserAPIKeyClient(c.config)
 	c.UserGroupMembership = NewUserGroupMembershipClient(c.config)
 	c.UserIdentity = NewUserIdentityClient(c.config)
 	c.Workflow = NewWorkflowClient(c.config)
@@ -425,6 +429,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TicketRepoWorkspace:           NewTicketRepoWorkspaceClient(cfg),
 		TicketStatus:                  NewTicketStatusClient(cfg),
 		User:                          NewUserClient(cfg),
+		UserAPIKey:                    NewUserAPIKeyClient(cfg),
 		UserGroupMembership:           NewUserGroupMembershipClient(cfg),
 		UserIdentity:                  NewUserIdentityClient(cfg),
 		Workflow:                      NewWorkflowClient(cfg),
@@ -505,6 +510,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TicketRepoWorkspace:           NewTicketRepoWorkspaceClient(cfg),
 		TicketStatus:                  NewTicketStatusClient(cfg),
 		User:                          NewUserClient(cfg),
+		UserAPIKey:                    NewUserAPIKeyClient(cfg),
 		UserGroupMembership:           NewUserGroupMembershipClient(cfg),
 		UserIdentity:                  NewUserIdentityClient(cfg),
 		Workflow:                      NewWorkflowClient(cfg),
@@ -555,7 +561,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.SecretBinding, c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile,
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
 		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.User, c.UserGroupMembership, c.UserIdentity, c.Workflow,
+		c.User, c.UserAPIKey, c.UserGroupMembership, c.UserIdentity, c.Workflow,
 		c.WorkflowSkillBinding, c.WorkflowVersion, c.WorkspaceInitLease,
 	} {
 		n.Use(hooks...)
@@ -581,7 +587,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.SecretBinding, c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile,
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
 		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
-		c.User, c.UserGroupMembership, c.UserIdentity, c.Workflow,
+		c.User, c.UserAPIKey, c.UserGroupMembership, c.UserIdentity, c.Workflow,
 		c.WorkflowSkillBinding, c.WorkflowVersion, c.WorkspaceInitLease,
 	} {
 		n.Intercept(interceptors...)
@@ -701,6 +707,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TicketStatus.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
+	case *UserAPIKeyMutation:
+		return c.UserAPIKey.mutate(ctx, m)
 	case *UserGroupMembershipMutation:
 		return c.UserGroupMembership.mutate(ctx, m)
 	case *UserIdentityMutation:
@@ -6193,6 +6201,22 @@ func (c *ProjectClient) QueryNotificationRules(_m *Project) *NotificationRuleQue
 	return query
 }
 
+// QueryUserAPIKeys queries the user_api_keys edge of a Project.
+func (c *ProjectClient) QueryUserAPIKeys(_m *Project) *UserAPIKeyQuery {
+	query := (&UserAPIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(userapikey.Table, userapikey.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.UserAPIKeysTable, project.UserAPIKeysColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryDefaultAgentProvider queries the default_agent_provider edge of a Project.
 func (c *ProjectClient) QueryDefaultAgentProvider(_m *Project) *AgentProviderQuery {
 	query := (&AgentProviderClient{config: c.config}).Query()
@@ -10808,6 +10832,22 @@ func (c *UserClient) QueryAcceptedOrganizationInvitations(_m *User) *Organizatio
 	return query
 }
 
+// QueryAPIKeys queries the api_keys edge of a User.
+func (c *UserClient) QueryAPIKeys(_m *User) *UserAPIKeyQuery {
+	query := (&UserAPIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(userapikey.Table, userapikey.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.APIKeysTable, user.APIKeysColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	return c.hooks.User
@@ -10830,6 +10870,171 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 		return (&UserDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown User mutation op: %q", m.Op())
+	}
+}
+
+// UserAPIKeyClient is a client for the UserAPIKey schema.
+type UserAPIKeyClient struct {
+	config
+}
+
+// NewUserAPIKeyClient returns a client for the UserAPIKey from the given config.
+func NewUserAPIKeyClient(c config) *UserAPIKeyClient {
+	return &UserAPIKeyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `userapikey.Hooks(f(g(h())))`.
+func (c *UserAPIKeyClient) Use(hooks ...Hook) {
+	c.hooks.UserAPIKey = append(c.hooks.UserAPIKey, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `userapikey.Intercept(f(g(h())))`.
+func (c *UserAPIKeyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserAPIKey = append(c.inters.UserAPIKey, interceptors...)
+}
+
+// Create returns a builder for creating a UserAPIKey entity.
+func (c *UserAPIKeyClient) Create() *UserAPIKeyCreate {
+	mutation := newUserAPIKeyMutation(c.config, OpCreate)
+	return &UserAPIKeyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserAPIKey entities.
+func (c *UserAPIKeyClient) CreateBulk(builders ...*UserAPIKeyCreate) *UserAPIKeyCreateBulk {
+	return &UserAPIKeyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserAPIKeyClient) MapCreateBulk(slice any, setFunc func(*UserAPIKeyCreate, int)) *UserAPIKeyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserAPIKeyCreateBulk{err: fmt.Errorf("calling to UserAPIKeyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserAPIKeyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserAPIKeyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserAPIKey.
+func (c *UserAPIKeyClient) Update() *UserAPIKeyUpdate {
+	mutation := newUserAPIKeyMutation(c.config, OpUpdate)
+	return &UserAPIKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserAPIKeyClient) UpdateOne(_m *UserAPIKey) *UserAPIKeyUpdateOne {
+	mutation := newUserAPIKeyMutation(c.config, OpUpdateOne, withUserAPIKey(_m))
+	return &UserAPIKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserAPIKeyClient) UpdateOneID(id uuid.UUID) *UserAPIKeyUpdateOne {
+	mutation := newUserAPIKeyMutation(c.config, OpUpdateOne, withUserAPIKeyID(id))
+	return &UserAPIKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserAPIKey.
+func (c *UserAPIKeyClient) Delete() *UserAPIKeyDelete {
+	mutation := newUserAPIKeyMutation(c.config, OpDelete)
+	return &UserAPIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserAPIKeyClient) DeleteOne(_m *UserAPIKey) *UserAPIKeyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserAPIKeyClient) DeleteOneID(id uuid.UUID) *UserAPIKeyDeleteOne {
+	builder := c.Delete().Where(userapikey.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserAPIKeyDeleteOne{builder}
+}
+
+// Query returns a query builder for UserAPIKey.
+func (c *UserAPIKeyClient) Query() *UserAPIKeyQuery {
+	return &UserAPIKeyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserAPIKey},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserAPIKey entity by its id.
+func (c *UserAPIKeyClient) Get(ctx context.Context, id uuid.UUID) (*UserAPIKey, error) {
+	return c.Query().Where(userapikey.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserAPIKeyClient) GetX(ctx context.Context, id uuid.UUID) *UserAPIKey {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a UserAPIKey.
+func (c *UserAPIKeyClient) QueryUser(_m *UserAPIKey) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(userapikey.Table, userapikey.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, userapikey.UserTable, userapikey.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryProject queries the project edge of a UserAPIKey.
+func (c *UserAPIKeyClient) QueryProject(_m *UserAPIKey) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(userapikey.Table, userapikey.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, userapikey.ProjectTable, userapikey.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *UserAPIKeyClient) Hooks() []Hook {
+	return c.hooks.UserAPIKey
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserAPIKeyClient) Interceptors() []Interceptor {
+	return c.inters.UserAPIKey
+}
+
+func (c *UserAPIKeyClient) mutate(ctx context.Context, m *UserAPIKeyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserAPIKeyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserAPIKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserAPIKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserAPIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserAPIKey mutation op: %q", m.Op())
 	}
 }
 
@@ -11888,7 +12093,7 @@ type (
 		RoleBinding, ScheduledJob, Secret, SecretBinding, Skill, SkillBlob,
 		SkillVersion, SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
 		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
-		TicketStatus, User, UserGroupMembership, UserIdentity, Workflow,
+		TicketStatus, User, UserAPIKey, UserGroupMembership, UserIdentity, Workflow,
 		WorkflowSkillBinding, WorkflowVersion, WorkspaceInitLease []ent.Hook
 	}
 	inters struct {
@@ -11906,7 +12111,7 @@ type (
 		RoleBinding, ScheduledJob, Secret, SecretBinding, Skill, SkillBlob,
 		SkillVersion, SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
 		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
-		TicketStatus, User, UserGroupMembership, UserIdentity, Workflow,
+		TicketStatus, User, UserAPIKey, UserGroupMembership, UserIdentity, Workflow,
 		WorkflowSkillBinding, WorkflowVersion, WorkspaceInitLease []ent.Interceptor
 	}
 )

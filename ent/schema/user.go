@@ -30,6 +30,7 @@ func (User) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("organization_memberships", OrganizationMembership.Type),
 		edge.To("accepted_organization_invitations", OrganizationInvitation.Type),
+		edge.To("api_keys", UserAPIKey.Type),
 	}
 }
 

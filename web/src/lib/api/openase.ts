@@ -20,9 +20,12 @@ import type {
   ArchivedTicketPayload,
   BuiltinRolePayload,
   BuiltinRoleDetailResponse,
+  CreateProjectUserAPIKeyResponse,
   CreateScopedSecretBindingResponse,
+  DeleteProjectUserAPIKeyResponse,
   DeleteScopedSecretBindingResponse,
   DeleteGitHubOutboundCredentialResponse,
+  DisableProjectUserAPIKeyResponse,
   OrgGitHubCredentialResponse,
   GitHubRepositoryCreateResponse,
   GitHubRepositoryListResponse,
@@ -52,6 +55,7 @@ import type {
   OIDCEnableResponse,
   ProjectRepoPayload,
   ProjectArchiveResponse,
+  ProjectUserAPIKeyListResponse,
   ProjectUpdateCommentCreateResponse,
   ProjectUpdateCommentDeleteResponse,
   ProjectUpdateCommentResponse,
@@ -75,6 +79,7 @@ import type {
   ScopedSecretResponse,
   ScopedSecretsResponse,
   RetestGitHubOutboundCredentialResponse,
+  RotateProjectUserAPIKeyResponse,
   SaveGitHubOutboundCredentialResponse,
   SkillListPayload,
   SkillCreateResponse,
@@ -425,6 +430,40 @@ export function getSecuritySettings(projectId: string) {
 
 export function listScopedSecrets(projectId: string) {
   return api.get<ScopedSecretPayload>(`/api/v1/projects/${projectId}/security-settings/secrets`)
+}
+
+export function listProjectUserAPIKeys(projectId: string) {
+  return api.get<ProjectUserAPIKeyListResponse>(
+    `/api/v1/projects/${projectId}/security-settings/api-keys`,
+  )
+}
+
+export function createProjectUserAPIKey(
+  projectId: string,
+  body: { name: string; scopes: string[]; expires_at?: string | null },
+) {
+  return api.post<CreateProjectUserAPIKeyResponse>(
+    `/api/v1/projects/${projectId}/security-settings/api-keys`,
+    { body },
+  )
+}
+
+export function rotateProjectUserAPIKey(projectId: string, keyId: string) {
+  return api.post<RotateProjectUserAPIKeyResponse>(
+    `/api/v1/projects/${projectId}/security-settings/api-keys/${keyId}/rotate`,
+  )
+}
+
+export function disableProjectUserAPIKey(projectId: string, keyId: string) {
+  return api.post<DisableProjectUserAPIKeyResponse>(
+    `/api/v1/projects/${projectId}/security-settings/api-keys/${keyId}/disable`,
+  )
+}
+
+export function deleteProjectUserAPIKey(projectId: string, keyId: string) {
+  return api.delete<DeleteProjectUserAPIKeyResponse>(
+    `/api/v1/projects/${projectId}/security-settings/api-keys/${keyId}`,
+  )
 }
 
 export function listScopedSecretBindings(projectId: string) {

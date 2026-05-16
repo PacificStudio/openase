@@ -669,6 +669,18 @@ func (f UserFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserMutation", m)
 }
 
+// The UserAPIKeyFunc type is an adapter to allow the use of ordinary
+// function as UserAPIKey mutator.
+type UserAPIKeyFunc func(context.Context, *ent.UserAPIKeyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserAPIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserAPIKeyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserAPIKeyMutation", m)
+}
+
 // The UserGroupMembershipFunc type is an adapter to allow the use of ordinary
 // function as UserGroupMembership mutator.
 type UserGroupMembershipFunc func(context.Context, *ent.UserGroupMembershipMutation) (ent.Value, error)

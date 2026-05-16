@@ -2,6 +2,7 @@
   import type { TranslationKey } from '$lib/i18n'
   import { cn, formatRelativeTime, truncate } from '$lib/utils'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import { Badge } from '$ui/badge'
   import {
     RotateCcw,
@@ -81,6 +82,7 @@
 
   let suppressClickUntil = 0
   let contextMenuOpen = $state(false)
+  const draggable = $derived(viewport.isDesktop && !isPendingMove && !contextMenuOpen)
 
   function handleClick() {
     if (Date.now() < suppressClickUntil || isDragging || contextMenuOpen) {
@@ -162,7 +164,7 @@
 >
   <button
     type="button"
-    draggable={!isPendingMove && !contextMenuOpen}
+    {draggable}
     class={cn(
       'border-border bg-card w-full shrink-0 rounded-md border p-2.5 text-left',
       'cursor-grab active:cursor-grabbing',

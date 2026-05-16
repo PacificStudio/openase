@@ -33,6 +33,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/google/uuid"
 )
@@ -63,6 +64,7 @@ type ProjectQuery struct {
 	withUpdateThreads          *ProjectUpdateThreadQuery
 	withChatConversations      *ChatConversationQuery
 	withNotificationRules      *NotificationRuleQuery
+	withUserAPIKeys            *UserAPIKeyQuery
 	withDefaultAgentProvider   *AgentProviderQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -518,6 +520,28 @@ func (_q *ProjectQuery) QueryNotificationRules() *NotificationRuleQuery {
 	return query
 }
 
+// QueryUserAPIKeys chains the current query on the "user_api_keys" edge.
+func (_q *ProjectQuery) QueryUserAPIKeys() *UserAPIKeyQuery {
+	query := (&UserAPIKeyClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(userapikey.Table, userapikey.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.UserAPIKeysTable, project.UserAPIKeysColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryDefaultAgentProvider chains the current query on the "default_agent_provider" edge.
 func (_q *ProjectQuery) QueryDefaultAgentProvider() *AgentProviderQuery {
 	query := (&AgentProviderClient{config: _q.config}).Query()
@@ -751,6 +775,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withUpdateThreads:          _q.withUpdateThreads.Clone(),
 		withChatConversations:      _q.withChatConversations.Clone(),
 		withNotificationRules:      _q.withNotificationRules.Clone(),
+		withUserAPIKeys:            _q.withUserAPIKeys.Clone(),
 		withDefaultAgentProvider:   _q.withDefaultAgentProvider.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -967,6 +992,17 @@ func (_q *ProjectQuery) WithNotificationRules(opts ...func(*NotificationRuleQuer
 	return _q
 }
 
+// WithUserAPIKeys tells the query-builder to eager-load the nodes that are connected to
+// the "user_api_keys" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithUserAPIKeys(opts ...func(*UserAPIKeyQuery)) *ProjectQuery {
+	query := (&UserAPIKeyClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withUserAPIKeys = query
+	return _q
+}
+
 // WithDefaultAgentProvider tells the query-builder to eager-load the nodes that are connected to
 // the "default_agent_provider" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *ProjectQuery) WithDefaultAgentProvider(opts ...func(*AgentProviderQuery)) *ProjectQuery {
@@ -1056,7 +1092,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [20]bool{
+		loadedTypes = [21]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
 			_q.withSkills != nil,
@@ -1076,6 +1112,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withUpdateThreads != nil,
 			_q.withChatConversations != nil,
 			_q.withNotificationRules != nil,
+			_q.withUserAPIKeys != nil,
 			_q.withDefaultAgentProvider != nil,
 		}
 	)
@@ -1236,6 +1273,13 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			func(n *Project, e *NotificationRule) {
 				n.Edges.NotificationRules = append(n.Edges.NotificationRules, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withUserAPIKeys; query != nil {
+		if err := _q.loadUserAPIKeys(ctx, query, nodes,
+			func(n *Project) { n.Edges.UserAPIKeys = []*UserAPIKey{} },
+			func(n *Project, e *UserAPIKey) { n.Edges.UserAPIKeys = append(n.Edges.UserAPIKeys, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1802,6 +1846,36 @@ func (_q *ProjectQuery) loadNotificationRules(ctx context.Context, query *Notifi
 	}
 	query.Where(predicate.NotificationRule(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.NotificationRulesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadUserAPIKeys(ctx context.Context, query *UserAPIKeyQuery, nodes []*Project, init func(*Project), assign func(*Project, *UserAPIKey)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(userapikey.FieldProjectID)
+	}
+	query.Where(predicate.UserAPIKey(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.UserAPIKeysColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

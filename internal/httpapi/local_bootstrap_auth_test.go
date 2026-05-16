@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -9,12 +10,16 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
+	userapikeyrepo "github.com/BetterAndBetterII/openase/internal/repo/userapikey"
 	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
+	userapikeyservice "github.com/BetterAndBetterII/openase/internal/service/userapikey"
+	"github.com/google/uuid"
 )
 
 type localBootstrapFixture struct {
@@ -195,6 +200,99 @@ func TestLocalBootstrapProtectedRoutesRequireAuthorizedBrowserSession(t *testing
 	})
 	if authorized.Code != http.StatusOK {
 		t.Fatalf("expected authorized protected route 200, got %d: %s", authorized.Code, authorized.Body.String())
+	}
+}
+
+func TestLocalBootstrapCanListProjectUserAPIKeys(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close ent client: %v", err)
+		}
+	})
+
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+
+	repository := humanauthrepo.NewEntRepository(client)
+	instanceAuthSvc, err := accesscontrolservice.New(
+		accesscontrolrepo.NewEntRepository(client),
+		t.Name(),
+		"",
+		"",
+	)
+	if err != nil {
+		t.Fatalf("new instance auth service: %v", err)
+	}
+	humanAuthSvc := humanauthservice.NewService(repository, nil, instanceAuthSvc)
+	humanAuthorizer := humanauthservice.NewAuthorizer(repository)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithGitHubAuthService(&stubGitHubAuthService{security: sampleProjectSecurity()}),
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+		WithInstanceAuthService(instanceAuthSvc),
+		WithHumanAuthService(humanAuthSvc, humanAuthorizer),
+		WithUserAPIKeyService(userapikeyservice.NewService(userapikeyrepo.NewEntRepository(client), humanAuthorizer)),
+	)
+
+	issued, err := humanAuthSvc.CreateLocalBootstrapRequest(context.Background(), humanauthservice.LocalBootstrapIssueInput{
+		RequestedBy: "cli:test",
+		Purpose:     "browser_session",
+		TTL:         5 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("CreateLocalBootstrapRequest() error = %v", err)
+	}
+
+	redeem := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/auth/local-bootstrap/redeem",
+		`{"request_id":"`+issued.RequestID+`","code":"`+issued.Code+`","nonce":"`+issued.Nonce+`"}`,
+	)
+	if redeem.Code != http.StatusOK {
+		t.Fatalf("expected redeem 200, got %d: %s", redeem.Code, redeem.Body.String())
+	}
+	cookies := redeem.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value == "" {
+		t.Fatalf("expected redeemed session cookie, got %#v", cookies)
+	}
+
+	rec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/api-keys",
+		"",
+		map[string]string{
+			"Cookie":     humanSessionCookieName + "=" + cookies[0].Value,
+			"User-Agent": "LocalBootstrapUserAPIKeys/1.0",
+		},
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected user api key list 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		APIKeys []map[string]any `json:"api_keys"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal user api key list response: %v", err)
+	}
+	if len(payload.APIKeys) != 0 {
+		t.Fatalf("expected no user api keys, got %+v", payload.APIKeys)
 	}
 }
 

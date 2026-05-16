@@ -1091,6 +1091,29 @@ func HasNotificationRulesWith(preds ...predicate.NotificationRule) predicate.Pro
 	})
 }
 
+// HasUserAPIKeys applies the HasEdge predicate on the "user_api_keys" edge.
+func HasUserAPIKeys() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, UserAPIKeysTable, UserAPIKeysColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasUserAPIKeysWith applies the HasEdge predicate on the "user_api_keys" edge with a given conditions (other predicates).
+func HasUserAPIKeysWith(preds ...predicate.UserAPIKey) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newUserAPIKeysStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasDefaultAgentProvider applies the HasEdge predicate on the "default_agent_provider" edge.
 func HasDefaultAgentProvider() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {

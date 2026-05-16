@@ -29,6 +29,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
@@ -482,6 +483,21 @@ func (_c *ProjectCreate) AddNotificationRules(v ...*NotificationRule) *ProjectCr
 		ids[i] = v[i].ID
 	}
 	return _c.AddNotificationRuleIDs(ids...)
+}
+
+// AddUserAPIKeyIDs adds the "user_api_keys" edge to the UserAPIKey entity by IDs.
+func (_c *ProjectCreate) AddUserAPIKeyIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddUserAPIKeyIDs(ids...)
+	return _c
+}
+
+// AddUserAPIKeys adds the "user_api_keys" edges to the UserAPIKey entity.
+func (_c *ProjectCreate) AddUserAPIKeys(v ...*UserAPIKey) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddUserAPIKeyIDs(ids...)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -988,6 +1004,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.UserAPIKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UserAPIKeysTable,
+			Columns: []string{project.UserAPIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

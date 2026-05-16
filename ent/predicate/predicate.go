@@ -171,6 +171,9 @@ type TicketStatus func(*sql.Selector)
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
 
+// UserAPIKey is the predicate function for userapikey builders.
+type UserAPIKey func(*sql.Selector)
+
 // UserGroupMembership is the predicate function for usergroupmembership builders.
 type UserGroupMembership func(*sql.Selector)
 

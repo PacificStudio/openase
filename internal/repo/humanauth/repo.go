@@ -72,6 +72,13 @@ type CreateAuthAuditEventInput struct {
 	CreatedAt time.Time
 }
 
+type EnsureLocalBootstrapUserInput struct {
+	PrimaryEmail string
+	DisplayName  string
+	Issuer       string
+	Subject      string
+}
+
 func NewEntRepository(client *ent.Client) *Repository {
 	return &Repository{client: client}
 }
@@ -88,6 +95,83 @@ func (r *Repository) UpsertUserFromOIDC(
 		return r.upsertUserFromOIDC(ctx, profile)
 	}
 	return domain.User{}, domain.UserIdentity{}, nil, err
+}
+
+func (r *Repository) EnsureLocalBootstrapUser(
+	ctx context.Context,
+	input EnsureLocalBootstrapUserInput,
+) (domain.User, domain.UserIdentity, error) {
+	user, identity, err := r.ensureLocalBootstrapUser(ctx, input)
+	if err == nil {
+		return user, identity, nil
+	}
+	if ent.IsConstraintError(err) {
+		return r.ensureLocalBootstrapUser(ctx, input)
+	}
+	return domain.User{}, domain.UserIdentity{}, err
+}
+
+func (r *Repository) ensureLocalBootstrapUser(
+	ctx context.Context,
+	input EnsureLocalBootstrapUserInput,
+) (domain.User, domain.UserIdentity, error) {
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.User{}, domain.UserIdentity{}, fmt.Errorf("start local bootstrap user transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	issuer := strings.TrimSpace(input.Issuer)
+	subject := strings.TrimSpace(input.Subject)
+	primaryEmail := strings.ToLower(strings.TrimSpace(input.PrimaryEmail))
+	displayName := strings.TrimSpace(input.DisplayName)
+	now := time.Now().UTC()
+
+	identityItem, err := tx.UserIdentity.Query().
+		Where(
+			entuseridentity.IssuerEQ(issuer),
+			entuseridentity.SubjectEQ(subject),
+		).
+		Only(ctx)
+	var userItem *ent.User
+	switch {
+	case ent.IsNotFound(err):
+		userItem, err = tx.User.Create().
+			SetStatus(entuser.StatusActive).
+			SetPrimaryEmail(primaryEmail).
+			SetDisplayName(displayName).
+			Save(ctx)
+		if err != nil {
+			return domain.User{}, domain.UserIdentity{}, fmt.Errorf("create local bootstrap user: %w", err)
+		}
+		identityItem, err = tx.UserIdentity.Create().
+			SetUserID(userItem.ID).
+			SetIssuer(issuer).
+			SetSubject(subject).
+			SetEmail(primaryEmail).
+			SetEmailVerified(true).
+			SetClaimsVersion(1).
+			SetRawClaimsJSON("{}").
+			SetLastSyncedAt(now).
+			Save(ctx)
+		if err != nil {
+			return domain.User{}, domain.UserIdentity{}, fmt.Errorf("create local bootstrap identity: %w", err)
+		}
+	case err != nil:
+		return domain.User{}, domain.UserIdentity{}, fmt.Errorf("query local bootstrap identity: %w", err)
+	default:
+		userItem, err = tx.User.Get(ctx, identityItem.UserID)
+		if err != nil {
+			return domain.User{}, domain.UserIdentity{}, fmt.Errorf("get local bootstrap user: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return domain.User{}, domain.UserIdentity{}, fmt.Errorf("commit local bootstrap user: %w", err)
+	}
+	return mapUser(userItem), mapUserIdentity(identityItem), nil
 }
 
 func (r *Repository) upsertUserFromOIDC(

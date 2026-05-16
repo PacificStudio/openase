@@ -76,6 +76,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("update_threads", ProjectUpdateThread.Type),
 		edge.To("chat_conversations", ChatConversation.Type),
 		edge.To("notification_rules", NotificationRule.Type),
+		edge.To("user_api_keys", UserAPIKey.Type),
 		edge.To("default_agent_provider", AgentProvider.Type).
 			Field("default_agent_provider_id").
 			Unique(),

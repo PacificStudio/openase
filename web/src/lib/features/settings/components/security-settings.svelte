@@ -19,6 +19,7 @@
   import ProjectScopedSecretsPanel from './project-scoped-secrets-panel.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
   import SecuritySettingsSecretBindingsSection from './security-settings-secret-bindings-section.svelte'
+  import SecuritySettingsUserAPIKeys from './security-settings-user-api-keys.svelte'
   import { normalizeSecuritySettings } from '../security-settings'
 
   type Security = SecuritySettingsResponse['security']
@@ -165,6 +166,10 @@
       onAction={mutate}
       onManualTokenChange={(value) => (manualToken = value)}
     />
+
+    <Separator />
+
+    <SecuritySettingsUserAPIKeys {security} />
 
     <Separator />
 

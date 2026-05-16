@@ -44,9 +44,11 @@ type UserEdges struct {
 	OrganizationMemberships []*OrganizationMembership `json:"organization_memberships,omitempty"`
 	// AcceptedOrganizationInvitations holds the value of the accepted_organization_invitations edge.
 	AcceptedOrganizationInvitations []*OrganizationInvitation `json:"accepted_organization_invitations,omitempty"`
+	// APIKeys holds the value of the api_keys edge.
+	APIKeys []*UserAPIKey `json:"api_keys,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // OrganizationMembershipsOrErr returns the OrganizationMemberships value or an error if the edge
@@ -65,6 +67,15 @@ func (e UserEdges) AcceptedOrganizationInvitationsOrErr() ([]*OrganizationInvita
 		return e.AcceptedOrganizationInvitations, nil
 	}
 	return nil, &NotLoadedError{edge: "accepted_organization_invitations"}
+}
+
+// APIKeysOrErr returns the APIKeys value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) APIKeysOrErr() ([]*UserAPIKey, error) {
+	if e.loadedTypes[2] {
+		return e.APIKeys, nil
+	}
+	return nil, &NotLoadedError{edge: "api_keys"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -163,6 +174,11 @@ func (_m *User) QueryOrganizationMemberships() *OrganizationMembershipQuery {
 // QueryAcceptedOrganizationInvitations queries the "accepted_organization_invitations" edge of the User entity.
 func (_m *User) QueryAcceptedOrganizationInvitations() *OrganizationInvitationQuery {
 	return NewUserClient(_m.config).QueryAcceptedOrganizationInvitations(_m)
+}
+
+// QueryAPIKeys queries the "api_keys" edge of the User entity.
+func (_m *User) QueryAPIKeys() *UserAPIKeyQuery {
+	return NewUserClient(_m.config).QueryAPIKeys(_m)
 }
 
 // Update returns a builder for updating this User.

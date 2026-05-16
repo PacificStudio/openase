@@ -1784,6 +1784,75 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/security-settings/api-keys': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List the current user's project-scoped API keys */
+    get: operations['listProjectUserAPIKeys']
+    put?: never
+    /** Create a new project-scoped user API key for the current human principal */
+    post: operations['createProjectUserAPIKey']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a project-scoped user API key */
+    delete: operations['deleteProjectUserAPIKey']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable a project-scoped user API key immediately */
+    post: operations['disableProjectUserAPIKey']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rotate a project-scoped user API key and return the new plaintext token once */
+    post: operations['rotateProjectUserAPIKey']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/security-settings/github-outbound-credential': {
     parameters: {
       query?: never
@@ -15873,6 +15942,19 @@ export interface operations {
                 }[]
                 runtime_secret_responses_redacted?: boolean
               }
+              user_api_keys?: {
+                allowed_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                allowed_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                supported_scopes?: string[]
+                token_prefix?: string
+              }
               webhooks?: {
                 connector_endpoint?: string
               }
@@ -15918,6 +16000,545 @@ export interface operations {
       }
       /** @description Bad Gateway response. */
       502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProjectUserAPIKeys: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List the current user's project-scoped API keys response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            api_keys?: {
+              created_at?: string
+              disabled_at?: string | null
+              expires_at?: string | null
+              id?: string
+              last_used_at?: string | null
+              name?: string
+              revoked_at?: string | null
+              scopes?: string[]
+              status?: string
+              token_hint?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createProjectUserAPIKey: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a new project-scoped user API key for the current human principal request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional RFC3339 timestamp after which the API key automatically expires. */
+          expires_at?: string | null
+          /** @description Human-readable label for the project-scoped user API key. */
+          name?: string
+          /** @description Explicit OpenASE platform API scopes granted to the key. Scopes must be supported for user API keys and allowed by the caller's current project permissions. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Create a new project-scoped user API key for the current human principal response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            api_key?: {
+              created_at?: string
+              disabled_at?: string | null
+              expires_at?: string | null
+              id?: string
+              last_used_at?: string | null
+              name?: string
+              revoked_at?: string | null
+              scopes?: string[]
+              status?: string
+              token_hint?: string
+            }
+            plain_text_token?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteProjectUserAPIKey: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description API key ID. */
+        keyId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description User API key deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  disableProjectUserAPIKey: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description API key ID. */
+        keyId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable a project-scoped user API key immediately response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            api_key?: {
+              created_at?: string
+              disabled_at?: string | null
+              expires_at?: string | null
+              id?: string
+              last_used_at?: string | null
+              name?: string
+              revoked_at?: string | null
+              scopes?: string[]
+              status?: string
+              token_hint?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  rotateProjectUserAPIKey: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description API key ID. */
+        keyId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Rotate a project-scoped user API key and return the new plaintext token once response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            api_key?: {
+              created_at?: string
+              disabled_at?: string | null
+              expires_at?: string | null
+              id?: string
+              last_used_at?: string | null
+              name?: string
+              revoked_at?: string | null
+              scopes?: string[]
+              status?: string
+              token_hint?: string
+            }
+            plain_text_token?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
         headers: {
           [name: string]: unknown
         }
@@ -16102,6 +16723,19 @@ export interface operations {
                   title?: string
                 }[]
                 runtime_secret_responses_redacted?: boolean
+              }
+              user_api_keys?: {
+                allowed_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                allowed_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                supported_scopes?: string[]
+                token_prefix?: string
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -16325,6 +16959,19 @@ export interface operations {
                 }[]
                 runtime_secret_responses_redacted?: boolean
               }
+              user_api_keys?: {
+                allowed_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                allowed_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                supported_scopes?: string[]
+                token_prefix?: string
+              }
               webhooks?: {
                 connector_endpoint?: string
               }
@@ -16547,6 +17194,19 @@ export interface operations {
                 }[]
                 runtime_secret_responses_redacted?: boolean
               }
+              user_api_keys?: {
+                allowed_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                allowed_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                supported_scopes?: string[]
+                token_prefix?: string
+              }
               webhooks?: {
                 connector_endpoint?: string
               }
@@ -16768,6 +17428,19 @@ export interface operations {
                   title?: string
                 }[]
                 runtime_secret_responses_redacted?: boolean
+              }
+              user_api_keys?: {
+                allowed_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                allowed_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                supported_scopes?: string[]
+                token_prefix?: string
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -17018,6 +17691,19 @@ export interface operations {
                   title?: string
                 }[]
                 runtime_secret_responses_redacted?: boolean
+              }
+              user_api_keys?: {
+                allowed_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                allowed_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                supported_scopes?: string[]
+                token_prefix?: string
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -17393,6 +18079,19 @@ export interface operations {
                   title?: string
                 }[]
                 runtime_secret_responses_redacted?: boolean
+              }
+              user_api_keys?: {
+                allowed_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                allowed_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                supported_scopes?: string[]
+                token_prefix?: string
               }
               webhooks?: {
                 connector_endpoint?: string

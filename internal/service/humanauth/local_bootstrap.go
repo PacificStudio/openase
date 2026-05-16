@@ -26,6 +26,10 @@ const (
 	defaultLocalBootstrapSessionIdleTTL = 0
 	localBootstrapPurposeBrowserSession = "browser_session"
 	localBootstrapActorID               = "local_instance_admin:default"
+	localBootstrapIdentityIssuer        = "local_bootstrap"
+	localBootstrapIdentitySubject       = "local-instance-admin"
+	localBootstrapPrimaryEmail          = "local-bootstrap@openase.local"
+	localBootstrapDisplayName           = "Local Bootstrap Admin"
 )
 
 type LocalBootstrapIssueInput struct {
@@ -47,6 +51,7 @@ type LocalSessionAuthentication struct {
 	CSRFToken   string
 	Roles       []domain.RoleKey
 	Permissions []domain.PermissionKey
+	Principal   *domain.AuthenticatedPrincipal
 }
 
 func (s *Service) CreateLocalBootstrapRequest(
@@ -224,12 +229,12 @@ func (s *Service) AuthenticateLocalSession(
 	if err := s.ensureLocalBootstrapAllowed(ctx); err != nil {
 		return LocalSessionAuthentication{}, err
 	}
+	if s == nil || s.repo == nil {
+		return LocalSessionAuthentication{}, ErrInvalidSession
+	}
 
 	session, err := s.repo.GetBrowserSessionByHash(ctx, hashToken(sessionToken))
 	if err != nil {
-		return LocalSessionAuthentication{}, ErrInvalidSession
-	}
-	if session.UserID != uuid.Nil {
 		return LocalSessionAuthentication{}, ErrInvalidSession
 	}
 
@@ -267,13 +272,36 @@ func (s *Service) AuthenticateLocalSession(
 		}
 	}
 
-	roles := []domain.RoleKey{domain.RoleInstanceAdmin}
+	principal, err := s.ensureLocalBootstrapPrincipal(ctx, session)
+	if err != nil {
+		return LocalSessionAuthentication{}, err
+	}
 	return LocalSessionAuthentication{
 		Session:     session,
 		CSRFToken:   session.CSRFSecret,
-		Roles:       roles,
-		Permissions: domain.PermissionsForRoles(roles),
+		Roles:       append([]domain.RoleKey(nil), principal.EffectiveRoles...),
+		Permissions: append([]domain.PermissionKey(nil), principal.Permissions...),
+		Principal:   &principal,
 	}, nil
+}
+
+func (s *Service) ensureLocalBootstrapPrincipal(
+	ctx context.Context,
+	session domain.BrowserSession,
+) (domain.AuthenticatedPrincipal, error) {
+	user, identity, err := s.repo.EnsureLocalBootstrapUser(ctx, repo.EnsureLocalBootstrapUserInput{
+		PrimaryEmail: localBootstrapPrimaryEmail,
+		DisplayName:  localBootstrapDisplayName,
+		Issuer:       localBootstrapIdentityIssuer,
+		Subject:      localBootstrapIdentitySubject,
+	})
+	if err != nil {
+		return domain.AuthenticatedPrincipal{}, err
+	}
+	if _, err := s.repo.EnsureBootstrapRoleBinding(ctx, user, localBootstrapActorID); err != nil {
+		return domain.AuthenticatedPrincipal{}, err
+	}
+	return s.buildPrincipal(ctx, session, user, identity, nil)
 }
 
 func (s *Service) LogoutLocalSession(ctx context.Context, sessionToken string) error {

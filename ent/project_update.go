@@ -32,6 +32,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
@@ -566,6 +567,21 @@ func (_u *ProjectUpdate) AddNotificationRules(v ...*NotificationRule) *ProjectUp
 	return _u.AddNotificationRuleIDs(ids...)
 }
 
+// AddUserAPIKeyIDs adds the "user_api_keys" edge to the UserAPIKey entity by IDs.
+func (_u *ProjectUpdate) AddUserAPIKeyIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddUserAPIKeyIDs(ids...)
+	return _u
+}
+
+// AddUserAPIKeys adds the "user_api_keys" edges to the UserAPIKey entity.
+func (_u *ProjectUpdate) AddUserAPIKeys(v ...*UserAPIKey) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUserAPIKeyIDs(ids...)
+}
+
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
 func (_u *ProjectUpdate) SetDefaultAgentProvider(v *AgentProvider) *ProjectUpdate {
 	return _u.SetDefaultAgentProviderID(v.ID)
@@ -958,6 +974,27 @@ func (_u *ProjectUpdate) RemoveNotificationRules(v ...*NotificationRule) *Projec
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveNotificationRuleIDs(ids...)
+}
+
+// ClearUserAPIKeys clears all "user_api_keys" edges to the UserAPIKey entity.
+func (_u *ProjectUpdate) ClearUserAPIKeys() *ProjectUpdate {
+	_u.mutation.ClearUserAPIKeys()
+	return _u
+}
+
+// RemoveUserAPIKeyIDs removes the "user_api_keys" edge to UserAPIKey entities by IDs.
+func (_u *ProjectUpdate) RemoveUserAPIKeyIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveUserAPIKeyIDs(ids...)
+	return _u
+}
+
+// RemoveUserAPIKeys removes "user_api_keys" edges to UserAPIKey entities.
+func (_u *ProjectUpdate) RemoveUserAPIKeys(v ...*UserAPIKey) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUserAPIKeyIDs(ids...)
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -1932,6 +1969,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.UserAPIKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UserAPIKeysTable,
+			Columns: []string{project.UserAPIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUserAPIKeysIDs(); len(nodes) > 0 && !_u.mutation.UserAPIKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UserAPIKeysTable,
+			Columns: []string{project.UserAPIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UserAPIKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UserAPIKeysTable,
+			Columns: []string{project.UserAPIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DefaultAgentProviderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -2497,6 +2579,21 @@ func (_u *ProjectUpdateOne) AddNotificationRules(v ...*NotificationRule) *Projec
 	return _u.AddNotificationRuleIDs(ids...)
 }
 
+// AddUserAPIKeyIDs adds the "user_api_keys" edge to the UserAPIKey entity by IDs.
+func (_u *ProjectUpdateOne) AddUserAPIKeyIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddUserAPIKeyIDs(ids...)
+	return _u
+}
+
+// AddUserAPIKeys adds the "user_api_keys" edges to the UserAPIKey entity.
+func (_u *ProjectUpdateOne) AddUserAPIKeys(v ...*UserAPIKey) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddUserAPIKeyIDs(ids...)
+}
+
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
 func (_u *ProjectUpdateOne) SetDefaultAgentProvider(v *AgentProvider) *ProjectUpdateOne {
 	return _u.SetDefaultAgentProviderID(v.ID)
@@ -2889,6 +2986,27 @@ func (_u *ProjectUpdateOne) RemoveNotificationRules(v ...*NotificationRule) *Pro
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveNotificationRuleIDs(ids...)
+}
+
+// ClearUserAPIKeys clears all "user_api_keys" edges to the UserAPIKey entity.
+func (_u *ProjectUpdateOne) ClearUserAPIKeys() *ProjectUpdateOne {
+	_u.mutation.ClearUserAPIKeys()
+	return _u
+}
+
+// RemoveUserAPIKeyIDs removes the "user_api_keys" edge to UserAPIKey entities by IDs.
+func (_u *ProjectUpdateOne) RemoveUserAPIKeyIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveUserAPIKeyIDs(ids...)
+	return _u
+}
+
+// RemoveUserAPIKeys removes "user_api_keys" edges to UserAPIKey entities.
+func (_u *ProjectUpdateOne) RemoveUserAPIKeys(v ...*UserAPIKey) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveUserAPIKeyIDs(ids...)
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -3886,6 +4004,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(notificationrule.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.UserAPIKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UserAPIKeysTable,
+			Columns: []string{project.UserAPIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedUserAPIKeysIDs(); len(nodes) > 0 && !_u.mutation.UserAPIKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UserAPIKeysTable,
+			Columns: []string{project.UserAPIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.UserAPIKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.UserAPIKeysTable,
+			Columns: []string{project.UserAPIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

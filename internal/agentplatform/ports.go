@@ -14,5 +14,7 @@ type Repository interface {
 	CreateToken(ctx context.Context, record domain.CreateTokenRecord) error
 	TokenByHash(ctx context.Context, tokenHash string) (domain.StoredTokenRecord, error)
 	TouchTokenLastUsed(ctx context.Context, tokenID uuid.UUID, usedAt time.Time) error
+	UserAPIKeyByHash(ctx context.Context, tokenHash string) (domain.StoredUserAPIKeyRecord, error)
+	TouchUserAPIKeyLastUsed(ctx context.Context, keyID uuid.UUID, usedAt time.Time) error
 	ProjectTokenInventory(ctx context.Context, projectID uuid.UUID, now time.Time) (domain.ProjectTokenInventory, error)
 }

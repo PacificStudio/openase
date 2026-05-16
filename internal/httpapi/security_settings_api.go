@@ -7,13 +7,18 @@ import (
 	"slices"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
+	userapikeydomain "github.com/BetterAndBetterII/openase/internal/domain/userapikey"
 	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
+	userapikeyservice "github.com/BetterAndBetterII/openase/internal/service/userapikey"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -38,6 +43,27 @@ type securityAgentTokensResponse struct {
 	DefaultScopes          []string                     `json:"default_scopes"`
 	SupportedProjectScopes []string                     `json:"supported_project_scopes"`
 	SupportedScopeGroups   []securityScopeGroupResponse `json:"supported_scope_groups"`
+}
+
+type securityUserAPIKeysResponse struct {
+	TokenPrefix          string                       `json:"token_prefix"`
+	SupportedScopes      []string                     `json:"supported_scopes"`
+	SupportedScopeGroups []securityScopeGroupResponse `json:"supported_scope_groups"`
+	AllowedScopes        []string                     `json:"allowed_scopes"`
+	AllowedScopeGroups   []securityScopeGroupResponse `json:"allowed_scope_groups"`
+}
+
+type projectUserAPIKeyResponse struct {
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	TokenHint  string   `json:"token_hint"`
+	Scopes     []string `json:"scopes"`
+	Status     string   `json:"status"`
+	ExpiresAt  *string  `json:"expires_at,omitempty"`
+	LastUsedAt *string  `json:"last_used_at,omitempty"`
+	CreatedAt  string   `json:"created_at"`
+	DisabledAt *string  `json:"disabled_at,omitempty"`
+	RevokedAt  *string  `json:"revoked_at,omitempty"`
 }
 
 type securityScopeGroupResponse struct {
@@ -102,6 +128,7 @@ type securitySettingsResponse struct {
 	ProjectID        string                                   `json:"project_id"`
 	Auth             securityAuthSettingsResponse             `json:"auth"`
 	AgentTokens      securityAgentTokensResponse              `json:"agent_tokens"`
+	UserAPIKeys      securityUserAPIKeysResponse              `json:"user_api_keys"`
 	GitHub           securityGitHubOutboundCredentialResponse `json:"github"`
 	Webhooks         securityWebhookBoundaryResponse          `json:"webhooks"`
 	SecretHygiene    securitySecretHygieneResponse            `json:"secret_hygiene"`
@@ -116,6 +143,11 @@ func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
 	api.POST("/orgs/:orgId/security-settings/secrets/:secretId/disable", s.handleDisableOrganizationScopedSecret)
 	api.DELETE("/orgs/:orgId/security-settings/secrets/:secretId", s.handleDeleteOrganizationScopedSecret)
 	api.GET("/projects/:projectId/security-settings", s.handleGetSecuritySettings)
+	api.GET("/projects/:projectId/security-settings/api-keys", s.handleListProjectUserAPIKeys)
+	api.POST("/projects/:projectId/security-settings/api-keys", s.handleCreateProjectUserAPIKey)
+	api.POST("/projects/:projectId/security-settings/api-keys/:keyId/rotate", s.handleRotateProjectUserAPIKey)
+	api.POST("/projects/:projectId/security-settings/api-keys/:keyId/disable", s.handleDisableProjectUserAPIKey)
+	api.DELETE("/projects/:projectId/security-settings/api-keys/:keyId", s.handleDeleteProjectUserAPIKey)
 	api.GET("/projects/:projectId/security-settings/secrets", s.handleListScopedSecrets)
 	api.POST("/projects/:projectId/security-settings/secrets", s.handleCreateScopedSecret)
 	api.GET("/projects/:projectId/security-settings/secret-bindings", s.handleListScopedSecretBindings)
@@ -151,6 +183,114 @@ func (s *Server) handleGetSecuritySettings(c echo.Context) error {
 	}
 
 	return s.writeSecuritySettingsResponse(c, projectID, githubSecurity)
+}
+
+func (s *Server) handleListProjectUserAPIKeys(c echo.Context) error {
+	projectID, principal, err := s.requireProjectUserAPIKeyContext(c)
+	if err != nil {
+		return err
+	}
+	if s.userAPIKeyService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", userapikeyservice.ErrUnavailable.Error())
+	}
+	items, err := s.userAPIKeyService.List(c.Request().Context(), projectID, principal)
+	if err != nil {
+		return writeProjectUserAPIKeyError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"api_keys": mapProjectUserAPIKeyResponses(items),
+	})
+}
+
+func (s *Server) handleCreateProjectUserAPIKey(c echo.Context) error {
+	projectID, principal, err := s.requireProjectUserAPIKeyContext(c)
+	if err != nil {
+		return err
+	}
+	if s.userAPIKeyService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", userapikeyservice.ErrUnavailable.Error())
+	}
+	var raw rawCreateProjectUserAPIKeyRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	input, err := parseCreateProjectUserAPIKeyRequest(projectID, principal.User.ID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	result, err := s.userAPIKeyService.Create(c.Request().Context(), principal, input)
+	if err != nil {
+		return writeProjectUserAPIKeyError(c, err)
+	}
+	s.emitProjectUserAPIKeyActivity(c.Request().Context(), projectID, principal, activityevent.TypeSecretCreated, "Created user API key", result.APIKey)
+	return c.JSON(http.StatusCreated, map[string]any{
+		"api_key":          mapProjectUserAPIKeyResponse(result.APIKey),
+		"plain_text_token": result.PlainTextToken,
+	})
+}
+
+func (s *Server) handleRotateProjectUserAPIKey(c echo.Context) error {
+	projectID, principal, err := s.requireProjectUserAPIKeyContext(c)
+	if err != nil {
+		return err
+	}
+	if s.userAPIKeyService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", userapikeyservice.ErrUnavailable.Error())
+	}
+	keyID, err := parseUUIDPathParamValue(c, "keyId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_API_KEY_ID", err.Error())
+	}
+	result, err := s.userAPIKeyService.Rotate(c.Request().Context(), projectID, keyID, principal)
+	if err != nil {
+		return writeProjectUserAPIKeyError(c, err)
+	}
+	s.emitProjectUserAPIKeyActivity(c.Request().Context(), projectID, principal, activityevent.TypeSecretRotated, "Rotated user API key", result.APIKey)
+	return c.JSON(http.StatusOK, map[string]any{
+		"api_key":          mapProjectUserAPIKeyResponse(result.APIKey),
+		"plain_text_token": result.PlainTextToken,
+	})
+}
+
+func (s *Server) handleDisableProjectUserAPIKey(c echo.Context) error {
+	projectID, principal, err := s.requireProjectUserAPIKeyContext(c)
+	if err != nil {
+		return err
+	}
+	if s.userAPIKeyService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", userapikeyservice.ErrUnavailable.Error())
+	}
+	keyID, err := parseUUIDPathParamValue(c, "keyId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_API_KEY_ID", err.Error())
+	}
+	item, err := s.userAPIKeyService.Disable(c.Request().Context(), projectID, keyID, principal)
+	if err != nil {
+		return writeProjectUserAPIKeyError(c, err)
+	}
+	s.emitProjectUserAPIKeyActivity(c.Request().Context(), projectID, principal, activityevent.TypeSecretDisabled, "Disabled user API key", item)
+	return c.JSON(http.StatusOK, map[string]any{
+		"api_key": mapProjectUserAPIKeyResponse(item),
+	})
+}
+
+func (s *Server) handleDeleteProjectUserAPIKey(c echo.Context) error {
+	projectID, principal, err := s.requireProjectUserAPIKeyContext(c)
+	if err != nil {
+		return err
+	}
+	if s.userAPIKeyService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", userapikeyservice.ErrUnavailable.Error())
+	}
+	keyID, err := parseUUIDPathParamValue(c, "keyId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_API_KEY_ID", err.Error())
+	}
+	if err := s.userAPIKeyService.Delete(c.Request().Context(), projectID, keyID, principal); err != nil {
+		return writeProjectUserAPIKeyError(c, err)
+	}
+	s.emitProjectUserAPIKeyDeleteActivity(c.Request().Context(), projectID, principal, keyID)
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (s *Server) handlePutGitHubOutboundCredential(c echo.Context) error {
@@ -215,6 +355,7 @@ func (s *Server) handlePutOIDCDraft(c echo.Context) error {
 			projectID,
 			stored,
 			s.readGitHubSecurity(c, projectID),
+			securityUserAPIKeysResponse{},
 			s.buildSecretHygieneResponse(c.Request().Context(), projectID),
 			s.resolveApprovalPoliciesSummary(c),
 			s.cfg.Host,
@@ -353,6 +494,7 @@ func (s *Server) handleEnableOIDC(c echo.Context) error {
 			projectID,
 			stored,
 			githubSecurity,
+			securityUserAPIKeysResponse{},
 			s.buildSecretHygieneResponse(c.Request().Context(), projectID),
 			s.resolveApprovalPoliciesSummary(c),
 			s.cfg.Host,
@@ -423,6 +565,20 @@ func (s *Server) requireProjectSecurityContext(c echo.Context) (uuid.UUID, error
 	return projectID, nil
 }
 
+func (s *Server) requireProjectUserAPIKeyContext(
+	c echo.Context,
+) (uuid.UUID, humanauthdomain.AuthenticatedPrincipal, error) {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return uuid.UUID{}, humanauthdomain.AuthenticatedPrincipal{}, err
+	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return uuid.UUID{}, humanauthdomain.AuthenticatedPrincipal{}, writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", "human session required")
+	}
+	return projectID, principal, nil
+}
+
 func (s *Server) requireOrganizationSecurityContext(c echo.Context) (uuid.UUID, error) {
 	if s.catalog.Empty() {
 		return uuid.UUID{}, writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
@@ -447,11 +603,32 @@ func (s *Server) writeSecuritySettingsResponse(
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
+	userAPIKeys := securityUserAPIKeysResponse{
+		TokenPrefix:          agentplatform.UserAPIKeyTokenPrefix(),
+		SupportedScopes:      slices.Clone(agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindUserAPIKey)),
+		SupportedScopeGroups: mapSecurityScopeGroups(agentplatform.SupportedScopeGroupsForPrincipalKind(agentplatform.PrincipalKindUserAPIKey)),
+	}
+	if s.userAPIKeyService != nil {
+		if principal, ok := currentHumanPrincipal(c); ok {
+			allowedScopes, allowedGroups, err := s.userAPIKeyService.AllowedScopes(c.Request().Context(), projectID, &principal)
+			if err == nil {
+				userAPIKeys.AllowedScopes = allowedScopes
+				userAPIKeys.AllowedScopeGroups = mapSecurityScopeGroups(allowedGroups)
+			}
+		} else {
+			allowedScopes, allowedGroups, err := s.userAPIKeyService.AllowedScopes(c.Request().Context(), projectID, nil)
+			if err == nil {
+				userAPIKeys.AllowedScopes = allowedScopes
+				userAPIKeys.AllowedScopeGroups = mapSecurityScopeGroups(allowedGroups)
+			}
+		}
+	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"security": buildSecuritySettingsResponse(
 			projectID,
 			stored,
 			github,
+			userAPIKeys,
 			s.buildSecretHygieneResponse(c.Request().Context(), projectID),
 			s.resolveApprovalPoliciesSummary(c),
 			s.cfg.Host,
@@ -563,11 +740,19 @@ func buildSecuritySettingsResponse(
 	projectID uuid.UUID,
 	stored accesscontrolservice.ReadResult,
 	github securityGitHubOutboundCredentialResponse,
+	userAPIKeys securityUserAPIKeysResponse,
 	secretHygiene securitySecretHygieneResponse,
 	approvalPolicies securityApprovalPoliciesResponse,
 	host string,
 ) securitySettingsResponse {
 	runtimeState := iam.ResolveRuntimeAccessControlState(stored.State)
+	if userAPIKeys.TokenPrefix == "" {
+		userAPIKeys = securityUserAPIKeysResponse{
+			TokenPrefix:          agentplatform.UserAPIKeyTokenPrefix(),
+			SupportedScopes:      slices.Clone(agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindUserAPIKey)),
+			SupportedScopeGroups: mapSecurityScopeGroups(agentplatform.SupportedScopeGroupsForPrincipalKind(agentplatform.PrincipalKindUserAPIKey)),
+		}
+	}
 	return securitySettingsResponse{
 		ProjectID: projectID.String(),
 		Auth:      buildSecurityAuthSettingsResponseFromAccessControl(runtimeState, stored.State, stored.StorageLocation, host),
@@ -579,7 +764,8 @@ func buildSecuritySettingsResponse(
 			SupportedProjectScopes: slices.Clone(agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)),
 			SupportedScopeGroups:   mapSecurityScopeGroups(agentplatform.SupportedScopeGroupsForPrincipalKind(agentplatform.PrincipalKindProjectConversation)),
 		},
-		GitHub: github,
+		UserAPIKeys: userAPIKeys,
+		GitHub:      github,
 		Webhooks: securityWebhookBoundaryResponse{
 			ConnectorEndpoint: securitySettingsConnectorEndpoint,
 		},
@@ -632,12 +818,105 @@ func mapSecurityScopeGroups(items []agentplatform.ScopeGroup) []securityScopeGro
 	return response
 }
 
+func mapProjectUserAPIKeyResponses(items []userapikeydomain.APIKey) []projectUserAPIKeyResponse {
+	response := make([]projectUserAPIKeyResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapProjectUserAPIKeyResponse(item))
+	}
+	return response
+}
+
+func mapProjectUserAPIKeyResponse(item userapikeydomain.APIKey) projectUserAPIKeyResponse {
+	return projectUserAPIKeyResponse{
+		ID:         item.ID.String(),
+		Name:       item.Name,
+		TokenHint:  item.TokenHint,
+		Scopes:     append([]string(nil), item.Scopes...),
+		Status:     string(item.Status),
+		ExpiresAt:  formatOptionalSecurityTime(item.ExpiresAt),
+		LastUsedAt: formatOptionalSecurityTime(item.LastUsedAt),
+		CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
+		DisabledAt: formatOptionalSecurityTime(item.DisabledAt),
+		RevokedAt:  formatOptionalSecurityTime(item.RevokedAt),
+	}
+}
+
+func formatOptionalSecurityTime(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.UTC().Format(time.RFC3339)
+	return &formatted
+}
+
 func buildMissingGitHubSecurityResponse() securityGitHubOutboundCredentialResponse {
 	return securityGitHubOutboundCredentialResponse{
 		Effective:       buildMissingGitHubCredentialSlot(""),
 		Organization:    buildMissingGitHubCredentialSlot(string(githubauthdomain.ScopeOrganization)),
 		ProjectOverride: buildMissingGitHubCredentialSlot(string(githubauthdomain.ScopeProject)),
 	}
+}
+
+func writeProjectUserAPIKeyError(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, userapikeyservice.ErrUnavailable):
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
+	case errors.Is(err, userapikeyservice.ErrInvalidInput):
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	case errors.Is(err, userapikeyservice.ErrForbidden):
+		return writeAPIError(c, http.StatusForbidden, "USER_API_KEY_FORBIDDEN", err.Error())
+	case errors.Is(err, userapikeyservice.ErrScopeForbidden):
+		return writeAPIError(c, http.StatusForbidden, "USER_API_KEY_SCOPE_FORBIDDEN", "requested scopes exceed your current project permissions")
+	case errors.Is(err, userapikeyservice.ErrNotFound):
+		return writeAPIError(c, http.StatusNotFound, "USER_API_KEY_NOT_FOUND", err.Error())
+	default:
+		return writeAPIError(c, http.StatusInternalServerError, "USER_API_KEY_OPERATION_FAILED", err.Error())
+	}
+}
+
+func (s *Server) emitProjectUserAPIKeyActivity(
+	ctx context.Context,
+	projectID uuid.UUID,
+	principal humanauthdomain.AuthenticatedPrincipal,
+	eventType activityevent.Type,
+	message string,
+	item userapikeydomain.APIKey,
+) {
+	if s == nil || s.activityEmitter == nil {
+		return
+	}
+	_, _ = s.activityEmitter.Emit(ctx, activitysvc.RecordInput{
+		ProjectID: projectID,
+		EventType: eventType,
+		Message:   message,
+		Metadata: map[string]any{
+			"audit_actor":  principal.ActorID(),
+			"api_key_id":   item.ID.String(),
+			"api_key_name": item.Name,
+			"scopes":       append([]string(nil), item.Scopes...),
+			"status":       string(item.Status),
+		},
+	})
+}
+
+func (s *Server) emitProjectUserAPIKeyDeleteActivity(
+	ctx context.Context,
+	projectID uuid.UUID,
+	principal humanauthdomain.AuthenticatedPrincipal,
+	keyID uuid.UUID,
+) {
+	if s == nil || s.activityEmitter == nil {
+		return
+	}
+	_, _ = s.activityEmitter.Emit(ctx, activitysvc.RecordInput{
+		ProjectID: projectID,
+		EventType: activityevent.TypeSecretDeleted,
+		Message:   "Deleted user API key",
+		Metadata: map[string]any{
+			"audit_actor": principal.ActorID(),
+			"api_key_id":  keyID.String(),
+		},
+	})
 }
 
 func buildMissingGitHubCredentialSlot(scope string) securityGitHubCredentialSlotResponse {

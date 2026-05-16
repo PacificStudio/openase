@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ScopedSecretRecord } from '$lib/api/contracts'
+import { authStore } from '$lib/stores/auth.svelte'
 import { i18nStore } from '$lib/i18n/store.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
@@ -21,37 +22,47 @@ import {
 
 const {
   createProjectScopedSecret,
+  createProjectUserAPIKey,
   createScopedSecretBinding,
   deleteGitHubOutboundCredential,
   deleteProjectScopedSecret,
+  deleteProjectUserAPIKey,
   deleteScopedSecretBinding,
   disableProjectScopedSecret,
+  disableProjectUserAPIKey,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
   listProjectScopedSecrets,
+  listProjectUserAPIKeys,
   listScopedSecretBindings,
   listScopedSecrets,
   listTickets,
   listWorkflows,
   retestGitHubOutboundCredential,
+  rotateProjectUserAPIKey,
   rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
   updateProject,
 } = vi.hoisted(() => ({
   createProjectScopedSecret: vi.fn(),
+  createProjectUserAPIKey: vi.fn(),
   createScopedSecretBinding: vi.fn(),
   deleteGitHubOutboundCredential: vi.fn(),
   deleteProjectScopedSecret: vi.fn(),
+  deleteProjectUserAPIKey: vi.fn(),
   deleteScopedSecretBinding: vi.fn(),
   disableProjectScopedSecret: vi.fn(),
+  disableProjectUserAPIKey: vi.fn(),
   getSecuritySettings: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
   listProjectScopedSecrets: vi.fn(),
+  listProjectUserAPIKeys: vi.fn(),
   listScopedSecretBindings: vi.fn(),
   listScopedSecrets: vi.fn(),
   listTickets: vi.fn(),
   listWorkflows: vi.fn(),
   retestGitHubOutboundCredential: vi.fn(),
+  rotateProjectUserAPIKey: vi.fn(),
   rotateProjectScopedSecret: vi.fn(),
   saveGitHubOutboundCredential: vi.fn(),
   updateProject: vi.fn(),
@@ -59,19 +70,24 @@ const {
 
 vi.mock('$lib/api/openase', () => ({
   createProjectScopedSecret,
+  createProjectUserAPIKey,
   createScopedSecretBinding,
   deleteGitHubOutboundCredential,
   deleteProjectScopedSecret,
+  deleteProjectUserAPIKey,
   deleteScopedSecretBinding,
   disableProjectScopedSecret,
+  disableProjectUserAPIKey,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
   listProjectScopedSecrets,
+  listProjectUserAPIKeys,
   listScopedSecretBindings,
   listScopedSecrets,
   listTickets,
   listWorkflows,
   retestGitHubOutboundCredential,
+  rotateProjectUserAPIKey,
   rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
   updateProject,
@@ -84,8 +100,13 @@ describe('Security settings', () => {
     HTMLElement.prototype.releasePointerCapture ??= vi.fn()
   })
 
+  beforeEach(() => {
+    authStore.hydrate({ authenticated: true })
+  })
+
   afterEach(() => {
     cleanup()
+    authStore.clear()
     appStore.currentOrg = null
     appStore.currentProject = null
     i18nStore.setLocale('en')
@@ -101,6 +122,10 @@ describe('Security settings', () => {
 
   function mockProjectScopedSecrets(secrets: ScopedSecretRecord[] = []) {
     listProjectScopedSecrets.mockResolvedValue({ secrets })
+  }
+
+  function mockProjectUserAPIKeys(items: Array<Record<string, unknown>> = []) {
+    listProjectUserAPIKeys.mockResolvedValue({ api_keys: items })
   }
 
   it('renders project-owned security controls', async () => {
@@ -132,6 +157,7 @@ describe('Security settings', () => {
         },
       },
     ])
+    mockProjectUserAPIKeys()
 
     const { findByText } = render(SecuritySettings)
 
@@ -139,6 +165,7 @@ describe('Security settings', () => {
     expect(await findByText('Inherited organization defaults')).toBeTruthy()
     expect(await findByText('GitHub outbound access')).toBeTruthy()
     expect(await findByText('Secret Bindings')).toBeTruthy()
+    expect(await findByText('User API keys')).toBeTruthy()
     expect(await findByText('Project AI Platform')).toBeTruthy()
     expect(await findByText('Fullstack Developer Workflow')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
@@ -150,6 +177,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
     saveGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
 
     const { findByPlaceholderText, findAllByRole } = render(SecuritySettings)
@@ -173,6 +201,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
     updateProject.mockResolvedValue({
       project: {
         ...currentProject(),
@@ -185,7 +214,7 @@ describe('Security settings', () => {
     await fireEvent.click(await findByText('projects'))
     await fireEvent.click(await findByText('add_repo'))
     const saveButtons = await findAllByRole('button', { name: 'Save' })
-    await fireEvent.click(saveButtons[saveButtons.length - 1]!)
+    await fireEvent.click(saveButtons[saveButtons.length - 1])
 
     await waitFor(() => {
       expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
@@ -205,6 +234,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
     updateProject.mockResolvedValue({
       project: {
         ...currentProject(),
@@ -234,6 +264,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
 
     const { findByText, queryByText } = render(SecuritySettings)
 
@@ -248,6 +279,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
     const importedSecurity = configuredSecurityWithProjectGitHubOverride()
     importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: importedSecurity })
     retestGitHubOutboundCredential.mockResolvedValue({ security: importedSecurity })
@@ -284,6 +316,7 @@ describe('Security settings', () => {
     })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
 
     const { findByText, queryByText } = render(SecuritySettings)
 
@@ -318,6 +351,7 @@ describe('Security settings', () => {
     mockSecretBindingCatalog()
     listScopedSecrets.mockResolvedValue({ secrets: [scopedSecrets()[0]] })
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
     listScopedSecretBindings.mockResolvedValue({ bindings: [] })
     createScopedSecretBinding.mockResolvedValue({
       binding: scopedSecretBindings()[0],
@@ -358,6 +392,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
     deleteScopedSecretBinding.mockResolvedValue({})
 
     const { findByTitle } = render(SecuritySettings)
@@ -369,6 +404,54 @@ describe('Security settings', () => {
         appStore.currentProject?.id,
         'binding-1',
       )
+    })
+  })
+
+  it('shows plaintext API key once after creating a project user API key', async () => {
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+    mockProjectUserAPIKeys()
+    createProjectUserAPIKey.mockResolvedValue({
+      api_key: {
+        id: 'key-1',
+        name: 'Buildkite',
+        token_hint: 'ase_pat_abc...1234',
+        scopes: ['tickets.list'],
+        status: 'active',
+        expires_at: null,
+        last_used_at: null,
+        created_at: '2026-04-16T12:00:00Z',
+        disabled_at: null,
+        revoked_at: null,
+      },
+      plain_text_token: 'ase_pat_plain_text_token',
+    })
+
+    const { findByLabelText, findAllByRole, findByText, queryByText } = render(SecuritySettings)
+
+    const createButtons = await findAllByRole('button', { name: 'Create key' })
+    await fireEvent.click(createButtons[0])
+    await fireEvent.input(await findByLabelText('Name'), { target: { value: 'Buildkite' } })
+    await fireEvent.click(await findByText('tickets'))
+    await fireEvent.click(await findByText('list'))
+    await fireEvent.click((await findAllByRole('button', { name: 'Create key' }))[1])
+
+    await waitFor(() => {
+      expect(createProjectUserAPIKey).toHaveBeenCalledWith(appStore.currentProject?.id, {
+        name: 'Buildkite',
+        scopes: ['tickets.list'],
+        expires_at: null,
+      })
+    })
+
+    expect(await findByText('Copy this API key now')).toBeTruthy()
+    expect(await findByText('ase_pat_plain_text_token')).toBeTruthy()
+    await fireEvent.click((await findAllByRole('button', { name: 'Done' }))[0])
+    await waitFor(() => {
+      expect(queryByText('ase_pat_plain_text_token')).toBeNull()
     })
   })
 })

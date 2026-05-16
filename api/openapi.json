@@ -24355,6 +24355,60 @@
                           },
                           "type": "object"
                         },
+                        "user_api_keys": {
+                          "properties": {
+                            "allowed_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "allowed_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "webhooks": {
                           "properties": {
                             "connector_endpoint": {
@@ -24465,6 +24519,931 @@
           }
         },
         "summary": "Get project security settings posture",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/api-keys": {
+      "get": {
+        "operationId": "listProjectUserAPIKeys",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "api_keys": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "disabled_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "last_used_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "revoked_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "scopes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "token_hint": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List the current user's project-scoped API keys response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "List the current user's project-scoped API keys",
+        "tags": [
+          "security-settings"
+        ]
+      },
+      "post": {
+        "operationId": "createProjectUserAPIKey",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "expires_at": {
+                    "description": "Optional RFC3339 timestamp after which the API key automatically expires.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Human-readable label for the project-scoped user API key.",
+                    "type": "string"
+                  },
+                  "scopes": {
+                    "description": "Explicit OpenASE platform API scopes granted to the key. Scopes must be supported for user API keys and allowed by the caller's current project permissions.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a new project-scoped user API key for the current human principal request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "api_key": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "expires_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_used_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "token_hint": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "plain_text_token": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a new project-scoped user API key for the current human principal response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Create a new project-scoped user API key for the current human principal",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}": {
+      "delete": {
+        "operationId": "deleteProjectUserAPIKey",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "API key ID.",
+            "in": "path",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "User API key deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a project-scoped user API key",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/disable": {
+      "post": {
+        "operationId": "disableProjectUserAPIKey",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "API key ID.",
+            "in": "path",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "api_key": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "expires_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_used_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "token_hint": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Disable a project-scoped user API key immediately response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Disable a project-scoped user API key immediately",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/api-keys/{keyId}/rotate": {
+      "post": {
+        "operationId": "rotateProjectUserAPIKey",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "API key ID.",
+            "in": "path",
+            "name": "keyId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "api_key": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "expires_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_used_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "revoked_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "token_hint": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "plain_text_token": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Rotate a project-scoped user API key and return the new plaintext token once response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Rotate a project-scoped user API key and return the new plaintext token once",
         "tags": [
           "security-settings"
         ]
@@ -24924,6 +25903,60 @@
                             },
                             "runtime_secret_responses_redacted": {
                               "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "user_api_keys": {
+                          "properties": {
+                            "allowed_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "allowed_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
                             }
                           },
                           "type": "object"
@@ -25516,6 +26549,60 @@
                           },
                           "type": "object"
                         },
+                        "user_api_keys": {
+                          "properties": {
+                            "allowed_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "allowed_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "webhooks": {
                           "properties": {
                             "connector_endpoint": {
@@ -26089,6 +27176,60 @@
                           },
                           "type": "object"
                         },
+                        "user_api_keys": {
+                          "properties": {
+                            "allowed_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "allowed_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "webhooks": {
                           "properties": {
                             "connector_endpoint": {
@@ -26658,6 +27799,60 @@
                             },
                             "runtime_secret_responses_redacted": {
                               "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "user_api_keys": {
+                          "properties": {
+                            "allowed_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "allowed_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
                             }
                           },
                           "type": "object"
@@ -27297,6 +28492,60 @@
                             },
                             "runtime_secret_responses_redacted": {
                               "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "user_api_keys": {
+                          "properties": {
+                            "allowed_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "allowed_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
                             }
                           },
                           "type": "object"
@@ -28171,6 +29420,60 @@
                             },
                             "runtime_secret_responses_redacted": {
                               "type": "boolean"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "user_api_keys": {
+                          "properties": {
+                            "allowed_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "allowed_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scope_groups": {
+                              "items": {
+                                "properties": {
+                                  "category": {
+                                    "type": "string"
+                                  },
+                                  "scopes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "supported_scopes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "token_prefix": {
+                              "type": "string"
                             }
                           },
                           "type": "object"

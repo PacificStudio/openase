@@ -61,6 +61,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/BetterAndBetterII/openase/ent/usergroupmembership"
 	"github.com/BetterAndBetterII/openase/ent/useridentity"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
@@ -1699,6 +1700,42 @@ func init() {
 	userDescID := userFields[0].Descriptor()
 	// user.DefaultID holds the default value on creation for the id field.
 	user.DefaultID = userDescID.Default.(func() uuid.UUID)
+	userapikeyFields := schema.UserAPIKey{}.Fields()
+	_ = userapikeyFields
+	// userapikeyDescName is the schema descriptor for name field.
+	userapikeyDescName := userapikeyFields[3].Descriptor()
+	// userapikey.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	userapikey.NameValidator = userapikeyDescName.Validators[0].(func(string) error)
+	// userapikeyDescTokenPrefix is the schema descriptor for token_prefix field.
+	userapikeyDescTokenPrefix := userapikeyFields[4].Descriptor()
+	// userapikey.TokenPrefixValidator is a validator for the "token_prefix" field. It is called by the builders before save.
+	userapikey.TokenPrefixValidator = userapikeyDescTokenPrefix.Validators[0].(func(string) error)
+	// userapikeyDescTokenHint is the schema descriptor for token_hint field.
+	userapikeyDescTokenHint := userapikeyFields[5].Descriptor()
+	// userapikey.TokenHintValidator is a validator for the "token_hint" field. It is called by the builders before save.
+	userapikey.TokenHintValidator = userapikeyDescTokenHint.Validators[0].(func(string) error)
+	// userapikeyDescTokenHash is the schema descriptor for token_hash field.
+	userapikeyDescTokenHash := userapikeyFields[6].Descriptor()
+	// userapikey.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	userapikey.TokenHashValidator = userapikeyDescTokenHash.Validators[0].(func(string) error)
+	// userapikeyDescScopes is the schema descriptor for scopes field.
+	userapikeyDescScopes := userapikeyFields[7].Descriptor()
+	// userapikey.DefaultScopes holds the default value on creation for the scopes field.
+	userapikey.DefaultScopes = userapikeyDescScopes.Default.([]string)
+	// userapikeyDescCreatedAt is the schema descriptor for created_at field.
+	userapikeyDescCreatedAt := userapikeyFields[11].Descriptor()
+	// userapikey.DefaultCreatedAt holds the default value on creation for the created_at field.
+	userapikey.DefaultCreatedAt = userapikeyDescCreatedAt.Default.(func() time.Time)
+	// userapikeyDescUpdatedAt is the schema descriptor for updated_at field.
+	userapikeyDescUpdatedAt := userapikeyFields[12].Descriptor()
+	// userapikey.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	userapikey.DefaultUpdatedAt = userapikeyDescUpdatedAt.Default.(func() time.Time)
+	// userapikey.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	userapikey.UpdateDefaultUpdatedAt = userapikeyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// userapikeyDescID is the schema descriptor for id field.
+	userapikeyDescID := userapikeyFields[0].Descriptor()
+	// userapikey.DefaultID holds the default value on creation for the id field.
+	userapikey.DefaultID = userapikeyDescID.Default.(func() uuid.UUID)
 	usergroupmembershipFields := schema.UserGroupMembership{}.Fields()
 	_ = usergroupmembershipFields
 	// usergroupmembershipDescIssuer is the schema descriptor for issuer field.

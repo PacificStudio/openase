@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
 	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/BetterAndBetterII/openase/ent/userapikey"
 	"github.com/google/uuid"
 )
 
@@ -163,6 +164,21 @@ func (_c *UserCreate) AddAcceptedOrganizationInvitations(v ...*OrganizationInvit
 		ids[i] = v[i].ID
 	}
 	return _c.AddAcceptedOrganizationInvitationIDs(ids...)
+}
+
+// AddAPIKeyIDs adds the "api_keys" edge to the UserAPIKey entity by IDs.
+func (_c *UserCreate) AddAPIKeyIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddAPIKeyIDs(ids...)
+	return _c
+}
+
+// AddAPIKeys adds the "api_keys" edges to the UserAPIKey entity.
+func (_c *UserCreate) AddAPIKeys(v ...*UserAPIKey) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAPIKeyIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -343,6 +359,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.APIKeysTable,
+			Columns: []string{user.APIKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(userapikey.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
