@@ -23,6 +23,7 @@ OpenASE 当前内建模型目录显式建模了以下 reasoning effort 能力：
 
 | Model | Supported efforts | Default |
 | --- | --- | --- |
+| `gpt-5.5` | `low`, `medium`, `high`, `xhigh` | `medium` |
 | `gpt-5.4` | `low`, `medium`, `high`, `xhigh` | `medium` |
 | `gpt-5.4-mini` | `low`, `medium`, `high`, `xhigh` | `medium` |
 | `gpt-5.3-codex` | `low`, `medium`, `high`, `xhigh` | `medium` |

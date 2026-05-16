@@ -8,7 +8,7 @@ import (
 
 const (
 	builtinPricingVerifiedAt       = "2026-04-01"
-	builtinOpenAIPricingVerifiedAt = "2026-04-29"
+	builtinOpenAIPricingVerifiedAt = "2026-05-16"
 )
 
 var builtinAgentProviderPricingConfigs = map[AgentProviderAdapterType]map[string]pricing.ProviderModelPricingConfig{

@@ -20,7 +20,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
           provider: 'openai',
           model_id: 'gpt-5.5',
           source_url: 'https://openai.com/api/pricing/',
-          source_verified_at: '2026-04-29',
+          source_verified_at: '2026-05-16',
           rates: {
             input_per_token: 0.000005,
             output_per_token: 0.00003,
@@ -28,7 +28,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
           },
           notes: [],
           tiers: [],
-          version: '2026-04-29',
+          version: '2026-05-16',
         },
       },
     ],
