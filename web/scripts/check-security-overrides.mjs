@@ -6,7 +6,22 @@ const packageJsonPath = path.join(repoRoot, 'package.json')
 const lockfilePath = path.join(repoRoot, 'pnpm-lock.yaml')
 
 const requiredOverrides = {
-  'lodash-es': '4.18.1',
+  'lodash-es': {
+    requiredVersion: '4.18.1',
+    staleVersions: ['4.17.23'],
+  },
+  postcss: {
+    requiredVersion: '8.5.10',
+    staleVersions: ['8.5.8', '8.5.9'],
+  },
+  mermaid: {
+    requiredVersion: '11.15.0',
+    staleVersionPatterns: ['11\\.(?:[0-9]|1[0-4])(?:\\.\\d+)?(?:-[^\\s:]+)?'],
+  },
+  uuid: {
+    requiredVersion: '14.0.0',
+    staleVersions: ['11.1.0'],
+  },
 }
 
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
@@ -14,7 +29,9 @@ const packageOverrides = packageJson.pnpm?.overrides ?? {}
 const lockfile = fs.readFileSync(lockfilePath, 'utf8')
 const problems = []
 
-for (const [packageName, requiredVersion] of Object.entries(requiredOverrides)) {
+for (const [packageName, config] of Object.entries(requiredOverrides)) {
+  const { requiredVersion } = config
+  const staleVersions = config.staleVersions ?? (config.staleVersion ? [config.staleVersion] : [])
   const packageOverride = packageOverrides[packageName]
   if (packageOverride !== requiredVersion) {
     problems.push(
@@ -30,12 +47,25 @@ for (const [packageName, requiredVersion] of Object.entries(requiredOverrides)) 
     problems.push(`pnpm-lock.yaml must record the ${packageName} override at ${requiredVersion}`)
   }
 
-  const staleVersionPattern = new RegExp(
-    `${escapeRegExp(packageName)}(?::|@)\\s*4\\.17\\.23\\b|${escapeRegExp(packageName)}@4\\.17\\.23:`,
-    'm',
-  )
-  if (staleVersionPattern.test(lockfile)) {
-    problems.push(`pnpm-lock.yaml still references stale ${packageName} 4.17.23 entries`)
+  const staleVersionPatterns =
+    config.staleVersionPatterns ?? staleVersions.map((staleVersion) => escapeRegExp(staleVersion))
+  for (const staleVersionPattern of staleVersionPatterns) {
+    if (!staleVersionPattern) {
+      continue
+    }
+    const staleEntryPattern = new RegExp(
+      `${escapeRegExp(packageName)}(?::|@)\\s*(?:${staleVersionPattern})\\b|${escapeRegExp(packageName)}@(?:${staleVersionPattern}):`,
+      'm',
+    )
+    if (staleEntryPattern.test(lockfile)) {
+      const staleVersionLabel =
+        staleVersions.find((staleVersion) => escapeRegExp(staleVersion) === staleVersionPattern) ??
+        `/${staleVersionPattern.replaceAll('\\\\', '\\')}/`
+      problems.push(
+        `pnpm-lock.yaml still references stale ${packageName} ${staleVersionLabel} entries`,
+      )
+      break
+    }
   }
 
   const resolvedVersionPattern = new RegExp(

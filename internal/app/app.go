@@ -342,9 +342,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithSSHBootstrapper(machinesetup.NewBootstrapper(sshPool, machineChannelSvc)),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	}
-	if humanAuthSvc != nil && humanAuthorizer != nil {
-		serverOpts = append(serverOpts, httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer))
-	}
+	serverOpts = append(serverOpts, httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer))
 	server := httpapi.NewServerWithServices(
 		a.config.Server,
 		a.config.GitHub,

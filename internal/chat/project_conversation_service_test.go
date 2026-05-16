@@ -36,6 +36,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/uuid"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 func TestProjectConversationPromptIncludesRecoverySummaryAndTranscript(t *testing.T) {
@@ -6429,9 +6430,11 @@ func (m *fakeProjectConversationSecretManager) ResolveBoundForRuntime(
 
 func newProjectConversationTestSSHPool(t *testing.T, client sshinfra.Client) *sshinfra.Pool {
 	t.Helper()
-	return sshinfra.NewPool(t.TempDir(), sshinfra.WithDialer(&projectConversationSSHDialer{client: client}), sshinfra.WithReadFile(func(string) ([]byte, error) {
-		return []byte("key"), nil
-	}))
+	return sshinfra.NewPool(t.TempDir(),
+		sshinfra.WithDialer(&projectConversationSSHDialer{client: client}),
+		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		sshinfra.WithHostKeyCallback(gossh.InsecureIgnoreHostKey()), //nolint:gosec
+	)
 }
 
 type projectConversationSSHDialer struct {
