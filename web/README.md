@@ -87,20 +87,27 @@ Feature modules own their `api.ts`, `stores.ts`, `types.ts`, `mappers.ts`, and `
 
 These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint where practical.
 
-| File type                           | Soft limit | Hard limit           |
-| ----------------------------------- | ---------- | -------------------- |
-| `routes/**/+page.svelte`            | 150        | 250                  |
-| `routes/**/+layout.svelte`          | 180        | 300                  |
-| `lib/features/**/*.test.{ts,js}`    | 300        | 650                  |
-| `lib/features/**/*.svelte.{ts,js}`  | 250        | 350                  |
-| `lib/features/**/*.svelte`          | 200        | 350                  |
-| `lib/features/**/*.{ts,js}`         | 200        | 325                  |
-| `lib/testing/**/*.{ts,js}`          | 350        | 650                  |
-| `lib/components/layout/**/*.svelte` | 200        | 300                  |
-| `lib/components/ui/**/*.svelte`     | 150        | 250                  |
-| single function                     | 40 target  | 60 warning threshold |
+| File type                                                | Soft limit | Hard limit           |
+| -------------------------------------------------------- | ---------- | -------------------- |
+| `routes/**/+page.svelte`                                 | 150        | 250                  |
+| `routes/**/+layout.svelte`                               | 180        | 300                  |
+| `routes/**/+{page,layout,server}.ts` and `src/hooks*.ts` | 80         | 160                  |
+| `lib/features/**/*.test.{ts,js}`                         | 300        | 650                  |
+| `lib/features/**/*.svelte.{ts,js}`                       | 250        | 350                  |
+| `lib/features/**/*.svelte`                               | 200        | 350                  |
+| `lib/features/**/*.{ts,js}`                              | 200        | 325                  |
+| `lib/testing/**/*.{ts,js}`                               | 350        | 650                  |
+| `lib/components/layout/**/*.svelte`                      | 200        | 300                  |
+| `lib/components/layout/**/*.{ts,js}`                     | 200        | 350                  |
+| `lib/components/ui/**/*.svelte`                          | 150        | 250                  |
+| `lib/components/**/*.svelte` (non-layout/ui)             | 250        | 800                  |
+| `lib/stores/**/*.{ts,js}`                                | 250        | 350                  |
+| `lib/api/**/*.{ts,js}`                                   | 500        | 2500                 |
+| `lib/**/*.{ts,js}` shared support modules                | 200        | 325                  |
+| `src/test/**/*.{ts,js}`                                  | 150        | 250                  |
+| single function                                          | 40 target  | 60 warning threshold |
 
-There are no per-file budget waivers. Budgets live in one shared category definition that drives both `lint:structure` and the mirrored ESLint `max-lines` rules, so any recurring exception should be promoted into a named category instead of growing an allowlist.
+There are no per-file budget waivers. Budgets live in one shared category definition that drives both `lint:structure` and the mirrored ESLint `max-lines` rules, so any recurring exception should be promoted into a named category instead of growing an allowlist. `lint:structure` now also fails when a tracked frontend source file does not match any category, which closes the old "unbudgeted file family" bypass. Ambient declaration files (`*.d.ts`) stay outside the line-budget system because they are type metadata rather than runtime source.
 
 ## Quality Gates
 
@@ -118,7 +125,7 @@ pnpm run ci
 - `pnpm run lint`: ESLint with complexity, file-size, and cycle checks.
 - `pnpm run lint:i18n`: fails on newly introduced hardcoded user-visible strings that do not go through the shared i18n layer.
 - `pnpm run lint:mobile`: validates that every project route declares a mobile support policy and that responsive routes wire into the mobile regression templates.
-- `pnpm run lint:structure`: custom file budget enforcement with first-class categories for routes, feature tests, testing support modules, state modules, and UI layers.
+- `pnpm run lint:structure`: custom file budget enforcement with first-class categories for routes, stores, shared modules, API boundaries, testing support modules, and UI layers; it also rejects uncovered tracked source files.
 - `pnpm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes` with no waiver path.
 - `pnpm run check`: `svelte-check` type validation.
 - `pnpm run ci`: unified local and CI entrypoint for the frontend gate.
