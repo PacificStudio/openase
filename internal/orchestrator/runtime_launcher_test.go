@@ -59,6 +59,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
+	gossh "golang.org/x/crypto/ssh"
 )
 
 func TestRuntimeLauncherRunTickTransitionsClaimedAgentToReady(t *testing.T) {
@@ -3526,6 +3527,7 @@ func TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavail
 	sshPool := sshinfra.NewPool("/tmp/openase",
 		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{prepareSession, processSession}}}),
 		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+		sshinfra.WithHostKeyCallback(gossh.InsecureIgnoreHostKey()), //nolint:gosec
 	)
 
 	bus := eventinfra.NewChannelBus()
