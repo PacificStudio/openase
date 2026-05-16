@@ -52,7 +52,7 @@ describe('resolveOpenASEBinary', () => {
 })
 
 describe('buildOpenASEServiceEnvironment', () => {
-  it('pins the loopback runtime port and disables browser auth for desktop-launched services', () => {
+  it('pins the loopback runtime port without disabling runtime auth', () => {
     const env = buildOpenASEServiceEnvironment({
       env: { PATH: '/usr/bin', CUSTOM_FLAG: '1' },
       port: 43127,
@@ -63,7 +63,7 @@ describe('buildOpenASEServiceEnvironment', () => {
       CUSTOM_FLAG: '1',
       OPENASE_SERVER_HOST: '127.0.0.1',
       OPENASE_SERVER_PORT: '43127',
-      OPENASE_DESKTOP_DISABLE_AUTH: '1',
     })
+    expect(env.OPENASE_DESKTOP_DISABLE_AUTH).toBeUndefined()
   })
 })
