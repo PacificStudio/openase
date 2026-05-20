@@ -109,11 +109,10 @@ Delete the same review environment:
 .codex/skills/deploy-coolify-review-env/scripts/delete_review_env.sh --branch feature/my-change
 ```
 
-Delete ticket-scoped apps inside the shared `review` environment by ticket
-identifier:
+Delete a ticket-scoped app from the shared `review` environment by ticket id:
 
 ```sh
-.codex/skills/deploy-coolify-review-env/scripts/delete_review_env.sh --env-name review --ticket-identifier ASE-123
+.codex/skills/deploy-coolify-review-env/scripts/delete_review_env.sh --env-name review --ticket-identifier ASE-623
 ```
 
 ## Notes
@@ -125,5 +124,7 @@ identifier:
   such as the production `codex-config.toml` / `codex` wrapper mounts
 - The delete command is also idempotent:
   - if the app or environment is already missing, it exits successfully
+- In the current shared `review` environment wiring, ticket cleanup targets the
+  matching application and skips deleting the shared environment itself.
 - Use `--wait-seconds` on deploy when a workflow should wait for a terminal
   deployment state before moving a ticket to human review.
