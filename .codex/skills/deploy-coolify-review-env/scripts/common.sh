@@ -111,11 +111,6 @@ derive_app_name() {
   slugify_name "${prefix}-${branch}"
 }
 
-normalize_ticket_identifier() {
-  local ticket_identifier="$1"
-  slugify_name "$ticket_identifier"
-}
-
 interpolate_name_template() {
   local template="$1"
   local name="$2"
@@ -132,6 +127,9 @@ api_request() {
   local method="$1"
   local path="$2"
   local body="${3:-}"
+  local max_attempts="${COOLIFY_API_MAX_ATTEMPTS:-5}"
+  local retry_delay="${COOLIFY_API_RETRY_DELAY_SECONDS:-1}"
+  local attempt=1
   local url
   local response
   local status
@@ -139,31 +137,42 @@ api_request() {
   require_env COOLIFY_BASE_URL COOLIFY_API_TOKEN
   url="$(trim_trailing_slash "$COOLIFY_BASE_URL")${path}"
 
-  if [[ -n "$body" ]]; then
-    response="$(
-      curl -sS \
-        -X "$method" \
-        -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
-        -H "Accept: application/json" \
-        -H "Content-Type: application/json" \
-        --data "$body" \
-        -w $'\n__STATUS__:%{http_code}' \
-        "$url"
-    )"
-  else
-    response="$(
-      curl -sS \
-        -X "$method" \
-        -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
-        -H "Accept: application/json" \
-        -w $'\n__STATUS__:%{http_code}' \
-        "$url"
-    )"
-  fi
+  while true; do
+    if [[ -n "$body" ]]; then
+      response="$(
+        curl -sS \
+          -X "$method" \
+          -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+          -H "Accept: application/json" \
+          -H "Content-Type: application/json" \
+          --data "$body" \
+          -w $'\n__STATUS__:%{http_code}' \
+          "$url"
+      )"
+    else
+      response="$(
+        curl -sS \
+          -X "$method" \
+          -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+          -H "Accept: application/json" \
+          -w $'\n__STATUS__:%{http_code}' \
+          "$url"
+      )"
+    fi
 
-  status="${response##*$'\n'__STATUS__:}"
-  API_STATUS="$status"
-  API_BODY="${response%$'\n'__STATUS__:*}"
+    status="${response##*$'\n'__STATUS__:}"
+    API_STATUS="$status"
+    API_BODY="${response%$'\n'__STATUS__:*}"
+
+    if [[ "$API_STATUS" != "429" || "$attempt" -ge "$max_attempts" ]]; then
+      return 0
+    fi
+
+    info "Coolify API rate limited on $method $path; retrying in ${retry_delay}s (attempt ${attempt}/${max_attempts})"
+    sleep "$retry_delay"
+    attempt=$((attempt + 1))
+    retry_delay=$((retry_delay * 2))
+  done
 }
 
 ensure_common_runtime_env() {
@@ -227,41 +236,68 @@ for item in items:
 ' "$app_name" <<<"$API_BODY"
 }
 
-find_application_records_by_ticket_identifier() {
-  local ticket_identifier="$1"
-  local env_name="${2:-}"
-  local ticket_slug
-  local env_prefix=""
+list_environment_applications() {
+  local env_name="$1"
 
-  ticket_slug="$(normalize_ticket_identifier "$ticket_identifier")"
-  if [[ -n "$env_name" ]]; then
-    env_prefix="$(slugify_name "$env_name")-"
-  fi
+  api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
+  case "$API_STATUS" in
+    200)
+      ;;
+    404)
+      printf '[]\n'
+      return 0
+      ;;
+    *)
+      die "failed to inspect environment $env_name: HTTP $API_STATUS: $API_BODY"
+      ;;
+  esac
 
-  api_request GET "/api/v1/servers/$COOLIFY_SERVER_UUID/resources"
-  [[ "$API_STATUS" == "200" ]] || die "failed to list server resources: HTTP $API_STATUS: $API_BODY"
+  python3 -c '
+import json
+import sys
+
+data = json.load(sys.stdin)
+apps = data.get("applications") or []
+print(json.dumps(apps, ensure_ascii=True))
+' <<<"$API_BODY"
+}
+
+find_applications_by_ticket_identifier() {
+  local env_name="$1"
+  local ticket_identifier="$2"
+  local apps_json
+
+  apps_json="$(list_environment_applications "$env_name")"
   python3 -c '
 import json
 import re
 import sys
 
-ticket_slug = sys.argv[1]
-env_prefix = sys.argv[2]
-pattern = re.compile(r"(^|-)%s(-|$)" % re.escape(ticket_slug))
-items = json.load(sys.stdin)
-for item in items:
-    if item.get("type") != "application":
-        continue
-    name = (item.get("name") or "").strip()
-    if not name:
-        continue
-    lowered = name.lower()
-    if env_prefix and not lowered.startswith(env_prefix):
-        continue
-    if not pattern.search(lowered):
-        continue
-    print(json.dumps({"uuid": item.get("uuid", ""), "name": name}, ensure_ascii=True))
-' "$ticket_slug" "$env_prefix" <<<"$API_BODY"
+ticket_identifier = sys.argv[1].strip().lower()
+pattern = re.compile(r"(?<![a-z0-9])" + re.escape(ticket_identifier) + r"(?![a-z0-9])")
+apps = json.load(sys.stdin)
+
+for app in apps:
+    fields = [
+        app.get("name") or "",
+        app.get("fqdn") or "",
+        app.get("git_branch") or "",
+        app.get("description") or "",
+    ]
+    if any(pattern.search(field.lower()) for field in fields):
+        print(
+            json.dumps(
+                {
+                    "uuid": app.get("uuid", ""),
+                    "name": app.get("name", ""),
+                    "fqdn": app.get("fqdn", ""),
+                    "git_branch": app.get("git_branch", ""),
+                    "description": app.get("description", ""),
+                },
+                ensure_ascii=True,
+            )
+        )
+' "$ticket_identifier" <<<"$apps_json"
 }
 
 build_payload() {
