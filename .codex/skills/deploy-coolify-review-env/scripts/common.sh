@@ -127,12 +127,12 @@ api_request() {
   local method="$1"
   local path="$2"
   local body="${3:-}"
-  local max_attempts="${COOLIFY_API_MAX_ATTEMPTS:-5}"
-  local retry_delay="${COOLIFY_API_RETRY_DELAY_SECONDS:-1}"
-  local attempt=1
   local url
   local response
   local status
+  local attempt=1
+  local max_attempts=6
+  local sleep_seconds=1
 
   require_env COOLIFY_BASE_URL COOLIFY_API_TOKEN
   url="$(trim_trailing_slash "$COOLIFY_BASE_URL")${path}"
@@ -164,14 +164,14 @@ api_request() {
     API_STATUS="$status"
     API_BODY="${response%$'\n'__STATUS__:*}"
 
-    if [[ "$API_STATUS" != "429" || "$attempt" -ge "$max_attempts" ]]; then
-      return 0
+    if [[ "$API_STATUS" != "429" || $attempt -ge $max_attempts ]]; then
+      break
     fi
 
-    info "Coolify API rate limited on $method $path; retrying in ${retry_delay}s (attempt ${attempt}/${max_attempts})"
-    sleep "$retry_delay"
+    info "Coolify API rate limited on $method $path; retrying in ${sleep_seconds}s (attempt $attempt/$max_attempts)"
+    sleep "$sleep_seconds"
     attempt=$((attempt + 1))
-    retry_delay=$((retry_delay * 2))
+    sleep_seconds=$((sleep_seconds * 2))
   done
 }
 
@@ -234,70 +234,6 @@ for item in items:
         print(item.get("uuid", ""))
         break
 ' "$app_name" <<<"$API_BODY"
-}
-
-list_environment_applications() {
-  local env_name="$1"
-
-  api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
-  case "$API_STATUS" in
-    200)
-      ;;
-    404)
-      printf '[]\n'
-      return 0
-      ;;
-    *)
-      die "failed to inspect environment $env_name: HTTP $API_STATUS: $API_BODY"
-      ;;
-  esac
-
-  python3 -c '
-import json
-import sys
-
-data = json.load(sys.stdin)
-apps = data.get("applications") or []
-print(json.dumps(apps, ensure_ascii=True))
-' <<<"$API_BODY"
-}
-
-find_applications_by_ticket_identifier() {
-  local env_name="$1"
-  local ticket_identifier="$2"
-  local apps_json
-
-  apps_json="$(list_environment_applications "$env_name")"
-  python3 -c '
-import json
-import re
-import sys
-
-ticket_identifier = sys.argv[1].strip().lower()
-pattern = re.compile(r"(?<![a-z0-9])" + re.escape(ticket_identifier) + r"(?![a-z0-9])")
-apps = json.load(sys.stdin)
-
-for app in apps:
-    fields = [
-        app.get("name") or "",
-        app.get("fqdn") or "",
-        app.get("git_branch") or "",
-        app.get("description") or "",
-    ]
-    if any(pattern.search(field.lower()) for field in fields):
-        print(
-            json.dumps(
-                {
-                    "uuid": app.get("uuid", ""),
-                    "name": app.get("name", ""),
-                    "fqdn": app.get("fqdn", ""),
-                    "git_branch": app.get("git_branch", ""),
-                    "description": app.get("description", ""),
-                },
-                ensure_ascii=True,
-            )
-        )
-' "$ticket_identifier" <<<"$apps_json"
 }
 
 build_payload() {
