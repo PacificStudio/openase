@@ -123,7 +123,7 @@ def normalize(value: str) -> str:
     return value
 
 ticket_slug = normalize(ticket_identifier)
-pattern = re.compile(r"(^|-)%s(-|$)" % re.escape(ticket_slug))
+pattern = re.compile(r"(^|-){}(-|$)".format(re.escape(ticket_slug)))
 
 for item in applications:
     haystacks = [
@@ -167,23 +167,22 @@ if [[ -z "$ticket_identifier" ]]; then
   esac
 fi
 
-joined_names=""
-if [[ ${#deleted_names[@]} -gt 0 ]]; then
-  joined_names="$(printf '%s,' "${deleted_names[@]}")"
-  joined_names="${joined_names%,}"
+if [[ -n "$ticket_identifier" ]]; then
+  printf 'environment_name=%s\n' "$env_name"
+  printf 'ticket_identifier=%s\n' "$ticket_identifier"
+  printf 'application_names='
+  (IFS=,; printf '%s\n' "${deleted_names[*]:-}")
+  printf 'application_uuids='
+  (IFS=,; printf '%s\n' "${deleted_uuids[*]:-}")
+  exit 0
 fi
 
-joined_uuids=""
+app_uuid=""
 if [[ ${#deleted_uuids[@]} -gt 0 ]]; then
-  joined_uuids="$(printf '%s,' "${deleted_uuids[@]}")"
-  joined_uuids="${joined_uuids%,}"
+  app_uuid="${deleted_uuids[0]}"
 fi
-
 cat <<EOF
 environment_name=$env_name
-ticket_identifier=$ticket_identifier
 application_name=$app_name
-application_uuid=${app_uuid:-}
-application_names=$joined_names
-application_uuids=$joined_uuids
+application_uuid=$app_uuid
 EOF
