@@ -136,6 +136,10 @@ type workspaceResetConflict interface {
 	WorkspaceResetConflict() bool
 }
 
+type workspaceResetDeleteFailed interface {
+	WorkspaceResetDeleteFailed() bool
+}
+
 type ticketRepoScopeDetailResponse struct {
 	ID                  string               `json:"id"`
 	TicketID            string               `json:"ticket_id"`
@@ -541,6 +545,10 @@ func (s *Server) handleResetTicketWorkspace(c echo.Context) error {
 		var conflictErr workspaceResetConflict
 		if errors.As(err, &conflictErr) && conflictErr.WorkspaceResetConflict() {
 			return writeAPIError(c, http.StatusConflict, "WORKSPACE_RESET_CONFLICT", err.Error())
+		}
+		var deleteErr workspaceResetDeleteFailed
+		if errors.As(err, &deleteErr) && deleteErr.WorkspaceResetDeleteFailed() {
+			return writeAPIError(c, http.StatusConflict, "WORKSPACE_RESET_DELETE_FAILED", err.Error())
 		}
 		return writeTicketError(c, err)
 	}

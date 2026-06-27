@@ -481,12 +481,12 @@ func (p *runtimeWorkspaceProvisioner) removeWorkspaceRoot(ctx context.Context, m
 	}
 
 	if !remote {
-		boundary, err := workspaceinfra.LocalWorkspaceRoot()
+		boundary, err := resolveWorkspaceRoot(machine, false)
 		if err != nil {
-			return fmt.Errorf("resolve local workspace root: %w", err)
+			return classifyLocalWorkspaceDeleteFailure(trimmedRoot, fmt.Errorf("resolve local workspace root: %w", err))
 		}
 		if _, err := filesysteminfra.RemoveTree(boundary, trimmedRoot); err != nil {
-			return fmt.Errorf("remove local workspace %s: %w", trimmedRoot, err)
+			return classifyLocalWorkspaceDeleteFailure(trimmedRoot, fmt.Errorf("remove local workspace %s: %w", trimmedRoot, err))
 		}
 		return nil
 	}

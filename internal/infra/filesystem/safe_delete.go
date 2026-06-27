@@ -3,7 +3,6 @@ package filesystem
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,7 +121,10 @@ func removeTreeAtRealPath(root string) error {
 		return formatRemovePathError(root, err)
 	}
 	if rootInfo.Mode()&os.ModeSymlink != 0 {
-		return ErrUnsafePath
+		if err := os.Remove(root); err != nil {
+			return formatRemovePathError(root, err)
+		}
+		return nil
 	}
 	if !rootInfo.IsDir() {
 		if err := os.Remove(root); err != nil {
@@ -131,31 +133,18 @@ func removeTreeAtRealPath(root string) error {
 		return nil
 	}
 
-	if err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return formatRemovePathError(path, walkErr)
-		}
-		if path == root {
-			return nil
-		}
-		entryInfo, err := d.Info()
-		if err != nil {
-			return formatRemovePathError(path, err)
-		}
-		if entryInfo.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%w: symlink %s", ErrUnsafePath, path)
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return formatRemovePathError(root, err)
 	}
 	for _, entry := range entries {
 		child := filepath.Join(root, entry.Name())
+		if entry.Type()&os.ModeSymlink != 0 {
+			if err := os.Remove(child); err != nil {
+				return formatRemovePathError(child, err)
+			}
+			continue
+		}
 		if err := removeTreeAtRealPath(child); err != nil {
 			return err
 		}
