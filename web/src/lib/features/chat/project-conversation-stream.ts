@@ -1,5 +1,10 @@
 import type { ProjectConversationStreamEvent } from '$lib/api/chat'
 import {
+  asRecord,
+  buildTaskDetail,
+  mapLegacyClaudeFailureOutput,
+} from './project-conversation-transcript-parser-helpers'
+import {
   createProjectConversationDiffEntriesFromUnifiedDiff,
   isDiffPayload,
   isTextPayload,
@@ -190,11 +195,18 @@ export function handleProjectConversationStreamEvent(
   }
 
   handlers.finalizeAssistantEntry()
+  const errorPayload = event.payload
+  const rawRecord = asRecord(errorPayload.raw) ?? asRecord(errorPayload.details)
+  const detail =
+    buildTaskDetail(rawRecord) ||
+    mapLegacyClaudeFailureOutput(errorPayload.message) ||
+    errorPayload.message
   handlers.appendTaskStatus({
     statusType: 'error',
     title: chatT('chat.status.turnFailed'),
-    detail: event.payload.message,
+    detail,
+    raw: rawRecord ?? undefined,
   })
   handlers.setPending(false)
-  handlers.onError(event.payload.message)
+  handlers.onError(detail)
 }

@@ -33,6 +33,8 @@ export type ChatSessionPayload = {
 
 export type ChatErrorPayload = {
   message: string
+  raw?: unknown
+  details?: unknown
 }
 
 export type ChatDiffLineOp = 'context' | 'add' | 'remove'
@@ -2143,9 +2145,16 @@ function parseDonePayload(payload: unknown): ChatDonePayload {
 
 function parseErrorPayload(payload: unknown): ChatErrorPayload {
   const object = parseRequiredObject(payload)
-  return {
+  const parsed: ChatErrorPayload = {
     message: readRequiredString(object, 'message'),
   }
+  if ('raw' in object) {
+    parsed.raw = object.raw
+  }
+  if ('details' in object) {
+    parsed.details = object.details
+  }
+  return parsed
 }
 
 function parseProjectConversation(value: unknown): ProjectConversation {

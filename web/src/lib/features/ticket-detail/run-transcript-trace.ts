@@ -3,6 +3,7 @@ import {
   buildProviderStateDetail,
   buildReasoningDetail,
   buildTaskDetail,
+  mapLegacyClaudeFailureOutput,
   readBoolean,
   parseUnifiedDiffPayloads,
   readString,
@@ -176,7 +177,11 @@ function buildTaskStatusBlock(
     id: `status:${entry.id}`,
     statusType,
     title,
-    detail: buildTaskDetail(asRecord(entry.payload)) || entry.output || undefined,
+    detail:
+      buildTaskDetail(asRecord(entry.payload)) ||
+      mapLegacyClaudeFailureOutput(entry.output) ||
+      entry.output ||
+      undefined,
     raw: Object.keys(entry.payload).length > 0 ? entry.payload : undefined,
     at: entry.createdAt,
   }
