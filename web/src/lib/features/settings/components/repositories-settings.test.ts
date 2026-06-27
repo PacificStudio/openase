@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { appStore } from '$lib/stores/app.svelte'
 import RepositoryGitHubBrowser from './repository-github-browser.svelte'
+import { githubRepositoryBrowserEmptyStateKey } from './repositories-settings-github'
 import RepositoriesSettingsStateTestHost from './repositories-settings-state-test-host.svelte'
 
 const {
@@ -169,5 +170,17 @@ describe('Repositories settings', () => {
     })
 
     expect(queryByRole('button', { name: 'Search' })).toBeNull()
+  })
+
+  it('picks distinct empty-state keys for search vs browse', () => {
+    expect(githubRepositoryBrowserEmptyStateKey('my-repo', 'my-repo')).toBe(
+      'settings.repositoryGitHubBrowser.messages.noMatch',
+    )
+    expect(githubRepositoryBrowserEmptyStateKey('', '')).toBe(
+      'settings.repositoryGitHubBrowser.messages.noRepositories',
+    )
+    expect(githubRepositoryBrowserEmptyStateKey('typing', '')).toBe(
+      'settings.repositoryGitHubBrowser.messages.noRepositories',
+    )
   })
 })

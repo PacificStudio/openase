@@ -19,6 +19,8 @@ export type RepositoriesSettingsUI = {
   mode: RepositoryEditorMode
   draft: RepositoryDraft
   githubRepoQuery: string
+  /** Query string last used for a completed GitHub repo list fetch (for empty-state copy). */
+  githubRepoLoadedQuery: string
   githubRepos: GitHubRepositoryRecord[]
   githubReposLoading: boolean
   githubReposLoadingMore: boolean
@@ -42,6 +44,7 @@ export function createRepositoriesSettingsUI(): RepositoriesSettingsUI {
     mode: 'create',
     draft: createEmptyRepositoryDraft(),
     githubRepoQuery: '',
+    githubRepoLoadedQuery: '',
     githubRepos: [],
     githubReposLoading: false,
     githubReposLoadingMore: false,

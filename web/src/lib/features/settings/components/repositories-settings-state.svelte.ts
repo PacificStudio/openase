@@ -32,7 +32,6 @@ const githubRepoSearchDebounceMs = 300
 export function createRepositoriesSettingsState() {
   const ui = $state<RepositoriesSettingsUI>(createRepositoriesSettingsUI())
   const selectedRepo = $derived(ui.repos.find((repo) => repo.id === ui.selectedId) ?? null)
-  let githubRepoLoadedQuery = ''
   const githubActions = createRepositoriesGitHubActions({
     ui,
     getProjectId: () => appStore.currentProject?.id,
@@ -81,7 +80,7 @@ export function createRepositoriesSettingsState() {
     if (!projectId || !ui.editorOpen || ui.mode !== 'create') {
       return
     }
-    if (normalizedQuery === githubRepoLoadedQuery) {
+    if (normalizedQuery === ui.githubRepoLoadedQuery) {
       return
     }
 
@@ -125,7 +124,7 @@ export function createRepositoriesSettingsState() {
 
   async function runGitHubRepoSearch() {
     await githubActions.loadRepositories()
-    githubRepoLoadedQuery = ui.githubRepoQuery.trim()
+    ui.githubRepoLoadedQuery = ui.githubRepoQuery.trim()
   }
 
   async function save() {
@@ -198,7 +197,6 @@ export function createRepositoriesSettingsState() {
       ui.mode = 'edit'
       ui.selectedId = repo.id
       ui.draft = projectRepoToDraft(repo)
-      githubRepoLoadedQuery = ''
       githubActions.reset()
       ui.editorOpen = true
     },
@@ -206,7 +204,6 @@ export function createRepositoriesSettingsState() {
       ui.mode = 'create'
       ui.selectedId = ''
       ui.draft = createEmptyRepositoryDraft()
-      githubRepoLoadedQuery = ''
       githubActions.reset()
       ui.editorOpen = true
       const projectId = appStore.currentProject?.id

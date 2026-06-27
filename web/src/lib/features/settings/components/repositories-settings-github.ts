@@ -26,6 +26,22 @@ type GitHubActionOptions = {
   closeEditor: () => void
 }
 
+export type GitHubRepositoryBrowserEmptyStateKey =
+  | 'settings.repositoryGitHubBrowser.messages.noMatch'
+  | 'settings.repositoryGitHubBrowser.messages.noRepositories'
+
+/** i18n key for the GitHub bind browser empty list (search vs browse). */
+export function githubRepositoryBrowserEmptyStateKey(
+  query: string,
+  lastLoadedQuery: string,
+): GitHubRepositoryBrowserEmptyStateKey {
+  const trimmedQuery = query.trim()
+  if (trimmedQuery.length > 0 && trimmedQuery === lastLoadedQuery.trim()) {
+    return 'settings.repositoryGitHubBrowser.messages.noMatch'
+  }
+  return 'settings.repositoryGitHubBrowser.messages.noRepositories'
+}
+
 export function createRepositoriesGitHubActions(options: GitHubActionOptions) {
   const { ui, getProjectId, reloadRepos, setSelectedRepoId, closeEditor } = options
   const repositoriesCache = new Map<
@@ -40,6 +56,7 @@ export function createRepositoriesGitHubActions(options: GitHubActionOptions) {
 
   function reset() {
     ui.githubRepoQuery = ''
+    ui.githubRepoLoadedQuery = ''
     ui.githubRepos = []
     ui.githubReposLoading = false
     ui.githubReposLoadingMore = false
