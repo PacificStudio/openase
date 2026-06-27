@@ -1,7 +1,9 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 )
 
@@ -166,17 +168,62 @@ func ClaudeCodeTurnFailure(event ClaudeCodeEvent) (string, string) {
 		}
 	}
 	payloadMap := asClaudeCodeMap(rawPayload)
-	if message != "" {
+	subtype := strings.TrimSpace(event.Subtype)
+	if message != "" && !shouldReplaceClaudeCodeResultMessage(message, event) {
 		return message, additionalDetails
 	}
 
-	if summary := summarizeClaudeCodeFailure(strings.TrimSpace(event.Subtype), payloadMap); summary != "" {
+	if summary := summarizeClaudeCodeFailure(subtype, payloadMap); summary != "" {
 		return summary, additionalDetails
 	}
 	if additionalDetails != "" {
 		return "Claude couldn't finish this reply. Try sending your message again.", additionalDetails
 	}
 	return "Claude couldn't finish this reply. Try sending your message again.", ""
+}
+
+const claudeCodeGenericRetryMessage = "Claude couldn't finish this reply. Try sending your message again."
+
+func SummarizeClaudeProcessError(err error) string {
+	if err == nil {
+		return claudeCodeGenericRetryMessage
+	}
+	lowered := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(lowered, "claude code process exited"):
+		return "Claude stopped unexpectedly. Try sending your message again."
+	case strings.Contains(lowered, "claude code stderr:"):
+		return "Claude reported a problem while running. Try sending your message again, or check the session logs for details."
+	case errors.Is(err, context.DeadlineExceeded),
+		strings.Contains(lowered, "context deadline exceeded"),
+		strings.Contains(lowered, "timeout"):
+		return "Claude took too long to respond. Try sending your message again."
+	case strings.Contains(lowered, "connection refused"),
+		strings.Contains(lowered, "econnrefused"),
+		strings.Contains(lowered, "i/o timeout"),
+		strings.Contains(lowered, "network"):
+		return "Couldn't reach Claude. Check your network connection and try again."
+	case strings.Contains(lowered, "401"),
+		strings.Contains(lowered, "authentication"),
+		strings.Contains(lowered, "unauthorized"):
+		return "Claude authentication failed. Check your API credentials and try again."
+	default:
+		return claudeCodeGenericRetryMessage
+	}
+}
+
+func shouldReplaceClaudeCodeResultMessage(message string, event ClaudeCodeEvent) bool {
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return true
+	}
+	lowered := strings.ToLower(trimmed)
+	if strings.Contains(lowered, "error_during_execution") ||
+		strings.Contains(lowered, "empty error") ||
+		strings.Contains(lowered, "reported an empty") {
+		return true
+	}
+	return false
 }
 
 type claudeCodeEDEDiagnostic struct {

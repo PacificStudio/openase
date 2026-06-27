@@ -277,7 +277,7 @@ func (r *ClaudeRuntime) bridgeSession(
 			}
 			events <- StreamEvent{
 				Event:   "error",
-				Payload: errorPayload{Message: err.Error()},
+				Payload: errorPayload{Message: provider.SummarizeClaudeProcessError(err)},
 			}
 		case event, ok := <-eventCh:
 			if !ok {
