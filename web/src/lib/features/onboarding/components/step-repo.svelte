@@ -14,8 +14,12 @@
     ProjectRepoRecord,
   } from '$lib/api/contracts'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { githubRepositoryBrowserEmptyStateKey } from '$lib/features/settings/components/repositories-settings-github'
   import type { RepoState } from '../types'
   import StepRepoContent from './step-repo-content.svelte'
+  import { REPO_STEP_KEYS, type StepRepoCopyKey } from './step-repo-copy'
+
+  const githubRepoSearchDebounceMs = 300
 
   let {
     projectId,
@@ -40,7 +44,10 @@
 
   // Link existing repo fields
   let repoSearchQuery = $state('')
+  let repoSearchLoadedQuery = $state('')
   let searchResults = $state<GitHubRepositoryRecord[]>([])
+  let searchResultsNextCursor = $state('')
+  let loadingMoreSearchResults = $state(false)
   let linkRepoUrl = $state('')
   let linkRepoName = $state('')
   let linkRepoBranch = $state('main')
@@ -51,6 +58,14 @@
   let repos = $state<ProjectRepoRecord[]>([...untrack(() => initialState.repos)])
 
   const hasRepos = $derived(repos.length > 0)
+
+  const repoSearchEmptyStateKey = $derived.by((): StepRepoCopyKey => {
+    const key = githubRepositoryBrowserEmptyStateKey(repoSearchQuery, repoSearchLoadedQuery)
+    if (key === 'settings.repositoryGitHubBrowser.messages.noMatch') {
+      return REPO_STEP_KEYS.searchNoMatch
+    }
+    return REPO_STEP_KEYS.searchNoRepositories
+  })
 
   $effect(() => {
     if (namespaces.length > 0 && !selectedNamespace) {
@@ -76,24 +91,65 @@
     }
   }
 
-  async function loadBrowsableRepositories(query?: string) {
-    searchingRepos = true
+  async function loadBrowsableRepositories(opts?: { append?: boolean; cursor?: string }) {
+    const append = opts?.append ?? false
+    const cursor = opts?.cursor?.trim() ?? ''
+    if (append) {
+      loadingMoreSearchResults = true
+    } else {
+      searchingRepos = true
+    }
     try {
       const payload = await listGitHubRepositories(projectId, {
-        query: query?.trim() || undefined,
+        query: repoSearchQuery.trim() || undefined,
+        cursor: cursor || undefined,
       })
-      searchResults = payload.repositories
+      searchResults = append
+        ? [...searchResults, ...payload.repositories]
+        : payload.repositories
+      searchResultsNextCursor = payload.next_cursor
+      if (!append) {
+        repoSearchLoadedQuery = repoSearchQuery.trim()
+      }
     } catch (caughtError) {
+      if (!append) {
+        searchResults = []
+        searchResultsNextCursor = ''
+      }
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to search repositories.',
       )
     } finally {
       searchingRepos = false
+      loadingMoreSearchResults = false
     }
   }
 
+  async function handleLoadMoreSearchResults() {
+    if (!searchResultsNextCursor) {
+      return
+    }
+    await loadBrowsableRepositories({ append: true, cursor: searchResultsNextCursor })
+  }
+
+  $effect(() => {
+    if (mode !== 'link') {
+      return
+    }
+    const normalizedQuery = repoSearchQuery.trim()
+    if (normalizedQuery === repoSearchLoadedQuery) {
+      return
+    }
+    const timer = setTimeout(() => {
+      void loadBrowsableRepositories()
+    }, githubRepoSearchDebounceMs)
+    return () => {
+      clearTimeout(timer)
+    }
+  })
+
   async function handleSearchRepos() {
-    await loadBrowsableRepositories(repoSearchQuery)
+    await loadBrowsableRepositories()
   }
 
   function selectSearchResult(repo: GitHubRepositoryRecord) {
@@ -162,6 +218,7 @@
 
   function enterLinkMode() {
     mode = 'link'
+    repoSearchLoadedQuery = ''
     void loadBrowsableRepositories()
   }
 </script>
@@ -179,13 +236,17 @@
   {creating}
   {linking}
   {searchingRepos}
+  {loadingMoreSearchResults}
   {searchResults}
+  {searchResultsNextCursor}
+  {repoSearchEmptyStateKey}
   {namespaces}
   {repos}
   {hasRepos}
   onEnterCreateMode={enterCreateMode}
   onEnterLinkMode={enterLinkMode}
   onSearchRepos={handleSearchRepos}
+  onLoadMoreSearchResults={handleLoadMoreSearchResults}
   onSelectSearchResult={selectSearchResult}
   onCreateRepo={handleCreateRepo}
   onLinkRepo={handleLinkRepo}

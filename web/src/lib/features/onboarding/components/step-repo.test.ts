@@ -126,9 +126,7 @@ describe('StepRepo', () => {
     })
     expect(await findByText('octo-org/alpha-app')).toBeTruthy()
 
-    const searchInput = getByPlaceholderText(
-      'Search repository names, or browse recently accessible repositories...',
-    )
+    const searchInput = getByPlaceholderText('Search accessible repositories (try owner/repo)')
     await fireEvent.input(searchInput, { target: { value: 'beta' } })
     await fireEvent.keyDown(searchInput, { key: 'Enter' })
 

@@ -24,6 +24,12 @@ export const REPO_STEP_KEYS = {
   actionsBack: `${STEP_KEY}.actions.back`,
   searchHeading: `${STEP_KEY}.search.heading`,
   searchPlaceholder: `${STEP_KEY}.search.placeholder`,
+  searchTokenScope: `${STEP_KEY}.search.tokenScope`,
+  searchPermissionLimited: `${STEP_KEY}.search.permissionLimited`,
+  searchNoMatch: `${STEP_KEY}.search.noMatch`,
+  searchNoRepositories: `${STEP_KEY}.search.noRepositories`,
+  searchLoadMore: `${STEP_KEY}.search.loadMore`,
+  searchSearching: `${STEP_KEY}.search.searching`,
 } as const
 
 export type StepRepoCopyKey = (typeof REPO_STEP_KEYS)[keyof typeof REPO_STEP_KEYS]
@@ -50,8 +56,15 @@ const copy: Record<StepRepoCopyKey, string> = {
   [REPO_STEP_KEYS.actionsLinkRepository]: 'Link repository',
   [REPO_STEP_KEYS.actionsBack]: 'Back',
   [REPO_STEP_KEYS.searchHeading]: 'Search or browse GitHub repositories',
-  [REPO_STEP_KEYS.searchPlaceholder]:
-    'Search repository names, or browse recently accessible repositories...',
+  [REPO_STEP_KEYS.searchPlaceholder]: 'Search accessible repositories (try owner/repo)',
+  [REPO_STEP_KEYS.searchTokenScope]:
+    "Repositories shown here are those your project's GitHub token can access—not every repository on GitHub.",
+  [REPO_STEP_KEYS.searchPermissionLimited]:
+    "Results only include repositories your project's GitHub token can access. Repos outside that scope won't appear, even if you search by name.",
+  [REPO_STEP_KEYS.searchNoMatch]: 'No repositories match your search.',
+  [REPO_STEP_KEYS.searchNoRepositories]: 'No repositories to browse with the current token.',
+  [REPO_STEP_KEYS.searchLoadMore]: 'Load more',
+  [REPO_STEP_KEYS.searchSearching]: 'Searching…',
   [REPO_STEP_KEYS.placeholderNamespace]: 'Select a namespace',
 }
 

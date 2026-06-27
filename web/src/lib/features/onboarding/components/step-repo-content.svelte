@@ -8,19 +8,22 @@
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
   import { Plus, Link, Loader2, CheckCircle2, GitBranch, FolderGit2, Search } from '@lucide/svelte'
-  import { REPO_STEP_KEYS as KEYS, t as repoCopy } from './step-repo-copy'
+  import { REPO_STEP_KEYS as KEYS, t as repoCopy, type StepRepoCopyKey } from './step-repo-copy'
 
   let {
     mode = $bindable<'choose' | 'create' | 'link'>(),
     creating = false,
     linking = false,
     searchingRepos = false,
+    loadingMoreSearchResults = false,
     newRepoName = $bindable(''),
     newRepoVisibility = $bindable<'private' | 'public'>('private'),
     newRepoDefaultBranch = $bindable('main'),
     selectedNamespace = $bindable(''),
     repoSearchQuery = $bindable(''),
     searchResults = [],
+    searchResultsNextCursor = '',
+    repoSearchEmptyStateKey = KEYS.searchNoRepositories,
     linkRepoUrl = $bindable(''),
     linkRepoName = $bindable(''),
     linkRepoBranch = $bindable('main'),
@@ -30,6 +33,7 @@
     onEnterCreateMode,
     onEnterLinkMode,
     onSearchRepos,
+    onLoadMoreSearchResults,
     onSelectSearchResult,
     onCreateRepo,
     onLinkRepo,
@@ -38,12 +42,15 @@
     creating?: boolean
     linking?: boolean
     searchingRepos?: boolean
+    loadingMoreSearchResults?: boolean
     newRepoName?: string
     newRepoVisibility?: 'private' | 'public'
     newRepoDefaultBranch?: string
     selectedNamespace?: string
     repoSearchQuery?: string
     searchResults?: GitHubRepositoryRecord[]
+    searchResultsNextCursor?: string
+    repoSearchEmptyStateKey?: StepRepoCopyKey
     linkRepoUrl?: string
     linkRepoName?: string
     linkRepoBranch?: string
@@ -53,6 +60,7 @@
     onEnterCreateMode?: () => void
     onEnterLinkMode?: () => void
     onSearchRepos?: () => void | Promise<void>
+    onLoadMoreSearchResults?: () => void | Promise<void>
     onSelectSearchResult?: (repo: GitHubRepositoryRecord) => void
     onCreateRepo?: () => void | Promise<void>
     onLinkRepo?: () => void | Promise<void>
@@ -210,41 +218,77 @@
       </div>
     {:else}
       <div class="space-y-3">
+        <p class="text-muted-foreground text-xs leading-relaxed">
+          {repoCopy(KEYS.searchTokenScope)}
+        </p>
         <div>
           <p class="text-foreground mb-1 text-xs font-medium">
             {repoCopy(KEYS.searchHeading)}
           </p>
-          <div class="flex items-center gap-2">
-            <Input
+          <div
+            class="border-input focus-within:ring-ring flex items-center gap-2 rounded-md border px-3 focus-within:ring-1"
+          >
+            <Search class="text-muted-foreground size-3.5 shrink-0" />
+            <input
+              type="text"
               bind:value={repoSearchQuery}
               placeholder={repoCopy(KEYS.searchPlaceholder)}
-              class="h-9 flex-1 text-sm"
+              class="placeholder:text-muted-foreground h-9 flex-1 bg-transparent text-sm outline-none"
               onkeydown={(e) => {
-                if (e.key === 'Enter') void onSearchRepos?.()
+                if (e.key === 'Enter' && !e.isComposing) {
+                  e.preventDefault()
+                  void onSearchRepos?.()
+                }
               }}
             />
-            <Button variant="outline" size="sm" onclick={onSearchRepos} disabled={searchingRepos}>
-              {#if searchingRepos}
-                <Loader2 class="size-3.5 animate-spin" />
-              {:else}
-                <Search class="size-3.5" />
-              {/if}
-            </Button>
+            {#if searchingRepos}
+              <span class="text-muted-foreground shrink-0 text-xs">
+                {repoCopy(KEYS.searchSearching)}
+              </span>
+            {/if}
           </div>
         </div>
 
-        {#if searchResults.length > 0}
-          <div class="border-border max-h-48 space-y-1 overflow-y-auto rounded-lg border p-1">
+        {#if searchingRepos && searchResults.length === 0}
+          <div class="text-muted-foreground py-4 text-center text-xs">
+            {repoCopy(KEYS.searchSearching)}
+          </div>
+        {:else if searchResults.length === 0}
+          <div class="flex flex-col items-center gap-1.5 py-4 text-center">
+            <p class="text-muted-foreground text-xs">
+              {repoCopy(repoSearchEmptyStateKey)}
+            </p>
+            <p class="text-muted-foreground/80 max-w-sm text-[11px] leading-relaxed">
+              {repoCopy(KEYS.searchPermissionLimited)}
+            </p>
+          </div>
+        {:else}
+          <div class="border-border max-h-48 overflow-y-auto rounded-lg border">
             {#each searchResults as result (result.full_name)}
               <button
                 type="button"
-                class="hover:bg-muted w-full rounded-md px-3 py-2 text-left transition-colors"
+                class="hover:bg-muted w-full border-border/40 border-t px-3 py-2 text-left transition-colors first:border-t-0"
                 onclick={() => onSelectSearchResult?.(result)}
               >
                 <p class="text-foreground text-sm">{result.full_name}</p>
                 <p class="text-muted-foreground text-xs">{result.visibility}</p>
               </button>
             {/each}
+            {#if searchResultsNextCursor}
+              <div class="border-border/40 border-t px-3 py-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="h-7 w-full text-xs"
+                  onclick={() => onLoadMoreSearchResults?.()}
+                  disabled={loadingMoreSearchResults}
+                >
+                  {loadingMoreSearchResults
+                    ? repoCopy(KEYS.searchSearching)
+                    : repoCopy(KEYS.searchLoadMore)}
+                </Button>
+              </div>
+            {/if}
           </div>
         {/if}
 

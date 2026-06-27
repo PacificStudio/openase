@@ -231,3 +231,80 @@ func TestCreateRepositoryRoutesUserAndOrg(t *testing.T) {
 		t.Fatalf("CreateRepository() requests = %#v", requests)
 	}
 }
+
+func TestRepositoryQueryRankPrioritizesOwnerRepoAndExactMatches(t *testing.T) {
+	pq := parseRepositoryQuery("acme/backend")
+	repos := []domain.Repository{
+		{Name: "backend-tools", FullName: "acme/backend-tools", Owner: "acme"},
+		{Name: "backend", FullName: "acme/backend", Owner: "acme"},
+		{Name: "other", FullName: "platform/other", Owner: "platform"},
+	}
+	rankRepositoriesByQuery(repos, "acme/backend")
+	if repos[0].FullName != "acme/backend" {
+		t.Fatalf("ranked[0] = %q, want acme/backend", repos[0].FullName)
+	}
+	if repos[1].FullName != "acme/backend-tools" {
+		t.Fatalf("ranked[1] = %q, want acme/backend-tools", repos[1].FullName)
+	}
+	if repositoryQueryRank(repos[2], pq) >= 0 {
+		t.Fatalf("unrelated repo should not match owner/repo query")
+	}
+}
+
+func TestRepositoryQueryRankOwnerOnlyPrefix(t *testing.T) {
+	repos := []domain.Repository{
+		{Name: "zeta", FullName: "acme/zeta", Owner: "acme"},
+		{Name: "alpha", FullName: "platform/alpha", Owner: "platform"},
+	}
+	rankRepositoriesByQuery(repos, "acme")
+	if repos[0].Owner != "acme" {
+		t.Fatalf("ranked[0] owner = %q, want acme", repos[0].Owner)
+	}
+}
+
+func TestListRepositoriesSearchRanksExactMatchFirst(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/user":
+			_, _ = io.WriteString(w, `{"login":"octocat"}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/user/orgs":
+			_, _ = io.WriteString(w, `[]`)
+		case r.Method == http.MethodGet && r.URL.Path == "/search/repositories":
+			_, _ = io.WriteString(w, `{"items":[
+				{"id":1,"name":"backend-tools","full_name":"octocat/backend-tools","private":true,"html_url":"https://github.com/octocat/backend-tools","clone_url":"https://github.com/octocat/backend-tools.git","default_branch":"main","visibility":"private","owner":{"login":"octocat"}},
+				{"id":2,"name":"backend","full_name":"octocat/backend","private":true,"html_url":"https://github.com/octocat/backend","clone_url":"https://github.com/octocat/backend.git","default_branch":"main","visibility":"private","owner":{"login":"octocat"}}
+			]}`)
+		default:
+			t.Fatalf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	svc := NewService(stubResolver{token: "ghu_test"}, server.Client()).(*service)
+	svc.baseURL = server.URL
+
+	page, err := svc.ListRepositories(context.Background(), domain.ListRepositoriesInput{
+		ProjectID: uuid.New(),
+		Query:     "octocat/backend",
+		Page:      1,
+	})
+	if err != nil {
+		t.Fatalf("ListRepositories() error = %v", err)
+	}
+	if len(page.Repositories) < 2 {
+		t.Fatalf("ListRepositories() len = %d, want >= 2", len(page.Repositories))
+	}
+	if page.Repositories[0].FullName != "octocat/backend" {
+		t.Fatalf("ListRepositories()[0] = %q, want octocat/backend", page.Repositories[0].FullName)
+	}
+}
+
+func TestBuildRepositorySearchQueryAddsRepoQualifierForOwnerRepo(t *testing.T) {
+	q := buildRepositorySearchQuery("Acme/Backend", []domain.Namespace{{
+		Login: "octocat",
+		Kind:  domain.NamespaceKindUser,
+	}})
+	if !strings.Contains(q, "repo:acme/backend") {
+		t.Fatalf("search query = %q, want repo:acme/backend qualifier", q)
+	}
+}
