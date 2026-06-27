@@ -31,6 +31,34 @@ export const projectStatusOptions = [
   'Archived',
 ] as const
 
+export type ProjectStatus = (typeof projectStatusOptions)[number]
+
+const terminalProjectStatusesForCreate = [
+  'Completed',
+  'Canceled',
+  'Archived',
+] as const satisfies readonly ProjectStatus[]
+
+export function projectStatusI18nKey(status: string): string {
+  const keys: Record<ProjectStatus, string> = {
+    Backlog: 'catalog.project.dialog.status.backlog',
+    Planned: 'catalog.project.dialog.status.planned',
+    'In Progress': 'catalog.project.dialog.status.inProgress',
+    Completed: 'catalog.project.dialog.status.completed',
+    Canceled: 'catalog.project.dialog.status.canceled',
+    Archived: 'catalog.project.dialog.status.archived',
+  }
+  return keys[status as ProjectStatus] ?? status
+}
+
+export const projectStatusOptionsForCreate = projectStatusOptions.filter(
+  (status) => !isTerminalProjectStatusForCreate(status),
+)
+
+export function isTerminalProjectStatusForCreate(status: string): boolean {
+  return (terminalProjectStatusesForCreate as readonly string[]).includes(status)
+}
+
 export function createOrganizationDraft(): OrganizationCreationDraft {
   return {
     name: '',
