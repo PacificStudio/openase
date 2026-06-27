@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +14,7 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	"github.com/BetterAndBetterII/openase/internal/infra/filesystem"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/logging"
@@ -1240,11 +1240,11 @@ func effectiveConnectionMode(machine domain.Machine) domain.MachineConnectionMod
 	return domain.MachineConnectionModeWSListener
 }
 
-func removeLocalPath(target string) error {
+func removeLocalPath(boundaryRoot string, target string) error {
 	if strings.TrimSpace(target) == "" {
 		return fmt.Errorf("target path must not be empty")
 	}
-	if err := os.RemoveAll(target); err != nil {
+	if _, err := filesystem.RemoveTree(boundaryRoot, target); err != nil {
 		return fmt.Errorf("remove local path %s: %w", target, err)
 	}
 	return nil

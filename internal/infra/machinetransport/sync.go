@@ -31,7 +31,7 @@ func syncLocalArtifacts(request SyncArtifactsRequest) error {
 		if trimmed == "" {
 			continue
 		}
-		if err := removeLocalPath(filepath.Join(targetRoot, filepath.FromSlash(trimmed))); err != nil {
+		if err := removeLocalPath(targetRoot, filepath.Join(targetRoot, filepath.FromSlash(trimmed))); err != nil {
 			return err
 		}
 	}
