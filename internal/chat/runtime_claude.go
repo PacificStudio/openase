@@ -276,8 +276,11 @@ func (r *ClaudeRuntime) bridgeSession(
 				continue
 			}
 			events <- StreamEvent{
-				Event:   "error",
-				Payload: errorPayload{Message: provider.SummarizeClaudeProcessError(err)},
+				Event: "error",
+				Payload: errorPayload{
+					Message: provider.SummarizeClaudeProcessError(err),
+					Details: err.Error(),
+				},
 			}
 		case event, ok := <-eventCh:
 			if !ok {
@@ -423,8 +426,15 @@ func mapClaudeEvent(
 		return []StreamEvent{{Event: "message", Payload: payload}}
 	case provider.ClaudeCodeEventKindResult:
 		if isClaudeResultError(event) {
-			message, _ := provider.ClaudeCodeTurnFailure(event)
-			return []StreamEvent{{Event: "error", Payload: errorPayload{Message: message}}}
+			message, additionalDetails := provider.ClaudeCodeTurnFailure(event)
+			payload := errorPayload{Message: message}
+			if raw := decodeRawJSON(event.Raw); raw != nil {
+				payload.Raw = raw
+			}
+			if additionalDetails != "" {
+				payload.Details = additionalDetails
+			}
+			return []StreamEvent{{Event: "error", Payload: payload}}
 		}
 		costUSD := cloneCostUSD(event.TotalCostUSD)
 		if event.UsageInfo != nil {

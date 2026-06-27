@@ -655,6 +655,12 @@ func TestMapClaudeEventPromotesClaudeResultErrorsIntoErrorEvents(t *testing.T) {
 	if payload.Message != "Claude couldn't finish this reply. Try sending your message again." {
 		t.Fatalf("error payload = %#v, want user-facing summary", payload)
 	}
+	if payload.Raw == nil {
+		t.Fatalf("error payload raw = %#v, want decoded result payload", payload)
+	}
+	if payload.Details == "" || !strings.Contains(payload.Details, "error_during_execution") {
+		t.Fatalf("error payload details = %q, want encoded raw JSON with subtype", payload.Details)
+	}
 }
 
 func TestMapClaudeEventMapsInterruptedClaudeExecutionErrorsToUserFacingMessage(t *testing.T) {

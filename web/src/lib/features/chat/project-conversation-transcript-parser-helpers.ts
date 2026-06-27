@@ -189,6 +189,9 @@ function describeStatus(raw: Record<string, unknown> | null) {
 const CLAUDE_GENERIC_RETRY_MESSAGE =
   "Claude couldn't finish this reply. Try sending your message again."
 
+// User-facing Claude result failure strings must stay aligned with
+// internal/provider/claudecode_protocol.go summarizeClaudeCodeFailure.
+
 const LEGACY_CLAUDE_FAILURE_OUTPUTS: Record<string, string> = {
   'Claude Code reported an empty error_during_execution result.': CLAUDE_GENERIC_RETRY_MESSAGE,
 }

@@ -111,6 +111,42 @@ describe('handleProjectConversationStreamEvent', () => {
     expect(handlers.onError).toHaveBeenCalledWith('codex chat turn failed')
   })
 
+  it('maps Claude result errors from raw payload instead of legacy message', () => {
+    const handlers = createHandlers()
+
+    handleProjectConversationStreamEvent(
+      {
+        kind: 'error',
+        payload: {
+          message: 'Claude Code reported an empty error_during_execution result.',
+          raw: {
+            type: 'result',
+            is_error: true,
+            subtype: 'error_during_execution',
+            terminal_reason: 'aborted_streaming',
+            errors: [
+              '[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use',
+              'Error: Request was aborted.',
+            ],
+          },
+        },
+      },
+      handlers,
+    )
+
+    expect(handlers.appendTaskStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusType: 'error',
+        detail:
+          "Claude couldn't finish this reply because the session was interrupted. Try sending your message again.",
+        raw: expect.objectContaining({ subtype: 'error_during_execution' }),
+      }),
+    )
+    expect(handlers.onError).toHaveBeenCalledWith(
+      "Claude couldn't finish this reply because the session was interrupted. Try sending your message again.",
+    )
+  })
+
   it('preserves structured task status payload details for rendering', () => {
     const handlers = createHandlers()
 
