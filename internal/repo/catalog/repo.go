@@ -390,12 +390,25 @@ func (r *EntRepository) DeleteProjectRepo(ctx context.Context, projectID uuid.UU
 		return domain.ProjectRepo{}, mapReadError("get project repo for delete", err)
 	}
 
-	conflict, err := r.projectRepoDeleteConflict(ctx, item.ID)
+	conflict, err := projectRepoDeleteConflict(ctx, tx, item.ID)
 	if err != nil {
 		return domain.ProjectRepo{}, err
 	}
 	if conflict != nil {
 		return domain.ProjectRepo{}, conflict
+	}
+
+	if _, err := tx.TicketRepoWorkspace.Delete().
+		Where(
+			entticketrepoworkspace.RepoID(item.ID),
+			entticketrepoworkspace.StateIn(
+				entticketrepoworkspace.StateCompleted,
+				entticketrepoworkspace.StateFailed,
+				entticketrepoworkspace.StateCleaned,
+			),
+		).
+		Exec(ctx); err != nil {
+		return domain.ProjectRepo{}, fmt.Errorf("delete terminal project repo workspaces: %w", err)
 	}
 
 	deleted := mapProjectRepo(item)
@@ -576,8 +589,8 @@ func (r *EntRepository) DeleteTicketRepoScope(ctx context.Context, projectID uui
 	return deleted, nil
 }
 
-func (r *EntRepository) projectRepoDeleteConflict(ctx context.Context, repoID uuid.UUID) (*domain.ProjectRepoDeleteConflict, error) {
-	scopeItems, err := r.client.TicketRepoScope.Query().
+func projectRepoDeleteConflict(ctx context.Context, tx *ent.Tx, repoID uuid.UUID) (*domain.ProjectRepoDeleteConflict, error) {
+	scopeItems, err := tx.TicketRepoScope.Query().
 		Where(entticketreposcope.RepoID(repoID)).
 		Order(ent.Asc(entticketreposcope.FieldTicketID), ent.Asc(entticketreposcope.FieldBranchName)).
 		All(ctx)
@@ -585,7 +598,7 @@ func (r *EntRepository) projectRepoDeleteConflict(ctx context.Context, repoID uu
 		return nil, fmt.Errorf("list project repo ticket scopes: %w", err)
 	}
 
-	workspaceItems, err := r.client.TicketRepoWorkspace.Query().
+	workspaceItems, err := tx.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.RepoID(repoID)).
 		Order(ent.Asc(entticketrepoworkspace.FieldTicketID), ent.Asc(entticketrepoworkspace.FieldCreatedAt)).
 		All(ctx)
@@ -593,28 +606,33 @@ func (r *EntRepository) projectRepoDeleteConflict(ctx context.Context, repoID uu
 		return nil, fmt.Errorf("list project repo workspaces: %w", err)
 	}
 
-	if len(scopeItems) == 0 && len(workspaceItems) == 0 {
+	blockingWorkspaces := make([]domain.ProjectRepoWorkspaceReference, 0, len(workspaceItems))
+	for _, item := range workspaceItems {
+		if !workspaceStateBlocksScopeDelete(item.State.String()) {
+			continue
+		}
+		blockingWorkspaces = append(blockingWorkspaces, domain.ProjectRepoWorkspaceReference{
+			ID:         item.ID,
+			TicketID:   item.TicketID,
+			AgentRunID: item.AgentRunID,
+			State:      item.State.String(),
+		})
+	}
+
+	if len(scopeItems) == 0 && len(blockingWorkspaces) == 0 {
 		return nil, nil
 	}
 
 	conflict := &domain.ProjectRepoDeleteConflict{
 		RepoID:       repoID,
 		TicketScopes: make([]domain.ProjectRepoScopeReference, 0, len(scopeItems)),
-		Workspaces:   make([]domain.ProjectRepoWorkspaceReference, 0, len(workspaceItems)),
+		Workspaces:   blockingWorkspaces,
 	}
 	for _, item := range scopeItems {
 		conflict.TicketScopes = append(conflict.TicketScopes, domain.ProjectRepoScopeReference{
 			ID:         item.ID,
 			TicketID:   item.TicketID,
 			BranchName: item.BranchName,
-		})
-	}
-	for _, item := range workspaceItems {
-		conflict.Workspaces = append(conflict.Workspaces, domain.ProjectRepoWorkspaceReference{
-			ID:         item.ID,
-			TicketID:   item.TicketID,
-			AgentRunID: item.AgentRunID,
-			State:      item.State.String(),
 		})
 	}
 	return conflict, nil
