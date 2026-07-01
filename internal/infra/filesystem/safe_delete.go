@@ -59,7 +59,7 @@ func RemoveTree(boundaryRoot string, target string) (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("stat deletion target %s: %w", cleanTarget, formatPathOpError(err))
+		return false, fmt.Errorf("stat deletion target %s: %w", cleanTarget, formatFSOpError("", err))
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
 		return false, ErrUnsafePath
@@ -85,29 +85,47 @@ func RemoveTree(boundaryRoot string, target string) (bool, error) {
 func resolveExistingPath(path string) (string, error) {
 	real, err := filepath.EvalSymlinks(path)
 	if err != nil {
-		return "", formatPathOpError(err)
+		return "", formatFSOpError("", err)
 	}
 	return real, nil
 }
 
-// formatPathOpError wraps path resolution/removal errors without calling Error() on
-// internal filepath sentinel values (e.g. errSymlink).
-func formatPathOpError(err error) error {
+// formatFSOpError wraps path resolution/removal errors without calling Error() on
+// internal filepath sentinel values (e.g. errSymlink). Pass an empty path for resolve-only errors.
+func formatFSOpError(path string, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, os.ErrNotExist) {
+	if path != "" {
+		if errors.Is(err, ErrUnsafePath) || errors.Is(err, ErrDeleteFailed) {
+			return err
+		}
+	}
+	if errors.Is(err, os.ErrNotExist) && path == "" {
 		return err
 	}
-	if errors.Is(err, os.ErrPermission) {
-		return fmt.Errorf("permission denied: %w", err)
-	}
+	trimPath := strings.TrimSpace(path)
 	var pathErr *os.PathError
 	if errors.As(err, &pathErr) && pathErr.Err != nil {
 		if errors.Is(pathErr.Err, os.ErrPermission) {
+			if trimPath != "" {
+				return fmt.Errorf("permission denied removing %s: %w", trimPath, pathErr)
+			}
 			return fmt.Errorf("permission denied: %w", pathErr)
 		}
+		if trimPath != "" {
+			return fmt.Errorf("remove %s: %w", trimPath, pathErr.Err)
+		}
 		return fmt.Errorf("%s: %w", pathErr.Op, pathErr.Err)
+	}
+	if errors.Is(err, os.ErrPermission) {
+		if trimPath != "" {
+			return fmt.Errorf("permission denied removing %s: %w", trimPath, err)
+		}
+		return fmt.Errorf("permission denied: %w", err)
+	}
+	if trimPath != "" {
+		return fmt.Errorf("remove %s: %w", trimPath, err)
 	}
 	return err
 }
@@ -118,30 +136,30 @@ func removeTreeAtRealPath(root string) error {
 		return nil
 	}
 	if err != nil {
-		return formatRemovePathError(root, err)
+		return formatFSOpError(root, err)
 	}
 	if rootInfo.Mode()&os.ModeSymlink != 0 {
 		if err := os.Remove(root); err != nil {
-			return formatRemovePathError(root, err)
+			return formatFSOpError(root, err)
 		}
 		return nil
 	}
 	if !rootInfo.IsDir() {
 		if err := os.Remove(root); err != nil {
-			return formatRemovePathError(root, err)
+			return formatFSOpError(root, err)
 		}
 		return nil
 	}
 
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		return formatRemovePathError(root, err)
+		return formatFSOpError(root, err)
 	}
 	for _, entry := range entries {
 		child := filepath.Join(root, entry.Name())
 		if entry.Type()&os.ModeSymlink != 0 {
 			if err := os.Remove(child); err != nil {
-				return formatRemovePathError(child, err)
+				return formatFSOpError(child, err)
 			}
 			continue
 		}
@@ -150,29 +168,7 @@ func removeTreeAtRealPath(root string) error {
 		}
 	}
 	if err := os.Remove(root); err != nil {
-		return formatRemovePathError(root, err)
+		return formatFSOpError(root, err)
 	}
 	return nil
-}
-
-func formatRemovePathError(path string, err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, ErrUnsafePath) || errors.Is(err, ErrDeleteFailed) {
-		return err
-	}
-	if errors.Is(err, os.ErrPermission) {
-		return fmt.Errorf("permission denied removing %s: %w", path, err)
-	}
-	var pathErr *os.PathError
-	if errors.As(err, &pathErr) {
-		if pathErr.Err != nil && errors.Is(pathErr.Err, os.ErrPermission) {
-			return fmt.Errorf("permission denied removing %s: %w", path, pathErr)
-		}
-		if pathErr.Err != nil {
-			return fmt.Errorf("remove %s: %w", path, pathErr.Err)
-		}
-	}
-	return fmt.Errorf("remove %s: %w", path, err)
 }

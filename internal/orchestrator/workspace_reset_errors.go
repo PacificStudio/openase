@@ -63,10 +63,6 @@ func sanitizeWorkspaceDeleteReason(err error) string {
 	if errors.Is(err, filesysteminfra.ErrUnsafePath) {
 		return "workspace path failed safety checks; refuse to delete outside the configured workspace root"
 	}
-	if errors.Is(err, filesysteminfra.ErrDeleteFailed) || errors.Is(err, os.ErrPermission) {
-		return extractActionableDeleteDetail(err)
-	}
-
 	return extractActionableDeleteDetail(err)
 }
 
