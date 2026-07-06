@@ -62,7 +62,7 @@ fi
 ensure_common_runtime_env
 
 if [[ -z "$env_name" ]]; then
-  env_name="$(derive_env_name "$branch")"
+  env_name="$(derive_env_name "${branch:-$ticket_identifier}")"
 fi
 if [[ -z "$app_name" && -n "$branch" ]]; then
   app_name="$(derive_app_name "$branch")"
@@ -81,7 +81,33 @@ deleted_names=()
 deleted_uuids=()
 
 if [[ -n "$ticket_identifier" ]]; then
-  api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
+  cache_key="$(printf '%s_%s\n' "$COOLIFY_PROJECT_UUID" "$env_name" | tr -c '[:alnum:]' '_')"
+  env_cache_file="/tmp/deploy-coolify-review-env-${cache_key}.json"
+
+  if [[ -f "$env_cache_file" ]]; then
+    API_STATUS="200"
+    API_BODY="$(<"$env_cache_file")"
+  else
+    attempt=0
+    while :; do
+      api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
+      case "$API_STATUS" in
+        200)
+          printf '%s' "$API_BODY" >"$env_cache_file"
+          break
+          ;;
+        429)
+          attempt=$((attempt + 1))
+          [[ $attempt -lt 5 ]] || break
+          sleep $((attempt * 2))
+          ;;
+        *)
+          break
+          ;;
+      esac
+    done
+  fi
+
   case "$API_STATUS" in
     200)
       ;;
@@ -140,6 +166,8 @@ for item in applications:
 
   if [[ ${#deleted_names[@]} -eq 0 ]]; then
     info "no application mapped to ticket $ticket_identifier in environment $env_name"
+  else
+    rm -f "$env_cache_file"
   fi
 else
   app_uuid="$(find_application_uuid_by_name "$app_name")"
@@ -181,6 +209,7 @@ app_uuid=""
 if [[ ${#deleted_uuids[@]} -gt 0 ]]; then
   app_uuid="${deleted_uuids[0]}"
 fi
+
 cat <<EOF
 environment_name=$env_name
 application_name=$app_name
