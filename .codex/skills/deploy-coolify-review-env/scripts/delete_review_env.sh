@@ -88,24 +88,10 @@ if [[ -n "$ticket_identifier" ]]; then
     API_STATUS="200"
     API_BODY="$(<"$env_cache_file")"
   else
-    attempt=0
-    while :; do
-      api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
-      case "$API_STATUS" in
-        200)
-          printf '%s' "$API_BODY" >"$env_cache_file"
-          break
-          ;;
-        429)
-          attempt=$((attempt + 1))
-          [[ $attempt -lt 5 ]] || break
-          sleep $((attempt * 2))
-          ;;
-        *)
-          break
-          ;;
-      esac
-    done
+    api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
+    if [[ "$API_STATUS" == "200" ]]; then
+      printf '%s' "$API_BODY" >"$env_cache_file"
+    fi
   fi
 
   case "$API_STATUS" in
@@ -169,33 +155,7 @@ for item in applications:
   else
     rm -f "$env_cache_file"
   fi
-else
-  app_uuid="$(find_application_uuid_by_name "$app_name")"
-  if [[ -n "$app_uuid" ]]; then
-    deleted_names+=("$app_name")
-    deleted_uuids+=("$app_uuid")
-    delete_application "$app_name" "$app_uuid"
-  else
-    info "application $app_name is already absent"
-  fi
-fi
 
-if [[ -z "$ticket_identifier" ]]; then
-  api_request DELETE "/api/v1/projects/$COOLIFY_PROJECT_UUID/environments/$env_name"
-  case "$API_STATUS" in
-    200)
-      info "deleted environment $env_name"
-      ;;
-    400|404|422)
-      info "environment $env_name is already absent or not empty"
-      ;;
-    *)
-      die "failed to delete environment $env_name: HTTP $API_STATUS: $API_BODY"
-      ;;
-  esac
-fi
-
-if [[ -n "$ticket_identifier" ]]; then
   printf 'environment_name=%s\n' "$env_name"
   printf 'ticket_identifier=%s\n' "$ticket_identifier"
   printf 'application_names='
@@ -203,6 +163,15 @@ if [[ -n "$ticket_identifier" ]]; then
   printf 'application_uuids='
   (IFS=,; printf '%s\n' "${deleted_uuids[*]:-}")
   exit 0
+fi
+
+app_uuid="$(find_application_uuid_by_name "$app_name")"
+if [[ -n "$app_uuid" ]]; then
+  deleted_names+=("$app_name")
+  deleted_uuids+=("$app_uuid")
+  delete_application "$app_name" "$app_uuid"
+else
+  info "application $app_name is already absent"
 fi
 
 app_uuid=""
