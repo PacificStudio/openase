@@ -77,9 +77,6 @@ delete_application() {
   [[ "$API_STATUS" == "200" ]] || die "failed to delete application $target_app_uuid: HTTP $API_STATUS: $API_BODY"
 }
 
-deleted_names=()
-deleted_uuids=()
-
 if [[ -n "$ticket_identifier" ]]; then
   cache_key="$(printf '%s_%s\n' "$COOLIFY_PROJECT_UUID" "$env_name" | tr -c '[:alnum:]' '_')"
   env_cache_file="/tmp/deploy-coolify-review-env-${cache_key}.json"
@@ -102,8 +99,9 @@ if [[ -n "$ticket_identifier" ]]; then
       cat <<EOF
 environment_name=$env_name
 ticket_identifier=$ticket_identifier
-application_names=
-application_uuids=
+result=already_absent
+application_name=
+application_uuid=
 EOF
       exit 0
       ;;
@@ -112,12 +110,7 @@ EOF
       ;;
   esac
 
-  while IFS=$'\t' read -r matched_name matched_uuid || [[ -n "$matched_name" || -n "$matched_uuid" ]]; do
-    [[ -n "$matched_name" && -n "$matched_uuid" ]] || continue
-    deleted_names+=("$matched_name")
-    deleted_uuids+=("$matched_uuid")
-    delete_application "$matched_name" "$matched_uuid"
-  done < <(
+  mapped_lines="$(
     TARGET_TICKET_IDENTIFIER="$ticket_identifier" python3 -c '
 import json
 import os
@@ -148,36 +141,69 @@ for item in applications:
     if any(pattern.search(value) for value in normalized):
         print("{}\t{}".format(item.get("name", ""), item.get("uuid", "")))
 ' <<<"$API_BODY"
-  )
+  )"
 
-  if [[ ${#deleted_names[@]} -eq 0 ]]; then
-    info "no application mapped to ticket $ticket_identifier in environment $env_name"
-  else
-    rm -f "$env_cache_file"
+  mapfile -t mapped_entries <<<"$mapped_lines"
+  mapped_count=0
+  if [[ -n "$mapped_lines" ]]; then
+    mapped_count="${#mapped_entries[@]}"
   fi
 
-  printf 'environment_name=%s\n' "$env_name"
-  printf 'ticket_identifier=%s\n' "$ticket_identifier"
-  printf 'application_names='
-  (IFS=,; printf '%s\n' "${deleted_names[*]:-}")
-  printf 'application_uuids='
-  (IFS=,; printf '%s\n' "${deleted_uuids[*]:-}")
+  case "$mapped_count" in
+    0)
+      info "no application mapped to ticket $ticket_identifier in environment $env_name"
+      cat <<EOF
+environment_name=$env_name
+ticket_identifier=$ticket_identifier
+result=already_absent
+application_name=
+application_uuid=
+EOF
+      ;;
+    1)
+      IFS=$'\t' read -r mapped_name mapped_uuid <<<"${mapped_entries[0]}"
+      delete_application "$mapped_name" "$mapped_uuid"
+      rm -f "$env_cache_file"
+      cat <<EOF
+environment_name=$env_name
+ticket_identifier=$ticket_identifier
+result=deleted
+application_name=$mapped_name
+application_uuid=$mapped_uuid
+EOF
+      ;;
+    *)
+      printf 'environment_name=%s\n' "$env_name"
+      printf 'ticket_identifier=%s\n' "$ticket_identifier"
+      printf 'result=ambiguous\n'
+      printf 'application_name='
+      printf '%s\n' "$(printf '%s\n' "${mapped_entries[@]}" | cut -f1 | paste -sd, -)"
+      printf 'application_uuid='
+      printf '%s\n' "$(printf '%s\n' "${mapped_entries[@]}" | cut -f2 | paste -sd, -)"
+      ;;
+  esac
   exit 0
 fi
 
 app_uuid="$(find_application_uuid_by_name "$app_name")"
 if [[ -n "$app_uuid" ]]; then
-  deleted_names+=("$app_name")
-  deleted_uuids+=("$app_uuid")
   delete_application "$app_name" "$app_uuid"
 else
   info "application $app_name is already absent"
 fi
 
-app_uuid=""
-if [[ ${#deleted_uuids[@]} -gt 0 ]]; then
-  app_uuid="${deleted_uuids[0]}"
-fi
+api_request DELETE "/api/v1/projects/$COOLIFY_PROJECT_UUID/environments/$env_name"
+case "$API_STATUS" in
+  200)
+    info "deleted environment $env_name"
+    ;;
+  404|422)
+    info "environment $env_name is already absent or not empty"
+    ;;
+  *)
+    die "failed to delete environment $env_name: HTTP $API_STATUS: $API_BODY"
+    ;;
+esac
 
 cat <<EOF
 environment_name=$env_name
