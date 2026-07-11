@@ -39,14 +39,16 @@ func Some[T any](value T) Optional[T] {
 }
 
 type TicketTemplate struct {
-	Title       string                    `json:"title"`
-	Description string                    `json:"description"`
-	Status      string                    `json:"status,omitempty"`
-	Priority    ticketservice.Priority    `json:"priority"`
-	Type        ticketservice.Type        `json:"type"`
-	CreatedBy   string                    `json:"created_by"`
-	BudgetUSD   float64                   `json:"budget_usd,omitempty"`
-	RepoScopes  []TicketTemplateRepoScope `json:"repo_scopes,omitempty"`
+	Title               string                    `json:"title"`
+	Description         string                    `json:"description"`
+	Status              string                    `json:"status,omitempty"`
+	Priority            ticketservice.Priority    `json:"priority"`
+	Type                ticketservice.Type        `json:"type"`
+	CreatedBy           string                    `json:"created_by"`
+	BudgetUSD           float64                   `json:"budget_usd,omitempty"`
+	RepoScopes          []TicketTemplateRepoScope `json:"repo_scopes,omitempty"`
+	CleanupDoneTickets  bool                      `json:"cleanup_done_tickets,omitempty"`
+	CleanupKeepStatuses []string                  `json:"cleanup_keep_statuses,omitempty"`
 }
 
 type TicketTemplateRepoScope struct {
@@ -138,7 +140,7 @@ func ParseRawTicketTemplate(raw map[string]any) (TicketTemplate, error) {
 
 	for key := range raw {
 		switch key {
-		case "title", "description", "status", "priority", "type", "created_by", "budget_usd", "repo_scopes":
+		case "title", "description", "status", "priority", "type", "created_by", "budget_usd", "repo_scopes", "cleanup_done_tickets", "cleanup_keep_statuses":
 		default:
 			return TicketTemplate{}, fmt.Errorf("%w: ticket_template.%s is not supported", ErrInvalidTicketTemplate, key)
 		}
@@ -204,16 +206,26 @@ func ParseRawTicketTemplate(raw map[string]any) (TicketTemplate, error) {
 	if err != nil {
 		return TicketTemplate{}, err
 	}
+	cleanupDoneTickets, err := parseOptionalBool(raw, "cleanup_done_tickets")
+	if err != nil {
+		return TicketTemplate{}, err
+	}
+	cleanupKeepStatuses, err := parseOptionalStringList(raw, "cleanup_keep_statuses")
+	if err != nil {
+		return TicketTemplate{}, err
+	}
 
 	return TicketTemplate{
-		Title:       title,
-		Description: description,
-		Status:      status,
-		Priority:    priority,
-		Type:        ticketType,
-		CreatedBy:   createdBy,
-		BudgetUSD:   budgetUSD,
-		RepoScopes:  repoScopes,
+		Title:               title,
+		Description:         description,
+		Status:              status,
+		Priority:            priority,
+		Type:                ticketType,
+		CreatedBy:           createdBy,
+		BudgetUSD:           budgetUSD,
+		RepoScopes:          repoScopes,
+		CleanupDoneTickets:  cleanupDoneTickets,
+		CleanupKeepStatuses: cleanupKeepStatuses,
 	}, nil
 }
 
@@ -235,6 +247,12 @@ func (t TicketTemplate) Raw() map[string]any {
 	}
 	if len(t.RepoScopes) > 0 {
 		raw["repo_scopes"] = rawTicketTemplateRepoScopes(t.RepoScopes)
+	}
+	if t.CleanupDoneTickets {
+		raw["cleanup_done_tickets"] = true
+	}
+	if len(t.CleanupKeepStatuses) > 0 {
+		raw["cleanup_keep_statuses"] = append([]string(nil), t.CleanupKeepStatuses...)
 	}
 
 	return raw
@@ -702,6 +720,59 @@ func parseBudgetUSD(value any) (float64, error) {
 	}
 
 	return floatValue, nil
+}
+
+func parseOptionalBool(raw map[string]any, fieldName string) (bool, error) {
+	value, ok := raw[fieldName]
+	if !ok {
+		return false, nil
+	}
+	boolValue, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("%w: ticket_template.%s must be a boolean", ErrInvalidTicketTemplate, fieldName)
+	}
+	return boolValue, nil
+}
+
+func parseOptionalStringList(raw map[string]any, fieldName string) ([]string, error) {
+	value, ok := raw[fieldName]
+	if !ok {
+		return nil, nil
+	}
+	items, ok := value.([]any)
+	if !ok {
+		if typed, ok := value.([]string); ok {
+			return normalizeStringList(fieldName, typed)
+		}
+		return nil, fmt.Errorf("%w: ticket_template.%s must be an array", ErrInvalidTicketTemplate, fieldName)
+	}
+
+	stringsOnly := make([]string, 0, len(items))
+	for index, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			return nil, fmt.Errorf("%w: ticket_template.%s[%d] must be a string", ErrInvalidTicketTemplate, fieldName, index)
+		}
+		stringsOnly = append(stringsOnly, text)
+	}
+	return normalizeStringList(fieldName, stringsOnly)
+}
+
+func normalizeStringList(fieldName string, values []string) ([]string, error) {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for index, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			return nil, fmt.Errorf("%w: ticket_template.%s[%d] must not be empty", ErrInvalidTicketTemplate, fieldName, index)
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+	return result, nil
 }
 
 func parseTicketTemplateRepoScopes(raw map[string]any) ([]TicketTemplateRepoScope, error) {

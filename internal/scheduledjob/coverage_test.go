@@ -12,13 +12,15 @@ import (
 func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	repoID := uuid.New()
 	template, err := ParseRawTicketTemplate(map[string]any{
-		"title":       " Daily Build ",
-		"description": " Run the workflow ",
-		"status":      " Todo ",
-		"priority":    "high",
-		"type":        "bugfix",
-		"created_by":  " system:test ",
-		"budget_usd":  4.5,
+		"title":                 " Daily Build ",
+		"description":           " Run the workflow ",
+		"status":                " Todo ",
+		"priority":              "high",
+		"type":                  "bugfix",
+		"created_by":            " system:test ",
+		"budget_usd":            4.5,
+		"cleanup_done_tickets":  true,
+		"cleanup_keep_statuses": []any{" Preview Deploy ", "In Review", "In Review"},
 		"repo_scopes": []map[string]any{{
 			"repo_id":     repoID.String(),
 			"branch_name": " release/candidate ",
@@ -27,8 +29,11 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseRawTicketTemplate() error = %v", err)
 	}
-	if template.Title != "Daily Build" || template.Description != "Run the workflow" || template.Status != "Todo" || template.Priority != ticketservice.PriorityHigh || template.Type != ticketservice.TypeBugfix || template.CreatedBy != "system:test" || template.BudgetUSD != 4.5 {
+	if template.Title != "Daily Build" || template.Description != "Run the workflow" || template.Status != "Todo" || template.Priority != ticketservice.PriorityHigh || template.Type != ticketservice.TypeBugfix || template.CreatedBy != "system:test" || template.BudgetUSD != 4.5 || !template.CleanupDoneTickets {
 		t.Fatalf("ParseRawTicketTemplate() = %+v", template)
+	}
+	if got := len(template.CleanupKeepStatuses); got != 2 || template.CleanupKeepStatuses[0] != "Preview Deploy" || template.CleanupKeepStatuses[1] != "In Review" {
+		t.Fatalf("ParseRawTicketTemplate() cleanup keep statuses = %+v", template.CleanupKeepStatuses)
 	}
 	if len(template.RepoScopes) != 1 || template.RepoScopes[0].RepoID != repoID {
 		t.Fatalf("ParseRawTicketTemplate() repo scopes = %+v", template.RepoScopes)
@@ -38,8 +43,11 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	}
 
 	raw := template.Raw()
-	if raw["title"] != "Daily Build" || raw["budget_usd"] != 4.5 {
+	if raw["title"] != "Daily Build" || raw["budget_usd"] != 4.5 || raw["cleanup_done_tickets"] != true {
 		t.Fatalf("TicketTemplate.Raw() = %+v", raw)
+	}
+	if got := raw["cleanup_keep_statuses"].([]string); len(got) != 2 || got[0] != "Preview Deploy" || got[1] != "In Review" {
+		t.Fatalf("TicketTemplate.Raw() cleanup_keep_statuses = %+v", raw["cleanup_keep_statuses"])
 	}
 	if len(raw["repo_scopes"].([]map[string]any)) != 1 {
 		t.Fatalf("TicketTemplate.Raw() repo_scopes = %+v", raw["repo_scopes"])
@@ -48,7 +56,7 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseRawTicketTemplate(minimal) error = %v", err)
 	}
-	if minimal.Priority != ticketservice.DefaultPriority || minimal.Type != ticketservice.DefaultType || minimal.CreatedBy != defaultCreatedBy {
+	if minimal.Priority != ticketservice.DefaultPriority || minimal.Type != ticketservice.DefaultType || minimal.CreatedBy != defaultCreatedBy || minimal.CleanupDoneTickets || len(minimal.CleanupKeepStatuses) != 0 {
 		t.Fatalf("ParseRawTicketTemplate(minimal) = %+v", minimal)
 	}
 	if got := minimal.Raw(); got["created_by"] != defaultCreatedBy {
@@ -75,6 +83,15 @@ func TestScheduledJobTemplateParsingHelpers(t *testing.T) {
 	}
 	if _, err := ParseRawTicketTemplate(map[string]any{"title": "Task", "budget_usd": -1.0}); err == nil {
 		t.Fatal("ParseRawTicketTemplate(budget negative) expected error")
+	}
+	if _, err := ParseRawTicketTemplate(map[string]any{"title": "Task", "cleanup_done_tickets": "yes"}); err == nil {
+		t.Fatal("ParseRawTicketTemplate(cleanup_done_tickets type) expected error")
+	}
+	if _, err := ParseRawTicketTemplate(map[string]any{"title": "Task", "cleanup_keep_statuses": "In Review"}); err == nil {
+		t.Fatal("ParseRawTicketTemplate(cleanup_keep_statuses type) expected error")
+	}
+	if _, err := ParseRawTicketTemplate(map[string]any{"title": "Task", "cleanup_keep_statuses": []any{"In Review", " "}}); err == nil {
+		t.Fatal("ParseRawTicketTemplate(cleanup_keep_statuses blank) expected error")
 	}
 	if _, err := ParseRawTicketTemplate(map[string]any{
 		"title": "Task",
