@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.1](https://github.com/PacificStudio/openase/compare/v0.8.0...v0.8.1) (2026-07-11)
+
+
+### Bug Fixes
+
+* **deps:** upgrade go-billy to v5.9.0 ([64ae623](https://github.com/PacificStudio/openase/commit/64ae62310c09da4d573a606892467b4047999651))
+* upgrade desktop axios override for ASE-522 ([d011cd9](https://github.com/PacificStudio/openase/commit/d011cd929d6019abac367f2abc9003d30972143e))
+* upgrade go-git to v5.19.0 ([aa1aa09](https://github.com/PacificStudio/openase/commit/aa1aa091a6c1a87a56929d8994afb781b4917b33))
+* **web:** upgrade svelte to 5.55.7 ([c88d5ca](https://github.com/PacificStudio/openase/commit/c88d5cad8f88bed0b667da5e52e40a5c3ca25965))
+
 ## [0.8.0](https://github.com/PacificStudio/openase/compare/v0.7.0...v0.8.0) (2026-05-10)
 
 
