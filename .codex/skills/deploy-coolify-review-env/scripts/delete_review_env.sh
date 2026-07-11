@@ -78,37 +78,17 @@ delete_application() {
 }
 
 if [[ -n "$ticket_identifier" ]]; then
-  cache_key="$(printf '%s_%s\n' "$COOLIFY_PROJECT_UUID" "$env_name" | tr -c '[:alnum:]' '_')"
-  env_cache_file="/tmp/deploy-coolify-review-env-${cache_key}.json"
+  cache_key="$(printf '%s_%s\n' "$COOLIFY_SERVER_UUID" "$env_name" | tr -c '[:alnum:]' '_')"
+  resource_cache_file="/tmp/deploy-coolify-review-env-${cache_key}.json"
 
-  if [[ -f "$env_cache_file" ]]; then
+  if [[ -f "$resource_cache_file" ]]; then
     API_STATUS="200"
-    API_BODY="$(<"$env_cache_file")"
+    API_BODY="$(<"$resource_cache_file")"
   else
-    api_request GET "/api/v1/projects/$COOLIFY_PROJECT_UUID/$env_name"
-    if [[ "$API_STATUS" == "200" ]]; then
-      printf '%s' "$API_BODY" >"$env_cache_file"
-    fi
+    api_request GET "/api/v1/servers/$COOLIFY_SERVER_UUID/resources"
+    [[ "$API_STATUS" == "200" ]] || die "failed to list server resources: HTTP $API_STATUS: $API_BODY"
+    printf '%s' "$API_BODY" >"$resource_cache_file"
   fi
-
-  case "$API_STATUS" in
-    200)
-      ;;
-    404)
-      info "environment $env_name is already absent"
-      cat <<EOF
-environment_name=$env_name
-ticket_identifier=$ticket_identifier
-result=already_absent
-application_name=
-application_uuid=
-EOF
-      exit 0
-      ;;
-    *)
-      die "failed to inspect environment $env_name: HTTP $API_STATUS: $API_BODY"
-      ;;
-  esac
 
   mapped_lines="$(
     TARGET_TICKET_IDENTIFIER="$ticket_identifier" python3 -c '
@@ -118,8 +98,7 @@ import re
 import sys
 
 ticket_identifier = os.environ["TARGET_TICKET_IDENTIFIER"]
-data = json.load(sys.stdin)
-applications = data.get("applications", [])
+items = json.load(sys.stdin)
 
 def normalize(value: str) -> str:
     value = value.strip().lower()
@@ -130,16 +109,12 @@ def normalize(value: str) -> str:
 ticket_slug = normalize(ticket_identifier)
 pattern = re.compile(r"(^|-){}(-|$)".format(re.escape(ticket_slug)))
 
-for item in applications:
-    haystacks = [
-        item.get("name", ""),
-        item.get("git_branch", ""),
-        item.get("description", ""),
-        item.get("fqdn", ""),
-    ]
-    normalized = [normalize(value) for value in haystacks if value]
-    if any(pattern.search(value) for value in normalized):
-        print("{}\t{}".format(item.get("name", ""), item.get("uuid", "")))
+for item in items:
+    if item.get("type") != "application":
+        continue
+    name = item.get("name", "")
+    if pattern.search(normalize(name)):
+        print("{}\t{}".format(name, item.get("uuid", "")))
 ' <<<"$API_BODY"
   )"
 
@@ -163,7 +138,7 @@ EOF
     1)
       IFS=$'\t' read -r mapped_name mapped_uuid <<<"${mapped_entries[0]}"
       delete_application "$mapped_name" "$mapped_uuid"
-      rm -f "$env_cache_file"
+      rm -f "$resource_cache_file"
       cat <<EOF
 environment_name=$env_name
 ticket_identifier=$ticket_identifier
@@ -176,10 +151,8 @@ EOF
       printf 'environment_name=%s\n' "$env_name"
       printf 'ticket_identifier=%s\n' "$ticket_identifier"
       printf 'result=ambiguous\n'
-      printf 'application_name='
-      printf '%s\n' "$(printf '%s\n' "${mapped_entries[@]}" | cut -f1 | paste -sd, -)"
-      printf 'application_uuid='
-      printf '%s\n' "$(printf '%s\n' "${mapped_entries[@]}" | cut -f2 | paste -sd, -)"
+      printf 'application_name=%s\n' "$(printf '%s\n' "${mapped_entries[@]}" | cut -f1 | paste -sd, -)"
+      printf 'application_uuid=%s\n' "$(printf '%s\n' "${mapped_entries[@]}" | cut -f2 | paste -sd, -)"
       ;;
   esac
   exit 0
