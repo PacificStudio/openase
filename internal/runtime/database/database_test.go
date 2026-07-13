@@ -2,12 +2,17 @@ package database
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
+	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
 
@@ -401,6 +406,152 @@ func TestOpenMigratesLegacyWorkflowVersionSchema(t *testing.T) {
 	}
 	if maxConcurrent != 2 || maxRetryAttempts != 4 || timeoutMinutes != 90 || stallTimeoutMinutes != 11 || !isActive {
 		t.Fatalf("unexpected migrated execution settings: max=%d retry=%d timeout=%d stall=%d active=%t", maxConcurrent, maxRetryAttempts, timeoutMinutes, stallTimeoutMinutes, isActive)
+	}
+}
+
+func TestOpenRunsStartupWorkflowMetadataMigration(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := startEmbeddedPostgres(t)
+
+	client, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("Open() initial schema setup error = %v", err)
+	}
+
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Platform").
+		SetSlug("platform").
+		SetStatus("In Progress").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	todo, err := client.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("Todo").
+		SetPosition(10).
+		SetStage("unstarted").
+		SetColor("#3B82F6").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create todo status: %v", err)
+	}
+	done, err := client.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("Done").
+		SetPosition(20).
+		SetStage("completed").
+		SetColor("#10B981").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create done status: %v", err)
+	}
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Coding Workflow").
+		SetType("coding").
+		SetHarnessPath(".openase/harnesses/coding-workflow.md").
+		AddPickupStatusIDs(todo.ID).
+		AddFinishStatusIDs(done.ID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	legacyHarness := `---
+workflow:
+  name: Fullstack Developer
+  role: fullstack-developer
+platform_access:
+  allowed:
+    - tickets.list
+    - tickets.update.self
+---
+Build and verify the feature.
+
+Follow-up paragraph.
+`
+	sum := sha256.Sum256([]byte(legacyHarness))
+	versionItem, err := client.WorkflowVersion.Create().
+		SetWorkflowID(workflowItem.ID).
+		SetVersion(1).
+		SetContentMarkdown(legacyHarness).
+		SetName(workflowItem.Name).
+		SetType(workflowItem.Type).
+		SetPickupStatusIds(pgarray.StringArray{todo.ID.String()}).
+		SetFinishStatusIds(pgarray.StringArray{done.ID.String()}).
+		SetHarnessPath(workflowItem.HarnessPath).
+		SetHooks(workflowItem.Hooks).
+		SetPlatformAccessAllowed(workflowItem.PlatformAccessAllowed).
+		SetMaxConcurrent(workflowItem.MaxConcurrent).
+		SetMaxRetryAttempts(workflowItem.MaxRetryAttempts).
+		SetTimeoutMinutes(workflowItem.TimeoutMinutes).
+		SetStallTimeoutMinutes(workflowItem.StallTimeoutMinutes).
+		SetIsActive(workflowItem.IsActive).
+		SetContentHash(hex.EncodeToString(sum[:])).
+		SetCreatedBy("tester").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow version: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(workflowItem.ID).SetCurrentVersionID(versionItem.ID).Save(ctx); err != nil {
+		t.Fatalf("set current version: %v", err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("close initial runtime ent client: %v", err)
+	}
+
+	reopened, err := Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("Open() startup migration error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := reopened.Close(); err != nil {
+			t.Errorf("close runtime ent client: %v", err)
+		}
+	})
+
+	repo := workflowrepo.NewEntRepository(reopened)
+	migratedWorkflow, err := repo.Get(ctx, workflowItem.ID)
+	if err != nil {
+		t.Fatalf("repo.Get() after startup migration error = %v", err)
+	}
+	if migratedWorkflow.RoleSlug != "fullstack-developer" {
+		t.Fatalf("workflow role_slug = %q, want fullstack-developer", migratedWorkflow.RoleSlug)
+	}
+	if migratedWorkflow.RoleName != "Fullstack Developer" {
+		t.Fatalf("workflow role_name = %q, want Fullstack Developer", migratedWorkflow.RoleName)
+	}
+	if migratedWorkflow.RoleDescription != "Build and verify the feature." {
+		t.Fatalf("workflow role_description = %q, want first body paragraph", migratedWorkflow.RoleDescription)
+	}
+	if !slices.Equal(migratedWorkflow.PlatformAccessAllowed, []string{"tickets.list", "tickets.update.self"}) {
+		t.Fatalf("workflow platform_access_allowed = %#v", migratedWorkflow.PlatformAccessAllowed)
+	}
+
+	migratedVersion, err := repo.CurrentWorkflowVersion(ctx, workflowItem.ID)
+	if err != nil {
+		t.Fatalf("repo.CurrentWorkflowVersion() after startup migration error = %v", err)
+	}
+	if got := migratedVersion.ContentMarkdown; got != "Build and verify the feature.\n\nFollow-up paragraph.\n" {
+		t.Fatalf("workflow version content_markdown = %q, want stripped harness body", got)
+	}
+	if migratedVersion.RoleSlug != "fullstack-developer" || migratedVersion.RoleName != "Fullstack Developer" {
+		t.Fatalf("workflow version role metadata = %+v", migratedVersion)
+	}
+	if !slices.Equal(migratedVersion.PlatformAccessAllowed, []string{"tickets.list", "tickets.update.self"}) {
+		t.Fatalf("workflow version platform_access_allowed = %#v", migratedVersion.PlatformAccessAllowed)
 	}
 }
 

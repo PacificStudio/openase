@@ -13,6 +13,7 @@ import (
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
 	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
+	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
 	// Register the PostgreSQL SQL driver used by database/sql and ent.
@@ -35,7 +36,7 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	ticketrepo.InstallRetryTokenHooks(client)
 
 	if err := withSchemaBootstrapLock(ctx, trimmedDSN, func() error {
-		if err := applyLegacySchemaCompat(ctx, trimmedDSN); err != nil {
+		if err := applySchemaBootstrapDDL(ctx, trimmedDSN); err != nil {
 			return err
 		}
 		if err := client.Schema.Create(
@@ -44,6 +45,9 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 			entmigrate.WithDropIndex(false),
 		); err != nil {
 			return fmt.Errorf("migrate database schema: %w", err)
+		}
+		if err := runStartupDataMigrations(ctx, client); err != nil {
+			return err
 		}
 		return nil
 	}); err != nil {
@@ -54,10 +58,10 @@ func Open(ctx context.Context, dsn string) (*ent.Client, error) {
 	return client, nil
 }
 
-func applyLegacySchemaCompat(ctx context.Context, dsn string) error {
+func applySchemaBootstrapDDL(ctx context.Context, dsn string) error {
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
-		return fmt.Errorf("open database for legacy schema compat: %w", err)
+		return fmt.Errorf("open database for schema bootstrap preparation: %w", err)
 	}
 	defer func() {
 		_ = db.Close()
@@ -72,7 +76,7 @@ func applyLegacySchemaCompat(ctx context.Context, dsn string) error {
 			WHERE table_schema = 'public' AND table_name = 'agent_providers'
 		)`,
 	).Scan(&hasAgentProviders); err != nil {
-		return fmt.Errorf("detect legacy agent provider schema: %w", err)
+		return fmt.Errorf("detect existing agent provider schema: %w", err)
 	}
 
 	if hasAgentProviders {
@@ -91,22 +95,22 @@ func applyLegacySchemaCompat(ctx context.Context, dsn string) error {
 		}
 		for _, statement := range statements {
 			if _, err := db.ExecContext(ctx, statement); err != nil {
-				return fmt.Errorf("apply legacy agent provider schema compat: %w", err)
+				return fmt.Errorf("prepare agent provider schema for bootstrap: %w", err)
 			}
 		}
 	}
 
-	if err := applyLegacyWorkflowVersionSchemaCompat(ctx, db); err != nil {
+	if err := prepareWorkflowVersionSchemaBootstrap(ctx, db); err != nil {
 		return err
 	}
-	if err := applyLegacyProjectSchemaCompat(ctx, db); err != nil {
+	if err := prepareProjectSchemaBootstrap(ctx, db); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func applyLegacyWorkflowVersionSchemaCompat(ctx context.Context, db *sql.DB) error {
+func prepareWorkflowVersionSchemaBootstrap(ctx context.Context, db *sql.DB) error {
 	var hasWorkflowVersions bool
 	if err := db.QueryRowContext(
 		ctx,
@@ -116,7 +120,7 @@ func applyLegacyWorkflowVersionSchemaCompat(ctx context.Context, db *sql.DB) err
 			WHERE table_schema = 'public' AND table_name = 'workflow_versions'
 		)`,
 	).Scan(&hasWorkflowVersions); err != nil {
-		return fmt.Errorf("detect legacy workflow version schema: %w", err)
+		return fmt.Errorf("detect existing workflow version schema: %w", err)
 	}
 	if !hasWorkflowVersions {
 		return nil
@@ -169,14 +173,14 @@ func applyLegacyWorkflowVersionSchemaCompat(ctx context.Context, db *sql.DB) err
 	}
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("apply legacy workflow version schema compat: %w", err)
+			return fmt.Errorf("prepare workflow version schema for bootstrap: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func applyLegacyProjectSchemaCompat(ctx context.Context, db *sql.DB) error {
+func prepareProjectSchemaBootstrap(ctx context.Context, db *sql.DB) error {
 	var hasProjects bool
 	if err := db.QueryRowContext(
 		ctx,
@@ -186,7 +190,7 @@ func applyLegacyProjectSchemaCompat(ctx context.Context, db *sql.DB) error {
 			WHERE table_schema = 'public' AND table_name = 'projects'
 		)`,
 	).Scan(&hasProjects); err != nil {
-		return fmt.Errorf("detect legacy project schema: %w", err)
+		return fmt.Errorf("detect existing project schema: %w", err)
 	}
 	if !hasProjects {
 		return nil
@@ -222,10 +226,17 @@ func applyLegacyProjectSchemaCompat(ctx context.Context, db *sql.DB) error {
 	}
 	for _, statement := range statements {
 		if _, err := db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("apply legacy project schema compat: %w", err)
+			return fmt.Errorf("prepare project schema for bootstrap: %w", err)
 		}
 	}
 
+	return nil
+}
+
+func runStartupDataMigrations(ctx context.Context, client *ent.Client) error {
+	if err := workflowrepo.NewEntRepository(client).MigrateLegacyMetadata(ctx); err != nil {
+		return fmt.Errorf("run startup data migrations: %w", err)
+	}
 	return nil
 }
 

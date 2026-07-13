@@ -8,13 +8,7 @@ func CountLegacyProviderInlineSecretBindings(items []AgentProvider) (int, int) {
 	providersWithLegacy := 0
 	legacyBindingCount := 0
 	for _, item := range items {
-		providerLegacyCount := 0
-		for _, binding := range AgentProviderSecretBindings(item.AdapterType, item.AuthConfig) {
-			if binding.Source != AgentProviderSecretBindingSourceLegacyAuthConfig {
-				continue
-			}
-			providerLegacyCount++
-		}
+		providerLegacyCount := len(LegacyAgentProviderSecretBindings(item.AdapterType, item.AuthConfig))
 		if providerLegacyCount == 0 {
 			continue
 		}
