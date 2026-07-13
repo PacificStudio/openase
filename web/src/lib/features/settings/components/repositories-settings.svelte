@@ -39,6 +39,7 @@
   saving={state.ui.saving}
   githubRepos={state.ui.githubRepos}
   githubRepoQuery={state.ui.githubRepoQuery}
+  githubRepoLoadedQuery={state.ui.githubRepoLoadedQuery}
   githubReposLoading={state.ui.githubReposLoading}
   githubReposLoadingMore={state.ui.githubReposLoadingMore}
   githubReposNextCursor={state.ui.githubReposNextCursor}

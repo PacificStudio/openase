@@ -4,10 +4,12 @@
   import { Search } from '@lucide/svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
   import type { GitHubRepositoryRecord } from '../repositories-model'
+  import { githubRepositoryBrowserEmptyStateKey } from './repositories-settings-github'
 
   let {
     repos = [],
     query = '',
+    lastLoadedQuery = '',
     loading = false,
     loadingMore = false,
     nextCursor = '',
@@ -20,6 +22,8 @@
   }: {
     repos?: GitHubRepositoryRecord[]
     query?: string
+    /** Query from the last completed list fetch; used to distinguish empty states. */
+    lastLoadedQuery?: string
     loading?: boolean
     loadingMore?: boolean
     nextCursor?: string
@@ -30,9 +34,17 @@
     onLoadMore?: () => void
     onBind?: (repo: GitHubRepositoryRecord) => void
   } = $props()
+
+  const emptyStateKey = $derived(
+    githubRepositoryBrowserEmptyStateKey(query, lastLoadedQuery),
+  )
 </script>
 
 <div class="flex flex-col gap-3">
+  <p class="text-muted-foreground text-xs leading-relaxed">
+    {i18nStore.t('settings.repositoryGitHubBrowser.hints.tokenScope')}
+  </p>
+
   <div
     class="border-input focus-within:ring-ring flex items-center gap-2 rounded-md border px-3 focus-within:ring-1"
   >
@@ -66,8 +78,13 @@
       {i18nStore.t('settings.repositoryGitHubBrowser.status.loading')}
     </div>
   {:else if repos.length === 0}
-    <div class="text-muted-foreground py-6 text-center text-xs">
-      {i18nStore.t('settings.repositoryGitHubBrowser.messages.noMatch')}
+    <div class="flex flex-col items-center gap-1.5 py-6 text-center">
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t(emptyStateKey)}
+      </p>
+      <p class="text-muted-foreground/80 max-w-sm text-[11px] leading-relaxed">
+        {i18nStore.t('settings.repositoryGitHubBrowser.hints.permissionLimited')}
+      </p>
     </div>
   {:else}
     <div

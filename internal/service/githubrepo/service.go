@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -246,12 +247,17 @@ func (s *service) searchRepositories(
 				continue
 			}
 			collected = append(collected, mapped)
-			if len(collected) == pageSize {
-				if hasNextLink(headers) {
-					nextCursor = strconv.Itoa(page + 1)
-				}
-				return domain.RepositoryPage{Repositories: collected, NextCursor: nextCursor}, nil
+		}
+
+		rankRepositoriesByQuery(collected, query)
+		if len(collected) >= pageSize {
+			if hasNextLink(headers) {
+				nextCursor = strconv.Itoa(page + 1)
 			}
+			return domain.RepositoryPage{
+				Repositories: collected[:pageSize],
+				NextCursor:   nextCursor,
+			}, nil
 		}
 
 		scannedPages++
@@ -288,12 +294,14 @@ func (s *service) searchBrowsableRepositories(
 				continue
 			}
 			collected = append(collected, repo)
-			if len(collected) == pageSize {
-				return domain.RepositoryPage{
-					Repositories: collected,
-					NextCursor:   browsePage.NextCursor,
-				}, nil
-			}
+		}
+
+		rankRepositoriesByQuery(collected, query)
+		if len(collected) >= pageSize {
+			return domain.RepositoryPage{
+				Repositories: collected[:pageSize],
+				NextCursor:   browsePage.NextCursor,
+			}, nil
 		}
 
 		scannedPages++
@@ -301,10 +309,7 @@ func (s *service) searchBrowsableRepositories(
 			return domain.RepositoryPage{Repositories: collected}, nil
 		}
 		if scannedPages >= maxSearchPages {
-			return domain.RepositoryPage{
-				Repositories: collected,
-				NextCursor:   browsePage.NextCursor,
-			}, nil
+			return domain.RepositoryPage{Repositories: collected, NextCursor: browsePage.NextCursor}, nil
 		}
 		currentPage++
 	}
@@ -560,13 +565,111 @@ func mapRepository(repo githubRepository) domain.Repository {
 }
 
 func matchesRepositoryQuery(repo domain.Repository, query string) bool {
-	return strings.Contains(strings.ToLower(repo.Name), query) ||
-		strings.Contains(strings.ToLower(repo.FullName), query) ||
-		strings.Contains(strings.ToLower(repo.Owner), query)
+	pq := parseRepositoryQuery(query)
+	if repositoryQueryRank(repo, pq) >= 0 {
+		return true
+	}
+	return false
+}
+
+type parsedRepositoryQuery struct {
+	raw      string
+	owner    string
+	repo     string
+	hasSlash bool
+}
+
+func parseRepositoryQuery(query string) parsedRepositoryQuery {
+	raw := strings.ToLower(strings.TrimSpace(query))
+	pq := parsedRepositoryQuery{raw: raw}
+	if raw == "" {
+		return pq
+	}
+	if !strings.Contains(raw, "/") {
+		return pq
+	}
+	parts := strings.SplitN(raw, "/", 2)
+	pq.owner = strings.TrimSpace(parts[0])
+	if len(parts) > 1 {
+		pq.repo = strings.TrimSpace(parts[1])
+	}
+	pq.hasSlash = pq.owner != "" || pq.repo != ""
+	return pq
+}
+
+const (
+	repositoryRankExactFullName = 1000
+	repositoryRankExactName     = 900
+	repositoryRankOwnerRepo     = 800
+	repositoryRankPrefix        = 700
+	repositoryRankOwnerPrefix   = 600
+	repositoryRankFuzzy         = 100
+)
+
+func repositoryQueryRank(repo domain.Repository, pq parsedRepositoryQuery) int {
+	if pq.raw == "" {
+		return -1
+	}
+
+	nameLower := strings.ToLower(repo.Name)
+	fullLower := strings.ToLower(repo.FullName)
+	ownerLower := strings.ToLower(repo.Owner)
+
+	if strings.EqualFold(repo.FullName, pq.raw) {
+		return repositoryRankExactFullName
+	}
+	if strings.EqualFold(repo.Name, pq.raw) {
+		return repositoryRankExactName
+	}
+
+	if pq.hasSlash && pq.owner != "" {
+		wantFull := pq.owner
+		if pq.repo != "" {
+			wantFull = pq.owner + "/" + pq.repo
+		}
+		if strings.EqualFold(repo.FullName, wantFull) {
+			return repositoryRankExactFullName
+		}
+		if pq.repo != "" && strings.EqualFold(repo.Name, pq.repo) && strings.EqualFold(repo.Owner, pq.owner) {
+			return repositoryRankExactName
+		}
+		if pq.repo != "" {
+			if strings.HasPrefix(fullLower, wantFull) {
+				return repositoryRankOwnerRepo
+			}
+		} else if strings.HasPrefix(ownerLower, pq.owner) {
+			return repositoryRankOwnerPrefix
+		}
+	}
+
+	if strings.HasPrefix(nameLower, pq.raw) || strings.HasPrefix(fullLower, pq.raw) {
+		return repositoryRankPrefix
+	}
+	if !pq.hasSlash && strings.HasPrefix(ownerLower, pq.raw) {
+		return repositoryRankOwnerPrefix
+	}
+
+	if strings.Contains(nameLower, pq.raw) ||
+		strings.Contains(fullLower, pq.raw) ||
+		strings.Contains(ownerLower, pq.raw) {
+		return repositoryRankFuzzy
+	}
+	return -1
+}
+
+func rankRepositoriesByQuery(repos []domain.Repository, query string) {
+	pq := parseRepositoryQuery(query)
+	sort.SliceStable(repos, func(i, j int) bool {
+		return repositoryQueryRank(repos[i], pq) > repositoryQueryRank(repos[j], pq)
+	})
 }
 
 func buildRepositorySearchQuery(query string, namespaces []domain.Namespace) string {
+	pq := parseRepositoryQuery(query)
 	parts := []string{query, "fork:true"}
+	if pq.hasSlash && pq.owner != "" && pq.repo != "" {
+		parts = append([]string{"repo:" + pq.owner + "/" + pq.repo}, parts...)
+	}
 	qualifiers := make([]string, 0, len(namespaces))
 	for _, namespace := range namespaces {
 		login := strings.TrimSpace(namespace.Login)

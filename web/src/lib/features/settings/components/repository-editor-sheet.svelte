@@ -23,6 +23,7 @@
     saving = false,
     githubRepos = [],
     githubRepoQuery = '',
+    githubRepoLoadedQuery = '',
     githubReposLoading = false,
     githubReposLoadingMore = false,
     githubReposNextCursor = '',
@@ -48,6 +49,7 @@
     saving?: boolean
     githubRepos?: GitHubRepositoryRecord[]
     githubRepoQuery?: string
+    githubRepoLoadedQuery?: string
     githubReposLoading?: boolean
     githubReposLoadingMore?: boolean
     githubReposNextCursor?: string
@@ -116,6 +118,7 @@
             <RepositoryGitHubBrowser
               repos={githubRepos}
               query={githubRepoQuery}
+              lastLoadedQuery={githubRepoLoadedQuery}
               loading={githubReposLoading}
               loadingMore={githubReposLoadingMore}
               nextCursor={githubReposNextCursor}
