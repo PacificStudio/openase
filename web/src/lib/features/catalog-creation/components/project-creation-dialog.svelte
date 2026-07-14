@@ -6,7 +6,8 @@
   import {
     createProjectDraft,
     parseProjectDraft,
-    projectStatusOptions,
+    projectStatusI18nKey,
+    projectStatusOptionsForCreate,
     slugFromName,
     type ProjectCreationDraft,
   } from '$lib/features/catalog-creation/model'
@@ -161,13 +162,23 @@
               value={draft.status}
               onValueChange={(value) => updateField('status', value || 'Planned')}
             >
-              <Select.Trigger class="w-full">{draft.status}</Select.Trigger>
+              <Select.Trigger class="w-full">
+                {i18nStore.t(projectStatusI18nKey(draft.status))}
+              </Select.Trigger>
               <Select.Content>
-                {#each projectStatusOptions as status (status)}
-                  <Select.Item value={status}>{status}</Select.Item>
+                {#each projectStatusOptionsForCreate as status (status)}
+                  <Select.Item value={status}>
+                    {i18nStore.t(projectStatusI18nKey(status))}
+                  </Select.Item>
                 {/each}
               </Select.Content>
             </Select.Root>
+            <p class="text-muted-foreground text-xs">
+              {i18nStore.t('catalog.project.dialog.status.helper')}
+            </p>
+            <p class="text-muted-foreground text-xs">
+              {i18nStore.t(projectStatusI18nKey(draft.status))}
+            </p>
           </div>
 
           <div class="space-y-2">

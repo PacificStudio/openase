@@ -1,7 +1,10 @@
 <script lang="ts">
   import type { AgentProvider } from '$lib/api/contracts'
   import type { ProjectCreationDraft } from '$lib/features/catalog-creation/model'
-  import { projectStatusOptions } from '$lib/features/catalog-creation/model'
+  import {
+    projectStatusI18nKey,
+    projectStatusOptionsForCreate,
+  } from '$lib/features/catalog-creation/model'
   import { adapterIconPath, providerAvailabilityLabel } from '$lib/features/providers'
   import { providerIsDispatchReady } from '$lib/features/providers'
   import { Button } from '$ui/button'
@@ -13,6 +16,7 @@
   import { Textarea } from '$ui/textarea'
   import { ChevronRight, Wrench } from '@lucide/svelte'
   import { i18nStore } from '$lib/i18n/store.svelte'
+  import type { TranslationKey } from '$lib/i18n'
 
   let {
     draft,
@@ -90,13 +94,23 @@
             value={draft.status}
             onValueChange={(value) => onFieldChange?.('status', value || 'Planned')}
           >
-            <Select.Trigger class="w-full">{draft.status}</Select.Trigger>
+            <Select.Trigger class="w-full">
+              {i18nStore.t(projectStatusI18nKey(draft.status) as TranslationKey)}
+            </Select.Trigger>
             <Select.Content>
-              {#each projectStatusOptions as status (status)}
-                <Select.Item value={status}>{status}</Select.Item>
+              {#each projectStatusOptionsForCreate as status (status)}
+                <Select.Item value={status}>
+                  {i18nStore.t(projectStatusI18nKey(status) as TranslationKey)}
+                </Select.Item>
               {/each}
             </Select.Content>
           </Select.Root>
+          <p class="text-muted-foreground text-xs">
+            {i18nStore.t('catalog.project.dialog.status.helper')}
+          </p>
+          <p class="text-muted-foreground text-xs">
+            {i18nStore.t(projectStatusI18nKey(draft.status) as TranslationKey)}
+          </p>
         </div>
 
         <div class="space-y-2">
