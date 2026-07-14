@@ -1,0 +1,174 @@
+package filesystem
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// ErrUnsafePath indicates the delete target failed symlink or boundary safety checks.
+var ErrUnsafePath = errors.New("unsafe path for deletion")
+
+// ErrDeleteFailed indicates deletion could not be completed (permissions, partial delete, etc.).
+var ErrDeleteFailed = errors.New("path deletion failed")
+
+// PathWithinRoot reports whether target is root itself or a descendant path segment under root
+// (string prefix check on cleaned paths; use after symlink resolution for enforcement).
+func PathWithinRoot(root string, target string) bool {
+	cleanRoot := filepath.Clean(root)
+	cleanTarget := filepath.Clean(target)
+	if cleanRoot == cleanTarget {
+		return true
+	}
+	return strings.HasPrefix(cleanTarget, cleanRoot+string(os.PathSeparator))
+}
+
+// RemoveTree deletes target and its contents after local safety checks.
+//
+// When boundaryRoot is non-empty, target must be a strict descendant of boundaryRoot (neither
+// may equal the other after symlink resolution). The boundary root must not be a symlink that
+// escapes its lexical path.
+//
+// Returns whether anything was deleted (false when target did not exist).
+func RemoveTree(boundaryRoot string, target string) (bool, error) {
+	cleanBoundary := filepath.Clean(strings.TrimSpace(boundaryRoot))
+	cleanTarget := filepath.Clean(strings.TrimSpace(target))
+	if cleanTarget == "" || cleanTarget == "." {
+		return false, fmt.Errorf("%w: target path must not be empty", ErrUnsafePath)
+	}
+
+	if cleanBoundary != "" && cleanBoundary != "." {
+		if cleanTarget == cleanBoundary || !PathWithinRoot(cleanBoundary, cleanTarget) {
+			return false, ErrUnsafePath
+		}
+	}
+
+	var boundaryReal string
+	if cleanBoundary != "" && cleanBoundary != "." {
+		resolved, err := resolveExistingPath(cleanBoundary)
+		if err != nil {
+			return false, fmt.Errorf("resolve deletion boundary %s: %w", cleanBoundary, err)
+		}
+		boundaryReal = resolved
+	}
+
+	info, err := os.Lstat(cleanTarget)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("stat deletion target %s: %w", cleanTarget, formatFSOpError("", err))
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return false, ErrUnsafePath
+	}
+
+	targetReal, err := resolveExistingPath(cleanTarget)
+	if err != nil {
+		return false, fmt.Errorf("resolve deletion target %s: %w", cleanTarget, err)
+	}
+
+	if boundaryReal != "" {
+		if targetReal == boundaryReal || !PathWithinRoot(boundaryReal, targetReal) {
+			return false, ErrUnsafePath
+		}
+	}
+
+	if err := removeTreeAtRealPath(targetReal); err != nil {
+		return false, fmt.Errorf("%w: %v", ErrDeleteFailed, err)
+	}
+	return true, nil
+}
+
+func resolveExistingPath(path string) (string, error) {
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", formatFSOpError("", err)
+	}
+	return real, nil
+}
+
+// formatFSOpError wraps path resolution/removal errors without calling Error() on
+// internal filepath sentinel values (e.g. errSymlink). Pass an empty path for resolve-only errors.
+func formatFSOpError(path string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if path != "" {
+		if errors.Is(err, ErrUnsafePath) || errors.Is(err, ErrDeleteFailed) {
+			return err
+		}
+	}
+	if errors.Is(err, os.ErrNotExist) && path == "" {
+		return err
+	}
+	trimPath := strings.TrimSpace(path)
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) && pathErr.Err != nil {
+		if errors.Is(pathErr.Err, os.ErrPermission) {
+			if trimPath != "" {
+				return fmt.Errorf("permission denied removing %s: %w", trimPath, pathErr)
+			}
+			return fmt.Errorf("permission denied: %w", pathErr)
+		}
+		if trimPath != "" {
+			return fmt.Errorf("remove %s: %w", trimPath, pathErr.Err)
+		}
+		return fmt.Errorf("%s: %w", pathErr.Op, pathErr.Err)
+	}
+	if errors.Is(err, os.ErrPermission) {
+		if trimPath != "" {
+			return fmt.Errorf("permission denied removing %s: %w", trimPath, err)
+		}
+		return fmt.Errorf("permission denied: %w", err)
+	}
+	if trimPath != "" {
+		return fmt.Errorf("remove %s: %w", trimPath, err)
+	}
+	return err
+}
+
+func removeTreeAtRealPath(root string) error {
+	rootInfo, err := os.Lstat(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return formatFSOpError(root, err)
+	}
+	if rootInfo.Mode()&os.ModeSymlink != 0 {
+		if err := os.Remove(root); err != nil {
+			return formatFSOpError(root, err)
+		}
+		return nil
+	}
+	if !rootInfo.IsDir() {
+		if err := os.Remove(root); err != nil {
+			return formatFSOpError(root, err)
+		}
+		return nil
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return formatFSOpError(root, err)
+	}
+	for _, entry := range entries {
+		child := filepath.Join(root, entry.Name())
+		if entry.Type()&os.ModeSymlink != 0 {
+			if err := os.Remove(child); err != nil {
+				return formatFSOpError(child, err)
+			}
+			continue
+		}
+		if err := removeTreeAtRealPath(child); err != nil {
+			return err
+		}
+	}
+	if err := os.Remove(root); err != nil {
+		return formatFSOpError(root, err)
+	}
+	return nil
+}

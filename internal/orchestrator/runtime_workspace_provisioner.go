@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	filesysteminfra "github.com/BetterAndBetterII/openase/internal/infra/filesystem"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
@@ -481,8 +481,12 @@ func (p *runtimeWorkspaceProvisioner) removeWorkspaceRoot(ctx context.Context, m
 	}
 
 	if !remote {
-		if err := os.RemoveAll(trimmedRoot); err != nil {
-			return fmt.Errorf("remove local workspace %s: %w", trimmedRoot, err)
+		boundary, err := resolveWorkspaceRoot(machine, false)
+		if err != nil {
+			return classifyLocalWorkspaceDeleteFailure(trimmedRoot, fmt.Errorf("resolve local workspace root: %w", err))
+		}
+		if _, err := filesysteminfra.RemoveTree(boundary, trimmedRoot); err != nil {
+			return classifyLocalWorkspaceDeleteFailure(trimmedRoot, fmt.Errorf("remove local workspace %s: %w", trimmedRoot, err))
 		}
 		return nil
 	}

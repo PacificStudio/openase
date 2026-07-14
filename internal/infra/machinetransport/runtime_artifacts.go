@@ -93,7 +93,7 @@ func materializeArtifactEntries(targetRoot string, removePaths []string, entries
 		if trimmed == "" {
 			continue
 		}
-		if err := removeLocalPath(filepath.Join(root, filepath.FromSlash(trimmed))); err != nil {
+		if err := removeLocalPath(root, filepath.Join(root, filepath.FromSlash(trimmed))); err != nil {
 			return err
 		}
 	}

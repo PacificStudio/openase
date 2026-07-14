@@ -169,7 +169,7 @@ func (s *TicketWorkspaceResetService) resetCleanupTarget(
 	}
 
 	if err := s.provisioner.removeWorkspaceRoot(ctx, machine, remote, target.workspaceRoot); err != nil {
-		trimmedError := strings.TrimSpace(err.Error())
+		trimmedError := userVisibleWorkspaceDeleteMessage(err)
 		if _, updateErr := s.client.TicketRepoWorkspace.Update().
 			Where(entticketrepoworkspace.IDIn(target.workspaceIDs...)).
 			SetState(entticketrepoworkspace.StateFailed).

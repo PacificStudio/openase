@@ -655,7 +655,11 @@ func (s *runtimeProtocolServer) handleWorkspaceReset(ctx context.Context, envelo
 	if err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeInvalidRequest, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
-	if err := removeLocalPath(payload.Path); err != nil {
+	boundary, err := workspaceinfra.LocalWorkspaceRoot()
+	if err != nil {
+		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeWorkspace, runtimecontract.ErrorClassMisconfiguration, fmt.Errorf("resolve local workspace root: %w", err), false, nil))
+	}
+	if err := removeLocalPath(boundary, payload.Path); err != nil {
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeWorkspace, runtimecontract.ErrorClassMisconfiguration, err, false, nil))
 	}
 	return s.sendResponse(ctx, envelope, map[string]any{"ok": true})

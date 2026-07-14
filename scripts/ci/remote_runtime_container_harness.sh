@@ -67,6 +67,9 @@ export OPENASE_RUN_REMOTE_RUNTIME_CONTAINER_TESTS=1
 export OPENASE_TEST_OPENASE_BINARY="$OPENASE_BINARY"
 export OPENASE_TEST_REMOTE_RUNTIME_COMPOSE_FILE="$COMPOSE_FILE"
 export OPENASE_REMOTE_RUNTIME_ARTIFACT_DIR="$ARTIFACT_DIR"
+# Compose defaults OPENASE_TEST_UID/GID to 0 when unset; pass caller IDs so bind mounts are not root-owned.
+export OPENASE_TEST_UID="${OPENASE_TEST_UID:-$(id -u)}"
+export OPENASE_TEST_GID="${OPENASE_TEST_GID:-$(id -g)}"
 
 if [ "$#" -eq 0 ]; then
   set -- listener reverse ssh
