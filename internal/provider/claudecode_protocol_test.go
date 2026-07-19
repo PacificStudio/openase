@@ -1,7 +1,10 @@
 package provider
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -93,5 +96,69 @@ func TestClaudeCodeTurnFailureMapsMissingResumeSessionToUserFacingMessage(t *tes
 	}
 	if !strings.Contains(details, `"thread not found: claude-session-stale"`) {
 		t.Fatalf("details = %q, want encoded raw payload", details)
+	}
+}
+
+func TestSummarizeClaudeProcessErrorMapsProcessExit(t *testing.T) {
+	msg := SummarizeClaudeProcessError(fmt.Errorf("claude code process exited: %w", errors.New("signal killed")))
+	if strings.Contains(msg, "claude code process exited") {
+		t.Fatalf("message = %q, should not echo internal error", msg)
+	}
+	if !strings.Contains(msg, "unexpectedly") || !strings.Contains(msg, "Try sending") {
+		t.Fatalf("message = %q, want friendly retry guidance", msg)
+	}
+}
+
+func TestSummarizeClaudeProcessErrorMapsStderr(t *testing.T) {
+	msg := SummarizeClaudeProcessError(errors.New("claude code stderr: secret diagnostic line"))
+	if strings.Contains(msg, "secret diagnostic") {
+		t.Fatalf("message = %q, should not echo stderr", msg)
+	}
+	if !strings.Contains(msg, "Try sending") {
+		t.Fatalf("message = %q, want retry guidance", msg)
+	}
+}
+
+func TestSummarizeClaudeProcessErrorMapsTimeoutAndConnectivity(t *testing.T) {
+	if got := SummarizeClaudeProcessError(context.DeadlineExceeded); !strings.Contains(got, "too long") {
+		t.Fatalf("deadline message = %q", got)
+	}
+	if got := SummarizeClaudeProcessError(errors.New("dial tcp: connection refused")); !strings.Contains(got, "reach Claude") {
+		t.Fatalf("connection refused message = %q", got)
+	}
+	if got := SummarizeClaudeProcessError(errors.New("HTTP 401")); !strings.Contains(got, "authentication") {
+		t.Fatalf("401 message = %q", got)
+	}
+	if got := SummarizeClaudeProcessError(errors.New("something odd")); got != claudeCodeGenericRetryMessage {
+		t.Fatalf("default message = %q", got)
+	}
+}
+
+func TestClaudeCodeTurnFailureReplacesLegacyResultJargon(t *testing.T) {
+	message, details := ClaudeCodeTurnFailure(ClaudeCodeEvent{
+		Kind:    ClaudeCodeEventKindResult,
+		Subtype: "error_during_execution",
+		Result:  "error_during_execution",
+		Raw:     json.RawMessage(`{"type":"result","subtype":"error_during_execution","result":"error_during_execution"}`),
+	})
+	if strings.Contains(message, "error_during_execution") {
+		t.Fatalf("message = %q, should hide internal jargon", message)
+	}
+	if message != claudeCodeGenericRetryMessage {
+		t.Fatalf("message = %q, want generic retry", message)
+	}
+	if !strings.Contains(details, `"subtype":"error_during_execution"`) {
+		t.Fatalf("details = %q, want raw payload preserved", details)
+	}
+}
+
+func TestClaudeCodeTurnFailureReplacesReportedEmptyErrorPhrase(t *testing.T) {
+	message, _ := ClaudeCodeTurnFailure(ClaudeCodeEvent{
+		Kind:    ClaudeCodeEventKindResult,
+		Subtype: "error",
+		Result:  "Claude reported an empty error response. Try sending your message again.",
+	})
+	if message != "Claude reported an error before this reply finished. Try sending your message again." {
+		t.Fatalf("message = %q, want subtype error summary", message)
 	}
 }

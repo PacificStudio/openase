@@ -135,6 +135,10 @@ type sessionPayload struct {
 
 type errorPayload struct {
 	Message string `json:"message"`
+	// Raw is the decoded Claude result payload when the failure came from a stream result event.
+	Raw any `json:"raw,omitempty"`
+	// Details holds encoded result JSON or a technical process-error string for expanded diagnostics.
+	Details string `json:"details,omitempty"`
 }
 
 type sessionPolicy struct {

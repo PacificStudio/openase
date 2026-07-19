@@ -137,4 +137,55 @@ describe('ticket run transcript reducer Claude traces', () => {
       at: '2026-04-01T10:06:13Z',
     })
   })
+
+  it('maps opaque legacy output using full Claude result payload', () => {
+    let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [latestRun])
+
+    state = applyTicketRunStreamFrame(state, {
+      event: 'ticket.run.trace',
+      data: JSON.stringify({
+        entry: {
+          id: 'trace-error-legacy',
+          agent_run_id: latestRun.id,
+          ticket_id: 'ticket-1',
+          sequence: 5,
+          provider: 'claude',
+          kind: 'error',
+          stream: 'task',
+          output: 'Claude Code reported an empty error_during_execution result.',
+          payload: {
+            type: 'result',
+            subtype: 'error_during_execution',
+            is_error: true,
+            terminal_reason: 'aborted_streaming',
+            errors: [
+              '[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use',
+              'Error: Request was aborted.',
+            ],
+          },
+          created_at: '2026-04-01T10:06:14Z',
+        },
+      }),
+    })
+
+    expect(state.blocks).toContainEqual({
+      kind: 'task_status',
+      id: 'status:trace-error-legacy',
+      statusType: 'error',
+      title: 'Turn failed',
+      detail:
+        "Claude couldn't finish this reply because the session was interrupted. Try sending your message again.",
+      raw: {
+        type: 'result',
+        subtype: 'error_during_execution',
+        is_error: true,
+        terminal_reason: 'aborted_streaming',
+        errors: [
+          '[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=tool_use',
+          'Error: Request was aborted.',
+        ],
+      },
+      at: '2026-04-01T10:06:14Z',
+    })
+  })
 })

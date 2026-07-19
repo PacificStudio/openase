@@ -488,7 +488,17 @@ func (s *ProjectConversationService) consumeTurn(
 		case "error":
 			payload, ok := event.Payload.(errorPayload)
 			if ok {
-				s.recordConversationTrace(ctx, live, run, "error", map[string]any{"message": payload.Message}, "runtime")
+				tracePayload := map[string]any{"message": payload.Message}
+				broadcastPayload := map[string]any{"message": payload.Message}
+				if payload.Raw != nil {
+					tracePayload["raw"] = payload.Raw
+					broadcastPayload["raw"] = payload.Raw
+				}
+				if payload.Details != "" {
+					tracePayload["details"] = payload.Details
+					broadcastPayload["details"] = payload.Details
+				}
+				s.recordConversationTrace(ctx, live, run, "error", tracePayload, "runtime")
 				anchor := liveRuntimeSessionAnchor(live, SessionID(conversationID.String()))
 				_, _ = s.core.entries.CompleteTurn(ctx, turn.ID, domain.TurnStatusFailed, optionalNonEmptyString(anchor.LastTurnID))
 				_, _ = s.core.conversations.UpdateConversationAnchors(
@@ -499,10 +509,8 @@ func (s *ProjectConversationService) consumeTurn(
 				)
 				s.recordConversationStep(ctx, live, run, domain.RuntimeStateReady, domain.RunStatusFailed, "turn_failed", payload.Message, optionalNonEmptyString(anchor.ProviderThreadID), nil, payload.Message)
 				s.broadcastConversationEvent(conversation, StreamEvent{
-					Event: "error",
-					Payload: map[string]any{
-						"message": payload.Message,
-					},
+					Event:   "error",
+					Payload: broadcastPayload,
 				})
 			}
 		case "interrupted":

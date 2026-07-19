@@ -186,12 +186,26 @@ function describeStatus(raw: Record<string, unknown> | null) {
   return status ? `Status: ${status}` : undefined
 }
 
-function describeClaudeResultFailure(raw: Record<string, unknown> | null) {
+const CLAUDE_GENERIC_RETRY_MESSAGE =
+  "Claude couldn't finish this reply. Try sending your message again."
+
+// User-facing Claude result failure strings must stay aligned with
+// internal/provider/claudecode_protocol.go summarizeClaudeCodeFailure.
+
+const LEGACY_CLAUDE_FAILURE_OUTPUTS: Record<string, string> = {
+  'Claude Code reported an empty error_during_execution result.': CLAUDE_GENERIC_RETRY_MESSAGE,
+}
+
+export function describeClaudeResultFailure(raw: Record<string, unknown> | null) {
+  return claudeFailureDetailFromPayload(raw)
+}
+
+export function claudeFailureDetailFromPayload(raw: Record<string, unknown> | null) {
   if (readString(raw, 'type') !== 'result' || !readBoolean(raw, 'is_error')) {
     return undefined
   }
 
-  const subtype = readString(raw, 'subtype')
+  const subtype = readString(raw, 'subtype') ?? ''
   const errors = readStringList(raw, 'errors')
   const terminalReason = readString(raw, 'terminal_reason')
 
@@ -209,14 +223,25 @@ function describeClaudeResultFailure(raw: Record<string, unknown> | null) {
       ) {
         return "Claude couldn't finish this reply because the session stopped unexpectedly. Try sending your message again."
       }
-      return "Claude couldn't finish this reply. Try sending your message again."
+      return CLAUDE_GENERIC_RETRY_MESSAGE
     case 'error':
       return 'Claude reported an error before this reply finished. Try sending your message again.'
+    case '':
+      if (raw && Object.keys(raw).length > 0) {
+        return CLAUDE_GENERIC_RETRY_MESSAGE
+      }
+      return undefined
     default:
-      return subtype
-        ? 'Claude returned an empty error response. Try sending your message again.'
-        : undefined
+      return 'Claude returned an empty error response. Try sending your message again.'
   }
+}
+
+export function mapLegacyClaudeFailureOutput(output: string): string | undefined {
+  const trimmed = output.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  return LEGACY_CLAUDE_FAILURE_OUTPUTS[trimmed]
 }
 
 function isClaudeInterruptedExecutionFailure(terminalReason: string | undefined, errors: string[]) {
