@@ -3,10 +3,16 @@ package catalog
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entorganizationmembership "github.com/BetterAndBetterII/openase/ent/organizationmembership"
+	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
+	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -787,6 +793,267 @@ func TestEntRepositoryConflictAndNotFoundPaths(t *testing.T) {
 	if _, err := repo.ListProjects(ctx, org.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ListProjects(archived org) error = %v, want %v", err, ErrNotFound)
 	}
+}
+
+func TestDeleteProjectRepoTerminalWorkspacesOnly(t *testing.T) {
+	client := openRepoCatalogTestEntClient(t)
+	ctx := context.Background()
+	repo := NewEntRepository(client)
+
+	org, err := repo.CreateOrganization(ctx, domain.CreateOrganization{
+		Name: "Terminal Workspace Delete Org",
+		Slug: "terminal-workspace-delete-org",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrganization() error = %v", err)
+	}
+	providers, err := repo.ListAgentProviders(ctx, org.ID)
+	if err != nil || len(providers) == 0 {
+		t.Fatalf("ListAgentProviders() error = %v, len = %d", err, len(providers))
+	}
+	project, err := repo.CreateProject(ctx, domain.CreateProject{
+		OrganizationID:         org.ID,
+		Name:                   "OpenASE",
+		Slug:                   "openase-terminal-delete",
+		Status:                 domain.ProjectStatusInProgress,
+		DefaultAgentProviderID: &providers[0].ID,
+		MaxConcurrentAgents:    2,
+	})
+	if err != nil {
+		t.Fatalf("CreateProject() error = %v", err)
+	}
+	projectRepo, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
+		ProjectID:     project.ID,
+		Name:          "openase-main",
+		RepositoryURL: "https://github.com/PacificStudio/openase.git",
+		DefaultBranch: "main",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectRepo() error = %v", err)
+	}
+
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ResetToDefaultTemplate() error = %v", err)
+	}
+	todoID := findRepoCatalogStatusIDByName(t, statuses, "Todo")
+	doneID := findRepoCatalogStatusIDByName(t, statuses, "Done")
+
+	agentItem, err := repo.CreateAgent(ctx, domain.CreateAgent{
+		ProjectID:             project.ID,
+		ProviderID:            providers[0].ID,
+		Name:                  "codex-terminal-delete",
+		RuntimeControlState:   domain.AgentRuntimeControlStateActive,
+		TotalTokensUsed:       0,
+		TotalTicketsCompleted: 0,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgent() error = %v", err)
+	}
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetAgentID(agentItem.ID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketTerminal, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-718-A").
+		SetTitle("Terminal workspaces only").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket terminal: %v", err)
+	}
+	runTerminal, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketTerminal.ID).
+		SetProviderID(providers[0].ID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetSessionID("session-718-a").
+		SetTerminalAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run terminal: %v", err)
+	}
+	seedTicketRepoWorkspace(t, ctx, client, ticketTerminal.ID, runTerminal.ID, projectRepo.ID, entticketrepoworkspace.StateCompleted)
+	runTerminalFailed, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketTerminal.ID).
+		SetProviderID(providers[0].ID).
+		SetStatus(entagentrun.StatusTerminated).
+		SetSessionID("session-718-a-failed").
+		SetTerminalAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create second terminal agent run: %v", err)
+	}
+	seedTicketRepoWorkspace(t, ctx, client, ticketTerminal.ID, runTerminalFailed.ID, projectRepo.ID, entticketrepoworkspace.StateFailed)
+
+	ticketMixed, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-718-B").
+		SetTitle("Mixed workspace states").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket mixed: %v", err)
+	}
+	runMixedTerminal, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketMixed.ID).
+		SetProviderID(providers[0].ID).
+		SetStatus(entagentrun.StatusCompleted).
+		SetSessionID("session-718-b-done").
+		SetTerminalAt(time.Now().UTC()).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create mixed terminal agent run: %v", err)
+	}
+	runMixedActive, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketMixed.ID).
+		SetProviderID(providers[0].ID).
+		SetStatus(entagentrun.StatusExecuting).
+		SetSessionID("session-718-b-active").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create mixed active agent run: %v", err)
+	}
+
+	projectRepoMixed, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
+		ProjectID:     project.ID,
+		Name:          "openase-mixed",
+		RepositoryURL: "https://github.com/PacificStudio/openase-mixed.git",
+		DefaultBranch: "main",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectRepo(mixed) error = %v", err)
+	}
+	seedTicketRepoWorkspace(t, ctx, client, ticketMixed.ID, runMixedTerminal.ID, projectRepoMixed.ID, entticketrepoworkspace.StateCleaned)
+	activeWorkspace := seedTicketRepoWorkspace(t, ctx, client, ticketMixed.ID, runMixedActive.ID, projectRepoMixed.ID, entticketrepoworkspace.StateReady)
+
+	deleted, err := repo.DeleteProjectRepo(ctx, project.ID, projectRepo.ID)
+	if err != nil {
+		t.Fatalf("DeleteProjectRepo(terminal only) error = %v", err)
+	}
+	if deleted.ID != projectRepo.ID {
+		t.Fatalf("DeleteProjectRepo() = %+v", deleted)
+	}
+	if _, err := repo.GetProjectRepo(ctx, project.ID, projectRepo.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("GetProjectRepo after delete error = %v, want %v", err, ErrNotFound)
+	}
+	remaining, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.RepoID(projectRepo.ID)).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("list workspaces after delete: %v", err)
+	}
+	if len(remaining) != 0 {
+		t.Fatalf("expected no workspace rows for deleted repo, got %d", len(remaining))
+	}
+
+	_, err = repo.DeleteProjectRepo(ctx, project.ID, projectRepoMixed.ID)
+	var conflictMixed *domain.ProjectRepoDeleteConflict
+	if !errors.As(err, &conflictMixed) {
+		t.Fatalf("DeleteProjectRepo(mixed active) error = %v, want *ProjectRepoDeleteConflict", err)
+	}
+	if len(conflictMixed.Workspaces) != 1 || conflictMixed.Workspaces[0].ID != activeWorkspace.ID {
+		t.Fatalf("mixed conflict workspaces = %+v, want active %s", conflictMixed.Workspaces, activeWorkspace.ID)
+	}
+
+	projectRepoBlocking, err := repo.CreateProjectRepo(ctx, domain.CreateProjectRepo{
+		ProjectID:     project.ID,
+		Name:          "openase-blocking",
+		RepositoryURL: "https://github.com/PacificStudio/openase-blocking.git",
+		DefaultBranch: "main",
+	})
+	if err != nil {
+		t.Fatalf("CreateProjectRepo(blocking) error = %v", err)
+	}
+	ticketBlocking, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-718-C").
+		SetTitle("Blocking workspace").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket blocking: %v", err)
+	}
+	runBlocking, err := client.AgentRun.Create().
+		SetAgentID(agentItem.ID).
+		SetWorkflowID(workflowItem.ID).
+		SetTicketID(ticketBlocking.ID).
+		SetProviderID(providers[0].ID).
+		SetStatus(entagentrun.StatusExecuting).
+		SetSessionID("session-718-c").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent run blocking: %v", err)
+	}
+	blockingWorkspace := seedTicketRepoWorkspace(t, ctx, client, ticketBlocking.ID, runBlocking.ID, projectRepoBlocking.ID, entticketrepoworkspace.StateReady)
+
+	_, err = repo.DeleteProjectRepo(ctx, project.ID, projectRepoBlocking.ID)
+	var conflict *domain.ProjectRepoDeleteConflict
+	if !errors.As(err, &conflict) {
+		t.Fatalf("DeleteProjectRepo(blocking) error = %v, want *ProjectRepoDeleteConflict", err)
+	}
+	if !errors.Is(err, domain.ErrProjectRepoInUseConflict) {
+		t.Fatalf("DeleteProjectRepo(blocking) error = %v, want %v", err, domain.ErrProjectRepoInUseConflict)
+	}
+	if len(conflict.Workspaces) != 1 || conflict.Workspaces[0].ID != blockingWorkspace.ID || conflict.Workspaces[0].State != entticketrepoworkspace.StateReady.String() {
+		t.Fatalf("conflict workspaces = %+v, want single ready workspace %s", conflict.Workspaces, blockingWorkspace.ID)
+	}
+	if len(conflict.TicketScopes) != 0 {
+		t.Fatalf("conflict ticket_scopes = %+v, want empty", conflict.TicketScopes)
+	}
+}
+
+func seedTicketRepoWorkspace(
+	t *testing.T,
+	ctx context.Context,
+	client *ent.Client,
+	ticketID uuid.UUID,
+	runID uuid.UUID,
+	repoID uuid.UUID,
+	state entticketrepoworkspace.State,
+) *ent.TicketRepoWorkspace {
+	t.Helper()
+	workspaceRoot := t.TempDir()
+	repoPath := filepath.Join(workspaceRoot, "repo")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create repo path: %v", err)
+	}
+	item, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketID).
+		SetAgentRunID(runID).
+		SetRepoID(repoID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("main").
+		SetState(state).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket repo workspace state=%s: %v", state, err)
+	}
+	return item
 }
 
 func openRepoCatalogTestEntClient(t *testing.T) *ent.Client {
